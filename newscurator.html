@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>NewsCurator by ALTER.IAS</title>
+  <meta name="description" content="Herramienta de búsqueda inteligente de noticias">
+  <meta name="keywords" content="noticias, IA, inteligencia artificial, geopolítica, ciencia, arte">
+
+  <!-- Favicons -->
+  <link href="https://alter-ias.github.io/web/assets/img/favicon.png" rel="icon">
+  <link href="https://alter-ias.github.io/web/assets/img/apple-touch-icon.png" rel="apple-touch-icon">
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com" rel="preconnect">
+  <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Raleway:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+
+  <!-- Vendor CSS Files -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css" rel="stylesheet">
+
+  <!-- Estilos personalizados -->
+  <style>
+    :root {
+      --primary: #0d6efd;
+      --secondary: #6c757d;
+      --dark: #212529;
+      --darker: #1a1d20;
+      --darkest: #121416;
+      --light: #f8f9fa;
+      --gold: #ffc107;
+      --sidebar-width: 250px;
+    }
+    
+    body {
+      font-family: 'Raleway', sans-serif;
+      background-color: var(--darkest);
+      color: var(--light);
+      min-height: 100vh;
+      padding-top: 70px; /* Espacio para el header fijo */
+      padding-left: var(--sidebar-width); /* Espacio para la barra lateral */
+    }
+    
+    .header {
+      background-color: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 1rem 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 999;
+      backdrop-filter: blur(5px);
+      padding-left: var(--sidebar-width); /* Ajuste para la barra lateral */
+    }
+    
+    .logo img {
+      height: 40px;
+      margin-right: 10px;
+    }
+    
+    .sitename {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      font-size: 1.5rem;
+      margin: 0;
+      color: white;
+    }
+    
+    /* Barra lateral de navegación */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: var(--sidebar-width);
+      height: 100vh;
+      background-color: var(--dark);
+      z-index: 998;
+      padding-top: 70px;
+      overflow-y: auto;
+      border-right: 1px solid rgba(255, 255, 255, 0.1);
+      transition: transform 0.3s ease;
+    }
+    
+    .sidebar-nav {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .sidebar-nav li {
+      padding: 0;
+    }
+    
+    .sidebar-nav a {
+      display: block;
+      padding: 12px 20px;
+      color: var(--light);
+      text-decoration: none;
+      transition: all 0.3s;
+      border-left: 3px solid transparent;
+    }
+    
+    .sidebar-nav a:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+      color: var(--gold);
+    }
+    
+    .sidebar-nav a.active {
+      background-color: rgba(255, 255, 255, 0.1);
+      border-left: 3px solid var(--gold);
+      color: var(--gold);
+    }
+    
+    .sidebar-nav .section-icon {
+      margin-right: 10px;
+      width: 20px;
+      text-align: center;
+    }
+    
+    .sidebar-toggle {
+      position: fixed;
+      left: 10px;
+      top: 80px;
+      z-index: 9999;
+      background: var(--dark);
+      border: none;
+      color: white;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    
+    .navmenu ul {
+      display: flex;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .navmenu ul li {
+      position: relative;
+      padding: 0 15px;
+    }
+    
+    .navmenu ul li a {
+      color: var(--light);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: 0.3s;
+      position: relative;
+    }
+    
+    .navmenu ul li a:hover {
+      color: var(--gold);
+    }
+    
+    .navmenu ul li a::after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 2px;
+      background: var(--gold);
+      bottom: -5px;
+      left: 0;
+      transition: 0.3s;
+    }
+    
+    .navmenu ul li a:hover::after {
+      width: 100%;
+    }
+    
+    .btn-getstarted {
+      color: white;
+      border: 2px solid white;
+      padding: 0.5rem 1.5rem;
+      border-radius: 50px;
+      text-decoration: none;
+      transition: all 0.3s;
+      font-weight: 600;
+    }
+    
+    .btn-getstarted:hover {
+      background: white;
+      color: var(--dark);
+    }
+    
+    .mobile-nav-toggle {
+      display: none;
+    }
+    
+    .hero-section {
+      padding: 100px 0 50px;
+      background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('https://images.unsplash.com/photo-1586339949916-3e9457bef6d3?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80') center/cover;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      margin-left: calc(-1 * var(--sidebar-width));
+      padding-left: var(--sidebar-width);
+      width: calc(100% + var(--sidebar-width));
+    }
+    
+    .hero-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 3.5rem;
+      margin-bottom: 1rem;
+    }
+    
+    .hero-title span {
+      color: var(--gold);
+    }
+    
+    .hero-subtitle {
+      font-size: 1.2rem;
+      opacity: 0.8;
+    }
+    
+    .container-main {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 20px;
+    }
+    
+    .search-section {
+      background: var(--darker);
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      margin-bottom: 2rem;
+      overflow: hidden;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .search-section:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
+    }
+    
+    .section-header {
+      background: var(--dark);
+      color: white;
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .section-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.3rem;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      font-weight: 600;
+    }
+    
+    .section-icon {
+      margin-right: 10px;
+      font-size: 1.5rem;
+      color: var(--gold);
+    }
+    
+    .search-container {
+      padding: 1.5rem;
+      min-height: 200px;
+      position: relative;
+    }
+    
+    .search-loader {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 10;
+    }
+    
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: var(--gold);
+      animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .footer {
+      background: var(--dark);
+      color: white;
+      padding: 3rem 0 1rem;
+      margin-top: 3rem;
+      margin-left: calc(-1 * var(--sidebar-width));
+      padding-left: var(--sidebar-width);
+      width: calc(100% + var(--sidebar-width));
+    }
+    
+    .footer-about {
+      margin-bottom: 2rem;
+    }
+    
+    .footer-contact {
+      margin-top: 1rem;
+    }
+    
+    .social-links a {
+      color: white;
+      margin-right: 15px;
+      font-size: 1.2rem;
+      transition: 0.3s;
+    }
+    
+    .social-links a:hover {
+      color: var(--gold);
+    }
+    
+    .copyright {
+      text-align: center;
+      padding-top: 2rem;
+      margin-top: 2rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .scroll-top {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      background: var(--primary);
+      color: white;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+      z-index: 999;
+    }
+    
+    .scroll-top.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    /* Estilos para móviles */
+    @media (max-width: 992px) {
+      body {
+        padding-left: 0;
+      }
+      
+      .header {
+        padding-left: 0;
+      }
+      
+      .sidebar {
+        transform: translateX(-100%);
+      }
+      
+      .sidebar.active {
+        transform: translateX(0);
+      }
+      
+      .sidebar-toggle {
+        display: flex;
+      }
+      
+      .hero-section {
+        margin-left: 0;
+        padding-left: 0;
+        width: 100%;
+      }
+      
+      .footer {
+        margin-left: 0;
+        padding-left: 0;
+        width: 100%;
+      }
+      
+      .navmenu {
+        position: fixed;
+        top: 0;
+        right: -100%;
+        width: 300px;
+        height: 100vh;
+        background: var(--dark);
+        padding: 60px 30px;
+        transition: all 0.3s;
+        z-index: 998;
+      }
+      
+      .navmenu ul {
+        flex-direction: column;
+      }
+      
+      .navmenu ul li {
+        padding: 10px 0;
+      }
+      
+      .mobile-nav-toggle {
+        display: block;
+        font-size: 1.5rem;
+        cursor: pointer;
+        z-index: 999;
+      }
+      
+      .navmenu-active {
+        right: 0;
+      }
+      
+      .hero-title {
+        font-size: 2.5rem;
+      }
+    }
+    
+    /* Estilos específicos para los buscadores de Google */
+    .gsc-control-cse {
+      background-color: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+    }
+    
+    .gsc-input-box {
+      border: 1px solid rgba(255, 255, 255, 0.2) !important;
+      background: rgba(0, 0, 0, 0.2) !important;
+      border-radius: 4px !important;
+    }
+    
+    .gsc-input {
+      color: white !important;
+    }
+    
+    .gsc-search-button {
+      background-color: var(--primary) !important;
+      border-color: var(--primary) !important;
+    }
+    
+    .gsc-results {
+      background-color: transparent !important;
+    }
+    
+    .gsc-result {
+      background: rgba(255, 255, 255, 0.05) !important;
+      border: 1px solid rgba(255, 255, 255, 0.1) !important;
+      margin-bottom: 10px !important;
+      border-radius: 4px !important;
+    }
+    
+    .gs-title, .gs-title b {
+      color: var(--primary) !important;
+    }
+    
+    .gs-snippet {
+      color: rgba(255, 255, 255, 0.7) !important;
+    }
+    
+    .gsc-results .gsc-cursor-box {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .gsc-results .gsc-cursor {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .gsc-results .gsc-cursor-page {
+      color: var(--light) !important;
+      padding: 5px 10px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      text-decoration: none !important;
+    }
+    
+    .gsc-results .gsc-cursor-page:hover, 
+    .gsc-results .gsc-cursor-current-page {
+      background: var(--primary) !important;
+      color: white !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Barra lateral de navegación -->
+  <aside class="sidebar">
+    <ul class="sidebar-nav">
+      <li><a href="#geopolitica" class="active"><span class="section-icon">🌍</span> Geopolítica</a></li>
+      <li><a href="#ia"><span class="section-icon">🤖</span> Inteligencia Artificial</a></li>
+      <li><a href="#cine"><span class="section-icon">🎬</span> Cine</a></li>
+      <li><a href="#arte"><span class="section-icon">🎨</span> Arte</a></li>
+      <li><a href="#ciencia"><span class="section-icon">🔬</span> Ciencia</a></li>
+    </ul>
+  </aside>
+
+  <button class="sidebar-toggle" id="sidebarToggle">
+    <i class="bi bi-list"></i>
+  </button>
+
+  <header id="header" class="header d-flex align-items-center fixed-top">
+    <div class="container-fluid container-xl position-relative d-flex align-items-center justify-content-between">
+      <a href="index.html" class="logo d-flex align-items-center me-auto me-lg-0">
+        <img src="https://alter-ias.github.io/web/assets/img/LOGO-TRANSP2.png" alt="ALTER.IAS Logo">
+        <h1 class="sitename">ALTER.IAS</h1>
+      </a>
+
+      <nav id="navmenu" class="navmenu">
+        <ul>
+          <li><a href="index.html">Inicio</a></li>
+          <li><a href="index.html#about">Conócenos</a></li>
+          <li><a href="index.html#services">Servicios</a></li>
+          <li><a href="animaciones.html">Animaciones</a></li>
+          <li><a href="cursos.html">Cursos</a></li>
+          <li><a href="recursos.html">Recursos IA</a></li>
+          <li><a href="newscurator.html" class="active">NewsCurator</a></li>
+          <li><a href="index.html#contact">Contacto</a></li>
+        </ul>
+        <i class="mobile-nav-toggle d-xl-none bi bi-list"></i>
+      </nav>
+
+      <a class="btn-getstarted" href="index.html#contact">CONTACTO</a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="container">
+      <h1 class="hero-title">News<span>Curator</span></h1>
+      <p class="hero-subtitle">Tu asistente inteligente para búsqueda de noticias</p>
+    </div>
+  </section>
+
+  <!-- Main Content -->
+  <main class="container-main">
+    <!-- Geopolítica -->
+    <div class="search-section" data-aos="fade-up" id="geopolitica">
+      <div class="section-header">
+        <h2 class="section-title"><span class="section-icon">🌍</span> Geopolítica y Economía</h2>
+      </div>
+      <div class="search-container" id="geopolitica-search">
+        <div class="search-loader"><div class="spinner"></div></div>
+      </div>
+    </div>
+    
+    <!-- Inteligencia Artificial -->
+    <div class="search-section" data-aos="fade-up" id="ia">
+      <div class="section-header">
+        <h2 class="section-title"><span class="section-icon">🤖</span> Inteligencia Artificial</h2>
+      </div>
+      <div class="search-container" id="ia-search">
+        <div class="search-loader"><div class="spinner"></div></div>
+      </div>
+    </div>
+    
+    <!-- Cine -->
+    <div class="search-section" data-aos="fade-up" id="cine">
+      <div class="section-header">
+        <h2 class="section-title"><span class="section-icon">🎬</span> Cine y Entretenimiento</h2>
+      </div>
+      <div class="search-container" id="cine-search">
+        <div class="search-loader"><div class="spinner"></div></div>
+      </div>
+    </div>
+    
+    <!-- Arte -->
+    <div class="search-section" data-aos="fade-up" id="arte">
+      <div class="section-header">
+        <h2 class="section-title"><span class="section-icon">🎨</span> Arte y Cultura</h2>
+      </div>
+      <div class="search-container" id="arte-search">
+        <div class="search-loader"><div class="spinner"></div></div>
+      </div>
+    </div>
+    
+    <!-- Ciencia -->
+    <div class="search-section" data-aos="fade-up" id="ciencia">
+      <div class="section-header">
+        <h2 class="section-title"><span class="section-icon">🔬</span> Ciencia y Tecnología</h2>
+      </div>
+      <div class="search-container" id="ciencia-search">
+        <div class="search-loader"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </main>
+
+  <footer id="footer" class="footer">
+    <div class="footer-top">
+      <div class="container">
+        <div class="row gy-4">
+          <div class="col-lg-4 col-md-6 footer-about">
+            <a href="index.html" class="logo d-flex align-items-center">
+              <span class="sitename">ALTER.IAS</span>
+            </a>
+            <div class="footer-contact pt-3">
+              <p>NewsCurator created by Alter.Ias</p>
+              <p>© 2025 Todos los derechos reservados</p>
+            </div>
+            <div class="social-links d-flex mt-4">
+              <a href="https://www.youtube.com/@AlterIA-Studio" target="_blank"><i class="bi bi-youtube"></i></a>
+              <a href="https://www.facebook.com/alter.ia.studio" target="_blank"><i class="bi bi-facebook"></i></a>
+              <a href="https://www.instagram.com/alter.ias/" target="_blank"><i class="bi bi-instagram"></i></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="copyright">
+      <div class="container text-center">
+        <p><strong class="px-1 sitename">ALTER.IA.STUDIO</strong></p>
+        <p><span>Usted puede tomar y distribuir libremente nuestro contenido</span></p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scroll Top -->
+  <a href="#" id="scroll-top" class="scroll-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
+
+  <!-- Vendor JS Files -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
+
+  <!-- Main JS File -->
+  <script>
+    // Mobile nav toggle
+    const mobileNavToggle = document.querySelector('.mobile-nav-toggle');
+    const navmenu = document.querySelector('#navmenu');
+    
+    mobileNavToggle.addEventListener('click', function() {
+      navmenu.classList.toggle('navmenu-active');
+      this.classList.toggle('bi-x');
+    });
+    
+    // Scroll top button
+    const scrollTop = document.querySelector('#scroll-top');
+    
+    window.addEventListener('scroll', function() {
+      if (window.scrollY > 100) {
+        scrollTop.classList.add('active');
+      } else {
+        scrollTop.classList.remove('active');
+      }
+    });
+    
+    scrollTop.addEventListener('click', function(e) {
+      e.preventDefault();
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    });
+    
+    // Initialize AOS animations
+    AOS.init({
+      duration: 800,
+      easing: 'ease-in-out',
+      once: true
+    });
+    
+    // Toggle sidebar en móviles
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.querySelector('.sidebar');
+    
+    sidebarToggle.addEventListener('click', function() {
+      sidebar.classList.toggle('active');
+    });
+    
+    // Navegación suave para la barra lateral
+    document.querySelectorAll('.sidebar-nav a').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const targetId = this.getAttribute('href');
+        const targetElement = document.querySelector(targetId);
+        
+        if (targetElement) {
+          // Remover clase active de todos los items
+          document.querySelectorAll('.sidebar-nav a').forEach(item => {
+            item.classList.remove('active');
+          });
+          
+          // Agregar clase active al item seleccionado
+          this.classList.add('active');
+          
+          // Desplazamiento suave
+          window.scrollTo({
+            top: targetElement.offsetTop - 80,
+            behavior: 'smooth'
+          });
+          
+          // Cerrar sidebar en móviles
+          if (window.innerWidth <= 992) {
+            sidebar.classList.remove('active');
+          }
+        }
+      });
+    });
+    
+    // Actualizar item activo al hacer scroll
+    window.addEventListener('scroll', function() {
+      const scrollPosition = window.scrollY + 100;
+      
+      document.querySelectorAll('.search-section').forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.offsetHeight;
+        const sectionId = section.getAttribute('id');
+        
+        if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+          document.querySelectorAll('.sidebar-nav a').forEach(item => {
+            item.classList.remove('active');
+            if (item.getAttribute('href') === `#${sectionId}`) {
+              item.classList.add('active');
+            }
+          });
+        }
+      });
+    });
+    
+    // Solución para el problema de paginación
+    function handlePagination() {
+      if (window.location.hash && window.location.hash.includes('gsc.')) {
+        setTimeout(() => {
+          const searchId = Object.keys(window.__gcse).find(key => key.startsWith('searchbox-'));
+          if (searchId) {
+            const element = document.getElementById(searchId.replace('searchbox-', ''));
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }
+        }, 1000);
+      }
+    }
+    
+    // Función mejorada para cargar cada buscador
+    function loadCSE(elementId, cxCode) {
+      const container = document.getElementById(elementId);
+      const loader = container.querySelector('.search-loader');
+      
+      const searchDiv = document.createElement('div');
+      searchDiv.id = `cse-${elementId}`;
+      container.appendChild(searchDiv);
+      
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = `https://cse.google.com/cse.js?cx=${cxCode}`;
+      
+      script.onload = function() {
+        const searchBox = document.createElement('div');
+        searchBox.className = 'gcse-search';
+        searchBox.dataset.enableHistory = 'true';
+        searchBox.dataset.queryParameterName = `q-${elementId}`;
+        searchDiv.appendChild(searchBox);
+        
+        if (window.__gcse && window.__gcse.searchCallbacks) {
+          window.__gcse.searchCallbacks.forEach(callback => {
+            if (callback && typeof callback === 'function') {
+              callback();
+            }
+          });
+        }
+        
+        if (loader) loader.style.display = 'none';
+        handlePagination();
+      };
+      
+      script.onerror = function() {
+        if (loader) {
+          loader.innerHTML = '<p>Error al cargar el buscador. Por favor recarga la página.</p>';
+        }
+      };
+      
+      document.head.appendChild(script);
+    }
+
+    // Cargar cada buscador con un retraso escalonado
+    document.addEventListener('DOMContentLoaded', function() {
+      // Activar el primer item de la barra lateral
+      document.querySelector('.sidebar-nav a').classList.add('active');
+      
+      // Cargar los buscadores
+      loadCSE('geopolitica-search', '04a31e971bbf14e26');
+      setTimeout(() => loadCSE('ia-search', '12aac5d96a23748c1'), 500);
+      setTimeout(() => loadCSE('cine-search', '97d430d0637424884'), 1000);
+      setTimeout(() => loadCSE('arte-search', '740aff1dafe6540af'), 1500);
+      setTimeout(() => loadCSE('ciencia-search', 'a506d454f504542d5'), 2000);
+      
+      // Manejar cambios en el hash (paginación)
+      window.addEventListener('hashchange', handlePagination);
+    });
+  </script>
+</body>
+</html>
