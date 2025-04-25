@@ -15,7 +15,7 @@
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com" rel="preconnect">
   <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900&family=Raleway:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900&family=Raleway:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
 
   <!-- Vendor CSS Files -->
   <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
@@ -203,6 +203,11 @@
             border-radius: 4px;
             border: 1px solid #555;
             font-size: 14px;
+        }
+
+        /* Asegurar que el título del mapa tenga el color correcto */
+        #recursos h2:nth-of-type(3) { /* Selecciona el tercer h2 dentro de #recursos (el del mapa) */
+            color: #ffcc00 !important;
         }
 
 
@@ -617,13 +622,13 @@
             if (!parentData || !parentData.children) return;
 
             parentData.children.forEach(child => {
-                if (!nodes.get(child.id)) { // Añadir solo si no existe
+                if (!nodes.get(child.id)) { // Añadir solo si el nodo no existe en la red
                     nodes.add({
                         id: child.id,
                         label: child.label,
                         level: child.level,
                         shape: 'box', // Similar al GIF
-                         title: child.link ? '<a href="' + child.link + '" target="_blank">' + child.label + '</a>' : child.label, // Tooltip con enlace
+                         title: child.link ? '<a href="' + child.link + '" target="_blank" style="color: #fff; text-decoration: none;">' + child.label + '</a>' : child.label, // Tooltip con enlace y estilo
                         // Personaliza el estilo de los nodos aquí
                         color: {
                             background: child.children ? '#444' : '#5a8d6e', // Gris oscuro para nodos intermedios, verde oscuro para herramientas finales
@@ -637,7 +642,7 @@
                         group: child.group // Asignar grupo para posible diferenciación
                     });
                 }
-                // Añadir la arista si no existe
+                // Añadir la arista solo si no existe
                 const existingEdge = edges.get().find(edge => edge.from === parentNodeId && edge.to === child.id);
                 if (!existingEdge) {
                     edges.add({
@@ -655,22 +660,27 @@
             const parentData = findNodeData(parentNodeId);
             if (!parentData || !parentData.children) return;
 
-            parentData.children.forEach(child => {
-                 // Eliminar aristas que salen del nodo hijo
-                const outgoingEdges = edges.get({ filter: edge => edge.from === child.id });
-                outgoingEdges.forEach(edge => edges.remove(edge.id));
+            // Obtener los IDs de los hijos directos de este nodo que están actualmente en la red
+            const childrenToRemove = edges.get({
+                filter: edge => edge.from === parentNodeId
+            }).map(edge => edge.to); // Obtenemos los IDs de los nodos 'to' conectados al 'from' (parentNodeId)
 
-                // Eliminar nodo hijo
-                if (nodes.get(child.id)) { // Eliminar solo si existe
-                     nodes.remove(child.id);
+            childrenToRemove.forEach(childId => {
+                // 1. Primero, elimina recursivamente todos los descendientes de este hijo
+                removeChildrenFromNetwork(childId);
+
+                // 2. Después de que todos los descendientes y sus aristas se hayan ido,
+                //    elimina la arista que conecta el nodo padre con este hijo directo.
+                 const edgeToRemove = edges.get({ filter: edge => edge.from === parentNodeId && edge.to === childId })[0];
+                 if (edgeToRemove) {
+                     edges.remove(edgeToRemove.id);
+                 }
+
+                // 3. Finalmente, elimina el nodo hijo directo.
+                if (nodes.get(childId)) { // Eliminar solo si existe en la red
+                     nodes.remove(childId);
                 }
-
-                // Recursivamente eliminar hijos de este hijo
-                removeChildrenFromNetwork(child.id);
             });
-             // Eliminar aristas que llegan al nodo padre desde sus hijos (ya se eliminaron al eliminar los hijos, pero seguridad)
-             // const incomingEdges = edges.get({ filter: edge => edge.to === parentNodeId });
-             // incomingEdges.forEach(edge => edges.remove(edge.id));
         }
 
         // Configuración de la red
@@ -701,15 +711,14 @@
                      centralGravity: 0.3,
                      springLength: 150, // Distancia
                      springConstant: 0.05, // Rigidez del muelle
-                     damping: 0.8, // *** Amortiguación aumentada ***
+                     damping: 0.8, // *** Amortiguación aumentada para menos sensibilidad ***
                      avoidOverlap: 0.8 // Evitar solapamiento
                  },
                  stabilization: {
                      iterations: 1000, // Número de iteraciones para estabilizar al inicio
                      updateInterval: 100, // Intervalo para reportar progreso
-                     // fit: true // Ajustar vista al estabilizar (lo hacemos manualmente después)
                  },
-                 minVelocity: 0.1 // Ajustar si el mapa nunca para de moverse del todo
+                 minVelocity: 0.1 // Velocidad mínima para detener el movimiento residual
              },
              interaction: {
                  dragNodes: true, // Permite arrastrar nodos
@@ -719,13 +728,7 @@
                  tooltipDelay: 300 // Retraso antes de mostrar el tooltip
              },
              layout: {
-                 // Podemos usar un layout específico o dejar que la física lo determine (layout: {} o dejarlo por defecto)
-                 // Si se quiere una disposición más jerárquica desde el principio:
-                 // hierarchical: {
-                 //     direction: 'LR', // Left to Right
-                 //     sortMethod: 'directed',
-                 //     levelSeparation: 200 // Espacio entre niveles
-                 // }
+                 // Dejamos que la física determine el layout orgánico
              },
              configure: false // Desactivar la interfaz de configuración que aparece por defecto a veces
         };
@@ -739,6 +742,7 @@
             label: toolData.label,
             level: toolData.level,
             shape: 'box',
+             title: toolData.label, // Tooltip para el nodo raíz
             color: {
                 background: '#37474F', // Un color distintivo para la raíz
                 border: '#546E7A',
@@ -762,20 +766,24 @@
 
                 if (nodeData) {
                     if (nodeData.link) {
-                        // Si es un nodo final con link, abrir el link
+                        // Si es un nodo final con link, abrir el link en una nueva pestaña
                         window.open(nodeData.link, '_blank');
                     } else if (nodeData.children) {
                         // Si tiene hijos en la estructura de datos original
-                        const childrenInNetwork = edges.get({ filter: edge => edge.from === nodeId });
+                        // Verificamos si alguno de sus hijos directos está visible en la red
+                        const childrenVisible = edges.get({
+                            filter: edge => edge.from === nodeId
+                        }).length > 0;
 
-                        if (childrenInNetwork.length > 0) {
-                            // Si ya tiene hijos mostrados en la red (expandido), colapsar
+
+                        if (childrenVisible) {
+                            // Si hay hijos visibles (ya está expandido), colapsar
                              removeChildrenFromNetwork(nodeId);
                         } else {
-                            // Si no tiene hijos mostrados en la red (colapsado), expandir
+                            // Si no hay hijos visibles (está colapsado), expandir
                             addChildrenToNetwork(nodeId);
                             // Opcional: re-ajustar la vista para incluir los nuevos nodos
-                            // network.fit({ nodes: nodes.getIds(), animation: { duration: 500, easingFunction: "easeOutQuad" } });
+                             network.fit({ nodes: nodes.getIds(), animation: { duration: 500, easingFunction: "easeOutQuad" } });
                         }
                          // Opcional: desestabilizar para permitir que la física reajuste rápidamente después de expandir/colapsar
                          // network.stabilize(); // Podrías querer comentar o ajustar esto si el movimiento es molesto
@@ -784,9 +792,8 @@
             }
         });
 
-         // Opcional: Ajustar la vista al cargar para centrar el nodo raíz o toda la red
+         // Opcional: Ajustar la vista al cargar para centrar todos los nodos añadidos inicialmente
          network.once("stabilized", function() {
-             // Ajusta para ver todos los nodos añadidos inicialmente o solo el nodo raíz
              network.fit({ nodes: nodes.getIds(), animation: { duration: 1000, easingFunction: "easeOutQuad" } });
          });
 
