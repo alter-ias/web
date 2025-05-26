@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero de Organización del Colectivo ALTER.IAS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Incluye Sortable.js desde un CDN para arrastrar y soltar -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <style>
+        /*
+        * Estilos CSS para los tableros Scrum/Kanban
+        * VERSIÓN DEFINITIVA BASADA EN EL CÓDIGO FUNCIONAL PROPORCIONADO
+        */
+
+        :root {
+            /* Colores de tableros */
+            --green-board: #388E3C;
+            --blue-grey-board: #546E7A;
+            --white-lines: #F5F5F5;
+
+            /* Colores de notas */
+            --yellow-note: #FFEB3B;
+            --red-note: #EF5350;
+            --light-blue-note: #A7D9FF;
+
+            /* Colores de sombra y botones */
+            --note-shadow-color: #21215B;
+            --delete-button-bg: #D32F2F;
+            --delete-button-hover: #F44336;
+            --add-button-bg: #4CAF50;
+            --add-button-hover: #45a049;
+            --select-bg: #f8f8f8;
+            --select-border: #ccc;
+            --dark-background: #2C3E50; /* Fondo oscuro de la página */
+            --text-on-dark: #ECF0F1;    /* Texto claro sobre fondo oscuro */
+            --title-color: #BDC3C7;     /* Color para títulos secundarios sobre fondo oscuro */
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--dark-background); /* Fondo oscuro */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Fredoka', sans-serif;
+            overflow-y: auto;
+            padding-top: 20px;
+            padding-bottom: 20px;
+            color: var(--text-on-dark); /* Texto claro por defecto */
+        }
+
+        .main-header {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: var(--text-on-dark); /* Texto claro */
+            margin-bottom: 40px;
+            text-align: center;
+            padding: 0 20px;
+            max-width: 1200px;
+        }
+
+        .board-section {
+            width: 90%;
+            max-width: 1200px;
+            margin-bottom: 50px;
+        }
+
+        .board-section h2 {
+            font-size: 2em;
+            color: var(--title-color); /* Color para títulos secundarios */
+            margin-bottom: 20px;
+            text-align: left;
+            padding-left: 10px;
+        }
+
+        .kanban-board-container {
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4); /* Sombra más pronunciada */
+            overflow: hidden;
+        }
+
+        .kanban-board {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr); /* Todos los tableros con 5 columnas */
+            grid-template-rows: auto auto 1fr; /* Encabezados, Controles, Contenido */
+            color: var(--white-lines);
+        }
+
+        .kanban-board.internal-theme { background-color: var(--green-board); }
+        .kanban-board.projects-theme { background-color: var(--blue-grey-board); }
+
+        .kanban-cell {
+            padding: 15px;
+            text-align: center;
+            box-sizing: border-box;
+            border-right: 2px solid var(--white-lines);
+            border-bottom: 2px solid var(--white-lines);
+        }
+
+        .kanban-board > .kanban-cell:nth-child(5n) { border-right: none; }
+        .kanban-board > .kanban-cell:nth-child(n + 11) { border-bottom: none; } /* Celdas de la fila de contenido */
+
+        .kanban-header {
+            grid-row: 1;
+            font-size: 1.3em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 15px;
+        }
+
+        .add-task-controls-wrapper {
+            grid-row: 2;
+            grid-column: 1; /* Controles siempre en la primera columna de la segunda fila */
+            /* Estilos de celda para el wrapper */
+            padding: 15px;
+            text-align: center;
+            box-sizing: border-box;
+            border-right: 2px solid var(--white-lines);
+            border-bottom: 2px solid var(--white-lines);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+            background-color: inherit;
+        }
+        /* Para el último wrapper de la fila 2, quitar borde derecho */
+        .kanban-board > .add-task-controls-wrapper:nth-child(5n) { border-right: none;}
+
+
+        /* Celdas vacías para rellenar la fila de controles */
+        .empty-control-cell {
+            grid-row: 2;
+            /* Estilos de celda */
+            padding: 15px;
+            text-align: center;
+            box-sizing: border-box;
+            border-right: 2px solid var(--white-lines);
+            border-bottom: 2px solid var(--white-lines);
+            background-color: inherit;
+        }
+        .kanban-board > .empty-control-cell:nth-child(5n) { border-right: none; }
+
+
+        .kanban-content {
+            grid-row: 3; /* Contenido siempre en la tercera fila */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 15px;
+            min-height: 150px;
+            flex-grow: 1;
+            padding: 15px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        /* SELECTOR DE PRIORIDAD (Estilo que funcionaba) */
+        .priority-select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--select-border);
+            border-radius: 5px;
+            background-color: var(--select-bg);
+            font-family: 'Fredoka', sans-serif;
+            font-size: 0.9em;
+            color: #333;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23000%22%20d%3D%22M287%2C114.7L158.4%2C243.3c-2.8%2C2.8-6%2C4.3-9.5%2C4.3s-6.7-1.5-9.5-4.3L5.4%2C114.7c-5.6-5.6-5.6-14.1%2C0-19.6s14.1-5.6%2C19.6%2C0l133.7%2C133.7l133.7-133.7c5.6-5.6%2C14.1-5.6%2C19.6%2C0s5.6%2C14.1%2C0%2C19.6L287%2C114.7z%22%2F%3E%3C%2Fsvg%3E');
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 12px;
+            cursor: pointer;
+            z-index: 1;
+            position: relative;
+        }
+        .priority-select:focus {
+            outline: 2px solid var(--add-button-bg);
+            outline-offset: 1px;
+        }
+
+        .add-note-button {
+            background-color: var(--add-button-bg);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            width: 100%;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .add-note-button:hover { background-color: var(--add-button-hover); }
+
+        .sticky-note {
+            width: 120px;
+            height: 120px;
+            position: relative;
+            cursor: grab;
+            transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+            box-shadow: 4px 4px 0px 0px var(--note-shadow-color),
+                        2px 2px 5px rgba(0, 0, 0, 0.3);
+            border-radius: 3px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 10px;
+            box-sizing: border-box;
+            word-wrap: break-word;
+            font-size: 0.9em;
+            line-height: 1.3;
+        }
+        .sticky-note:active {
+            cursor: grabbing;
+            transform: scale(1.05) !important;
+            z-index: 100;
+            box-shadow: 6px 6px 0px 0px var(--note-shadow-color),
+                        4px 4px 8px rgba(0, 0, 0, 0.4);
+        }
+        .sticky-note.yellow { background-color: var(--yellow-note); }
+        .sticky-note.red { background-color: var(--red-note); }
+        .sticky-note.light-blue {
+            background-color: var(--light-blue-note);
+            color: #444;
+        }
+        .sticky-note.yellow .note-content { color: black; }
+
+        .note-content {
+            flex-grow: 1;
+            text-align: left;
+            color: inherit;
+            outline: none;
+            cursor: text;
+            max-height: 75px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+        .note-content[contenteditable="true"]:empty:before {
+            content: attr(data-placeholder);
+            color: #888;
+            pointer-events: none;
+        }
+
+        .delete-button {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background-color: var(--delete-button-bg);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out, background-color 0.2s ease-in-out;
+            z-index: 10;
+        }
+        .sticky-note:hover .delete-button { opacity: 1; }
+        .delete-button:hover {
+            background-color: var(--delete-button-hover);
+            transform: scale(1.1);
+        }
+
+        .rotate-0 { transform: rotate(0deg); }
+        .rotate-1 { transform: rotate(2deg); }
+        .rotate-2 { transform: rotate(-3deg); }
+        .rotate-3 { transform: rotate(1deg); }
+        .rotate-4 { transform: rotate(-1deg); }
+        .rotate-5 { transform: rotate(4deg); }
+        .rotate-6 { transform: rotate(-2.5deg); }
+        .rotate-7 { transform: rotate(3.5deg); }
+        .rotate-8 { transform: rotate(-1.5deg); }
+        .rotate-9 { transform: rotate(2.8deg); }
+
+        .sortable-ghost {
+            opacity: 0.2;
+            background-color: var(--white-lines) !important;
+            border: 2px dashed var(--note-shadow-color);
+        }
+        .sortable-drag { opacity: 1; }
+
+        @media (max-width: 768px) {
+            .main-header { font-size: 2em; margin-bottom: 30px; }
+            .board-section h2 { font-size: 1.7em; margin-bottom: 15px; }
+            .kanban-board {
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: auto;
+            }
+            .kanban-board > .kanban-header,
+            .kanban-board > .add-task-controls-wrapper,
+            .kanban-board > .empty-control-cell,
+            .kanban-board > .kanban-content {
+                grid-row: unset !important;
+                grid-column: unset !important;
+            }
+            .kanban-board > .kanban-cell:nth-child(3n) { border-right: none; }
+            .kanban-board > .kanban-cell:nth-last-child(-n+3) { border-bottom: none; }
+
+            /* En pantallas medianas, los controles solo en la primera columna */
+            .add-task-controls-wrapper { grid-column: 1 / span 1 !important; }
+            .empty-control-cell:not(:first-of-type) { display: none; } /* Ocultar celdas vacías de control no necesarias */
+
+
+            .kanban-header { font-size: 1.1em; padding: 15px 10px;}
+            .sticky-note { width: 100px; height: 100px; padding: 8px;}
+            .note-content { max-height: 60px;}
+            .delete-button { width: 18px; height: 18px; font-size: 0.7em;}
+            .add-task-controls-wrapper { max-width: 120px; }
+        }
+
+        @media (max-width: 480px) {
+            .main-header { font-size: 1.5em; margin-bottom: 20px; }
+            .board-section h2 { font-size: 1.4em; margin-bottom: 10px; }
+            .kanban-board {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto;
+            }
+            .kanban-cell {
+                border-right: none !important;
+                border-bottom: 2px solid var(--white-lines);
+            }
+            .kanban-board > .kanban-cell:last-child { border-bottom: none; }
+            .add-task-controls-wrapper, .empty-control-cell { display: block; grid-column: 1 / -1 !important; } /* Controles ocupan toda la columna */
+
+
+            .kanban-header { font-size: 1em; padding: 10px; }
+            .sticky-note { width: 90px; height: 90px; margin: 5px; padding: 6px;}
+            .note-content { max-height: 50px; font-size: 0.8em; }
+            .delete-button { width: 16px; height: 16px; font-size: 0.6em;}
+            .add-task-controls-wrapper { max-width: 100%; } /* Ocupa el ancho disponible */
+            .priority-select { font-size: 0.8em; padding: 6px;}
+            .add-note-button { font-size: 0.9em; padding: 8px;}
+        }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <h1>TABLERO DE ORGANIZACIÓN DEL COLECTIVO ALTER.IAS</h1>
+    </header>
+
+    <!-- Tablero de Organización Interna -->
+    <div class="board-section">
+        <h2>Organización Interna</h2>
+        <div class="kanban-board-container">
+            <div class="kanban-board internal-theme">
+                <!-- Fila 1: ENCABEZADOS DE COLUMNA -->
+                <div class="kanban-cell kanban-header">Lista de Pendientes</div>
+                <div class="kanban-cell kanban-header">Historias</div>
+                <div class="kanban-cell kanban-header">Por Hacer</div>
+                <div class="kanban-cell kanban-header">En Curso</div>
+                <div class="kanban-cell kanban-header">Completado</div>
+
+                <!-- Fila 2: CONTROLES PARA AÑADIR TAREA -->
+                <div class="add-task-controls-wrapper" data-column-target="backlog-internal">
+                    <select class="priority-select">
+                        <option value="yellow">Importante</option>
+                        <option value="red">Urgente</option>
+                        <option value="light-blue">No Importante</option>
+                    </select>
+                    <button class="add-note-button">Añadir Tarea</button>
+                </div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+
+                <!-- Fila 3: CONTENIDO REAL DE LAS COLUMNAS -->
+                <div class="kanban-cell kanban-content" data-column-id="backlog-internal"></div>
+                <div class="kanban-cell kanban-content" data-column-id="story-internal"></div>
+                <div class="kanban-cell kanban-content" data-column-id="todo-internal"></div>
+                <div class="kanban-cell kanban-content" data-column-id="doing-internal"></div>
+                <div class="kanban-cell kanban-content" data-column-id="done-internal"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablero de Proyectos: Animaciones -->
+    <div class="board-section">
+        <h2>Proyectos: Animaciones</h2>
+        <div class="kanban-board-container">
+            <div class="kanban-board projects-theme">
+                 <!-- Fila 1: ENCABEZADOS DE COLUMNA -->
+                <div class="kanban-cell kanban-header">Lista de Pendientes</div>
+                <div class="kanban-cell kanban-header">Historias</div>
+                <div class="kanban-cell kanban-header">Por Hacer</div>
+                <div class="kanban-cell kanban-header">En Curso</div>
+                <div class="kanban-cell kanban-header">Completado</div>
+
+                <!-- Fila 2: CONTROLES PARA AÑADIR TAREA -->
+                <div class="add-task-controls-wrapper" data-column-target="backlog-animations">
+                    <select class="priority-select">
+                        <option value="yellow">Importante</option>
+                        <option value="red">Urgente</option>
+                        <option value="light-blue">No Importante</option>
+                    </select>
+                    <button class="add-note-button">Añadir Tarea</button>
+                </div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+
+                <!-- Fila 3: CONTENIDO REAL DE LAS COLUMNAS -->
+                <div class="kanban-cell kanban-content" data-column-id="backlog-animations"></div>
+                <div class="kanban-cell kanban-content" data-column-id="story-animations"></div>
+                <div class="kanban-cell kanban-content" data-column-id="todo-animations"></div>
+                <div class="kanban-cell kanban-content" data-column-id="doing-animations"></div>
+                <div class="kanban-cell kanban-content" data-column-id="done-animations"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablero de Proyectos: Páginas Web -->
+    <div class="board-section">
+        <h2>Proyectos: Páginas Web</h2>
+        <div class="kanban-board-container">
+            <div class="kanban-board projects-theme">
+                <!-- Fila 1: ENCABEZADOS DE COLUMNA -->
+                <div class="kanban-cell kanban-header">Lista de Pendientes</div>
+                <div class="kanban-cell kanban-header">Historias</div>
+                <div class="kanban-cell kanban-header">Por Hacer</div>
+                <div class="kanban-cell kanban-header">En Curso</div>
+                <div class="kanban-cell kanban-header">Completado</div>
+
+                <!-- Fila 2: CONTROLES PARA AÑADIR TAREA -->
+                <div class="add-task-controls-wrapper" data-column-target="backlog-webpages">
+                    <select class="priority-select">
+                        <option value="yellow">Importante</option>
+                        <option value="red">Urgente</option>
+                        <option value="light-blue">No Importante</option>
+                    </select>
+                    <button class="add-note-button">Añadir Tarea</button>
+                </div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+
+                <!-- Fila 3: CONTENIDO REAL DE LAS COLUMNAS -->
+                <div class="kanban-cell kanban-content" data-column-id="backlog-webpages"></div>
+                <div class="kanban-cell kanban-content" data-column-id="story-webpages"></div>
+                <div class="kanban-cell kanban-content" data-column-id="todo-webpages"></div>
+                <div class="kanban-cell kanban-content" data-column-id="doing-webpages"></div>
+                <div class="kanban-cell kanban-content" data-column-id="done-webpages"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tablero de Proyectos: Agentes AI -->
+    <div class="board-section">
+        <h2>Proyectos: Agentes AI</h2>
+        <div class="kanban-board-container">
+            <div class="kanban-board projects-theme">
+                <!-- Fila 1: ENCABEZADOS DE COLUMNA -->
+                <div class="kanban-cell kanban-header">Lista de Pendientes</div>
+                <div class="kanban-cell kanban-header">Historias</div>
+                <div class="kanban-cell kanban-header">Por Hacer</div>
+                <div class="kanban-cell kanban-header">En Curso</div>
+                <div class="kanban-cell kanban-header">Completado</div>
+
+                <!-- Fila 2: CONTROLES PARA AÑADIR TAREA -->
+                <div class="add-task-controls-wrapper" data-column-target="backlog-aiagents">
+                    <select class="priority-select">
+                        <option value="yellow">Importante</option>
+                        <option value="red">Urgente</option>
+                        <option value="light-blue">No Importante</option>
+                    </select>
+                    <button class="add-note-button">Añadir Tarea</button>
+                </div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+                <div class="kanban-cell empty-control-cell"></div>
+
+                <!-- Fila 3: CONTENIDO REAL DE LAS COLUMNAS -->
+                <div class="kanban-cell kanban-content" data-column-id="backlog-aiagents"></div>
+                <div class="kanban-cell kanban-content" data-column-id="story-aiagents"></div>
+                <div class="kanban-cell kanban-content" data-column-id="todo-aiagents"></div>
+                <div class="kanban-cell kanban-content" data-column-id="doing-aiagents"></div>
+                <div class="kanban-cell kanban-content" data-column-id="done-aiagents"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- JavaScript para la interactividad de los tableros ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const rotationClasses = ['rotate-0', 'rotate-1', 'rotate-2', 'rotate-3', 'rotate-4', 'rotate-5', 'rotate-6', 'rotate-7', 'rotate-8', 'rotate-9'];
+
+            function getRandomRotationClass() {
+                return rotationClasses[Math.floor(Math.random() * rotationClasses.length)];
+            }
+
+            function createStickyNote(text = '', color = 'yellow') {
+                const note = document.createElement('div');
+                note.classList.add('sticky-note', color, getRandomRotationClass());
+                const content = document.createElement('div');
+                content.classList.add('note-content');
+                content.setAttribute('contenteditable', 'true');
+                content.setAttribute('data-placeholder', 'Escribe aquí...');
+                content.innerText = text;
+                if (text === '') { setTimeout(() => content.focus(), 0); }
+                const deleteButton = document.createElement('button');
+                deleteButton.classList.add('delete-button');
+                deleteButton.innerText = 'X';
+                deleteButton.setAttribute('aria-label', 'Eliminar nota');
+                deleteButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (confirm('¿Estás seguro de que quieres eliminar esta nota?')) {
+                        note.remove();
+                    }
+                });
+                note.appendChild(deleteButton);
+                note.appendChild(content);
+                return note;
+            }
+
+            const kanbanContentColumns = document.querySelectorAll('.kanban-content');
+            kanbanContentColumns.forEach(column => {
+                new Sortable(column, {
+                    group: 'kanban-notes',
+                    animation: 150,
+                    handle: '.sticky-note',
+                    filter: '.add-task-controls-wrapper, .delete-button',
+                    ghostClass: 'sortable-ghost',
+                    dragClass: 'sortable-drag',
+                    forceFallback: true,
+                    fallbackOnBody: true,
+                    swapThreshold: 0.65,
+                    onEnd: function (evt) {
+                        console.log(`Nota movida de la columna con ID: ${evt.from.dataset.columnId} a la columna con ID: ${evt.to.dataset.columnId}`);
+                    }
+                });
+            });
+
+            function populateInternalBoard() {
+                const backlogInternal = document.querySelector('[data-column-id="backlog-internal"]');
+                const storyInternal = document.querySelector('[data-column-id="story-internal"]');
+                const todoInternal = document.querySelector('[data-column-id="todo-internal"]');
+                const doingInternal = document.querySelector('[data-column-id="doing-internal"]');
+                const doneInternal = document.querySelector('[data-column-id="done-internal"]');
+                backlogInternal.appendChild(createStickyNote('Planificar reunión semanal', 'yellow'));
+                backlogInternal.appendChild(createStickyNote('Revisar informes de gastos', 'red'));
+                backlogInternal.appendChild(createStickyNote('Actualizar manual de bienvenida', 'light-blue'));
+                storyInternal.appendChild(createStickyNote('Como miembro, quiero un sistema de votación', 'red'));
+                storyInternal.appendChild(createStickyNote('Como líder, quiero ver el progreso del equipo', 'yellow'));
+                todoInternal.appendChild(createStickyNote('Preparar agenda reunión próxima', 'yellow'));
+                todoInternal.appendChild(createStickyNote('Recopilar feedback de encuestas', 'light-blue'));
+                doingInternal.appendChild(createStickyNote('Redactar comunicado interno', 'yellow'));
+                doingInternal.appendChild(createStickyNote('Organizar archivo de documentos', 'red'));
+                doneInternal.appendChild(createStickyNote('Reunión de planificación completada', 'yellow'));
+                doneInternal.appendChild(createStickyNote('Base de datos de contactos actualizada', 'red'));
+            }
+
+            function populateAnimationsBoard() {
+                const backlogAnimations = document.querySelector('[data-column-id="backlog-animations"]');
+                const storyAnimations = document.querySelector('[data-column-id="story-animations"]');
+                const todoAnimations = document.querySelector('[data-column-id="todo-animations"]');
+                const doingAnimations = document.querySelector('[data-column-id="doing-animations"]');
+                const doneAnimations = document.querySelector('[data-column-id="done-animations"]');
+                backlogAnimations.appendChild(createStickyNote('Nueva idea para corto animado', 'yellow'));
+                backlogAnimations.appendChild(createStickyNote('Investigar software de render', 'light-blue'));
+                storyAnimations.appendChild(createStickyNote('Como cliente, quiero una intro animada para mi marca', 'red'));
+                todoAnimations.appendChild(createStickyNote('Bocetar personajes 3D', 'yellow'));
+                doingAnimations.appendChild(createStickyNote('Renderizando escena final', 'yellow'));
+                doneAnimations.appendChild(createStickyNote('Animación de logotipo completada', 'yellow'));
+            }
+
+            function populateWebpagesBoard() {
+                const backlogWebpages = document.querySelector('[data-column-id="backlog-webpages"]');
+                const storyWebpages = document.querySelector('[data-column-id="story-webpages"]');
+                const todoWebpages = document.querySelector('[data-column-id="todo-webpages"]');
+                const doingWebpages = document.querySelector('[data-column-id="doing-webpages"]');
+                const doneWebpages = document.querySelector('[data-column-id="done-webpages"]');
+                backlogWebpages.appendChild(createStickyNote('Investigar framework JS para web', 'red'));
+                storyWebpages.appendChild(createStickyNote('Como cliente, quiero una web que muestre mi portfolio', 'yellow'));
+                todoWebpages.appendChild(createStickyNote('Bocetar diseño de homepage', 'yellow'));
+                doingWebpages.appendChild(createStickyNote('Codificar módulo de búsqueda web', 'red'));
+                doneWebpages.appendChild(createStickyNote('Wireframes web aprobados', 'yellow'));
+            }
+
+            function populateAiAgentsBoard() {
+                const backlogAiagents = document.querySelector('[data-column-id="backlog-aiagents"]');
+                const storyAiagents = document.querySelector('[data-column-id="story-aiagents"]');
+                const todoAiagents = document.querySelector('[data-column-id="todo-aiagents"]');
+                const doingAiagents = document.querySelector('[data-column-id="doing-aiagents"]');
+                const doneAiagents = document.querySelector('[data-column-id="done-aiagents"]');
+                backlogAiagents.appendChild(createStickyNote('Explorar APIs de generación de texto', 'yellow'));
+                backlogAiagents.appendChild(createStickyNote('Como usuario, quiero un chatbot que responda preguntas frecuentes', 'yellow'));
+                todoAiagents.appendChild(createStickyNote('Definir alcance del chatbot', 'light-blue'));
+                doingAiagents.appendChild(createStickyNote('Entrenar modelo de NLU', 'yellow'));
+                doneAiagents.appendChild(createStickyNote('Diseño de diálogo para bot de ventas', 'red'));
+            }
+
+            document.querySelectorAll('.add-note-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const addControlsWrapper = e.target.closest('.add-task-controls-wrapper');
+                    if (!addControlsWrapper) return;
+                    const targetColumnId = addControlsWrapper.dataset.columnTarget;
+                    const prioritySelect = addControlsWrapper.querySelector('.priority-select');
+                    const noteColor = prioritySelect ? prioritySelect.value : 'yellow';
+                    const targetColumn = document.querySelector(`.kanban-content[data-column-id="${targetColumnId}"]`); // Asegura seleccionar la columna de contenido
+                    if (targetColumn) {
+                        const newNote = createStickyNote('', noteColor);
+                        targetColumn.appendChild(newNote); // Añade al final de la columna de contenido (después de los controles si están)
+                        newNote.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                });
+            });
+
+            populateInternalBoard();
+            populateAnimationsBoard();
+            populateWebpagesBoard();
+            populateAiAgentsBoard();
+        });
+    </script>
+</body>
+</html>
