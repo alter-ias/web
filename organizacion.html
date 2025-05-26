@@ -18,7 +18,7 @@
             --light-blue-note: #A7D9FF;
             --note-shadow-color: #21215B;
             --delete-button-bg: #D32F2F;
-            --delete-button-hover: #E57373; /* Más suave para el hover del delete board */
+            --delete-button-hover: #E57373;
             --add-button-bg: #4CAF50;
             --add-button-hover: #45a049;
             --select-bg: #f8f8f8;
@@ -67,7 +67,7 @@
             width: 90%;
             max-width: 1200px;
             margin-bottom: 50px;
-            position: relative; /* Para posicionar el botón de cerrar tablero */
+            position: relative;
         }
 
         .board-section h2 {
@@ -76,8 +76,8 @@
             margin-bottom: 20px;
             text-align: left;
             padding-left: 10px;
-            display: flex; /* Para alinear el título y el botón */
-            justify-content: space-between; /* Espacio entre título y botón */
+            display: flex;
+            justify-content: space-between;
             align-items: center;
         }
 
@@ -95,13 +95,12 @@
             align-items: center;
             justify-content: center;
             transition: background-color 0.2s ease-in-out, transform 0.1s ease;
-            margin-left: 15px; /* Espacio respecto al título */
+            margin-left: 15px;
         }
         .delete-board-button:hover {
             background-color: var(--delete-button-hover);
             transform: scale(1.1);
         }
-
 
         .kanban-board-container {
             border-radius: 15px;
@@ -112,7 +111,7 @@
         .kanban-board {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            grid-template-rows: auto auto 1fr;
+            grid-template-rows: auto auto 1fr; /* Fila encabezados, Fila controles, Fila contenido */
             color: var(--white-lines);
         }
 
@@ -128,7 +127,18 @@
         }
 
         .kanban-board > .kanban-cell:nth-child(5n) { border-right: none; }
-        .kanban-board > .kanban-cell:nth-child(n + 11) { border-bottom: none; }
+        /* Quitar borde inferior de la última fila de celdas (la de contenido) */
+        .kanban-board > .kanban-cell.kanban-content { border-bottom: none; }
+        /* Ajuste para que el borde inferior de la fila de controles se mantenga */
+         .kanban-board > .add-task-controls-wrapper,
+         .kanban-board > .empty-control-cell {
+            border-bottom: 2px solid var(--white-lines);
+        }
+        /* Y quitar el borde inferior de la última fila de celdas de contenido */
+        .kanban-board > .kanban-cell:nth-child(n+11) { /* Esto selecciona la tercera fila (contenido) */
+             border-bottom: none;
+        }
+
 
         .kanban-header {
             grid-row: 1;
@@ -327,52 +337,86 @@
             background-color: var(--add-board-button-hover);
         }
 
-        @media (max-width: 768px) {
+        /* --- MEDIA QUERIES PARA RESPONSIVE --- */
+
+        /* Pantallas medianas (tablets) - Podríamos mantener 2 o 3 columnas si caben */
+        @media (max-width: 992px) { /* Un punto de quiebre un poco más grande */
+            .kanban-board {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Columnas flexibles */
+                /* Las filas se mantienen: auto auto 1fr */
+            }
+            /* Si solo cabe 1 columna, los controles y celdas vacías se ajustarán solos */
+        }
+
+
+        /* Pantallas pequeñas (móviles) - Una sola columna vertical */
+        @media (max-width: 767px) {
             .main-header { font-size: 2em; margin-bottom: 30px; }
             .board-section h2 { font-size: 1.7em; margin-bottom: 15px; }
+
             .kanban-board {
-                grid-template-columns: repeat(3, 1fr);
-                grid-template-rows: auto;
+                display: flex; /* Cambiamos a flexbox para una sola columna */
+                flex-direction: column;
             }
-            .kanban-board > .kanban-header,
-            .kanban-board > .add-task-controls-wrapper,
-            .kanban-board > .empty-control-cell,
-            .kanban-board > .kanban-content {
-                grid-row: unset !important;
-                grid-column: unset !important;
+
+            .kanban-cell {
+                border-right: none; /* Sin bordes derechos en una sola columna */
+                border-bottom: 2px solid var(--white-lines); /* Borde inferior para separar */
+                width: 100%; /* Ocupar todo el ancho */
             }
-            .kanban-board > .kanban-cell:nth-child(3n) { border-right: none; }
-            .kanban-board > .kanban-cell:nth-last-child(-n+3) { border-bottom: none; }
-            .add-task-controls-wrapper { grid-column: 1 / span 1 !important; }
-            .empty-control-cell:not(:first-of-type) { display: none; }
-            .kanban-header { font-size: 1.1em; padding: 15px 10px;}
-            .sticky-note { width: 100px; height: 100px; padding: 8px;}
-            .note-content { max-height: 60px;}
-            .delete-button { width: 18px; height: 18px; font-size: 0.7em;}
-            .add-task-controls-wrapper { max-width: 120px; }
+            .kanban-board > .kanban-cell:last-child {
+                border-bottom: none; /* La última celda no necesita borde inferior */
+            }
+
+            .kanban-header {
+                font-size: 1.2em; /* Un poco más grande para títulos de sección */
+                text-align: left;
+                justify-content: flex-start;
+                padding: 10px 15px;
+                background-color: rgba(0,0,0,0.1); /* Ligero fondo para destacar */
+            }
+
+            .add-task-controls-wrapper, .empty-control-cell {
+                display: none; /* Ocultar la fila de controles separada */
+            }
+
+            .kanban-content {
+                min-height: auto; /* No forzar altura mínima */
+                padding-top: 10px;
+            }
+            /* Mostrar controles de añadir tarea solo en la columna de Lista de Pendientes */
+            .kanban-content[data-column-id*="backlog"] .add-task-controls-wrapper {
+                display: flex; /* Mostrar solo en la columna de backlog */
+                width: 100%;
+                max-width: none; /* Ocupar todo el ancho disponible */
+                padding: 10px 0; /* Algo de padding vertical */
+                margin-bottom: 10px;
+                 border-bottom: 2px solid var(--white-lines); /* Separador */
+            }
+
+
+            .sticky-note {
+                width: calc(100% - 20px); /* Notas más anchas */
+                max-width: 280px; /* Pero con un máximo para no ser enormes */
+                height: auto; /* Altura automática */
+                min-height: 100px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .note-content { max-height: 100px; } /* Más espacio para texto en móvil */
+            .delete-button { width: 22px; height: 22px; font-size: 0.9em;}
             #add-new-board-button { font-size: 1em; padding: 10px 20px; }
         }
 
         @media (max-width: 480px) {
-            .main-header { font-size: 1.5em; margin-bottom: 20px; }
-            .board-section h2 { font-size: 1.4em; margin-bottom: 10px; }
-            .kanban-board {
-                grid-template-columns: 1fr;
-                grid-template-rows: auto;
-            }
-            .kanban-cell {
-                border-right: none !important;
-                border-bottom: 2px solid var(--white-lines);
-            }
-            .kanban-board > .kanban-cell:last-child { border-bottom: none; }
-            .add-task-controls-wrapper, .empty-control-cell { display: block; grid-column: 1 / -1 !important; }
-            .kanban-header { font-size: 1em; padding: 10px; }
-            .sticky-note { width: 90px; height: 90px; margin: 5px; padding: 6px;}
-            .note-content { max-height: 50px; font-size: 0.8em; }
-            .delete-button { width: 16px; height: 16px; font-size: 0.6em;}
-            .add-task-controls-wrapper { max-width: 100%; }
-            .priority-select { font-size: 0.8em; padding: 6px;}
-            .add-note-button { font-size: 0.9em; padding: 8px;}
+            .main-header { font-size: 1.6em; margin-bottom: 20px; }
+            .board-section h2 { font-size: 1.5em; }
+            .kanban-header { font-size: 1.1em; }
+            .sticky-note { min-height: 90px; }
+            .note-content { max-height: 80px; }
+            .delete-button { width: 20px; height: 20px; font-size: 0.8em;}
+            .priority-select, .add-note-button { font-size: 0.9em; padding: 8px;}
         }
     </style>
 </head>
@@ -391,7 +435,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const LOCAL_STORAGE_KEY = 'kanbanBoardState_ALTERIAS_v6'; // Nueva clave para asegurar limpieza
+            const LOCAL_STORAGE_KEY = 'kanbanBoardState_ALTERIAS_v7'; // Nueva clave
             let newBoardCounter = 0;
             const boardsContainer = document.querySelector('.boards-container');
 
@@ -404,11 +448,11 @@
             function saveBoardState() {
                 const boardDataToSave = {
                     boards: [],
-                    nextBoardCounter: newBoardCounter // Guardar el contador para IDs únicos
+                    nextBoardCounter: newBoardCounter
                 };
                 document.querySelectorAll('.board-section').forEach(boardSectionEl => {
                     const boardId = boardSectionEl.dataset.boardId;
-                    const boardTitle = boardSectionEl.querySelector('h2 .board-title-text').innerText; // Obtener solo el texto del título
+                    const boardTitle = boardSectionEl.querySelector('h2 .board-title-text').innerText;
                     const themeClass = boardSectionEl.querySelector('.kanban-board').classList.contains('internal-theme') ? 'internal-theme' : 'projects-theme';
                     const columns = {};
 
@@ -497,13 +541,30 @@
                         const targetColumnId = currentControlsWrapper.dataset.columnTarget;
                         const prioritySelect = currentControlsWrapper.querySelector('.priority-select');
                         const noteColor = prioritySelect ? prioritySelect.value : 'yellow';
-                        const targetColumn = document.querySelector(`.kanban-content[data-column-id="${targetColumnId}"]`);
+                        // En móvil, las notas se añaden a la columna de contenido que está directamente dentro del mismo padre que el header
+                        // En desktop, se busca la columna de contenido correspondiente por ID.
+                        let targetColumn;
+                        if (window.innerWidth <= 767) { // Asumiendo que 767px es el breakpoint móvil
+                             targetColumn = document.querySelector(`.kanban-board [data-column-id="${targetColumnId}"]`);
+                        } else {
+                             targetColumn = document.querySelector(`.kanban-content[data-column-id="${targetColumnId}"]`);
+                        }
+
 
                         if (targetColumn) {
                             const newNote = createStickyNote('', noteColor, false);
-                            targetColumn.appendChild(newNote);
+                            // Si estamos en móvil y los controles están dentro de kanban-content,
+                            // la inserción debe ser después de los controles.
+                            // Si no, simplemente al final de la columna de contenido.
+                            if (targetColumn.contains(currentControlsWrapper)){
+                                targetColumn.insertBefore(newNote, currentControlsWrapper.nextSibling);
+                            } else {
+                                targetColumn.appendChild(newNote);
+                            }
                             newNote.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                             saveBoardState();
+                        } else {
+                            console.error("No se encontró la columna de destino:", targetColumnId);
                         }
                     });
                 }
@@ -515,15 +576,14 @@
                 boardSection.dataset.boardId = boardIdPrefix;
 
                 const boardTitleH2 = document.createElement('h2');
-                const titleTextSpan = document.createElement('span'); // Para separar el texto del botón
+                const titleTextSpan = document.createElement('span');
                 titleTextSpan.classList.add('board-title-text');
                 titleTextSpan.innerText = title;
                 boardTitleH2.appendChild(titleTextSpan);
 
-                // Botón de eliminar tablero
                 const deleteBoardBtn = document.createElement('button');
                 deleteBoardBtn.classList.add('delete-board-button');
-                deleteBoardBtn.innerHTML = '×'; // Símbolo X
+                deleteBoardBtn.innerHTML = '×';
                 deleteBoardBtn.setAttribute('aria-label', 'Eliminar tablero');
                 deleteBoardBtn.addEventListener('click', () => {
                     if (confirm(`¿Estás seguro de que quieres eliminar el tablero "${title}"? Esta acción no se puede deshacer.`)) {
@@ -533,7 +593,6 @@
                 });
                 boardTitleH2.appendChild(deleteBoardBtn);
                 boardSection.appendChild(boardTitleH2);
-
 
                 const boardContainer = document.createElement('div');
                 boardContainer.classList.add('kanban-board-container');
@@ -546,49 +605,75 @@
                 const columnTitles = ["Lista de Pendientes", "Historias", "Por Hacer", "En Curso", "Completado"];
                 const columnIdsSuffix = ["backlog", "story", "todo", "doing", "done"];
 
-                columnTitles.forEach(colTitle => {
-                    const headerCell = document.createElement('div');
-                    headerCell.classList.add('kanban-cell', 'kanban-header');
-                    headerCell.innerText = colTitle;
-                    kanbanBoard.appendChild(headerCell);
-                });
+                // En desktop, creamos la estructura de grid (headers, controles, contenido)
+                // En móvil, crearemos headers y luego las columnas de contenido que contendrán sus propios controles si es backlog
+                if (window.innerWidth > 767) {
+                    columnTitles.forEach(colTitle => {
+                        const headerCell = document.createElement('div');
+                        headerCell.classList.add('kanban-cell', 'kanban-header');
+                        headerCell.innerText = colTitle;
+                        kanbanBoard.appendChild(headerCell);
+                    });
+
+                    columnIdsSuffix.forEach((idSuffix, index) => {
+                        const cell = document.createElement('div');
+                        cell.classList.add('kanban-cell');
+
+                        if (index === 0) {
+                            cell.classList.add('add-task-controls-wrapper');
+                            cell.dataset.columnTarget = `${boardIdPrefix}-${idSuffix}`;
+                            const select = document.createElement('select');
+                            select.classList.add('priority-select');
+                            select.innerHTML = `<option value="yellow">Importante</option><option value="red">Urgente</option><option value="light-blue">No Importante</option>`;
+                            cell.appendChild(select);
+                            const addButton = document.createElement('button');
+                            addButton.classList.add('add-note-button');
+                            addButton.innerText = 'Añadir Tarea';
+                            cell.appendChild(addButton);
+                            addEventListenersToControls(cell);
+                        } else {
+                            cell.classList.add('empty-control-cell');
+                        }
+                        kanbanBoard.appendChild(cell);
+                    });
+                }
+
 
                 columnIdsSuffix.forEach((idSuffix, index) => {
-                    const cell = document.createElement('div');
-                    cell.classList.add('kanban-cell'); // Aplicar la clase base
-
-                    if (index === 0) {
-                        cell.classList.add('add-task-controls-wrapper');
-                        cell.dataset.columnTarget = `${boardIdPrefix}-${idSuffix}`;
-
-                        const select = document.createElement('select');
-                        select.classList.add('priority-select');
-                        select.innerHTML = `
-                            <option value="yellow">Importante</option>
-                            <option value="red">Urgente</option>
-                            <option value="light-blue">No Importante</option>
-                        `;
-                        cell.appendChild(select);
-
-                        const addButton = document.createElement('button');
-                        addButton.classList.add('add-note-button');
-                        addButton.innerText = 'Añadir Tarea';
-                        cell.appendChild(addButton);
-                        addEventListenersToControls(cell);
-                    } else {
-                        cell.classList.add('empty-control-cell');
-                    }
-                    kanbanBoard.appendChild(cell);
-                });
-
-                columnIdsSuffix.forEach(idSuffix => {
                     const contentCell = document.createElement('div');
-                    contentCell.classList.add('kanban-cell', 'kanban-content');
+                    // En móvil, la celda de contenido también actúa como "columna visual"
+                    // y si es backlog, contendrá sus propios controles.
+                    if (window.innerWidth <= 767) {
+                        contentCell.classList.add('kanban-cell'); // Para bordes en móvil
+                        // Añadir un header visual para la columna en móvil
+                        const mobileHeader = document.createElement('div');
+                        mobileHeader.classList.add('kanban-header', 'mobile-column-header'); // Clase para estilo específico
+                        mobileHeader.innerText = columnTitles[index];
+                        kanbanBoard.appendChild(mobileHeader); // Se añade antes del contentCell
+                         if (idSuffix === "backlog") {
+                            const controlsWrapperMobile = document.createElement('div');
+                            controlsWrapperMobile.classList.add('add-task-controls-wrapper');
+                            controlsWrapperMobile.dataset.columnTarget = `${boardIdPrefix}-${idSuffix}`;
+                            const selectMobile = document.createElement('select');
+                            selectMobile.classList.add('priority-select');
+                            selectMobile.innerHTML = `<option value="yellow">Importante</option><option value="red">Urgente</option><option value="light-blue">No Importante</option>`;
+                            controlsWrapperMobile.appendChild(selectMobile);
+                            const addButtonMobile = document.createElement('button');
+                            addButtonMobile.classList.add('add-note-button');
+                            addButtonMobile.innerText = 'Añadir Tarea';
+                            controlsWrapperMobile.appendChild(addButtonMobile);
+                            contentCell.appendChild(controlsWrapperMobile); // Controles dentro del contentCell
+                            addEventListenersToControls(controlsWrapperMobile);
+                        }
+
+                    } else {
+                         contentCell.classList.add('kanban-cell');
+                    }
+
+                    contentCell.classList.add('kanban-content');
                     contentCell.dataset.columnId = `${boardIdPrefix}-${idSuffix}`;
                     kanbanBoard.appendChild(contentCell);
-                    if (!isNewBoard) { // No inicializar sortable si es un tablero cargado (se hará después)
-                        initializeSortableForColumn(contentCell);
-                    }
+                    initializeSortableForColumn(contentCell);
                 });
                 return boardSection;
             }
@@ -600,7 +685,6 @@
                     if (savedStateJSON) {
                         const data = JSON.parse(savedStateJSON);
                         if (data && data.boards && Array.isArray(data.boards)) {
-                            // Limpiar tableros existentes antes de cargar
                             boardsContainer.innerHTML = '';
                             newBoardCounter = data.nextBoardCounter || 0;
 
@@ -611,13 +695,13 @@
                                 Object.keys(boardData.columns).forEach(columnId => {
                                     const columnElement = newBoardElement.querySelector(`.kanban-content[data-column-id="${columnId}"]`);
                                     if (columnElement) {
+                                        columnElement.querySelectorAll('.sticky-note').forEach(note => note.remove());
                                         boardData.columns[columnId].forEach(noteData => {
                                             const newNote = createStickyNote(noteData.text, noteData.color, true);
                                             columnElement.appendChild(newNote);
                                         });
                                     }
                                 });
-                                // Asegurar que Sortable se inicialice para todas las columnas de contenido
                                 newBoardElement.querySelectorAll('.kanban-content').forEach(col => initializeSortableForColumn(col));
                             });
                             return true;
@@ -672,20 +756,16 @@
                             });
                         }
                     });
-                     // Asegurar que Sortable se inicialice para todas las columnas de contenido
                     boardElement.querySelectorAll('.kanban-content').forEach(col => initializeSortableForColumn(col));
                 });
             }
 
 
             if (!loadBoardState()) {
-                console.log("No hay estado guardado, poblando tableros iniciales por defecto.");
                 initializeDefaultBoards();
                 saveBoardState();
             } else {
-                console.log("Estado del tablero cargado desde localStorage.");
-                 // Los listeners de los controles se añaden al crear el elemento,
-                 // y sortable se inicializa al final de loadBoardState o initializeDefaultBoards
+                 // Listeners y sortable para tableros cargados ya se manejan dentro de loadBoardState/createBoardElement
             }
 
 
@@ -693,13 +773,13 @@
             addNewBoardButton.addEventListener('click', () => {
                 const boardTitle = prompt("Introduce el título para el nuevo tablero de proyecto:", "Nuevo Proyecto");
                 if (boardTitle && boardTitle.trim() !== "") {
-                    newBoardCounter = parseInt(localStorage.getItem('nextBoardCounter') || newBoardCounter) + 1;
-                    localStorage.setItem('nextBoardCounter', newBoardCounter);
+                    newBoardCounter = parseInt(localStorage.getItem('nextBoardCounter') || newBoardCounter) + 1; // Usar el contador guardado
+                    localStorage.setItem('nextBoardCounter', newBoardCounter); // Actualizar el contador en localStorage
 
                     const boardIdPrefix = `newboard${newBoardCounter}`;
                     const newBoardElement = createBoardElement(boardTitle, boardIdPrefix, "projects-theme", true);
-                    boardsContainer.appendChild(newBoardElement); // Añadir al contenedor principal
-                    newBoardElement.querySelectorAll('.kanban-content').forEach(col => initializeSortableForColumn(col)); // Inicializar Sortable para el nuevo tablero
+                    boardsContainer.appendChild(newBoardElement);
+                    newBoardElement.querySelectorAll('.kanban-content').forEach(col => initializeSortableForColumn(col));
                     saveBoardState();
                 }
             });
