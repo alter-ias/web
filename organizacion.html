@@ -7,26 +7,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700&display=swap" rel="stylesheet">
-    <!-- Incluye Sortable.js desde un CDN para arrastrar y soltar -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <style>
-        /*
-        * Estilos CSS para los tableros Scrum/Kanban
-        * VERSIÓN DEFINITIVA BASADA EN EL CÓDIGO FUNCIONAL PROPORCIONADO
-        */
-
         :root {
-            /* Colores de tableros */
             --green-board: #388E3C;
             --blue-grey-board: #546E7A;
             --white-lines: #F5F5F5;
-
-            /* Colores de notas */
             --yellow-note: #FFEB3B;
             --red-note: #EF5350;
             --light-blue-note: #A7D9FF;
-
-            /* Colores de sombra y botones */
             --note-shadow-color: #21215B;
             --delete-button-bg: #D32F2F;
             --delete-button-hover: #F44336;
@@ -34,15 +23,15 @@
             --add-button-hover: #45a049;
             --select-bg: #f8f8f8;
             --select-border: #ccc;
-            --dark-background: #2C3E50; /* Fondo oscuro de la página */
-            --text-on-dark: #ECF0F1;    /* Texto claro sobre fondo oscuro */
-            --title-color: #BDC3C7;     /* Color para títulos secundarios sobre fondo oscuro */
+            --dark-background: #2C3E50;
+            --text-on-dark: #ECF0F1;
+            --title-color: #BDC3C7;
         }
 
         body {
             margin: 0;
             padding: 0;
-            background-color: var(--dark-background); /* Fondo oscuro */
+            background-color: var(--dark-background);
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
@@ -52,13 +41,13 @@
             overflow-y: auto;
             padding-top: 20px;
             padding-bottom: 20px;
-            color: var(--text-on-dark); /* Texto claro por defecto */
+            color: var(--text-on-dark);
         }
 
         .main-header {
             font-size: 2.5em;
             font-weight: 700;
-            color: var(--text-on-dark); /* Texto claro */
+            color: var(--text-on-dark);
             margin-bottom: 40px;
             text-align: center;
             padding: 0 20px;
@@ -73,7 +62,7 @@
 
         .board-section h2 {
             font-size: 2em;
-            color: var(--title-color); /* Color para títulos secundarios */
+            color: var(--title-color);
             margin-bottom: 20px;
             text-align: left;
             padding-left: 10px;
@@ -81,13 +70,13 @@
 
         .kanban-board-container {
             border-radius: 15px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4); /* Sombra más pronunciada */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
             overflow: hidden;
         }
 
         .kanban-board {
             display: grid;
-            grid-template-columns: repeat(5, 1fr); /* Todos los tableros con 5 columnas */
+            grid-template-columns: repeat(5, 1fr);
             grid-template-rows: auto auto 1fr; /* Encabezados, Controles, Contenido */
             color: var(--white-lines);
         }
@@ -95,7 +84,7 @@
         .kanban-board.internal-theme { background-color: var(--green-board); }
         .kanban-board.projects-theme { background-color: var(--blue-grey-board); }
 
-        .kanban-cell {
+        .kanban-cell { /* Estilo base para todas las celdas del grid */
             padding: 15px;
             text-align: center;
             box-sizing: border-box;
@@ -103,8 +92,19 @@
             border-bottom: 2px solid var(--white-lines);
         }
 
+        /* Quitar borde derecho de la última celda de cada fila */
         .kanban-board > .kanban-cell:nth-child(5n) { border-right: none; }
-        .kanban-board > .kanban-cell:nth-child(n + 11) { border-bottom: none; } /* Celdas de la fila de contenido */
+
+        /* Quitar borde inferior de la última fila de celdas (la de contenido) */
+        .kanban-board > .kanban-cell.kanban-content { border-bottom: none; }
+        /* Y también de las celdas vacías de control en la última fila lógica de 'celdas visibles' (fila 2) */
+         .kanban-board > .add-task-controls-wrapper:nth-child(n+6):nth-child(-n+10), /* Para internal y projects theme */
+         .kanban-board > .empty-control-cell:nth-child(n+6):nth-child(-n+10) {
+            /* No aplica porque el contenido está en la fila 3. El borde inferior de la fila 2 ya está bien. */
+        }
+         /* Borde inferior de la última fila de celdas (la de contenido) */
+        .kanban-board > .kanban-cell:nth-child(n+11) { border-bottom: none; }
+
 
         .kanban-header {
             grid-row: 1;
@@ -113,42 +113,25 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px 15px;
         }
 
         .add-task-controls-wrapper {
             grid-row: 2;
             grid-column: 1; /* Controles siempre en la primera columna de la segunda fila */
-            /* Estilos de celda para el wrapper */
-            padding: 15px;
-            text-align: center;
-            box-sizing: border-box;
-            border-right: 2px solid var(--white-lines);
-            border-bottom: 2px solid var(--white-lines);
+            /* Hereda estilos de .kanban-cell para bordes y padding */
             display: flex;
             flex-direction: column;
             gap: 8px;
             align-items: center;
             justify-content: center;
-            background-color: inherit;
+            background-color: inherit; /* Para que coincida con el fondo del tablero */
         }
-        /* Para el último wrapper de la fila 2, quitar borde derecho */
-        .kanban-board > .add-task-controls-wrapper:nth-child(5n) { border-right: none;}
 
-
-        /* Celdas vacías para rellenar la fila de controles */
         .empty-control-cell {
-            grid-row: 2;
-            /* Estilos de celda */
-            padding: 15px;
-            text-align: center;
-            box-sizing: border-box;
-            border-right: 2px solid var(--white-lines);
-            border-bottom: 2px solid var(--white-lines);
-            background-color: inherit;
+            grid-row: 2; /* También en la segunda fila */
+            background-color: inherit; /* Para que coincida con el fondo del tablero */
+             /* Hereda estilos de .kanban-cell para bordes y padding */
         }
-        .kanban-board > .empty-control-cell:nth-child(5n) { border-right: none; }
-
 
         .kanban-content {
             grid-row: 3; /* Contenido siempre en la tercera fila */
@@ -159,12 +142,11 @@
             gap: 15px;
             min-height: 150px;
             flex-grow: 1;
-            padding: 15px;
-            box-sizing: border-box;
+            /* padding ya viene de .kanban-cell */
             position: relative;
         }
 
-        /* SELECTOR DE PRIORIDAD (Estilo que funcionaba) */
+        /* SELECTOR DE PRIORIDAD (CSS que funcionaba) */
         .priority-select {
             width: 100%;
             padding: 8px;
@@ -247,8 +229,10 @@
             outline: none;
             cursor: text;
             max-height: 75px;
-            overflow: hidden;
+            overflow-y: auto;
             margin-bottom: 5px;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
         .note-content[contenteditable="true"]:empty:before {
             content: attr(data-placeholder);
@@ -316,9 +300,8 @@
             .kanban-board > .kanban-cell:nth-child(3n) { border-right: none; }
             .kanban-board > .kanban-cell:nth-last-child(-n+3) { border-bottom: none; }
 
-            /* En pantallas medianas, los controles solo en la primera columna */
             .add-task-controls-wrapper { grid-column: 1 / span 1 !important; }
-            .empty-control-cell:not(:first-of-type) { display: none; } /* Ocultar celdas vacías de control no necesarias */
+            .empty-control-cell:not(:first-of-type) { display: none; }
 
 
             .kanban-header { font-size: 1.1em; padding: 15px 10px;}
@@ -340,14 +323,14 @@
                 border-bottom: 2px solid var(--white-lines);
             }
             .kanban-board > .kanban-cell:last-child { border-bottom: none; }
-            .add-task-controls-wrapper, .empty-control-cell { display: block; grid-column: 1 / -1 !important; } /* Controles ocupan toda la columna */
+            .add-task-controls-wrapper, .empty-control-cell { display: block; grid-column: 1 / -1 !important; }
 
 
             .kanban-header { font-size: 1em; padding: 10px; }
             .sticky-note { width: 90px; height: 90px; margin: 5px; padding: 6px;}
             .note-content { max-height: 50px; font-size: 0.8em; }
             .delete-button { width: 16px; height: 16px; font-size: 0.6em;}
-            .add-task-controls-wrapper { max-width: 100%; } /* Ocupa el ancho disponible */
+            .add-task-controls-wrapper { max-width: 100%; }
             .priority-select { font-size: 0.8em; padding: 6px;}
             .add-note-button { font-size: 0.9em; padding: 8px;}
         }
@@ -363,15 +346,13 @@
         <h2>Organización Interna</h2>
         <div class="kanban-board-container">
             <div class="kanban-board internal-theme">
-                <!-- Fila 1: ENCABEZADOS DE COLUMNA -->
                 <div class="kanban-cell kanban-header">Lista de Pendientes</div>
                 <div class="kanban-cell kanban-header">Historias</div>
                 <div class="kanban-cell kanban-header">Por Hacer</div>
                 <div class="kanban-cell kanban-header">En Curso</div>
                 <div class="kanban-cell kanban-header">Completado</div>
 
-                <!-- Fila 2: CONTROLES PARA AÑADIR TAREA -->
-                <div class="add-task-controls-wrapper" data-column-target="backlog-internal">
+                <div class="kanban-cell add-task-controls-wrapper" data-column-target="backlog-internal">
                     <select class="priority-select">
                         <option value="yellow">Importante</option>
                         <option value="red">Urgente</option>
@@ -384,7 +365,6 @@
                 <div class="kanban-cell empty-control-cell"></div>
                 <div class="kanban-cell empty-control-cell"></div>
 
-                <!-- Fila 3: CONTENIDO REAL DE LAS COLUMNAS -->
                 <div class="kanban-cell kanban-content" data-column-id="backlog-internal"></div>
                 <div class="kanban-cell kanban-content" data-column-id="story-internal"></div>
                 <div class="kanban-cell kanban-content" data-column-id="todo-internal"></div>
@@ -399,15 +379,13 @@
         <h2>Proyectos: Animaciones</h2>
         <div class="kanban-board-container">
             <div class="kanban-board projects-theme">
-                 <!-- Fila 1: ENCABEZADOS DE COLUMNA -->
-                <div class="kanban-cell kanban-header">Lista de Pendientes</div>
+                 <div class="kanban-cell kanban-header">Lista de Pendientes</div>
                 <div class="kanban-cell kanban-header">Historias</div>
                 <div class="kanban-cell kanban-header">Por Hacer</div>
                 <div class="kanban-cell kanban-header">En Curso</div>
                 <div class="kanban-cell kanban-header">Completado</div>
 
-                <!-- Fila 2: CONTROLES PARA AÑADIR TAREA -->
-                <div class="add-task-controls-wrapper" data-column-target="backlog-animations">
+                <div class="kanban-cell add-task-controls-wrapper" data-column-target="backlog-animations">
                     <select class="priority-select">
                         <option value="yellow">Importante</option>
                         <option value="red">Urgente</option>
@@ -420,7 +398,6 @@
                 <div class="kanban-cell empty-control-cell"></div>
                 <div class="kanban-cell empty-control-cell"></div>
 
-                <!-- Fila 3: CONTENIDO REAL DE LAS COLUMNAS -->
                 <div class="kanban-cell kanban-content" data-column-id="backlog-animations"></div>
                 <div class="kanban-cell kanban-content" data-column-id="story-animations"></div>
                 <div class="kanban-cell kanban-content" data-column-id="todo-animations"></div>
@@ -435,15 +412,13 @@
         <h2>Proyectos: Páginas Web</h2>
         <div class="kanban-board-container">
             <div class="kanban-board projects-theme">
-                <!-- Fila 1: ENCABEZADOS DE COLUMNA -->
                 <div class="kanban-cell kanban-header">Lista de Pendientes</div>
                 <div class="kanban-cell kanban-header">Historias</div>
                 <div class="kanban-cell kanban-header">Por Hacer</div>
                 <div class="kanban-cell kanban-header">En Curso</div>
                 <div class="kanban-cell kanban-header">Completado</div>
 
-                <!-- Fila 2: CONTROLES PARA AÑADIR TAREA -->
-                <div class="add-task-controls-wrapper" data-column-target="backlog-webpages">
+                <div class="kanban-cell add-task-controls-wrapper" data-column-target="backlog-webpages">
                     <select class="priority-select">
                         <option value="yellow">Importante</option>
                         <option value="red">Urgente</option>
@@ -456,7 +431,6 @@
                 <div class="kanban-cell empty-control-cell"></div>
                 <div class="kanban-cell empty-control-cell"></div>
 
-                <!-- Fila 3: CONTENIDO REAL DE LAS COLUMNAS -->
                 <div class="kanban-cell kanban-content" data-column-id="backlog-webpages"></div>
                 <div class="kanban-cell kanban-content" data-column-id="story-webpages"></div>
                 <div class="kanban-cell kanban-content" data-column-id="todo-webpages"></div>
@@ -471,15 +445,13 @@
         <h2>Proyectos: Agentes AI</h2>
         <div class="kanban-board-container">
             <div class="kanban-board projects-theme">
-                <!-- Fila 1: ENCABEZADOS DE COLUMNA -->
                 <div class="kanban-cell kanban-header">Lista de Pendientes</div>
                 <div class="kanban-cell kanban-header">Historias</div>
                 <div class="kanban-cell kanban-header">Por Hacer</div>
                 <div class="kanban-cell kanban-header">En Curso</div>
                 <div class="kanban-cell kanban-header">Completado</div>
 
-                <!-- Fila 2: CONTROLES PARA AÑADIR TAREA -->
-                <div class="add-task-controls-wrapper" data-column-target="backlog-aiagents">
+                <div class="kanban-cell add-task-controls-wrapper" data-column-target="backlog-aiagents">
                     <select class="priority-select">
                         <option value="yellow">Importante</option>
                         <option value="red">Urgente</option>
@@ -492,7 +464,6 @@
                 <div class="kanban-cell empty-control-cell"></div>
                 <div class="kanban-cell empty-control-cell"></div>
 
-                <!-- Fila 3: CONTENIDO REAL DE LAS COLUMNAS -->
                 <div class="kanban-cell kanban-content" data-column-id="backlog-aiagents"></div>
                 <div class="kanban-cell kanban-content" data-column-id="story-aiagents"></div>
                 <div class="kanban-cell kanban-content" data-column-id="todo-aiagents"></div>
@@ -503,16 +474,41 @@
     </div>
 
     <script>
-        // --- JavaScript para la interactividad de los tableros ---
-
         document.addEventListener('DOMContentLoaded', () => {
+            const LOCAL_STORAGE_KEY = 'kanbanBoardState_ALTERIAS_v4'; // Nueva clave para asegurar limpieza
+
             const rotationClasses = ['rotate-0', 'rotate-1', 'rotate-2', 'rotate-3', 'rotate-4', 'rotate-5', 'rotate-6', 'rotate-7', 'rotate-8', 'rotate-9'];
 
             function getRandomRotationClass() {
                 return rotationClasses[Math.floor(Math.random() * rotationClasses.length)];
             }
 
-            function createStickyNote(text = '', color = 'yellow') {
+            function saveBoardState() {
+                const boardState = {};
+                document.querySelectorAll('.kanban-board').forEach(board => {
+                    board.querySelectorAll('.kanban-content').forEach(column => {
+                        const columnId = column.dataset.columnId;
+                        if (!columnId) return;
+
+                        boardState[columnId] = [];
+                        column.querySelectorAll('.sticky-note').forEach(noteElement => {
+                            const text = noteElement.querySelector('.note-content').innerText;
+                            let color = 'yellow';
+                            if (noteElement.classList.contains('red')) color = 'red';
+                            else if (noteElement.classList.contains('light-blue')) color = 'light-blue';
+                            else if (noteElement.classList.contains('yellow')) color = 'yellow';
+                            boardState[columnId].push({ text, color });
+                        });
+                    });
+                });
+                try {
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(boardState));
+                } catch (e) {
+                    console.error("Error al guardar en localStorage:", e);
+                }
+            }
+
+            function createStickyNote(text = '', color = 'yellow', isInitialLoad = false) {
                 const note = document.createElement('div');
                 note.classList.add('sticky-note', color, getRandomRotationClass());
                 const content = document.createElement('div');
@@ -520,7 +516,16 @@
                 content.setAttribute('contenteditable', 'true');
                 content.setAttribute('data-placeholder', 'Escribe aquí...');
                 content.innerText = text;
-                if (text === '') { setTimeout(() => content.focus(), 0); }
+                if (text === '' && !isInitialLoad) { setTimeout(() => content.focus(), 0); }
+
+                content.addEventListener('blur', saveBoardState);
+                content.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        content.blur();
+                    }
+                });
+
                 const deleteButton = document.createElement('button');
                 deleteButton.classList.add('delete-button');
                 deleteButton.innerText = 'X';
@@ -529,6 +534,7 @@
                     e.stopPropagation();
                     if (confirm('¿Estás seguro de que quieres eliminar esta nota?')) {
                         note.remove();
+                        saveBoardState();
                     }
                 });
                 note.appendChild(deleteButton);
@@ -538,79 +544,94 @@
 
             const kanbanContentColumns = document.querySelectorAll('.kanban-content');
             kanbanContentColumns.forEach(column => {
+                if (!column.dataset.columnId) return;
                 new Sortable(column, {
                     group: 'kanban-notes',
                     animation: 150,
                     handle: '.sticky-note',
-                    filter: '.add-task-controls-wrapper, .delete-button',
+                    filter: '.delete-button', // Solo filtrar el botón de borrar para el arrastre
                     ghostClass: 'sortable-ghost',
                     dragClass: 'sortable-drag',
                     forceFallback: true,
                     fallbackOnBody: true,
                     swapThreshold: 0.65,
                     onEnd: function (evt) {
-                        console.log(`Nota movida de la columna con ID: ${evt.from.dataset.columnId} a la columna con ID: ${evt.to.dataset.columnId}`);
+                        saveBoardState();
                     }
                 });
             });
 
-            function populateInternalBoard() {
-                const backlogInternal = document.querySelector('[data-column-id="backlog-internal"]');
-                const storyInternal = document.querySelector('[data-column-id="story-internal"]');
-                const todoInternal = document.querySelector('[data-column-id="todo-internal"]');
-                const doingInternal = document.querySelector('[data-column-id="doing-internal"]');
-                const doneInternal = document.querySelector('[data-column-id="done-internal"]');
-                backlogInternal.appendChild(createStickyNote('Planificar reunión semanal', 'yellow'));
-                backlogInternal.appendChild(createStickyNote('Revisar informes de gastos', 'red'));
-                backlogInternal.appendChild(createStickyNote('Actualizar manual de bienvenida', 'light-blue'));
-                storyInternal.appendChild(createStickyNote('Como miembro, quiero un sistema de votación', 'red'));
-                storyInternal.appendChild(createStickyNote('Como líder, quiero ver el progreso del equipo', 'yellow'));
-                todoInternal.appendChild(createStickyNote('Preparar agenda reunión próxima', 'yellow'));
-                todoInternal.appendChild(createStickyNote('Recopilar feedback de encuestas', 'light-blue'));
-                doingInternal.appendChild(createStickyNote('Redactar comunicado interno', 'yellow'));
-                doingInternal.appendChild(createStickyNote('Organizar archivo de documentos', 'red'));
-                doneInternal.appendChild(createStickyNote('Reunión de planificación completada', 'yellow'));
-                doneInternal.appendChild(createStickyNote('Base de datos de contactos actualizada', 'red'));
+            function loadBoardState() {
+                try {
+                    const savedStateJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
+                    if (savedStateJSON) {
+                        const boardData = JSON.parse(savedStateJSON);
+                        document.querySelectorAll('.kanban-content .sticky-note').forEach(note => note.remove()); // Limpiar notas existentes
+                        Object.keys(boardData).forEach(columnId => {
+                            const columnElement = document.querySelector(`.kanban-content[data-column-id="${columnId}"]`);
+                            if (columnElement) {
+                                const notesForColumn = boardData[columnId];
+                                notesForColumn.forEach(noteData => {
+                                    const newNote = createStickyNote(noteData.text, noteData.color, true);
+                                    columnElement.appendChild(newNote);
+                                });
+                            }
+                        });
+                        return true;
+                    }
+                } catch (e) {
+                    console.error("Error al cargar desde localStorage:", e);
+                }
+                return false;
             }
 
-            function populateAnimationsBoard() {
-                const backlogAnimations = document.querySelector('[data-column-id="backlog-animations"]');
-                const storyAnimations = document.querySelector('[data-column-id="story-animations"]');
-                const todoAnimations = document.querySelector('[data-column-id="todo-animations"]');
-                const doingAnimations = document.querySelector('[data-column-id="doing-animations"]');
-                const doneAnimations = document.querySelector('[data-column-id="done-animations"]');
-                backlogAnimations.appendChild(createStickyNote('Nueva idea para corto animado', 'yellow'));
-                backlogAnimations.appendChild(createStickyNote('Investigar software de render', 'light-blue'));
-                storyAnimations.appendChild(createStickyNote('Como cliente, quiero una intro animada para mi marca', 'red'));
-                todoAnimations.appendChild(createStickyNote('Bocetar personajes 3D', 'yellow'));
-                doingAnimations.appendChild(createStickyNote('Renderizando escena final', 'yellow'));
-                doneAnimations.appendChild(createStickyNote('Animación de logotipo completada', 'yellow'));
+            function populateBoard(notesConfig) {
+                 notesConfig.forEach(config => {
+                    const column = document.querySelector(`.kanban-content[data-column-id="${config.columnId}"]`);
+                    if (column) {
+                        config.notes.forEach(note => {
+                            column.appendChild(createStickyNote(note.text, note.color, true));
+                        });
+                    }
+                });
             }
 
-            function populateWebpagesBoard() {
-                const backlogWebpages = document.querySelector('[data-column-id="backlog-webpages"]');
-                const storyWebpages = document.querySelector('[data-column-id="story-webpages"]');
-                const todoWebpages = document.querySelector('[data-column-id="todo-webpages"]');
-                const doingWebpages = document.querySelector('[data-column-id="doing-webpages"]');
-                const doneWebpages = document.querySelector('[data-column-id="done-webpages"]');
-                backlogWebpages.appendChild(createStickyNote('Investigar framework JS para web', 'red'));
-                storyWebpages.appendChild(createStickyNote('Como cliente, quiero una web que muestre mi portfolio', 'yellow'));
-                todoWebpages.appendChild(createStickyNote('Bocetar diseño de homepage', 'yellow'));
-                doingWebpages.appendChild(createStickyNote('Codificar módulo de búsqueda web', 'red'));
-                doneWebpages.appendChild(createStickyNote('Wireframes web aprobados', 'yellow'));
-            }
+            const internalNotes = [
+                { columnId: "backlog-internal", notes: [{ text: 'Planificar reunión semanal', color: 'yellow' }, { text: 'Revisar informes de gastos', color: 'red' }, { text: 'Actualizar manual de bienvenida', color: 'light-blue' }] },
+                { columnId: "story-internal", notes: [{ text: 'Como miembro, quiero un sistema de votación', color: 'red' }, { text: 'Como líder, quiero ver el progreso del equipo', color: 'yellow' }] },
+                { columnId: "todo-internal", notes: [{ text: 'Preparar agenda reunión próxima', color: 'yellow' }, { text: 'Recopilar feedback de encuestas', color: 'light-blue' }] },
+                { columnId: "doing-internal", notes: [{ text: 'Redactar comunicado interno', color: 'yellow' }, { text: 'Organizar archivo de documentos', color: 'red' }] },
+                { columnId: "done-internal", notes: [{ text: 'Reunión de planificación completada', color: 'yellow' }, { text: 'Base de datos de contactos actualizada', color: 'red' }] }
+            ];
+            const animationsNotes = [
+                { columnId: "backlog-animations", notes: [{ text: 'Nueva idea para corto animado', color: 'yellow' }, { text: 'Investigar software de render', color: 'light-blue' }] },
+                { columnId: "story-animations", notes: [{ text: 'Como cliente, quiero una intro animada para mi marca', color: 'red' }] },
+                { columnId: "todo-animations", notes: [{ text: 'Bocetar personajes 3D', color: 'yellow' }] },
+                { columnId: "doing-animations", notes: [{ text: 'Renderizando escena final', color: 'yellow' }] },
+                { columnId: "done-animations", notes: [{ text: 'Animación de logotipo completada', color: 'yellow' }] }
+            ];
+            const webpagesNotes = [
+                 { columnId: "backlog-webpages", notes: [{ text: 'Investigar framework JS para web', color: 'red'}] },
+                 { columnId: "story-webpages", notes: [{ text: 'Como cliente, quiero una web que muestre mi portfolio', color: 'yellow' }] },
+                 { columnId: "todo-webpages", notes: [{ text: 'Bocetar diseño de homepage', color: 'yellow' }] },
+                 { columnId: "doing-webpages", notes: [{ text: 'Codificar módulo de búsqueda web', color: 'red' }] },
+                 { columnId: "done-webpages", notes: [{ text: 'Wireframes web aprobados', color: 'yellow' }] }
+            ];
+            const aiAgentsNotes = [
+                { columnId: "backlog-aiagents", notes: [{ text: 'Explorar APIs de generación de texto', color: 'yellow' }, { text: 'Como usuario, quiero un chatbot que responda preguntas frecuentes', color: 'yellow' }] },
+                { columnId: "story-aiagents", notes: [] },
+                { columnId: "todo-aiagents", notes: [{ text: 'Definir alcance del chatbot', color: 'light-blue' }] },
+                { columnId: "doing-aiagents", notes: [{ text: 'Entrenar modelo de NLU', color: 'yellow' }] },
+                { columnId: "done-aiagents", notes: [{ text: 'Diseño de diálogo para bot de ventas', color: 'red' }] }
+            ];
 
-            function populateAiAgentsBoard() {
-                const backlogAiagents = document.querySelector('[data-column-id="backlog-aiagents"]');
-                const storyAiagents = document.querySelector('[data-column-id="story-aiagents"]');
-                const todoAiagents = document.querySelector('[data-column-id="todo-aiagents"]');
-                const doingAiagents = document.querySelector('[data-column-id="doing-aiagents"]');
-                const doneAiagents = document.querySelector('[data-column-id="done-aiagents"]');
-                backlogAiagents.appendChild(createStickyNote('Explorar APIs de generación de texto', 'yellow'));
-                backlogAiagents.appendChild(createStickyNote('Como usuario, quiero un chatbot que responda preguntas frecuentes', 'yellow'));
-                todoAiagents.appendChild(createStickyNote('Definir alcance del chatbot', 'light-blue'));
-                doingAiagents.appendChild(createStickyNote('Entrenar modelo de NLU', 'yellow'));
-                doneAiagents.appendChild(createStickyNote('Diseño de diálogo para bot de ventas', 'red'));
+            if (!loadBoardState()) {
+                console.log("No hay estado guardado, poblando tableros por defecto.");
+                populateBoard(internalNotes);
+                populateBoard(animationsNotes);
+                populateBoard(webpagesNotes);
+                populateBoard(aiAgentsNotes);
+                saveBoardState();
             }
 
             document.querySelectorAll('.add-note-button').forEach(button => {
@@ -620,19 +641,15 @@
                     const targetColumnId = addControlsWrapper.dataset.columnTarget;
                     const prioritySelect = addControlsWrapper.querySelector('.priority-select');
                     const noteColor = prioritySelect ? prioritySelect.value : 'yellow';
-                    const targetColumn = document.querySelector(`.kanban-content[data-column-id="${targetColumnId}"]`); // Asegura seleccionar la columna de contenido
+                    const targetColumn = document.querySelector(`.kanban-content[data-column-id="${targetColumnId}"]`);
                     if (targetColumn) {
-                        const newNote = createStickyNote('', noteColor);
-                        targetColumn.appendChild(newNote); // Añade al final de la columna de contenido (después de los controles si están)
+                        const newNote = createStickyNote('', noteColor, false);
+                        targetColumn.appendChild(newNote); // Siempre añadir al final de la columna de contenido
                         newNote.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        saveBoardState();
                     }
                 });
             });
-
-            populateInternalBoard();
-            populateAnimationsBoard();
-            populateWebpagesBoard();
-            populateAiAgentsBoard();
         });
     </script>
 </body>
