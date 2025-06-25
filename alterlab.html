@@ -33,21 +33,30 @@
             font-family: 'Montserrat', sans-serif;
             overflow-x: hidden;
         }
+        
+        /* Aseguramos que el canvas ocupe todo el fondo */
+        #generative-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Lo ponemos detrás de todo el contenido */
+        }
 
         .container {
             width: 90%;
             max-width: 1200px;
             margin: 0 auto;
+            position: relative; /* Para que el contenido esté sobre el canvas */
+            z-index: 10;
         }
 
-        /* --- Header & Navigation --- */
         .main-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 30px 0;
-            position: relative;
-            z-index: 10;
         }
 
         .logo a {
@@ -90,7 +99,6 @@
             color: var(--text-color);
         }
         
-        /* --- Language Switcher --- */
         .lang-switcher button {
             background: none;
             border: 1px solid var(--secondary-text-color);
@@ -115,26 +123,20 @@
             font-weight: 700;
         }
 
-        /* --- Hero Section --- */
-        .hero {
+        /* Contenedor principal para centrar el texto verticalmente */
+        .hero-container {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            min-height: calc(100vh - 120px);
-            gap: 40px;
-            margin-top: -120px;
-            padding-top: 120px;
+            justify-content: flex-start;
+            min-height: calc(100vh - 102px); /* Altura de header + padding */
         }
-
+        
         .hero-text {
-            flex: 1;
-            max-width: 500px;
-            position: relative;
-            z-index: 10;
+            max-width: 550px;
         }
 
         .hero-text h1 {
-            font-size: 4rem;
+            font-size: 4.5rem; /* Título un poco más grande */
             font-weight: 700;
             line-height: 1.1;
             letter-spacing: 2px;
@@ -158,35 +160,16 @@
             font-weight: 500;
             letter-spacing: 1px;
             transition: background-color 0.3s ease, color 0.3s ease;
+            border-radius: 25px;
         }
 
         .cta-button:hover {
             background-color: var(--accent-color);
             color: var(--background-color);
         }
-
-        .hero-visual {
-            flex: 1.2;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            position: absolute;
-            right: 0;
-            top: 0;
-            width: 60%;
-            height: 100%;
-            z-index: 1;
-        }
-
-        #generative-canvas {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
         
-        /* --- Social Links --- */
         .social-links {
-            position: absolute;
+            position: fixed; /* Lo fijamos a la ventana */
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
@@ -202,65 +185,46 @@
             color: var(--text-color);
         }
 
-        /* --- Responsive Design --- */
         @media (max-width: 768px) {
-            body { overflow-y: auto; }
+            body { overflow-y: auto; overflow-x: hidden; }
             .main-header {
                 flex-direction: column;
                 gap: 20px;
+                padding-bottom: 0;
             }
-
-            .hero {
-                flex-direction: column;
-                text-align: center;
+            .hero-container {
                 min-height: auto;
-                padding: 40px 0;
-                margin-top: 0;
+                padding: 60px 0;
+                text-align: center;
+                justify-content: center;
             }
-            
-            .hero-visual {
-                position: relative;
-                order: 1;
-                width: 100%;
-                height: 40vh;
-                margin-bottom: 30px;
-            }
-
-            #generative-canvas {
-                width: 100%;
-                height: 100%;
-            }
-
-            .hero-text {
-                max-width: 100%;
-                order: 2;
-            }
-            
             .hero-text p {
                 margin-left: auto;
                 margin-right: auto;
             }
-
             .social-links {
-                position: relative;
+                position: relative; /* Lo devolvemos al flujo normal */
                 bottom: auto;
                 left: auto;
                 transform: none;
                 padding-top: 40px;
             }
         }
-
     </style>
 </head>
 <body>
 
+    <!-- El canvas ahora está fuera del flujo principal para actuar como fondo -->
+    <canvas id="generative-canvas"></canvas>
+
     <header class="main-header container">
         <div class="logo">
             <a href="#">
+                <!-- Asegúrate de tener esta imagen en la ruta correcta -->
                 <img src="assets/img/logo03.png" alt="Alter.Lab Logo">
                 <span class="logo-text">ALTER.LAB</span>
             </a>
-        </div>
+        }
         <nav class="main-nav">
             <ul>
                 <li><a href="#" id="nav-about"></a></li>
@@ -274,14 +238,11 @@
         </nav>
     </header>
 
-    <main class="hero container">
+    <main class="hero-container container">
         <div class="hero-text">
             <h1 id="hero-title"></h1>
             <p id="hero-subtitle"></p>
             <a href="#" class="cta-button" id="cta-button"></a>
-        </div>
-        <div class="hero-visual">
-            <canvas id="generative-canvas"></canvas>
         </div>
     </main>
     
@@ -295,19 +256,17 @@
         document.addEventListener('DOMContentLoaded', function() {
             
             // --- LOGICA DE CAMBIO DE IDIOMA ---
-
             const translations = {
-                en: { navAbout: 'ABOUT', navGallery: 'GALLERY', navContact: 'CONTACT', heroTitle: 'GENERATIVE ART LAB', heroSubtitle: 'Exploring the intersection of creativity and technology', ctaButton: 'LEARN MORE' },
+                en: { navAbout: 'ABOUT', navGallery: 'GALLERY', navContact: 'CONTACT', heroTitle: 'GENERATIVE ART LABORATORY', heroSubtitle: 'Exploring the intersection of creativity and technology', ctaButton: 'LEARN MORE' },
                 es: { navAbout: 'ACERCA DE', navGallery: 'GALERÍA', navContact: 'CONTACTO', heroTitle: 'LABORATORIO DE ARTE GENERATIVO', heroSubtitle: 'Explorando la intersección entre creatividad y tecnología', ctaButton: 'SABER MÁS' }
             };
             const elementsToTranslate = { navAbout: document.getElementById('nav-about'), navGallery: document.getElementById('nav-gallery'), navContact: document.getElementById('nav-contact'), heroTitle: document.getElementById('hero-title'), heroSubtitle: document.getElementById('hero-subtitle'), ctaButton: document.getElementById('cta-button') };
             const langEnButton = document.getElementById('lang-en');
             const langEsButton = document.getElementById('lang-es');
-            
             function setLanguage(lang) {
                 const langData = translations[lang];
                 Object.keys(elementsToTranslate).forEach(key => {
-                    elementsToTranslate[key].textContent = langData[key];
+                    if (elementsToTranslate[key]) elementsToTranslate[key].textContent = langData[key];
                 });
                 langEnButton.classList.toggle('active', lang === 'en');
                 langEsButton.classList.toggle('active', lang === 'es');
@@ -317,87 +276,81 @@
             langEsButton.addEventListener('click', () => setLanguage('es'));
             setLanguage('es');
 
-            // --- LOGICA DE LA ANIMACIÓN DEL CANVAS (Versión de líneas) ---
-
+            // --- LOGICA DE LA ANIMACIÓN (SISTEMA DE PARTÍCULAS CON FLOW FIELD) - VERSIÓN CORREGIDA ---
+            
             const canvas = document.getElementById('generative-canvas');
             const ctx = canvas.getContext('2d');
+            let particles = [];
             let time = 0;
-            let layers = [];
 
-            const NUM_LAYERS = 15;
-            const POINTS_PER_LAYER = 70;
-            const MAX_RADIUS = 250;
-            const NOISE_AMOUNT = 0.4;
-            const ANIMATION_SPEED = 0.002;
-            const COLORS = [
-                '#1E3A8A', '#1D4ED8', '#2563EB', '#3B82F6', '#60A5FA',
-                '#9333EA', '#A855F7', '#C084FC', '#6D28D9', '#8B5CF6',
-                '#D946EF', '#E879F9', '#DB2777', '#EC4899', '#F472B6',
-                '#E11D48', '#F43F5E', '#FB7185', '#F97316', '#FB923C'
-            ].reverse();
+            // --- LIBRERÍA DE RUIDO SIMPLEX (ROBUSTA Y ESTÁNDAR) ---
+            const SimplexNoise = (function(){"use strict";var F2=0.5*(Math.sqrt(3)-1),G2=(3-Math.sqrt(3))/6,F3=1/3,G3=1/6,grad3=new Float32Array([1,1,0,-1,1,0,1,-1,0,-1,-1,0,1,0,1,-1,0,1,1,0,-1,-1,0,-1,0,1,1,0,-1,1]),p=new Uint8Array(256);for(var i=0;i<256;i++)p[i]=i;var perm=new Uint8Array(512),permMod12=new Uint8Array(512);for(i=0;i<512;i++)perm[i]=p[i&255],permMod12[i]=perm[i]%12;function SimplexNoise(random){if("function"!=typeof random)random=Math.random;this.p=new Uint8Array(256);this.perm=new Uint8Array(512);this.permMod12=new Uint8Array(512);for(var i=0;i<256;i++)this.p[i]=i;this.shuffle(random);for(i=0;i<512;i++)this.perm[i]=this.p[i&255],this.permMod12[i]=this.perm[i]%12}return SimplexNoise.prototype={constructor:SimplexNoise,shuffle:function(random){for(var i,j,p=this.p,n=255;n>0;n--)i=Math.floor(random()*(n+1)),j=p[n],p[n]=p[i],p[i]=j},noise2D:function(xin,yin){var n0=0,n1=0,n2=0,s=(xin+yin)*F2,i=Math.floor(xin+s),j=Math.floor(yin+s),t=(i+j)*G2,X0=i-t,Y0=j-t,x0=xin-X0,y0=yin-Y0,i1,j1;x0>y0?(i1=1,j1=0):(i1=0,j1=1);var x1=x0-i1+G2,y1=y0-j1+G2,x2=x0-1+2*G2,y2=y0-1+2*G2,ii=i&255,jj=j&255,gi0=this.permMod12[ii+this.perm[jj]],gi1=this.permMod12[ii+i1+this.perm[jj+j1]],gi2=this.permMod12[ii+1+this.perm[jj+1]],t0=0.5-x0*x0-y0*y0;if(t0<0)n0=0;else{t0*=t0;n0=t0*t0*(grad3[gi0]*x0+grad3[gi0+1]*y0)}var t1=0.5-x1*x1-y1*y1;if(t1<0)n1=0;else{t1*=t1;n1=t1*t1*(grad3[gi1]*x1+grad3[gi1+1]*y1)}var t2=0.5-x2*x2-y2*y2;if(t2<0)n2=0;else{t2*=t2;n2=t2*t2*(grad3[gi2]*x2+grad3[gi2+1]*y2)}return 70*(n0+n1+n2)},noise3D:function(xin,yin,zin){var n0,n1,n2,n3,s=(xin+yin+zin)*F3,i=Math.floor(xin+s),j=Math.floor(yin+s),k=Math.floor(zin+s),t=(i+j+k)*G3,X0=i-t,Y0=j-t,Z0=k-t,x0=xin-X0,y0=yin-Y0,z0=zin-Z0,i1,j1,k1,i2,j2,k2;x0>=y0?y0>=z0?(i1=1,j1=0,k1=0,i2=1,j2=1,k2=0):x0>=z0?(i1=1,j1=0,k1=0,i2=1,j2=0,k2=1):(i1=0,j1=0,k1=1,i2=1,j2=0,k2=1):y0<z0?(i1=0,j1=0,k1=1,i2=0,j2=1,k2=1):x0<z0?(i1=0,j1=1,k1=0,i2=0,j2=1,k2=1):(i1=0,j1=1,k1=0,i2=1,j2=1,k2=0);var x1=x0-i1+G3,y1=y0-j1+G3,z1=z0-k1+G3,x2=x0-i2+2*G3,y2=y0-j2+2*G3,z2=z0-k2+2*G3,x3=x0-1+3*G3,y3=y0-1+3*G3,z3=z0-1+3*G3,ii=i&255,jj=j&255,kk=k&255,gi0=this.permMod12[ii+this.perm[jj+this.perm[kk]]],gi1=this.permMod12[ii+i1+this.perm[jj+j1+this.perm[kk+k1]]],gi2=this.permMod12[ii+i2+this.perm[jj+j2+this.perm[kk+k2]]],gi3=this.permMod12[ii+1+this.perm[jj+1+this.perm[kk+1]]],t0=0.6-x0*x0-y0*y0-z0*z0;if(t0<0)n0=0;else{t0*=t0;n0=t0*t0*(grad3[gi0]*x0+grad3[gi0+1]*y0+grad3[gi0+2]*z0)}var t1=0.6-x1*x1-y1*y1-z1*z1;if(t1<0)n1=0;else{t1*=t1;n1=t1*t1*(grad3[gi1]*x1+grad3[gi1+1]*y1+grad3[gi1+2]*z1)}var t2=0.6-x2*x2-y2*y2-z2*z2;if(t2<0)n2=0;else{t2*=t2;n2=t2*t2*(grad3[gi2]*x2+grad3[gi2+1]*y2+grad3[gi2+2]*z2)}var t3=0.6-x3*x3-y3*y3-z3*z3;if(t3<0)n3=0;else{t3*=t3;n3=t3*t3*(grad3[gi3]*x3+grad3[gi3+1]*y3+grad3[gi3+2]*z3)}return 32*(n0+n1+n2+n3)}},SimplexNoise;})();
+            const noise = new SimplexNoise();
+
+            // --- PARÁMETROS AJUSTABLES ---
+            const PARTICLE_COUNT = 3000;
+            const PARTICLE_SPEED = 0.8;
+            const PARTICLE_SIZE = 1.5;
+            const NOISE_SCALE = 0.004;
+            const FADE_ALPHA = 0.03; 
+            const COLORS = ['#3B82F6', '#6D28D9', '#D946EF', '#E11D48', '#F97316'];
+
+            class Particle {
+                constructor() {
+                    this.reset();
+                }
+
+                reset() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                }
+
+                update() {
+                    const angle = noise.noise3D(this.x * NOISE_SCALE, this.y * NOISE_SCALE, time) * Math.PI * 2;
+                    
+                    const vx = Math.cos(angle) * PARTICLE_SPEED;
+                    const vy = Math.sin(angle) * PARTICLE_SPEED;
+                    
+                    this.x += vx;
+                    this.y += vy;
+
+                    if (this.x < 0 || this.x > canvas.width || this.y < 0 || this.y > canvas.height) {
+                        this.reset();
+                    }
+                }
+
+                draw() {
+                    const colorIndex = Math.floor(noise.noise3D(this.x * 0.005, this.y * 0.005, time + 10) * 10 + COLORS.length / 2);
+                    ctx.fillStyle = COLORS[colorIndex % COLORS.length] || COLORS[0];
+                    ctx.fillRect(this.x, this.y, PARTICLE_SIZE, PARTICLE_SIZE);
+                }
+            }
 
             function resizeCanvas() {
-                const container = canvas.parentElement;
-                const size = Math.min(container.offsetWidth, container.offsetHeight) * 0.9;
-                canvas.width = size;
-                canvas.height = size;
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
                 init();
             }
 
             function init() {
-                layers = [];
-                const centerX = canvas.width / 2;
-                const centerY = canvas.height / 2;
-
-                for (let i = 0; i < NUM_LAYERS; i++) {
-                    const radius = (MAX_RADIUS / NUM_LAYERS) * (i + 1);
-                    const layerPoints = [];
-                    for (let j = 0; j < POINTS_PER_LAYER; j++) {
-                        const angle = (Math.PI * 2 / POINTS_PER_LAYER) * j;
-                        layerPoints.push({
-                            baseX: centerX + Math.cos(angle) * radius,
-                            baseY: centerY + Math.sin(angle) * radius,
-                            x: centerX + Math.cos(angle) * radius,
-                            y: centerY + Math.sin(angle) * radius,
-                            noiseOffsetX: Math.random() * 1000,
-                            noiseOffsetY: Math.random() * 1000
-                        });
-                    }
-                    layers.push(layerPoints);
+                particles = [];
+                for (let i = 0; i < PARTICLE_COUNT; i++) {
+                    particles.push(new Particle());
                 }
+                ctx.fillStyle = '#0F121B';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
             function animate() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                time += ANIMATION_SPEED;
-
-                layers.forEach((points, i) => {
-                    points.forEach(p => {
-                        const noiseX = (Math.sin(p.noiseOffsetX + time * (i * 0.1 + 1))) * (p.baseX - canvas.width / 2) * NOISE_AMOUNT;
-                        const noiseY = (Math.cos(p.noiseOffsetY + time * (i * 0.1 + 1))) * (p.baseY - canvas.height / 2) * NOISE_AMOUNT;
-                        p.x = p.baseX + noiseX;
-                        p.y = p.baseY + noiseY;
-                    });
-
-                    ctx.beginPath();
-                    ctx.moveTo(points[0].x, points[0].y);
-
-                    for (let j = 1; j < POINTS_PER_LAYER -1; j++) {
-                        const xc = (points[j].x + points[j + 1].x) / 2;
-                        const yc = (points[j].y + points[j + 1].y) / 2;
-                        ctx.quadraticCurveTo(points[j].x, points[j].y, xc, yc);
-                    }
-                    const xc = (points[POINTS_PER_LAYER - 1].x + points[0].x) / 2;
-                    const yc = (points[POINTS_PER_LAYER - 1].y + points[0].y) / 2;
-                    ctx.quadraticCurveTo(points[POINTS_PER_LAYER-1].x, points[POINTS_PER_LAYER-1].y, xc, yc);
-                    ctx.quadraticCurveTo(xc, yc, points[0].x, points[0].y);
-                    
-                    ctx.closePath();
-                    
-                    ctx.strokeStyle = COLORS[i % COLORS.length];
-                    ctx.lineWidth = 1.5;
-                    ctx.stroke();
+                ctx.fillStyle = `rgba(15, 18, 27, ${FADE_ALPHA})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                particles.forEach(p => {
+                    p.update();
+                    p.draw();
                 });
+
+                time += 0.002;
 
                 requestAnimationFrame(animate);
             }
