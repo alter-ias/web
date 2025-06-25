@@ -32,22 +32,25 @@
             overflow-x: hidden;
         }
         
-        /* --- NUEVO CSS PARA EL CANVAS DE FONDO --- */
+        /* --- NUEVO: Evita el scroll cuando el menú está abierto --- */
+        body.no-scroll {
+            overflow: hidden;
+        }
+        
         #generative-canvas {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -1; /* Lo pone detrás de todo */
+            z-index: -1;
         }
 
-        /* --- CSS DEL CONTENIDO (SIN CAMBIOS, AHORA SOBRE EL CANVAS) --- */
         .container {
             width: 90%;
             max-width: 1200px;
             margin: 0 auto;
-            position: relative; /* Necesario para el z-index */
+            position: relative;
             z-index: 2;
         }
 
@@ -75,6 +78,7 @@
             color: var(--text-color);
         }
 
+        /* --- Estilos para la navegación de Escritorio --- */
         .main-nav ul {
             list-style: none;
             display: flex;
@@ -122,10 +126,26 @@
             font-weight: 700;
         }
 
+        /* --- NUEVO: Botones de menú móvil (hamburguesa y cierre) --- */
+        .hamburger-menu, .close-menu {
+            display: none; /* Ocultos por defecto */
+            background: none;
+            border: none;
+            color: var(--text-color);
+            font-size: 2.5rem;
+            cursor: pointer;
+            z-index: 1001; /* Asegura que esté por encima de todo */
+        }
+        .close-menu {
+            position: absolute;
+            top: 20px;
+            right: 5%;
+        }
+
         .hero {
             display: flex;
             align-items: center;
-            min-height: calc(100vh - 182px); /* Ajustado para centrar verticalmente */
+            min-height: calc(100vh - 102px); /* Ajustado para el padding del header */
             padding: 40px 0;
         }
 
@@ -167,7 +187,7 @@
         }
         
         .social-links {
-            position: fixed; /* Fijado a la ventana */
+            position: fixed;
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
@@ -183,35 +203,117 @@
             color: var(--text-color);
         }
 
+        /* ------------------------------------------- */
+        /* --- ESTILOS RESPONSIVOS PARA MÓVILES --- */
+        /* ------------------------------------------- */
         @media (max-width: 768px) {
-            body { overflow-y: auto; }
             .main-header {
-                flex-direction: column;
-                gap: 20px;
+                padding: 20px 0; /* Menos padding en móvil */
             }
+
+            /* --- NUEVO: Mostrar botón de hamburguesa --- */
+            .hamburger-menu {
+                display: block;
+            }
+
+            /* --- MODIFICADO: Estilos del menú para móvil --- */
+            .main-nav {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(15, 18, 27, 0.98); /* Fondo oscuro semi-transparente */
+                backdrop-filter: blur(10px);
+                z-index: 1000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                /* Oculto por defecto y se anima al entrar */
+                transform: translateX(100%);
+                transition: transform 0.3s ease-in-out;
+            }
+
+            /* --- NUEVO: Clase para mostrar el menú --- */
+            .main-nav.nav-open {
+                transform: translateX(0);
+            }
+
+            /* --- MODIFICADO: Reestructurar la lista de navegación para móvil --- */
+            .main-nav ul {
+                flex-direction: column;
+                gap: 30px; /* Espacio entre elementos */
+            }
+
+            .main-nav li {
+                margin-left: 0;
+                text-align: center;
+            }
+
+            .main-nav a {
+                font-size: 1.5rem; /* Letras más grandes para tocar fácil */
+                font-weight: 700;
+                color: var(--text-color);
+            }
+            
+            .lang-switcher {
+                margin-top: 20px;
+            }
+
+            /* --- MODIFICADO: Ajustes del Hero --- */
             .hero {
                 text-align: center;
-                min-height: auto;
+                min-height: calc(100vh - 200px); /* Ajuste de altura para móvil */
                 padding: 60px 0;
                 justify-content: center;
+                flex-direction: column;
+            }
+            .hero-text {
+                max-width: 100%;
+            }
+            
+            /* --- MODIFICADO: Ajustes de tipografía --- */
+            .hero-text h1 {
+                font-size: 2.8rem;
             }
             .hero-text p {
+                font-size: 1.1rem;
                 margin-left: auto;
                 margin-right: auto;
             }
+
+            /* --- MODIFICADO: Enlaces sociales en móvil --- */
             .social-links {
-                /* En móvil, lo devolvemos al flujo normal */
                 position: relative;
                 bottom: auto;
                 left: auto;
                 transform: none;
-                padding-top: 40px;
+                padding: 40px 0 30px;
+                text-align: center;
+            }
+            .social-links a {
+                margin: 0 15px; /* Menos espacio entre iconos */
+            }
+        }
+
+        /* --- NUEVO: Ajustes finos para pantallas muy pequeñas --- */
+        @media (max-width: 480px) {
+            .logo .logo-text {
+                font-size: 1.2rem;
+            }
+            .hero-text h1 {
+                font-size: 2.2rem;
+            }
+            .hero-text p {
+                font-size: 1rem;
+            }
+            .cta-button {
+                padding: 12px 28px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Canvas como primer elemento para el fondo -->
     <canvas id="generative-canvas"></canvas>
 
     <header class="main-header container">
@@ -221,7 +323,11 @@
                 <span class="logo-text">ALTER.LAB</span>
             </a>
         </div>
-        <nav class="main-nav">
+        
+        <!-- CAMBIO: Se movió el nav y se añadieron botones de menú -->
+        <nav class="main-nav" id="main-nav">
+            <!-- NUEVO: Botón para cerrar el menú en móvil -->
+            <button class="close-menu" id="close-menu" aria-label="Cerrar menú">×</button>
             <ul>
                 <li><a href="#" id="nav-about"></a></li>
                 <li><a href="#" id="nav-gallery"></a></li>
@@ -232,6 +338,10 @@
                 </li>
             </ul>
         </nav>
+        <!-- NUEVO: Botón de hamburguesa para abrir el menú en móvil -->
+        <button class="hamburger-menu" id="hamburger-menu" aria-label="Abrir menú">
+            ☰ <!-- Código HTML para el ícono de hamburguesa -->
+        </button>
     </header>
 
     <main class="hero container">
@@ -250,6 +360,31 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            
+            // --- NUEVO: LÓGICA PARA EL MENÚ HAMBURGUESA ---
+            const hamburgerMenu = document.getElementById('hamburger-menu');
+            const closeMenu = document.getElementById('close-menu');
+            const mainNav = document.getElementById('main-nav');
+            const navLinks = mainNav.querySelectorAll('a');
+
+            function openMobileMenu() {
+                mainNav.classList.add('nav-open');
+                document.body.classList.add('no-scroll');
+            }
+
+            function closeMobileMenu() {
+                mainNav.classList.remove('nav-open');
+                document.body.classList.remove('no-scroll');
+            }
+
+            hamburgerMenu.addEventListener('click', openMobileMenu);
+            closeMenu.addEventListener('click', closeMobileMenu);
+            // Cierra el menú si se hace clic en un enlace (útil para páginas de una sola sección)
+            navLinks.forEach(link => {
+                link.addEventListener('click', closeMobileMenu);
+            });
+
+
             // --- LOGICA DE CAMBIO DE IDIOMA (Sin cambios) ---
             const translations = {
                 en: { navAbout: 'ABOUT', navGallery: 'GALLERY', navContact: 'CONTACT', heroTitle: 'GENERATIVE ART LABORATORY', heroSubtitle: 'Exploring the intersection of creativity and technology', ctaButton: 'LEARN MORE' },
@@ -269,25 +404,21 @@
             langEsButton.addEventListener('click', () => setLanguage('es'));
             setLanguage('es');
 
-            // --- LÓGICA DE LA ANIMACIÓN (VERSIÓN FINAL REFINADA) ---
-            
+            // --- LÓGICA DE LA ANIMACIÓN (Sin cambios) ---
             const canvas = document.getElementById('generative-canvas');
             const ctx = canvas.getContext('2d');
             let particles = [];
             let time = Math.random() * 100;
 
-            // Librería de Ruido Simplex (No necesita cambios)
             const SimplexNoise = (function(){"use strict";var F2=0.5*(Math.sqrt(3)-1),G2=(3-Math.sqrt(3))/6,F3=1/3,G3=1/6,grad3=new Float32Array([1,1,0,-1,1,0,1,-1,0,-1,-1,0,1,0,1,-1,0,1,1,0,-1,-1,0,-1,0,1,1,0,-1,1]),p=new Uint8Array(256);for(var i=0;i<256;i++)p[i]=i;var perm=new Uint8Array(512),permMod12=new Uint8Array(512);for(i=0;i<512;i++)perm[i]=p[i&255],permMod12[i]=perm[i]%12;function SimplexNoise(random){if("function"!=typeof random)random=Math.random;this.p=new Uint8Array(256);this.perm=new Uint8Array(512);this.permMod12=new Uint8Array(512);for(var i=0;i<256;i++)this.p[i]=i;this.shuffle(random);for(i=0;i<512;i++)this.perm[i]=this.p[i&255],this.permMod12[i]=this.perm[i]%12}return SimplexNoise.prototype={constructor:SimplexNoise,shuffle:function(random){for(var i,j,p=this.p,n=255;n>0;n--)i=Math.floor(random()*(n+1)),j=p[n],p[n]=p[i],p[i]=j},noise3D:function(xin,yin,zin){var n0,n1,n2,n3,s=(xin+yin+zin)*F3,i=Math.floor(xin+s),j=Math.floor(yin+s),k=Math.floor(zin+s),t=(i+j+k)*G3,X0=i-t,Y0=j-t,Z0=k-t,x0=xin-X0,y0=yin-Y0,z0=zin-Z0,i1,j1,k1,i2,j2,k2;x0>=y0?y0>=z0?(i1=1,j1=0,k1=0,i2=1,j2=1,k2=0):x0>=z0?(i1=1,j1=0,k1=0,i2=1,j2=0,k2=1):(i1=0,j1=0,k1=1,i2=1,j2=0,k2=1):y0<z0?(i1=0,j1=0,k1=1,i2=0,j2=1,k2=1):x0<z0?(i1=0,j1=1,k1=0,i2=0,j2=1,k2=1):(i1=0,j1=1,k1=0,i2=1,j2=1,k2=0);var x1=x0-i1+G3,y1=y0-j1+G3,z1=z0-k1+G3,x2=x0-i2+2*G3,y2=y0-j2+2*G3,z2=z0-k2+2*G3,x3=x0-1+3*G3,y3=y0-1+3*G3,z3=z0-1+3*G3,ii=i&255,jj=j&255,kk=k&255,gi0=this.permMod12[ii+this.perm[jj+this.perm[kk]]],gi1=this.permMod12[ii+i1+this.perm[jj+j1+this.perm[kk+k1]]],gi2=this.permMod12[ii+i2+this.perm[jj+j2+this.perm[kk+k2]]],gi3=this.permMod12[ii+1+this.perm[jj+1+this.perm[kk+1]]],t0=0.6-x0*x0-y0*y0-z0*z0;if(t0<0)n0=0;else{t0*=t0;n0=t0*t0*(grad3[gi0]*x0+grad3[gi0+1]*y0+grad3[gi0+2]*z0)}var t1=0.6-x1*x1-y1*y1-z1*z1;if(t1<0)n1=0;else{t1*=t1;n1=t1*t1*(grad3[gi1]*x1+grad3[gi1+1]*y1+grad3[gi1+2]*z1)}var t2=0.6-x2*x2-y2*y2-z2*z2;if(t2<0)n2=0;else{t2*=t2;n2=t2*t2*(grad3[gi2]*x2+grad3[gi2+1]*y2+grad3[gi2+2]*z2)}var t3=0.6-x3*x3-y3*y3-z3*z3;if(t3<0)n3=0;else{t3*=t3;n3=t3*t3*(grad3[gi3]*x3+grad3[gi3+1]*y3+grad3[gi3+2]*z3)}return 32*(n0+n1+n2+n3)}},SimplexNoise;})();
             const noise = new SimplexNoise();
-
-            // --- PARÁMETROS AJUSTABLES PARA EL EFECTO FINAL ---
-              const PARTICLE_COUNT = 2500;
+            
+            const PARTICLE_COUNT = 2500;
             const PARTICLE_SPEED = 0.6;
             const PARTICLE_SIZE = 1.5;
             const NOISE_SCALE = 0.02;
-            const FADE_ALPHA = 0.02; // Más bajo = estelas más largas y lentas
+            const FADE_ALPHA = 0.02; 
             const COLORS = ['#3B82F6', '#6D28D9', '#D946EF', '#E11D48'];
-
 
             class Particle {
                 constructor() { this.reset(); }
@@ -316,22 +447,20 @@
 
             function init() {
                 particles = [];
-                const count = Math.min(PARTICLE_COUNT, (window.innerWidth / 1280) * PARTICLE_COUNT);
+                // Reducir el número de partículas en móviles para mejorar el rendimiento
+                const count = window.innerWidth < 768 ? PARTICLE_COUNT / 2 : PARTICLE_COUNT;
                 for (let i = 0; i < count; i++) {
                     particles.push(new Particle());
                 }
-                // Pinta el color de fondo original una vez
                 ctx.fillStyle = '#0F121B';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
             function animate() {
-                // Desvanece a negro puro para un contraste limpio
                 ctx.fillStyle = `rgba(15, 18, 27, ${FADE_ALPHA})`;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
                 particles.forEach(p => { p.update(); p.draw(); });
-                time += 0.0008; // Movimiento más lento y orgánico del campo de ruido
+                time += 0.0008;
                 requestAnimationFrame(animate);
             }
 
