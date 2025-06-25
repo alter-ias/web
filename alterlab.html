@@ -257,8 +257,7 @@
     <header class="main-header container">
         <div class="logo">
             <a href="#">
-                <!-- Asegúrate de tener esta imagen en la ruta correcta -->
-                <img src="assets/img/logo03.png" alt="Alter.Lab Logo">
+                <img src="assets/images/logo.png" alt="Alter.Lab Logo">
                 <span class="logo-text">ALTER.LAB</span>
             </a>
         </div>
@@ -318,21 +317,18 @@
             langEsButton.addEventListener('click', () => setLanguage('es'));
             setLanguage('es');
 
-            // --- LOGICA DE LA ANIMACIÓN DEL CANVAS (Versión de figuras líquidas / Metaballs) ---
+            // --- LOGICA DE LA ANIMACIÓN DEL CANVAS (Versión de líneas) ---
 
             const canvas = document.getElementById('generative-canvas');
             const ctx = canvas.getContext('2d');
-            let blobs = [];
+            let time = 0;
+            let layers = [];
 
-            // --- PARÁMETROS AJUSTABLES ---
-            const NUM_BLOBS = 10; // Cantidad de "gotas" líquidas
-            const MIN_SPEED = 0.5; // Velocidad mínima de las gotas
-            const MAX_SPEED = 1.5; // Velocidad máxima
-            const MIN_RADIUS = 40; // Radio mínimo
-            const MAX_RADIUS = 80; // Radio máximo
-            const BLUR_AMOUNT = 30;  // Nivel de desenfoque (clave para el efecto)
-            const CONTRAST_AMOUNT = 25; // Nivel de contraste (clave para el efecto)
-            // Se mantiene la paleta de colores original
+            const NUM_LAYERS = 15;
+            const POINTS_PER_LAYER = 70;
+            const MAX_RADIUS = 250;
+            const NOISE_AMOUNT = 0.4;
+            const ANIMATION_SPEED = 0.002;
             const COLORS = [
                 '#1E3A8A', '#1D4ED8', '#2563EB', '#3B82F6', '#60A5FA',
                 '#9333EA', '#A855F7', '#C084FC', '#6D28D9', '#8B5CF6',
@@ -340,87 +336,73 @@
                 '#E11D48', '#F43F5E', '#FB7185', '#F97316', '#FB923C'
             ].reverse();
 
-            // Clase para representar cada "gota" o blob
-            class Blob {
-                constructor() {
-                    this.x = Math.random() * canvas.width;
-                    this.y = Math.random() * canvas.height;
-                    const angle = Math.random() * 2 * Math.PI;
-                    const speed = MIN_SPEED + Math.random() * (MAX_SPEED - MIN_SPEED);
-                    this.vx = Math.cos(angle) * speed;
-                    this.vy = Math.sin(angle) * speed;
-                    this.radius = MIN_RADIUS + Math.random() * (MAX_RADIUS - MIN_RADIUS);
-                    this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
-                }
-
-                // Mueve el blob y lo hace rebotar en los bordes del canvas
-                update() {
-                    this.x += this.vx;
-                    this.y += this.vy;
-
-                    if (this.x < this.radius || this.x > canvas.width - this.radius) {
-                        this.vx *= -1;
-                    }
-                    if (this.y < this.radius || this.y > canvas.height - this.radius) {
-                        this.vy *= -1;
-                    }
-                }
-
-                // Dibuja el blob en el canvas
-                draw() {
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = this.color;
-                    ctx.fill();
-                }
-            }
-            
             function resizeCanvas() {
                 const container = canvas.parentElement;
-                // Hacemos el canvas ligeramente más grande que el contenedor para que los bordes del efecto no se vean cortados
-                const size = Math.min(container.offsetWidth, container.offsetHeight) * 1.2; 
+                const size = Math.min(container.offsetWidth, container.offsetHeight) * 0.9;
                 canvas.width = size;
                 canvas.height = size;
                 init();
             }
 
             function init() {
-                blobs = [];
-                for (let i = 0; i < NUM_BLOBS; i++) {
-                    blobs.push(new Blob());
+                layers = [];
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+
+                for (let i = 0; i < NUM_LAYERS; i++) {
+                    const radius = (MAX_RADIUS / NUM_LAYERS) * (i + 1);
+                    const layerPoints = [];
+                    for (let j = 0; j < POINTS_PER_LAYER; j++) {
+                        const angle = (Math.PI * 2 / POINTS_PER_LAYER) * j;
+                        layerPoints.push({
+                            baseX: centerX + Math.cos(angle) * radius,
+                            baseY: centerY + Math.sin(angle) * radius,
+                            x: centerX + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius,
+                            noiseOffsetX: Math.random() * 1000,
+                            noiseOffsetY: Math.random() * 1000
+                        });
+                    }
+                    layers.push(layerPoints);
                 }
             }
 
             function animate() {
-                // Limpiamos el canvas en cada fotograma
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                // --- LA MAGIA OCURRE AQUÍ ---
-                // Aplicamos el filtro de desenfoque y contraste al contexto del canvas.
-                // Esto hace que todas las formas dibujadas a continuación se mezclen.
-                ctx.filter = `blur(${BLUR_AMOUNT}px) contrast(${CONTRAST_AMOUNT})`;
+                time += ANIMATION_SPEED;
 
-                // Dibujamos todos los blobs
-                blobs.forEach(blob => {
-                    blob.draw();
+                layers.forEach((points, i) => {
+                    points.forEach(p => {
+                        const noiseX = (Math.sin(p.noiseOffsetX + time * (i * 0.1 + 1))) * (p.baseX - canvas.width / 2) * NOISE_AMOUNT;
+                        const noiseY = (Math.cos(p.noiseOffsetY + time * (i * 0.1 + 1))) * (p.baseY - canvas.height / 2) * NOISE_AMOUNT;
+                        p.x = p.baseX + noiseX;
+                        p.y = p.baseY + noiseY;
+                    });
+
+                    ctx.beginPath();
+                    ctx.moveTo(points[0].x, points[0].y);
+
+                    for (let j = 1; j < POINTS_PER_LAYER -1; j++) {
+                        const xc = (points[j].x + points[j + 1].x) / 2;
+                        const yc = (points[j].y + points[j + 1].y) / 2;
+                        ctx.quadraticCurveTo(points[j].x, points[j].y, xc, yc);
+                    }
+                    const xc = (points[POINTS_PER_LAYER - 1].x + points[0].x) / 2;
+                    const yc = (points[POINTS_PER_LAYER - 1].y + points[0].y) / 2;
+                    ctx.quadraticCurveTo(points[POINTS_PER_LAYER-1].x, points[POINTS_PER_LAYER-1].y, xc, yc);
+                    ctx.quadraticCurveTo(xc, yc, points[0].x, points[0].y);
+                    
+                    ctx.closePath();
+                    
+                    ctx.strokeStyle = COLORS[i % COLORS.length];
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
                 });
-                
-                // Quitamos el filtro para que no afecte a otros elementos si los hubiera
-                ctx.filter = 'none';
 
-                // Actualizamos la posición de los blobs para el siguiente fotograma
-                blobs.forEach(blob => {
-                    blob.update();
-                });
-
-                // Solicitamos el siguiente fotograma de la animación
                 requestAnimationFrame(animate);
             }
 
-            // Event listener para redimensionar el canvas si cambia el tamaño de la ventana
             window.addEventListener('resize', resizeCanvas);
-            
-            // Inicializamos y comenzamos la animación
             resizeCanvas();
             animate();
         });
