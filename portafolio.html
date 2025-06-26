@@ -1,70 +1,221 @@
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // ----- TRADUCCIONES (sin cambios) -----
-        const translations = {
-            es: { introText: 'Estos son algunos de los últimos proyectos del Laboratorio de Arte Generativo. Haz clic en cualquiera de ellos para verlos en acción.', catMusic: 'Videos Musicales', catShorts: 'Cortos Animados', catWeb: 'Páginas Web', catMusicProjects: 'Proyectos Musicales', ctaQuote: 'COTIZA TU PROYECTO' },
-            en: { introText: 'These are some of the latest projects from the Generative Art Laboratory. Click on any of them to see them in action.', catMusic: 'Music Videos', catShorts: 'Animated Shorts', catWeb: 'Websites', catMusicProjects: 'Musical Projects', ctaQuote: 'QUOTE YOUR PROJECT' },
-            fr: { introText: "Voici quelques-uns des derniers projets du Laboratoire d'Art Génératif. Cliquez sur l'un d'eux pour le voir en action.", catMusic: 'Vidéos Musicales', catShorts: "Courts métrages d'animation", catWeb: 'Sites Web', catMusicProjects: 'Projets Musicaux', ctaQuote: 'DEMANDEZ UN DEVIS' }
-        };
-        const elementsToTranslate = { introText: document.getElementById('intro-text'), catMusic: document.getElementById('cat-music'), catShorts: document.getElementById('cat-shorts'), catWeb: document.getElementById('cat-web'), catMusicProjects: document.getElementById('cat-music-projects'), ctaQuote: document.getElementById('cta-quote') };
-        const langEnButton = document.getElementById('lang-en'), langEsButton = document.getElementById('lang-es'), langFrButton = document.getElementById('lang-fr');
-        function setLanguage(lang) {
-            const langData = translations[lang];
-            Object.keys(elementsToTranslate).forEach(key => { if (elementsToTranslate[key]) elementsToTranslate[key].textContent = langData[key]; });
-            langEnButton.classList.toggle('active', lang === 'en'); langEsButton.classList.toggle('active', lang === 'es'); langFrButton.classList.toggle('active', lang === 'fr');
-            document.documentElement.lang = lang;
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portafolio - Alter.Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --background-color: #0F121B;
+            --text-color: #FFFFFF;
+            --secondary-text-color: #d1d1d1;
+            --accent-color: #FFFFFF;
         }
-        langEnButton.addEventListener('click', () => setLanguage('en')); langEsButton.addEventListener('click', () => setLanguage('es')); langFrButton.addEventListener('click', () => setLanguage('fr'));
-        setLanguage('es');
 
-        // ----- LÓGICA DE REPRODUCCIÓN CON VIMEO -----
-        const gridItems = document.querySelectorAll('.grid-item');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { color: var(--text-color); font-family: 'Montserrat', sans-serif; overflow-x: hidden; background-color: var(--background-color); }
+        #background-video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; object-fit: cover; }
+        .container { width: 90%; max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; }
+
+        .main-header { display: flex; justify-content: center; align-items: center; padding: 30px 0; text-align: center; }
+        .header-content { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .logo a { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-direction: column; }
+        .logo img { height: 40px; width: auto; }
+        .logo .logo-text { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: var(--text-color); }
+        .lang-switcher button { background: none; border: 1px solid var(--secondary-text-color); color: var(--secondary-text-color); padding: 5px 10px; margin: 0 5px; cursor: pointer; border-radius: 4px; transition: all 0.3s ease; }
+        .lang-switcher button:hover { background-color: var(--accent-color); color: var(--background-color); border-color: var(--accent-color); }
+        .lang-switcher button.active { background-color: var(--text-color); color: var(--background-color); border-color: var(--text-color); font-weight: 700; }
+
+        .intro-text { text-align: center; font-size: 1.1rem; color: var(--secondary-text-color); max-width: 700px; margin: 0 auto 50px auto; line-height: 1.6; }
+
+        .categories-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 40px;
+            max-width: 550px;
+            margin: 0 auto;
+        }
+
+        @media (min-width: 768px) {
+            .categories-container {
+                grid-template-columns: repeat(2, 1fr);
+                max-width: 100%;
+            }
+        }
+
+        .category-block { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 20px; }
+        .category-title { text-align: center; font-size: 1.5rem; margin-bottom: 20px; font-weight: 500; }
+
+        .grid-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            cursor: pointer;
+            aspect-ratio: 16 / 9;
+            background-color: #000;
+        }
         
-        // Guarda el contenido original de cada item (la imagen y el icono)
-        gridItems.forEach(item => {
-            item.originalContent = item.innerHTML;
-        });
+        .grid-item img, .grid-item iframe {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; border: none;
+        }
+        .grid-item img { transition: opacity 0.3s ease; }
+        .grid-item:hover img { opacity: 0.7; }
+        
+        .play-icon {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px; height: 60px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .play-icon::after {
+            content: ''; display: block;
+            width: 0; height: 0;
+            border-style: solid;
+            border-width: 12px 0 12px 20px;
+            border-color: transparent transparent transparent var(--text-color);
+            margin-left: 5px;
+        }
 
-        gridItems.forEach(item => {
-            item.addEventListener('click', function() {
-                // Comprueba si este item ya está reproduciendo un video
-                const isPlaying = this.querySelector('iframe');
+        .grid-item:hover .play-icon { opacity: 1; }
+        
+        .action-link-section { padding: 60px 0; text-align: center; }
+        .cta-button { display: inline-block; border: 1px solid var(--accent-color); padding: 15px 35px; color: var(--text-color); text-decoration: none; font-weight: 500; letter-spacing: 1px; transition: background-color 0.3s ease, color 0.3s ease; border-radius: 25px; font-size: 1.1rem; }
+        .cta-button:hover { background-color: var(--accent-color); color: var(--background-color); }
+        
+    </style>
+</head>
+<body>
+    <video autoplay muted loop playsinline id="background-video">
+        <source src="assets/videos/web05.webm" type="video/webm">
+        <source src="assets/videos/web05.mp4" type="video/mp4">
+        Tu navegador no soporta la etiqueta de video.
+    </video>
 
-                // Resetea todos los items a su estado original (miniatura)
-                gridItems.forEach(otherItem => {
-                    otherItem.innerHTML = otherItem.originalContent;
-                });
+    <header class="main-header container">
+        <div class="header-content">
+            <div class="logo"><a href="alterlab.html"><img src="assets/img/logo03.png" alt="Alter.Lab Logo"><span class="logo-text">ALTER.LAB</span></a></div>
+            <div class="lang-switcher">
+                <button id="lang-en">EN</button><button id="lang-es" class="active">ES</button><button id="lang-fr">FR</button>
+            </div>
+        </div>
+    </header>
 
-                // Si el item clickeado NO estaba reproduciendo, ahora pone el video.
-                // Si SÍ estaba reproduciendo, el bucle anterior ya lo reseteó, por lo que actúa como un "stop".
-                if (!isPlaying) {
-                    const vimeoId = this.dataset.vimeoId;
+    <main class="container" style="padding: 40px 0;">
+        <p class="intro-text" id="intro-text"></p>
+        
+        <div class="categories-container" id="categories-container">
+            <!-- Categoría 1: Videos Musicales -->
+            <div class="category-block">
+                <h2 class="category-title" id="cat-music"></h2>
+                <!-- REEMPLAZA el ID de Vimeo y la ruta de la imagen -->
+                <div class="grid-item" data-vimeo-id="ID_VIMEO_VIDEO_MUSICAL">
+                    <img src="assets/img/thumbnail-music-video.jpg" alt="Miniatura Video Musical">
+                    <div class="play-icon"></div>
+                </div>
+            </div>
 
-                    // Procede solo si hay un ID de Vimeo válido
-                    if (vimeoId) {
-                        // URL optimizada para autoplay:
-                        // &autoplay=1 -> Inicia automáticamente.
-                        // &muted=1 -> NECESARIO para que autoplay funcione en la mayoría de navegadores. El usuario puede quitar el mute manualmente.
-                        // &title=0&byline=0&portrait=0 -> Oculta el título, autor y avatar para un look más limpio.
-                        const embedUrl = `https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1&title=0&byline=0&portrait=0`;
-                        
-                        // Creamos el iframe con los atributos necesarios
-                        const iframe = document.createElement('iframe');
-                        iframe.src = embedUrl;
-                        iframe.style.width = '100%';
-                        iframe.style.height = '100%';
-                        iframe.setAttribute('frameborder', '0');
-                        iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
-                        iframe.setAttribute('allowfullscreen', '');
+            <!-- Categoría 2: Cortos Animados -->
+            <div class="category-block">
+                <h2 class="category-title" id="cat-shorts"></h2>
+                 <!-- REEMPLAZA el ID de Vimeo y la ruta de la imagen -->
+                <div class="grid-item" data-vimeo-id="ID_VIMEO_CORTO_ANIMADO">
+                    <img src="assets/img/thumbnail-animated-short.jpg" alt="Miniatura Corto Animado">
+                    <div class="play-icon"></div>
+                </div>
+            </div>
 
-                        // Limpiamos el item y añadimos el iframe del video
-                        this.innerHTML = '';
-                        this.appendChild(iframe);
-                    } else {
-                        console.log("Este item no tiene un ID de Vimeo asociado.");
+            <!-- Categoría 3: Páginas Web (Sin video) -->
+            <div class="category-block">
+                <h2 class="category-title" id="cat-web"></h2>
+                <!-- Como no es un video, se deja el data-vimeo-id vacío y no se pone icono de play -->
+                <div class="grid-item" data-vimeo-id="">
+                    <img src="assets/img/thumbnail-web.jpg" alt="Miniatura Página Web">
+                </div>
+            </div>
+
+            <!-- Categoría 4: Proyectos Musicales -->
+            <div class="category-block">
+                <h2 class="category-title" id="cat-music-projects"></h2>
+                 <!-- REEMPLAZA el ID de Vimeo y la ruta de la imagen -->
+                <div class="grid-item" data-vimeo-id="ID_VIMEO_PROYECTO_MUSICAL">
+                    <img src="assets/img/thumbnail-music-project.jpg" alt="Miniatura Proyecto Musical">
+                    <div class="play-icon"></div>
+                </div>
+            </div>
+        </div>
+
+        <section class="action-link-section">
+            <a href="alterlab.html#contact-section" class="cta-button" id="cta-quote"></a>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // ----- TRADUCCIONES -----
+            const translations = {
+                es: { introText: 'Estos son algunos de los últimos proyectos del Laboratorio de Arte Generativo. Haz clic en cualquiera de ellos para verlos en acción.', catMusic: 'Videos Musicales', catShorts: 'Cortos Animados', catWeb: 'Páginas Web', catMusicProjects: 'Proyectos Musicales', ctaQuote: 'COTIZA TU PROYECTO' },
+                en: { introText: 'These are some of the latest projects from the Generative Art Laboratory. Click on any of them to see them in action.', catMusic: 'Music Videos', catShorts: 'Animated Shorts', catWeb: 'Websites', catMusicProjects: 'Musical Projects', ctaQuote: 'QUOTE YOUR PROJECT' },
+                fr: { introText: "Voici quelques-uns des derniers projets du Laboratoire d'Art Génératif. Cliquez sur l'un d'eux pour le voir en action.", catMusic: 'Vidéos Musicales', catShorts: "Courts métrages d'animation", catWeb: 'Sites Web', catMusicProjects: 'Projets Musicaux', ctaQuote: 'DEMANDEZ UN DEVIS' }
+            };
+            const elementsToTranslate = { introText: document.getElementById('intro-text'), catMusic: document.getElementById('cat-music'), catShorts: document.getElementById('cat-shorts'), catWeb: document.getElementById('cat-web'), catMusicProjects: document.getElementById('cat-music-projects'), ctaQuote: document.getElementById('cta-quote') };
+            const langEnButton = document.getElementById('lang-en'), langEsButton = document.getElementById('lang-es'), langFrButton = document.getElementById('lang-fr');
+            function setLanguage(lang) {
+                const langData = translations[lang];
+                Object.keys(elementsToTranslate).forEach(key => { if (elementsToTranslate[key]) elementsToTranslate[key].textContent = langData[key]; });
+                langEnButton.classList.toggle('active', lang === 'en'); langEsButton.classList.toggle('active', lang === 'es'); langFrButton.classList.toggle('active', lang === 'fr');
+                document.documentElement.lang = lang;
+            }
+            langEnButton.addEventListener('click', () => setLanguage('en')); langEsButton.addEventListener('click', () => setLanguage('es')); langFrButton.addEventListener('click', () => setLanguage('fr'));
+            setLanguage('es');
+
+            // ----- LÓGICA DE REPRODUCCIÓN CON VIMEO -----
+            const gridItems = document.querySelectorAll('.grid-item');
+            
+            gridItems.forEach(item => {
+                item.originalContent = item.innerHTML;
+            });
+
+            gridItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    const isPlaying = this.querySelector('iframe');
+
+                    gridItems.forEach(otherItem => {
+                        otherItem.innerHTML = otherItem.originalContent;
+                    });
+
+                    if (!isPlaying) {
+                        const vimeoId = this.dataset.vimeoId;
+
+                        if (vimeoId) {
+                            // URL del reproductor de Vimeo con autoplay silenciado y sin extras
+                            const embedUrl = `https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1&title=0&byline=0&portrait=0`;
+                            
+                            const iframe = document.createElement('iframe');
+                            iframe.src = embedUrl;
+                            iframe.style.width = '100%';
+                            iframe.style.height = '100%';
+                            iframe.setAttribute('frameborder', '0');
+                            iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
+                            iframe.setAttribute('allowfullscreen', '');
+
+                            this.innerHTML = '';
+                            this.appendChild(iframe);
+                        }
                     }
-                }
+                });
             });
         });
-    });
-</script>
+    </script>
+</body>
+</html>
