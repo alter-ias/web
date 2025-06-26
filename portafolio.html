@@ -15,172 +15,121 @@
             --text-color: #FFFFFF;
             --secondary-text-color: #d1d1d1;
             --accent-color: #FFFFFF;
+            --honeycomb-gap: 5px;
+            --honeycomb-cell-size: 250px;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { color: var(--text-color); font-family: 'Montserrat', sans-serif; overflow-x: hidden; background-color: var(--background-color); }
+        #background-video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; object-fit: cover; }
+        .container { width: 90%; max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; }
 
-        body {
-            color: var(--text-color);
-            font-family: 'Montserrat', sans-serif;
-            overflow-x: hidden;
-            background-color: var(--background-color); /* Color de fondo mientras carga el video */
-        }
-        
-        #background-video {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            object-fit: cover;
-        }
-
-        .container {
-            width: 90%;
-            max-width: 1200px;
-            margin: 0 auto;
-            position: relative;
-            z-index: 2;
-        }
-
-        .main-header {
-            display: flex;
-            justify-content: center; 
-            align-items: center;
-            padding: 30px 0;
-            text-align: center;
-        }
-        
-        .header-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .logo a {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            flex-direction: column; 
-        }
-
+        .main-header { display: flex; justify-content: center; align-items: center; padding: 30px 0; text-align: center; }
+        .header-content { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .logo a { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-direction: column; }
         .logo img { height: 40px; width: auto; }
         .logo .logo-text { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: var(--text-color); }
-
-        .lang-switcher button {
-            background: none; border: 1px solid var(--secondary-text-color); color: var(--secondary-text-color);
-            padding: 5px 10px; margin: 0 5px; cursor: pointer; border-radius: 4px; transition: all 0.3s ease;
-        }
+        .lang-switcher button { background: none; border: 1px solid var(--secondary-text-color); color: var(--secondary-text-color); padding: 5px 10px; margin: 0 5px; cursor: pointer; border-radius: 4px; transition: all 0.3s ease; }
         .lang-switcher button:hover { background-color: var(--accent-color); color: var(--background-color); border-color: var(--accent-color); }
         .lang-switcher button.active { background-color: var(--text-color); color: var(--background-color); border-color: var(--text-color); font-weight: 700; }
 
-        /* ----- ESTILOS PARA LA GALERÍA INTERACTIVA ----- */
-        .portfolio-title {
-            text-align: center;
-            font-size: 2.5rem;
-            margin-bottom: 20px;
-            font-weight: 700;
+        /* ----- NUEVOS ESTILOS PARA LA GALERÍA HEXAGONAL ----- */
+        .portfolio-title { text-align: center; font-size: 2.5rem; margin-bottom: 50px; font-weight: 700; }
+
+        .honeycomb-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: calc(var(--honeycomb-cell-size) * 3 + var(--honeycomb-gap) * 4); /* Ancho para 3 celdas */
+            margin: 0 auto;
+            list-style: none;
+            padding: 0;
         }
 
-        .portfolio-container {
+        .honeycomb-cell {
+            flex-shrink: 0;
+            width: var(--honeycomb-cell-size);
+            height: calc(var(--honeycomb-cell-size) / 1.1547); /* Proporción para hexágono regular */
             position: relative;
-            width: 100%;
-            height: 80vh; /* Altura del contenedor de la galería */
-            min-height: 600px;
-            margin-top: 40px;
+            margin: calc(var(--honeycomb-cell-size) / 2.3094 / 2) var(--honeycomb-gap); /* Margen para encajar */
+            margin-bottom: calc(var(--honeycomb-cell-size) * 0.15); /* Espacio vertical extra */
+            perspective: 1000px;
+            transition: transform 0.3s ease;
         }
 
-        .video-card {
-            position: absolute;
-            width: 320px; /* Ancho de cada carta */
-            height: 180px; /* Alto de cada carta (proporción 16:9) */
-            perspective: 1000px; /* Necesario para el efecto 3D */
-            transition: transform 0.3s ease;
-            cursor: pointer;
-            animation: float 6s ease-in-out infinite; /* Animación de flotación */
+        /* Crea el offset para las filas impares, creando el efecto panal */
+        .honeycomb-container .honeycomb-cell:nth-child(5n - 1) {
+             margin-left: calc(var(--honeycomb-cell-size) / 2 + var(--honeycomb-gap) * 2);
         }
-        
-        .video-card:hover {
-            transform: scale(1.15) !important; /* Escala al pasar el ratón, sobreescribe la posición aleatoria */
+
+        .honeycomb-cell:hover {
+            transform: scale(1.1);
             z-index: 100;
-            animation-play-state: paused; /* Pausa la animación de flotación al interactuar */
         }
 
         .card-flipper {
-            position: relative;
-            width: 100%;
-            height: 100%;
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             transition: transform 0.8s;
             transform-style: preserve-3d;
+            cursor: pointer;
+            /* Máscara hexagonal */
+            clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
         }
 
-        .video-card:hover .card-flipper {
+        .honeycomb-cell:hover .card-flipper {
             transform: rotateY(180deg);
         }
 
         .card-front, .card-back {
             position: absolute;
-            width: 100%;
-            height: 100%;
-            backface-visibility: hidden; /* Oculta la cara trasera del elemento */
-            border-radius: 10px;
-            overflow: hidden;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.4);
+            width: 100%; height: 100%;
+            backface-visibility: hidden;
+            background-color: #000;
         }
 
         .card-front img {
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             object-fit: cover;
         }
 
         .card-back {
             transform: rotateY(180deg);
-            background-color: #000;
         }
 
-        .card-back iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
+        .card-back iframe { width: 100%; height: 100%; border: none; }
+        
+        @media (max-width: 900px) {
+            :root { --honeycomb-cell-size: 200px; }
+            .honeycomb-container {
+                 width: calc(var(--honeycomb-cell-size) * 2 + var(--honeycomb-gap) * 3); /* Ancho para 2 celdas */
+            }
+            .honeycomb-container .honeycomb-cell:nth-child(5n - 1) { margin-left: var(--honeycomb-gap); } /* Se resetea el offset complejo */
+             .honeycomb-container .honeycomb-cell:nth-child(3n - 0) {
+                 margin-left: calc(var(--honeycomb-cell-size) / 2 + var(--honeycomb-gap) * 1.5);
+             }
         }
         
-        /* Animación de flotación */
-        @keyframes float {
-            0% { transform: translatey(0px); }
-            50% { transform: translatey(-15px); }
-            100% { transform: translatey(0px); }
-        }
-
-        @media (max-width: 768px) {
-            .portfolio-container {
-                position: static; /* Cambia a flujo normal en móvil */
-                height: auto;
-                display: flex;
+        @media (max-width: 576px) {
+            .honeycomb-container {
                 flex-direction: column;
-                align-items: center;
-                gap: 30px;
-            }
-            .video-card {
-                position: static; /* Cambia a flujo normal */
-                animation: none; /* Desactiva la animación de flotación */
                 width: 90%;
-                height: auto;
-                aspect-ratio: 16/9; /* Mantiene la proporción */
+                align-items: center;
             }
-            .video-card:hover {
-                 transform: scale(1.05) !important; /* Efecto de hover más sutil */
+            .honeycomb-cell {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 16/9; /* Volvemos a rectángulos en móvil */
+                margin: 0 0 20px 0 !important; /* Reseteamos todos los márgenes */
+            }
+            .card-flipper {
+                clip-path: none; /* Quitamos la máscara hexagonal */
+                border-radius: 10px;
+                overflow: hidden;
+                border: 1px solid rgba(255,255,255,0.2);
             }
         }
-
     </style>
 </head>
 <body>
@@ -208,25 +157,11 @@
 
     <main class="container">
         <h1 class="portfolio-title" id="portfolio-title"></h1>
-        <div class="portfolio-container" id="portfolio-container">
-            <!-- Las cartas de video se generarán con JS, pero aquí está la estructura -->
-            <!-- Ejemplo de una carta: -->
-            <!--
-            <div class="video-card" data-video-id="k31ZD9MPZo8">
-                <div class="card-flipper">
-                    <div class="card-front">
-                        <img src="https://img.youtube.com/vi/k31ZD9MPZo8/maxresdefault.jpg" alt="Video Thumbnail">
-                    </div>
-                    <div class="card-back">
-                        <div id="player-k31ZD9MPZo8"></div>
-                    </div>
-                </div>
-            </div>
-            -->
-        </div>
+        <ul class="honeycomb-container" id="portfolio-container">
+            <!-- Las celdas se generarán aquí con JavaScript -->
+        </ul>
     </main>
     
-    <!-- Script de la API de YouTube -->
     <script src="https://www.youtube.com/iframe_api"></script>
 
     <script>
@@ -259,18 +194,17 @@
             langFrButton.addEventListener('click', () => setLanguage('fr'));
             setLanguage('es');
 
-            // ----- LÓGICA DE LA GALERÍA INTERACTIVA -----
+            // ----- LÓGICA DE LA GALERÍA HEXAGONAL -----
             const videoIds = ['k31ZD9MPZo8', '7LQLXalnl_0', 'aeqxdrP5XLg', 'Hcqdwvnjqso', 'JKyX8onVFV8'];
             const container = document.getElementById('portfolio-container');
             const players = {};
 
-            // 1. Crear las cartas de video y posicionarlas aleatoriamente
-            videoIds.forEach((id, index) => {
-                const card = document.createElement('div');
-                card.className = 'video-card';
-                card.dataset.videoId = id;
-
-                card.innerHTML = `
+            // Crear las celdas del panal
+            videoIds.forEach(id => {
+                const cell = document.createElement('li');
+                cell.className = 'honeycomb-cell';
+                
+                cell.innerHTML = `
                     <div class="card-flipper">
                         <div class="card-front">
                             <img src="https://img.youtube.com/vi/${id}/maxresdefault.jpg" alt="Video Thumbnail">
@@ -280,46 +214,31 @@
                         </div>
                     </div>
                 `;
-                container.appendChild(card);
-                
-                // Posicionamiento aleatorio (solo en pantallas de escritorio)
-                if (window.innerWidth > 768) {
-                    const top = Math.random() * (container.clientHeight - 180);
-                    const left = Math.random() * (container.clientWidth - 320);
-                    const rotation = (Math.random() - 0.5) * 20; // Rotación entre -10 y 10 grados
-                    card.style.top = `${top}px`;
-                    card.style.left = `${left}px`;
-                    card.style.transform = `rotate(${rotation}deg)`;
-                    card.style.animationDelay = `${Math.random() * 5}s`; // Retraso aleatorio para la animación
-                }
+                container.appendChild(cell);
 
-                // Añadir listeners para controlar el video
-                card.addEventListener('mouseenter', () => {
-                    if (players[id]) {
+                cell.addEventListener('mouseenter', () => {
+                    if (players[id] && players[id].playVideo) {
                         players[id].playVideo();
                     }
                 });
 
-                card.addEventListener('mouseleave', () => {
-                    if (players[id]) {
+                cell.addEventListener('mouseleave', () => {
+                    if (players[id] && players[id].pauseVideo) {
                         players[id].pauseVideo();
                     }
                 });
             });
 
-            // 2. Cargar la API de YouTube y crear los reproductores
+            // Cargar la API de YouTube
             window.onYouTubeIframeAPIReady = function() {
                 videoIds.forEach(id => {
                     players[id] = new YT.Player(`player-${id}`, {
-                        height: '180',
-                        width: '320',
+                        height: '100%',
+                        width: '100%',
                         videoId: id,
                         playerVars: {
-                            'autoplay': 0, // No auto-reproducir al cargar
-                            'controls': 0, // Ocultar controles
-                            'modestbranding': 1,
-                            'loop': 1,
-                            'playlist': id // Necesario para que el loop funcione
+                            'autoplay': 0, 'controls': 0, 'modestbranding': 1,
+                            'loop': 1, 'playlist': id
                         }
                     });
                 });
