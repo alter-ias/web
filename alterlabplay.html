@@ -137,29 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPlaylist = [];
     let currentSongIndex = -1;
 
-    // --- NUEVA FUNCIÓN: Un parser de CSV más robusto ---
-    // Esta función separa una línea de CSV respetando las comas dentro de las comillas.
-    function parseCsvRow(row) {
-        const result = [];
-        let current = '';
-        let inQuotes = false;
-        for (let char of row) {
-            if (char === '"' && !inQuotes) {
-                inQuotes = true;
-            } else if (char === '"' && inQuotes) {
-                inQuotes = false;
-            } else if (char === ',' && !inQuotes) {
-                result.push(current.trim());
-                current = '';
-            } else {
-                current += char;
-            }
-        }
-        result.push(current.trim());
-        return result;
-    }
-
-
     async function fetchAndBuildPlaylists() {
         try {
             const response = await fetch(googleSheetCsvUrl);
@@ -172,8 +149,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const categories = new Set();
 
             rows.forEach(row => {
-                // CAMBIO CLAVE: Usamos la nueva función `parseCsvRow` en lugar de `split(',')`.
-                const [title, artist, category, driveId, cover] = parseCsvRow(row);
+                // CAMBIO CLAVE: Volvemos al método split(',') pero con un limpiador.
+                // .replace(/^"|"$/g, '') es una expresión regular que elimina las comillas SOLO si están al principio o al final de la celda.
+                const [title, artist, category, driveId, cover] = row.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
                 
                 if (!category || !driveId) return; 
                 
