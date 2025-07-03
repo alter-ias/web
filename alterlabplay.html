@@ -28,7 +28,6 @@
         .main-header { padding: 30px 0; text-align: center; }
         .logo a { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-direction: column; }
         .logo img { height: 40px; width: auto; }
-        /* CAMBIO: Color del texto del logo a blanco */
         .logo .logo-text { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; text-shadow: var(--text-shadow); color: var(--text-color); }
         main { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 20px 0; }
         .page-footer { padding: 40px 0 30px; text-align: center; }
@@ -63,40 +62,18 @@
         .playlist-view li.playing .icon { color: var(--highlight-color); }
         .playlist-view li.playing .title { color: var(--highlight-color); font-weight: 700; }
         
-        /* NUEVO: Estilos para la descripción del proyecto */
-        .project-description {
-            padding: 40px 0;
-            text-align: center;
-        }
-        .description-wrapper {
-            max-width: 700px;
-            margin: 0 auto;
-            padding: 30px;
-            background-color: rgba(15, 18, 27, 0.3);
-            backdrop-filter: blur(8px);
-            border: 1px solid var(--player-border-color);
-            border-radius: 15px;
-        }
-        .description-wrapper p {
-            font-size: 1rem;
-            line-height: 1.7;
-            color: var(--secondary-text-color);
-            margin-bottom: 15px;
-            text-align: left;
-        }
-        .description-wrapper p:last-child {
-            margin-bottom: 0;
-        }
-        .description-wrapper strong {
-            color: var(--text-color);
-            font-weight: 700;
-        }
+        .project-description { padding: 40px 0; text-align: center; }
+        .description-wrapper { max-width: 700px; margin: 0 auto; padding: 30px; background-color: rgba(15, 18, 27, 0.3); backdrop-filter: blur(8px); border: 1px solid var(--player-border-color); border-radius: 15px; }
+        .description-wrapper p { font-size: 1rem; line-height: 1.7; color: var(--secondary-text-color); margin-bottom: 15px; text-align: left; }
+        .description-wrapper p:last-child { margin-bottom: 0; }
+        .description-wrapper strong { color: var(--text-color); font-weight: 700; }
     </style>
 </head>
 <body>
 <div class="page-wrapper">
     <video autoplay muted loop playsinline id="background-video">
         <source src="assets/videos/web05.webm" type="video/webm">
+        Tu navegador no soporta la etiqueta de video.
     </video>
 
     <header class="main-header container">
@@ -126,7 +103,6 @@
         </div>
     </main>
     
-    <!-- NUEVO: Sección con la descripción del proyecto -->
     <section class="project-description container">
         <div class="description-wrapper">
             <p>Esta es una iniciativa del Laboratorio de Arte Generativo <strong>ALTER.LAB</strong> que busca explorar nuevas formas de interacción con los medios digitales, empezando por la música. Queremos <strong>descentralizar el consumo musical</strong> y crear una plataforma donde la comunidad y el acto de compartir sean la base de la experiencia.</p>
@@ -148,8 +124,8 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- CONFIGURACIÓN ---
-    // ¡IMPORTANTE! Reemplaza esta URL con la que generaste al "Publicar en la web" tu Google Sheet como CSV.
-    const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT3yqR_V51Fp5y7y-dC2U4T_5gPqR-z6K_fI1wH7A_jGkL9eYv8XmCjBqZpA_cRfWnO-h_sS9i/pub?output=csv';
+    // ¡CAMBIO CLAVE! Aquí he insertado la URL correcta que generaste.
+    const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlLj0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
 
     // --- ELEMENTOS DEL DOM ---
     const songTitleEl = document.getElementById('song-title');
@@ -173,14 +149,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Error al cargar los datos desde Google Sheets.');
             
             const csvText = await response.text();
-            const rows = csvText.trim().split('\n').slice(1); // Omitir la fila de cabecera
+            const rows = csvText.trim().split('\n').slice(1);
             
-            playlistsData = {}; // Reiniciar datos
-            const categories = new Set(); // Para mantener un orden único de categorías
+            playlistsData = {};
+            const categories = new Set();
 
             rows.forEach(row => {
-                const [title, artist, category, driveId, cover] = row.split(',').map(cell => cell.trim());
-                if (!category || !driveId) return; // Omitir filas incompletas
+                const [title, artist, category, driveId, cover] = row.split(',').map(cell => cell.trim().replace(/"/g, ''));
+                if (!category || !driveId) return;
                 
                 if (!playlistsData[category]) {
                     playlistsData[category] = [];
@@ -189,7 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 playlistsData[category].push({ title, artist, driveId, cover });
             });
 
-            init(Array.from(categories)); // Iniciar la app con las categorías cargadas
+            init(Array.from(categories));
         } catch (error) {
             console.error(error);
             songTitleEl.textContent = "Error al cargar";
