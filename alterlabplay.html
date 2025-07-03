@@ -123,11 +123,8 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- CONFIGURACIÓN ---
-    // ¡CAMBIO CLAVE! Aquí he insertado la URL correcta que generaste.
     const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlLj0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
 
-    // --- ELEMENTOS DEL DOM ---
     const songTitleEl = document.getElementById('song-title');
     const songArtistEl = document.getElementById('song-artist');
     const albumArtEl = document.getElementById('album-art');
@@ -135,13 +132,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const categoryTabsContainer = document.getElementById('category-tabs');
     const playlistViewContainer = document.getElementById('playlist-view');
 
-    // --- ESTADO DE LA APLICACIÓN ---
     let playlistsData = {};
     let currentCategory = '';
     let currentPlaylist = [];
     let currentSongIndex = -1;
 
-    // --- FUNCIONES PRINCIPALES ---
+    // --- NUEVA FUNCIÓN: Un parser de CSV más robusto ---
+    // Esta función separa una línea de CSV respetando las comas dentro de las comillas.
+    function parseCsvRow(row) {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let char of row) {
+            if (char === '"' && !inQuotes) {
+                inQuotes = true;
+            } else if (char === '"' && inQuotes) {
+                inQuotes = false;
+            } else if (char === ',' && !inQuotes) {
+                result.push(current.trim());
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        result.push(current.trim());
+        return result;
+    }
+
 
     async function fetchAndBuildPlaylists() {
         try {
@@ -149,20 +166,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Error al cargar los datos desde Google Sheets.');
             
             const csvText = await response.text();
-            const rows = csvText.trim().split('\n').slice(1);
+            const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1);
             
             playlistsData = {};
             const categories = new Set();
 
             rows.forEach(row => {
-                const [title, artist, category, driveId, cover] = row.split(',').map(cell => cell.trim().replace(/"/g, ''));
-                if (!category || !driveId) return;
+                // CAMBIO CLAVE: Usamos la nueva función `parseCsvRow` en lugar de `split(',')`.
+                const [title, artist, category, driveId, cover] = parseCsvRow(row);
+                
+                if (!category || !driveId) return; 
                 
                 if (!playlistsData[category]) {
                     playlistsData[category] = [];
                     categories.add(category);
                 }
-                playlistsData[category].push({ title, artist, driveId, cover });
+                playlistsData[category].push({ title, artist, category, driveId, cover });
             });
 
             init(Array.from(categories));
@@ -265,7 +284,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- INICIAR LA APLICACIÓN CARGANDO LOS DATOS ---
     fetchAndBuildPlaylists();
 });
 </script>
