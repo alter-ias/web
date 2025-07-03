@@ -123,7 +123,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
-    const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT3yqR_V51Fp5y7y-dC2U4T_5gPqR-z6K_fI1wH7A_jGkL9eYv8XmCjBqZpA_cRfWnO-h_sS9i/pub?output=csv';
+    const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlLj0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
 
     const songTitleEl = document.getElementById('song-title');
     const songArtistEl = document.getElementById('song-artist');
@@ -149,15 +149,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const categories = new Set();
 
             rows.forEach(row => {
-                // CAMBIO CLAVE: Ahora leemos 5 columnas, incluyendo la carátula al final.
+                // Este es el orden correcto que el script espera:
+                // Título, Artista, Género, Drive ID, Carátula
                 const [title, artist, category, driveId, cover] = row.split(',').map(cell => cell.trim().replace(/"/g, ''));
-                if (!category || !driveId) return;
+                
+                // ESTA ES LA REGLA DE SEGURIDAD:
+                // Si la columna de categoría o la de Drive ID están vacías, ignora la fila.
+                if (!category || !driveId) return; 
                 
                 if (!playlistsData[category]) {
                     playlistsData[category] = [];
                     categories.add(category);
                 }
-                // Guardamos el objeto completo, incluyendo la nueva propiedad 'cover'.
                 playlistsData[category].push({ title, artist, driveId, cover });
             });
 
@@ -233,10 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         songTitleEl.textContent = song.title;
         songArtistEl.textContent = song.artist;
-        
-        // CAMBIO CLAVE: Usa la ruta de la carátula del sheet. Si está vacía o no existe, usa la imagen por defecto.
         albumArtEl.src = song.cover || 'assets/img/labplay/default-cover.jpg';
-        
         drivePlayer.src = `https://drive.google.com/file/d/${song.driveId}/preview`;
         
         updatePlaylistHighlight();
