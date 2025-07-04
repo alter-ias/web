@@ -9,6 +9,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <!-- NUEVO: Incluimos la librería Fuse.js para la búsqueda "fuzzy" -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
 
     <style>
         :root {
@@ -40,6 +43,23 @@
         .category-tabs button { background-color: transparent; border: 1px solid var(--player-border-color); color: var(--secondary-text-color); font-family: 'Montserrat', sans-serif; font-weight: 500; padding: 8px 18px; border-radius: 20px; cursor: pointer; transition: all 0.3s ease; }
         .category-tabs button:hover { background-color: var(--player-border-color); color: var(--text-color); }
         .category-tabs button.active { background-color: var(--highlight-color); border-color: var(--highlight-color); color: var(--text-color); font-weight: 700; }
+        
+        /* NUEVO: Estilos para el campo de búsqueda */
+        .search-container { margin-bottom: 25px; }
+        #search-input {
+            width: 100%;
+            padding: 12px 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--player-border-color);
+            border-radius: 25px;
+            color: var(--text-color);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.3s ease, background-color 0.3s ease;
+        }
+        #search-input::placeholder { color: var(--secondary-text-color); }
+        #search-input:focus { border-color: var(--highlight-color); background-color: rgba(255, 255, 255, 0.15); }
 
         .player-wrapper { padding: 30px; border: 2px solid var(--player-border-color); border-radius: 15px; text-align: center; background-color: rgba(15, 18, 27, 0.3); backdrop-filter: blur(8px); }
         .album-art-container { width: 100%; max-width: 250px; margin: 0 auto 25px; }
@@ -87,6 +107,12 @@
     <main class="container">
         <div class="music-app">
             <div class="category-tabs" id="category-tabs"></div>
+
+            <!-- NUEVO: Contenedor para la barra de búsqueda -->
+            <div class="search-container">
+                <input type="search" id="search-input" placeholder="Buscar por artista o canción...">
+            </div>
+
             <div class="player-wrapper" id="player-wrapper">
                 <div class="album-art-container">
                     <img src="assets/img/labplay/default-cover.jpg" alt="Carátula del Álbum" id="album-art">
@@ -131,11 +157,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const drivePlayer = document.getElementById('drive-player');
     const categoryTabsContainer = document.getElementById('category-tabs');
     const playlistViewContainer = document.getElementById('playlist-view');
+    const searchInput = document.getElementById('search-input'); // NUEVO
 
     let playlistsData = {};
     let currentCategory = '';
     let currentPlaylist = [];
     let currentSongIndex = -1;
+    let fuse; // NUEVO: Variable para la instancia de Fuse.js
 
     async function fetchAndBuildPlaylists() {
         try {
@@ -143,25 +171,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) throw new Error('Error al cargar los datos desde Google Sheets.');
             
             const csvText = await response.text();
-            const rows = csvText.trim().split('\n').slice(1);
+            const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1);
             
             playlistsData = {};
             const categories = new Set();
 
             rows.forEach(row => {
-                // Este es el orden correcto que el script espera:
-                // Título, Artista, Género, Drive ID, Carátula
-                const [title, artist, category, driveId, cover] = row.split(',').map(cell => cell.trim().replace(/"/g, ''));
-                
-                // ESTA ES LA REGLA DE SEGURIDAD:
-                // Si la columna de categoría o la de Drive ID están vacías, ignora la fila.
+                const [title, artist, category, driveId, cover] = row.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
                 if (!category || !driveId) return; 
                 
                 if (!playlistsData[category]) {
                     playlistsData[category] = [];
                     categories.add(category);
                 }
-                playlistsData[category].push({ title, artist, driveId, cover });
+                playlistsData[category].push({ title, artist, category, driveId, cover });
             });
 
             init(Array.from(categories));
@@ -182,6 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         categoryTabsContainer.addEventListener('click', handleCategoryClick);
         playlistViewContainer.addEventListener('click', handlePlaylistClick);
+        searchInput.addEventListener('input', handleSearch); // NUEVO
     }
     
     function renderCategoryTabs(categories) {
@@ -196,12 +220,21 @@ document.addEventListener('DOMContentLoaded', () => {
         currentCategory = category;
         currentPlaylist = playlistsData[category];
         currentSongIndex = -1;
+        searchInput.value = ''; // NUEVO: Limpia el buscador al cambiar de categoría
+
+        // NUEVO: Inicializamos Fuse.js para la nueva playlist
+        const fuseOptions = {
+            keys: ['title', 'artist'], // Buscaremos en los campos 'title' y 'artist'
+            includeScore: true,
+            threshold: 0.4 // Umbral de coincidencia (0 es exacto, 1 es cualquier cosa)
+        };
+        fuse = new Fuse(currentPlaylist, fuseOptions);
 
         document.querySelectorAll('.category-tabs button').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.category === category);
         });
         
-        renderPlaylistView();
+        renderPlaylistView(currentPlaylist); // MODIFICADO: Ahora pasamos la lista a renderizar
 
         if (currentPlaylist.length > 0) {
             loadSong(0);
@@ -213,24 +246,33 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderPlaylistView() {
-        if (currentPlaylist.length === 0) {
-            playlistViewContainer.innerHTML = '';
+    // MODIFICADO: La función ahora acepta una lista de canciones para poder renderizar resultados de búsqueda
+    function renderPlaylistView(playlistToRender) {
+        if (!playlistToRender || playlistToRender.length === 0) {
+            playlistViewContainer.innerHTML = '<p style="text-align:center; padding: 20px 0; color: var(--secondary-text-color);">No se encontraron canciones.</p>';
             return;
         }
-        const listHTML = `<ol>${currentPlaylist.map((song, index) => `
-            <li data-index="${index}">
+
+        const listHTML = `<ol>${playlistToRender.map(song => {
+            // MUY IMPORTANTE: Buscamos el índice original en la playlist completa
+            // para que el reproductor sepa qué canción cargar, sin importar el filtro.
+            const originalIndex = currentPlaylist.findIndex(s => s.driveId === song.driveId);
+            return `
+            <li data-index="${originalIndex}">
                 <i class="bi bi-music-note-beamed icon"></i>
                 <div class="track-details">
                     <div class="title">${song.title}</div>
                     <div class="artist">${song.artist}</div>
                 </div>
             </li>
-        `).join('')}</ol>`;
+        `}).join('')}</ol>`;
         playlistViewContainer.innerHTML = listHTML;
+        updatePlaylistHighlight(); // Actualizamos el resaltado después de renderizar
     }
 
     function loadSong(index) {
+        if (index < 0 || index >= currentPlaylist.length) return; // Chequeo de seguridad
+        
         currentSongIndex = index;
         const song = currentPlaylist[index];
 
@@ -261,6 +303,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (index !== currentSongIndex) {
                 loadSong(index);
             }
+        }
+    }
+
+    // NUEVO: Función para manejar la búsqueda en tiempo real
+    function handleSearch(e) {
+        const searchTerm = e.target.value;
+
+        if (searchTerm.trim() === '') {
+            // Si el buscador está vacío, mostramos la playlist completa
+            renderPlaylistView(currentPlaylist);
+        } else {
+            // Si hay texto, usamos Fuse.js para buscar
+            const results = fuse.search(searchTerm);
+            const filteredSongs = results.map(result => result.item);
+            renderPlaylistView(filteredSongs);
         }
     }
 
