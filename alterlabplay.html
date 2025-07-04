@@ -67,6 +67,17 @@
         
         .embedded-player-container { width: 100%; height: 90px; border-radius: 8px; overflow: hidden; }
         .embedded-player-container iframe { width: 100%; height: 100%; border: none; }
+        
+        /* --- NUEVO: ESTILOS PARA LA INFORMACIÓN ADICIONAL --- */
+        .track-extra-info {
+            margin-top: 20px;
+            padding: 10px 5px;
+            font-size: 0.9rem;
+            color: var(--secondary-text-color);
+            text-align: left;
+            line-height: 1.5;
+            border-top: 1px solid var(--player-border-color);
+        }
 
         .playlist-view { margin-top: 20px; min-height: 295px; /* Altura fija para evitar saltos */ border-radius: 10px; padding-right: 5px; }
         .playlist-view ol { list-style: none; padding: 0; margin: 0; }
@@ -80,7 +91,6 @@
         .playlist-view li.playing .icon { color: var(--highlight-color); }
         .playlist-view li.playing .title { color: var(--highlight-color); font-weight: 700; }
 
-        /* NUEVO: Estilos para los controles de paginación */
         .pagination-controls {
             display: flex;
             justify-content: center;
@@ -159,9 +169,10 @@
                 <div class="embedded-player-container">
                     <iframe id="drive-player" allow="autoplay"></iframe>
                 </div>
+                <!-- NUEVO: Contenedor para la información adicional de la canción -->
+                <div id="song-information-display" class="track-extra-info"></div>
             </div>
             <div class="playlist-view" id="playlist-view"></div>
-            <!-- NUEVO: Contenedor para los botones de paginación -->
             <div class="pagination-controls" id="pagination-controls"></div>
         </div>
     </main>
@@ -185,8 +196,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // ... (El resto del código sin cambios hasta aquí)
-
     const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlLj0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
 
     const songTitleEl = document.getElementById('song-title');
@@ -196,15 +205,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const categoryTabsContainer = document.getElementById('category-tabs');
     const playlistViewContainer = document.getElementById('playlist-view');
     const searchInput = document.getElementById('search-input');
-    const paginationControlsContainer = document.getElementById('pagination-controls'); // NUEVO
+    const paginationControlsContainer = document.getElementById('pagination-controls');
+    // NUEVO: Referencia al elemento que mostrará la información
+    const songInfoDisplayEl = document.getElementById('song-information-display'); 
 
     let playlistsData = {};
     let currentCategory = '';
     let currentPlaylist = [];
     let currentSongIndex = -1;
     let fuse;
-
-    // NUEVO: Variables de estado para la paginación
+    
     let currentPage = 1;
     const songsPerPage = 5;
 
@@ -220,14 +230,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const categories = new Set();
 
             rows.forEach(row => {
-                const [title, artist, category, driveId, cover] = row.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
+                // MODIFICADO: Se añade `informacion` para capturar la 6ª columna
+                const [title, artist, category, driveId, cover, informacion] = row.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
                 if (!category || !driveId) return; 
                 
                 if (!playlistsData[category]) {
                     playlistsData[category] = [];
                     categories.add(category);
                 }
-                playlistsData[category].push({ title, artist, category, driveId, cover });
+                // MODIFICADO: Se guarda el campo `informacion` en el objeto de la canción
+                playlistsData[category].push({ title, artist, category, driveId, cover, informacion });
             });
 
             init(Array.from(categories));
@@ -249,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         categoryTabsContainer.addEventListener('click', handleCategoryClick);
         playlistViewContainer.addEventListener('click', handlePlaylistClick);
         searchInput.addEventListener('input', handleSearch);
-        paginationControlsContainer.addEventListener('click', handlePaginationClick); // NUEVO
+        paginationControlsContainer.addEventListener('click', handlePaginationClick);
     }
     
     function renderCategoryTabs(categories) {
@@ -265,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPlaylist = playlistsData[category];
         currentSongIndex = -1;
         searchInput.value = '';
-        currentPage = 1; // NUEVO: Resetea la página a 1
+        currentPage = 1; 
 
         const fuseOptions = {
             keys: ['title', 'artist'],
@@ -278,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.toggle('active', btn.dataset.category === category);
         });
         
-        updatePaginatedView(); // MODIFICADO: Esta función ahora controla la renderización
+        updatePaginatedView(); 
 
         if (currentPlaylist.length > 0) {
             loadSong(0);
@@ -287,10 +299,10 @@ document.addEventListener('DOMContentLoaded', () => {
             songArtistEl.textContent = `Añade música a "${category}"`;
             albumArtEl.src = 'assets/img/labplay/default-cover.jpg';
             drivePlayer.src = '';
+            songInfoDisplayEl.innerHTML = ''; // Limpiar información si la categoría está vacía
         }
     }
     
-    // NUEVO: Función central para actualizar la vista con paginación
     function updatePaginatedView() {
         const startIndex = (currentPage - 1) * songsPerPage;
         const endIndex = startIndex + songsPerPage;
@@ -300,7 +312,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPaginationControls();
     }
     
-    // MODIFICADO: La función ahora recibe la lista de canciones y el índice de inicio para calcular el `data-index`
     function renderPlaylistView(playlistToRender, baseIndex = 0) {
         if (!playlistToRender || playlistToRender.length === 0) {
             playlistViewContainer.innerHTML = '<p style="text-align:center; padding: 20px 0; color: var(--secondary-text-color);">No se encontraron canciones.</p>';
@@ -308,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const listHTML = `<ol>${playlistToRender.map((song, index) => {
-            // El índice original puede venir de una búsqueda o de la paginación
             const originalIndex = searchInput.value.trim() !== ''
                 ? currentPlaylist.findIndex(s => s.driveId === song.driveId)
                 : baseIndex + index;
@@ -325,7 +335,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePlaylistHighlight();
     }
     
-    // NUEVO: Función para renderizar los botones de paginación
     function renderPaginationControls() {
         const totalPages = Math.ceil(currentPlaylist.length / songsPerPage);
         paginationControlsContainer.style.display = totalPages > 1 ? 'flex' : 'none';
@@ -344,6 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    // MODIFICADO: La función ahora actualiza también el campo de información.
     function loadSong(index) {
         if (index < 0 || index >= currentPlaylist.length) return;
         
@@ -354,6 +364,9 @@ document.addEventListener('DOMContentLoaded', () => {
         songArtistEl.textContent = song.artist;
         albumArtEl.src = song.cover || 'assets/img/labplay/default-cover.jpg';
         drivePlayer.src = `https://drive.google.com/file/d/${song.driveId}/preview`;
+        
+        // NUEVO: Mostrar la información de la canción. Si no hay, no muestra nada.
+        songInfoDisplayEl.textContent = song.informacion || '';
         
         updatePlaylistHighlight();
     }
@@ -380,7 +393,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // MODIFICADO: El buscador ahora oculta/muestra la paginación
     function handleSearch(e) {
         const searchTerm = e.target.value.trim();
 
@@ -395,7 +407,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // NUEVO: Manejador de clics para los botones de paginación
     function handlePaginationClick(e) {
         const button = e.target.closest('button');
         if (!button || button.disabled) return;
