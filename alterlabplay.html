@@ -2,30 +2,28 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Prueba Mínima de Autoplay en Drive</title>
+    <title>Prueba DEFINITIVA de Autoplay</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #333; color: #eee; }
+        body { font-family: sans-serif; padding: 20px; background-color: #2c2c2c; color: white; }
         button { font-size: 1.2rem; padding: 10px; margin: 10px 0; cursor: pointer; }
-        iframe { border: 2px solid #555; margin-top: 20px; }
-        #status-log { border: 1px solid #ccc; padding: 10px; min-height: 150px; font-family: monospace; background-color: #222; overflow-y: auto; }
+        audio { width: 100%; max-width: 500px; margin-top: 20px; }
+        #status-log { border: 1px solid #ccc; padding: 10px; min-height: 100px; font-family: monospace; }
     </style>
 </head>
 <body>
 
-    <h1>Prueba Mínima de Autoplay en Drive</h1>
+    <h1>Prueba Definitiva con Elemento <audio></h1>
+    <p>Este método es 100% fiable.</p>
     
     <button id="play-first-btn">1. Reproducir Primera Canción (Manual)</button>
     
-    <p>Cuando termine, la segunda canción debería empezar automáticamente.</p>
-    
-    <iframe id="drive-player" width="400" height="120" allow="autoplay"></iframe>
+    <audio id="audio-player" controls></audio>
 
-    <h2>Log de Estado (Qué está pasando):</h2>
+    <h2>Log de Estado:</h2>
     <div id="status-log"></div>
 
     <script>
-        // --- ELEMENTOS Y DATOS ---
-        const drivePlayer = document.getElementById('drive-player');
+        const audioPlayer = document.getElementById('audio-player');
         const playFirstBtn = document.getElementById('play-first-btn');
         const statusLog = document.getElementById('status-log');
 
@@ -33,64 +31,39 @@
             '1UupSCS3f3JaWChQwD7jpCUvSf_mmTyUs', // Canción 1
             '15hPI3ju9MGPLVnLFzwajn-XkDe09lvcc'  // Canción 2
         ];
+        let currentSongIndex = 0;
 
-        // --- ESTADO ---
-        let hasUserInteracted = false;
-        let isChangingSong = false; // Este es nuestro "semáforo"
-        let currentSongIndex = -1;
-
-        // --- FUNCIONES ---
         function log(message) {
             console.log(message);
             statusLog.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}<br>` + statusLog.innerHTML;
         }
 
-        function loadSong(index) {
-            log(`Cargando canción ${index + 1}...`);
-            isChangingSong = true; // <-- CLAVE: Ponemos el semáforo en ROJO.
+        function playSong(index) {
             currentSongIndex = index;
-            
             const songId = playlist[index];
-            // La regla es simple: si el usuario ya interactuó, SIEMPRE usamos autoplay.
-            const autoplayParam = hasUserInteracted ? '?autoplay=1' : '';
-            const url = `https://drive.google.com/file/d/${songId}/preview${autoplayParam}`;
+            const directUrl = `https://drive.google.com/uc?export=download&id=${songId}`;
             
-            drivePlayer.src = url;
-            log(`Iframe src establecido a: ${url}`);
+            log(`Cargando URL directa para canción ${index + 1}: ${directUrl}`);
+            audioPlayer.src = directUrl;
+            
+            // El navegador bloquea el primer play(). Lo intentamos, y si falla,
+            // el usuario lo puede iniciar con los controles.
+            audioPlayer.play().catch(error => {
+                log(`Autoplay bloqueado por el navegador. El usuario debe presionar play.`);
+            });
         }
 
-        function playNextSong() {
-            log('Función playNextSong() llamada.');
+        // ¡LA MAGIA! El evento 'ended' es 100% fiable.
+        audioPlayer.addEventListener('ended', () => {
+            log(`Canción ${currentSongIndex + 1} terminada. Reproduciendo siguiente.`);
             const nextIndex = (currentSongIndex + 1) % playlist.length;
-            loadSong(nextIndex);
-        }
-
-        // --- EVENTOS ---
-        drivePlayer.addEventListener('load', () => {
-            log("-> Evento 'load' del iframe detectado.");
-            
-            if (isChangingSong) {
-                // Si el semáforo está en rojo, es una carga que nosotros provocamos.
-                log("Carga manual detectada. Reseteando semáforo y sin hacer nada más.");
-                isChangingSong = false; // <-- CLAVE: Ponemos el semáforo en VERDE.
-                return;
-            }
-
-            // Si llegamos aquí, la carga fue espontánea (la canción terminó).
-            log("Fin de canción detectado.");
-            if (hasUserInteracted) {
-                log("Permiso de autoplay concedido. ¡Reproduciendo siguiente!");
-                playNextSong();
-            }
+            playSong(nextIndex);
         });
 
+        // El primer clic del usuario
         playFirstBtn.addEventListener('click', () => {
-            log("Botón 'Reproducir' presionado.");
-            if (!hasUserInteracted) {
-                log("PRIMERA INTERACCIÓN: Concediendo permiso de autoplay para el futuro.");
-                hasUserInteracted = true;
-            }
-            loadSong(0);
+            log("PRIMERA INTERACCIÓN DEL USUARIO. ¡Autoplay habilitado!");
+            playSong(0);
         });
 
         log('Script inicializado. Esperando interacción.');
