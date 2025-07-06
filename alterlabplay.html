@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentCategory = '';
     let currentPlaylist = [];
     let allSongs = [];
-    let currentSongIndex = -1;
+    let currentSongIndexInPlaylist = -1;
     let fuse;
     let currentPage = 1;
 
@@ -164,20 +164,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LÓGICA DE REPRODUCCIÓN ---
     function playNextSong() {
         if (currentPlaylist.length === 0) return;
-        currentSongIndex = (currentSongIndex + 1) % currentPlaylist.length;
-        loadSong(currentSongIndex);
+        currentSongIndexInPlaylist = (currentSongIndexInPlaylist + 1) % currentPlaylist.length;
+        loadSong(currentSongIndexInPlaylist);
     }
     function playPrevSong() {
         if (currentPlaylist.length === 0) return;
-        currentSongIndex = (currentSongIndex - 1 + currentPlaylist.length) % currentPlaylist.length;
-        loadSong(currentSongIndex);
+        currentSongIndexInPlaylist = (currentSongIndexInPlaylist - 1 + currentPlaylist.length) % currentPlaylist.length;
+        loadSong(currentSongIndexInPlaylist);
     }
     
     // --- CARGA DE DATOS Y RENDERIZADO ---
-    function loadSong(index) {
-        if (index < 0 || index >= currentPlaylist.length) return;
-        currentSongIndex = index;
-        const song = currentPlaylist[index];
+    function loadSong(playlistIndex) {
+        if (playlistIndex < 0 || playlistIndex >= currentPlaylist.length) return;
+        currentSongIndexInPlaylist = playlistIndex;
+        const song = currentPlaylist[playlistIndex];
 
         songTitleEl.textContent = song.title;
         songArtistEl.textContent = song.artist;
@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentCategory = category;
         const categorySongs = playlistsData[category] || [];
         currentPlaylist = shuffleArray(categorySongs);
-        currentSongIndex = -1;
+        currentSongIndexInPlaylist = -1;
         fuse = new Fuse(allSongs, { keys: ['title', 'artist'], threshold: 0.4 });
         document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.category === category));
         currentPage = 1;
@@ -251,11 +251,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePlaylistHighlight() {
-        if (currentSongIndex < 0) { // Si no hay canción sonando, no resaltar nada
+        if (currentSongIndexInPlaylist < 0) {
              document.querySelectorAll('.playlist-view li').forEach(li => li.classList.remove('playing'));
              return;
         };
-        const currentSong = currentPlaylist[currentSongIndex];
+        const currentSong = currentPlaylist[currentSongIndexInPlaylist];
         if(!currentSong) return;
 
         const globalIndex = allSongs.findIndex(s => s.publicUrl === currentSong.publicUrl);
@@ -272,10 +272,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1);
             
             rows.forEach(row => {
-                // CORRECCIÓN CRÍTICA: Se lee la columna 7 (índice 6) como publicUrl
                 const [title, artist, category, publicId, cover, information, publicUrl] = parseCsvRow(row);
-                if (!category || !publicUrl || !title) return;
-                
+                if (!category || !publicUrl || !title) {
+                    console.warn("Fila ignorada por falta de datos (publicUrl, etc):", row);
+                    return;
+                }
                 const songObject = { title, artist, category, publicId, cover, information, publicUrl };
                 if (!playlistsData[category]) playlistsData[category] = [];
                 playlistsData[category].push(songObject);
@@ -287,9 +288,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 categoryTabsContainer.innerHTML = categories.map(c => `<button data-category="${c}">${c}</button>`).join('');
                 loadCategory(categories[0]);
                 categoryTabsContainer.querySelector('button').classList.add('active');
+            } else {
+                 songTitleEl.textContent = "Sin datos";
+                 songArtistEl.textContent = "La base de datos está vacía.";
             }
             
-            // --- ASIGNACIÓN DE EVENTOS ---
             audioPlayer.addEventListener('ended', playNextSong);
             
             playlistViewContainer.addEventListener('click', (e) => {
@@ -301,7 +304,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (clickedSong.category !== currentCategory) {
                         loadCategory(clickedSong.category);
                     }
-                    // Buscamos el índice de la canción clickeada DENTRO de la playlist actual
                     const localIndex = currentPlaylist.findIndex(s => s.publicUrl === clickedSong.publicUrl);
                     if (localIndex !== -1) {
                        loadSong(localIndex);
@@ -318,11 +320,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const results = fuse.search(searchTerm).map(result => result.item);
                 
                 if (searchTerm === '') {
-                    // Si se borra la búsqueda, volvemos a la vista paginada de la categoría actual
                     currentPage = 1;
                     updatePaginatedView();
                 } else {
-                    // Mostramos todos los resultados sin paginación
                     renderPlaylistView(results);
                     paginationControlsContainer.style.display = 'none';
                 }
