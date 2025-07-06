@@ -176,11 +176,19 @@
     </main>
     
     <section class="project-description container">
-        <!-- ... (contenido de la sección sin cambios) ... -->
+        <div class="description-wrapper">
+            <p>Esta es una iniciativa del Laboratorio de Arte Generativo <strong>ALTER.LAB</strong> que busca explorar nuevas formas de interacción con los medios digitales, empezando por la música. Queremos <strong>descentralizar el consumo musical</strong> y crear una plataforma donde la comunidad y el acto de compartir sean la base de la experiencia.</p>
+            <p>El proyecto se compone de dos rutas: por un lado, desarrollar una plataforma abierta para intercambiar y escuchar nuestra música preferida. Por otro, impartir talleres prácticos para que cualquier persona pueda aprender a construir <strong>su propia plataforma musical personalizada</strong>, corriendo en su entorno local y sin depender de servidores o aplicaciones externas.</p>
+            <p>La sostenibilidad de esta iniciativa (administración, servidores y desarrollo) se basa en un fondeo permanente a través de <strong>Patreon</strong> y en las cuotas de recuperación de dichos talleres. La interfaz que ves es un primer prototipo, un experimento vivo. Estamos completamente abiertos a <strong>incorporar las ideas de la comunidad</strong> que decida sumarse a esta aventura sonora.</p>
+        </div>
     </section>
 
     <footer class="page-footer container">
-        <!-- ... (contenido del footer sin cambios) ... -->
+        <div class="social-links">
+            <a href="https://www.youtube.com/@AlterLabGen" target="_blank"><i class="bi bi-youtube"></i></a>
+            <a href="https://www.facebook.com/alter.labgen/" target="_blank"><i class="bi bi-facebook"></i></a>
+            <a href="https://www.instagram.com/alter.labgen/" target="_blank"><i class="bi bi-instagram"></i></a>
+        </div>
     </footer>
 </div>
 
@@ -208,16 +216,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPage = 1;
     const songsPerPage = 5;
     
-    // ================== CLAVES DE LA SOLUCIÓN ==================
-    // 'hasUserInteracted' se vuelve 'true' después del primer clic del usuario,
-    // lo que "desbloquea" la reproducción automática para las siguientes canciones.
     let hasUserInteracted = false;
-
-    // 'isSongLoading' evita que la reproducción automática se active cuando
-    // estamos cargando una canción a propósito (en lugar de que termine sola).
     let isSongLoading = false;
-    // ==========================================================
 
+    // ==========================================================
+    // FUNCIONES AUXILIARES COMPLETAS
+    // ==========================================================
     function shuffleArray(array) {
         let currentIndex = array.length, randomIndex;
         while (currentIndex != 0) {
@@ -228,56 +232,113 @@ document.addEventListener('DOMContentLoaded', () => {
         return array;
     }
 
+    function parseCsvRow(row) {
+        const columns = [];
+        let currentColumn = '';
+        let inQuotes = false;
+        for (let i = 0; i < row.length; i++) {
+            const char = row[i];
+            if (char === '"') {
+                if (inQuotes && row[i+1] === '"') {
+                    currentColumn += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                columns.push(currentColumn.trim());
+                currentColumn = '';
+            } else {
+                currentColumn += char;
+            }
+        }
+        columns.push(currentColumn.trim());
+        return columns.map(cell => cell.startsWith('"') && cell.endsWith('"') ? cell.slice(1, -1) : cell);
+    }
+    // ==========================================================
+
     function playNextSong() {
         if (currentPlaylist.length === 0 || searchInput.value.trim() !== '') return;
         currentSongIndex = (currentSongIndex + 1) % currentPlaylist.length;
-        loadSong(currentSongIndex, true); // true indica que es una reproducción automática
+        loadSong(currentSongIndex, true); 
     }
     
-    function parseCsvRow(row) { /* ... (sin cambios) ... */ }
-    
-    async function fetchAndBuildPlaylists() { /* ... (sin cambios) ... */ }
+    async function fetchAndBuildPlaylists() {
+        try {
+            const response = await fetch(googleSheetCsvUrl);
+            if (!response.ok) throw new Error('Error al cargar los datos desde Google Sheets.');
+            
+            const csvText = await response.text();
+            const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1);
+            
+            playlistsData = {};
+            const categories = new Set();
+            rows.forEach(row => {
+                const columns = parseCsvRow(row);
+                const [title, artist, category, driveId, cover, information] = columns;
+                
+                if (!category || !driveId || !title) return; 
+                
+                if (!playlistsData[category]) {
+                    playlistsData[category] = [];
+                    categories.add(category);
+                }
+                
+                playlistsData[category].push({ title, artist, category, driveId, cover, information });
+            });
+            init(Array.from(categories));
+        } catch (error) {
+            console.error("Error en fetchAndBuildPlaylists:", error);
+            songTitleEl.textContent = "Error al cargar";
+            songArtistEl.textContent = "No se pudo conectar a la base de datos.";
+            songInformationEl.style.display = 'none';
+        }
+    }
 
     function init(categories) {
-        renderCategoryTabs(categories);
-        if (categories.length > 0) {
-            loadCategory(categories[0]);
-        } else {
-             songTitleEl.textContent = "Sin datos";
-             songArtistEl.textContent = "La base de datos parece estar vacía.";
-             albumArtEl.src = defaultCover;
+        try {
+            renderCategoryTabs(categories);
+            if (categories.length > 0) {
+                loadCategory(categories[0]);
+            } else {
+                songTitleEl.textContent = "Sin datos";
+                songArtistEl.textContent = "La base de datos parece estar vacía.";
+                albumArtEl.src = defaultCover;
+            }
+            
+            categoryTabsContainer.addEventListener('click', handleCategoryClick);
+            playlistViewContainer.addEventListener('click', handlePlaylistClick);
+            searchInput.addEventListener('input', handleSearch);
+            paginationControlsContainer.addEventListener('click', handlePaginationClick);
+            
+            drivePlayer.addEventListener('load', () => {
+                if (isSongLoading) {
+                    isSongLoading = false;
+                    return;
+                }
+                if (hasUserInteracted) {
+                    playNextSong();
+                }
+            });
+        } catch (error) {
+            console.error("Error en la inicialización:", error);
+            songTitleEl.textContent = "Error de aplicación";
+            songArtistEl.textContent = "Hubo un problema al iniciar el reproductor.";
         }
-        
-        categoryTabsContainer.addEventListener('click', handleCategoryClick);
-        playlistViewContainer.addEventListener('click', handlePlaylistClick);
-        searchInput.addEventListener('input', handleSearch);
-        paginationControlsContainer.addEventListener('click', handlePaginationClick);
-        
-        // El listener del iframe ahora usa nuestra lógica de control
-        drivePlayer.addEventListener('load', () => {
-            // Si 'isSongLoading' es true, significa que nosotros provocamos la carga.
-            // Lo reseteamos y no hacemos nada más.
-            if (isSongLoading) {
-                isSongLoading = false;
-                return;
-            }
-
-            // Si 'isSongLoading' es false, significa que el iframe se recargó solo (la canción terminó).
-            // Solo pasamos a la siguiente si el usuario ya ha interactuado una vez.
-            if (hasUserInteracted) {
-                playNextSong();
-            }
-        });
     }
     
-    function renderCategoryTabs(categories) { /* ... (sin cambios) ... */ }
+    function renderCategoryTabs(categories) {
+        categoryTabsContainer.innerHTML = categories.map(category => 
+            `<button data-category="${category}">${category}</button>`
+        ).join('');
+    }
 
     function loadCategory(category) {
         if (!playlistsData[category] || currentCategory === category) return;
         
         currentCategory = category;
         currentPlaylist = shuffleArray(playlistsData[category].slice());
-        currentSongIndex = -1; // Se resetea el índice
+        currentSongIndex = -1;
         searchInput.value = '';
         currentPage = 1;
         
@@ -287,41 +348,78 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.toggle('active', btn.dataset.category === category);
         });
         
-        // Al cambiar de categoría, actualizamos la lista y la info, pero NO reproducimos.
-        // La reproducción automática solo continúa si ya estaba en marcha.
         updatePaginatedView();
         
         if (currentPlaylist.length > 0) {
-            const song = currentPlaylist[0];
-            songTitleEl.textContent = song.title;
-            songArtistEl.textContent = song.artist;
-            albumArtEl.src = song.cover && song.cover.trim() !== '' ? song.cover : defaultCover;
+            if (hasUserInteracted) {
+                loadSong(0, true);
+            } else {
+                const song = currentPlaylist[0];
+                songTitleEl.textContent = song.title;
+                songArtistEl.textContent = song.artist;
+                albumArtEl.src = song.cover && song.cover.trim() !== '' ? song.cover : defaultCover;
+                drivePlayer.src = 'about:blank';
+            }
         } else {
             songTitleEl.textContent = "Sin canciones";
             songArtistEl.textContent = `Añade música a "${category}"`;
             albumArtEl.src = defaultCover;
-        }
-        // Si la música ya estaba sonando, cargar la nueva primera canción de la nueva categoría
-        if (hasUserInteracted) {
-            loadSong(0, true);
-        } else {
-            drivePlayer.src = 'about:blank'; // Mantiene el iframe limpio al inicio
+            drivePlayer.src = 'about:blank';
         }
     }
     
-    function updatePaginatedView() { /* ... (sin cambios) ... */ }
+    function updatePaginatedView() {
+        const startIndex = (currentPage - 1) * songsPerPage;
+        const endIndex = startIndex + songsPerPage;
+        const paginatedSongs = currentPlaylist.slice(startIndex, endIndex);
+        renderPlaylistView(paginatedSongs, startIndex);
+        renderPaginationControls();
+    }
     
-    function renderPlaylistView(playlistToRender, baseIndex = 0) { /* ... (sin cambios) ... */ }
+    function renderPlaylistView(playlistToRender, baseIndex = 0) {
+        if (!playlistToRender || playlistToRender.length === 0) {
+            playlistViewContainer.innerHTML = '<p style="text-align:center; padding: 20px 0; color: var(--secondary-text-color);">No se encontraron canciones.</p>';
+            return;
+        }
+        const listHTML = `<ol>${playlistToRender.map((song, index) => {
+            const originalIndex = searchInput.value.trim() !== ''
+                ? currentPlaylist.findIndex(s => s.driveId === song.driveId)
+                : baseIndex + index;
+            return `
+            <li data-index="${originalIndex}">
+                <i class="bi bi-music-note-beamed icon"></i>
+                <div class="track-details">
+                    <div class="title">${song.title}</div>
+                    <div class="artist">${song.artist}</div>
+                </div>
+            </li>
+        `}).join('')}</ol>`;
+        playlistViewContainer.innerHTML = listHTML;
+        updatePlaylistHighlight();
+    }
     
-    function renderPaginationControls() { /* ... (sin cambios) ... */ }
+    function renderPaginationControls() {
+        const totalPages = Math.ceil(currentPlaylist.length / songsPerPage);
+        paginationControlsContainer.style.display = totalPages > 1 && searchInput.value.trim() === '' ? 'flex' : 'none';
+        
+        if (totalPages <= 1) {
+            paginationControlsContainer.innerHTML = '';
+            return;
+        }
+        
+        let buttonsHTML = `<button data-page="prev" ${currentPage === 1 ? 'disabled' : ''}><</button>`;
+        for (let i = 1; i <= totalPages; i++) {
+            buttonsHTML += `<button data-page="${i}" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+        }
+        buttonsHTML += `<button data-page="next" ${currentPage === totalPages ? 'disabled' : ''}>></button>`;
+        
+        paginationControlsContainer.innerHTML = buttonsHTML;
+    }
 
-    // 'autoplay' indica si la canción debe reproducirse automáticamente
     function loadSong(index, autoplay = false) {
         if (index < 0 || index >= currentPlaylist.length) return;
         
-        // Marcamos que estamos iniciando una carga intencionadamente
         isSongLoading = true;
-        
         currentSongIndex = index;
         const song = currentPlaylist[index];
 
@@ -329,7 +427,6 @@ document.addEventListener('DOMContentLoaded', () => {
         songArtistEl.textContent = song.artist;
         albumArtEl.src = song.cover && song.cover.trim() !== '' ? song.cover : defaultCover;
         
-        // Solo añadimos '?autoplay=1' si la función fue llamada para autoreproducir.
         const autoplayParam = autoplay ? '?autoplay=1' : '';
         drivePlayer.src = `https://drive.google.com/file/d/${song.driveId}/preview${autoplayParam}`;
         
@@ -342,31 +439,62 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePlaylistHighlight();
     }
     
-    function updatePlaylistHighlight() { /* ... (sin cambios) ... */ }
+    function updatePlaylistHighlight() {
+        document.querySelectorAll('.playlist-view li').forEach(li => {
+            li.classList.toggle('playing', parseInt(li.dataset.index) === currentSongIndex);
+        });
+    }
 
-    function handleCategoryClick(e) { /* ... (sin cambios) ... */ }
+    function handleCategoryClick(e) {
+        if (e.target.tagName === 'BUTTON') {
+            loadCategory(e.target.dataset.category);
+        }
+    }
 
     function handlePlaylistClick(e) {
         const targetLi = e.target.closest('li');
         if (targetLi) {
             const index = parseInt(targetLi.dataset.index);
             if (index !== currentSongIndex) {
-                // Esta es la interacción del usuario
                 if (!hasUserInteracted) {
                     hasUserInteracted = true;
                 }
-                // Se carga la canción, pero sin autoplay=1, ya que el clic del usuario es suficiente
-                // para que el navegador permita la reproducción. Las siguientes sí usarán autoplay.
                 loadSong(index, true); 
             }
         }
     }
 
-    function handleSearch(e) { /* ... (sin cambios) ... */ }
+    function handleSearch(e) {
+        const searchTerm = e.target.value.trim();
+        if (searchTerm === '') {
+            paginationControlsContainer.style.display = 'flex';
+            currentPage = 1;
+            updatePaginatedView();
+        } else {
+            paginationControlsContainer.style.display = 'none';
+            const results = fuse.search(searchTerm);
+            const filteredSongs = results.map(result => result.item);
+            renderPlaylistView(filteredSongs);
+            updatePlaylistHighlight();
+        }
+    }
 
-    function handlePaginationClick(e) { /* ... (sin cambios) ... */ }
+    function handlePaginationClick(e) {
+        const button = e.target.closest('button');
+        if (!button || button.disabled) return;
+        const pageAction = button.dataset.page;
+        const totalPages = Math.ceil(currentPlaylist.length / songsPerPage);
+        if (pageAction === 'prev' && currentPage > 1) {
+            currentPage--;
+        } else if (pageAction === 'next' && currentPage < totalPages) {
+            currentPage++;
+        } else if (!isNaN(pageAction)) {
+            currentPage = parseInt(pageAction);
+        }
+        updatePaginatedView();
+        updatePlaylistHighlight();
+    }
 
-    // Ejecución inicial
     fetchAndBuildPlaylists();
 });
 </script>
