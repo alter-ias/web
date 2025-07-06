@@ -201,6 +201,17 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlLj0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
+    
+    // =================================================================================
+    // INICIO DE LA CORRECCIÓN
+    // =================================================================================
+
+    // Definimos la carátula por defecto con su ruta completa.
+    const defaultCover = 'assets/img/labplay/default-cover.jpg';
+    
+    // =================================================================================
+    // FIN DE LA CORRECCIÓN
+    // =================================================================================
 
     const songTitleEl = document.getElementById('song-title');
     const songArtistEl = document.getElementById('song-artist');
@@ -220,52 +231,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentPage = 1;
     const songsPerPage = 5;
-
-    // =================================================================================
-    // INICIO DE LA CORRECCIÓN
-    // =================================================================================
     
-    /**
-     * FUNCIÓN CORREGIDA PARA PARSEAR CSV
-     * Parsea una fila de CSV, respetando las comas dentro de campos entre comillas.
-     * @param {string} row - La cadena de texto de una fila del CSV.
-     * @returns {string[]} Un array con las columnas de la fila.
-     */
     function parseCsvRow(row) {
         const columns = [];
         let currentColumn = '';
         let inQuotes = false;
-
         for (let i = 0; i < row.length; i++) {
             const char = row[i];
-
             if (char === '"') {
-                // Si encontramos comillas dobles, verificamos si son escapadas (dos comillas seguidas)
                 if (inQuotes && row[i+1] === '"') {
-                    currentColumn += '"'; // Es una comilla escapada, la añadimos y saltamos la siguiente
+                    currentColumn += '"';
                     i++;
                 } else {
-                    inQuotes = !inQuotes; // Inicia o termina un campo entrecomillado
+                    inQuotes = !inQuotes;
                 }
             } else if (char === ',' && !inQuotes) {
-                // Si es una coma y no estamos dentro de comillas, es un separador
                 columns.push(currentColumn.trim());
-                currentColumn = ''; // Reseteamos para la siguiente columna
+                currentColumn = '';
             } else {
-                // Cualquier otro caracter se añade a la columna actual
                 currentColumn += char;
             }
         }
-        columns.push(currentColumn.trim()); // Añadir la última columna
-        
-        // Limpiamos las comillas que envuelven los campos, si es que quedaron
+        columns.push(currentColumn.trim());
         return columns.map(cell => cell.startsWith('"') && cell.endsWith('"') ? cell.slice(1, -1) : cell);
     }
     
-    // =================================================================================
-    // FIN DE LA CORRECCIÓN
-    // =================================================================================
-
     async function fetchAndBuildPlaylists() {
         try {
             const response = await fetch(googleSheetCsvUrl);
@@ -276,9 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             playlistsData = {};
             const categories = new Set();
-
             rows.forEach(row => {
-                // APLICAMOS LA NUEVA FUNCIÓN DE PARSEO EN LUGAR DE split(',')
                 const columns = parseCsvRow(row);
                 const [title, artist, category, driveId, cover, information] = columns;
                 
@@ -291,7 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 playlistsData[category].push({ title, artist, category, driveId, cover, information });
             });
-
             init(Array.from(categories));
         } catch (error) {
             console.error(error);
@@ -309,6 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
              songTitleEl.textContent = "Sin datos";
              songArtistEl.textContent = "La base de datos parece estar vacía.";
+             albumArtEl.src = defaultCover;
              songInformationEl.textContent = '';
              songInformationEl.style.display = 'none';
         }
@@ -351,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             songTitleEl.textContent = "Sin canciones";
             songArtistEl.textContent = `Añade música a "${category}"`;
-            albumArtEl.src = 'assets/img/labplay/default-cover.jpg';
+            albumArtEl.src = defaultCover;
             drivePlayer.src = '';
             songInformationEl.textContent = '';
             songInformationEl.style.display = 'none';
@@ -362,7 +350,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const startIndex = (currentPage - 1) * songsPerPage;
         const endIndex = startIndex + songsPerPage;
         const paginatedSongs = currentPlaylist.slice(startIndex, endIndex);
-
         renderPlaylistView(paginatedSongs, startIndex);
         renderPaginationControls();
     }
@@ -372,12 +359,10 @@ document.addEventListener('DOMContentLoaded', () => {
             playlistViewContainer.innerHTML = '<p style="text-align:center; padding: 20px 0; color: var(--secondary-text-color);">No se encontraron canciones.</p>';
             return;
         }
-
         const listHTML = `<ol>${playlistToRender.map((song, index) => {
             const originalIndex = searchInput.value.trim() !== ''
                 ? currentPlaylist.findIndex(s => s.driveId === song.driveId)
                 : baseIndex + index;
-            
             return `
             <li data-index="${originalIndex}">
                 <i class="bi bi-music-note-beamed icon"></i>
@@ -417,7 +402,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         songTitleEl.textContent = song.title;
         songArtistEl.textContent = song.artist;
-        albumArtEl.src = song.cover || 'assets/img/labplay/default-cover.jpg';
+        
+        // =================================================================================
+        // INICIO DE LA CORRECCIÓN
+        // =================================================================================
+        
+        // Si la canción tiene una carátula definida (y no está vacía), usamos ESE VALOR DIRECTAMENTE.
+        // Si no, usamos la carátula por defecto.
+        albumArtEl.src = song.cover && song.cover.trim() !== '' 
+            ? song.cover 
+            : defaultCover;
+
+        // =================================================================================
+        // FIN DE LA CORRECCIÓN
+        // =================================================================================
+
         drivePlayer.src = `https://drive.google.com/file/d/${song.driveId}/preview?usp=sharing`; 
         
         if (song.information && song.information.trim() !== '') {
@@ -455,7 +454,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function handleSearch(e) {
         const searchTerm = e.target.value.trim();
-
         if (searchTerm === '') {
             paginationControlsContainer.style.display = 'flex';
             currentPage = 1;
@@ -472,10 +470,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function handlePaginationClick(e) {
         const button = e.target.closest('button');
         if (!button || button.disabled) return;
-
         const pageAction = button.dataset.page;
         const totalPages = Math.ceil(currentPlaylist.length / songsPerPage);
-
         if (pageAction === 'prev' && currentPage > 1) {
             currentPage--;
         } else if (pageAction === 'next' && currentPage < totalPages) {
@@ -483,7 +479,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (!isNaN(pageAction)) {
             currentPage = parseInt(pageAction);
         }
-        
         updatePaginatedView();
         updatePlaylistHighlight();
     }
