@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ALTERLABPLAY - Music Library</title>
-    <!-- Tus links a fuentes, etc. van aquí -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
@@ -201,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const categorySongs = playlistsData[category] || [];
         currentPlaylist = shuffleArray(categorySongs);
         currentSongIndex = -1;
-        fuse = new Fuse(currentPlaylist, { keys: ['title', 'artist'], threshold: 0.4 });
+        fuse = new Fuse(allSongs, { keys: ['title', 'artist'], threshold: 0.4 });
         document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.category === category));
         currentPage = 1;
         updatePaginatedView();
@@ -211,12 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
             songTitleEl.textContent = song.title;
             songArtistEl.textContent = song.artist;
             albumArtEl.src = (song.cover && song.cover.trim() !== '') ? song.cover : defaultCover;
-             if (song.information && song.information.trim() !== '') {
-                songInformationEl.textContent = song.information;
-                songInformationEl.style.display = 'block';
-            } else {
-                songInformationEl.style.display = 'none';
-            }
         } else {
             songTitleEl.textContent = "Sin canciones";
             songArtistEl.textContent = "Categoría vacía";
@@ -224,26 +217,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePaginatedView() {
+        const playlistToDisplay = searchInput.value.trim() 
+            ? fuse.search(searchInput.value.trim()).map(result => result.item)
+            : currentPlaylist;
+
         const startIndex = (currentPage - 1) * songsPerPage;
-        const paginatedSongs = currentPlaylist.slice(startIndex, startIndex + songsPerPage);
+        const paginatedSongs = playlistToDisplay.slice(startIndex, startIndex + songsPerPage);
         renderPlaylistView(paginatedSongs);
-        renderPaginationControls();
+        renderPaginationControls(playlistToDisplay.length);
     }
     
     function renderPlaylistView(playlistToRender) {
         if (!playlistToRender || playlistToRender.length === 0) {
-            playlistViewContainer.innerHTML = '<p style="text-align:center; padding: 20px 0;">No se encontraron canciones.</p>';
+            playlistViewContainer.innerHTML = `<p style="text-align:center; padding: 20px 0; color:var(--secondary-text-color);">${searchInput.value.trim() ? 'No se encontraron resultados.' : 'No hay canciones en esta categoría.'}</p>`;
             return;
         }
         const listHTML = `<ol>${playlistToRender.map((song) => {
             const originalIndex = allSongs.findIndex(s => s.publicUrl === song.publicUrl);
-            return `<li data-index="${originalIndex}"><i class="bi bi-music-note-beamed icon"></i><div class="track-details"><div class="title">${song.title}</div><div class="artist">${song.artist}</div></div></li>`;
+            return `<li data-global-index="${originalIndex}"><i class="bi bi-music-note-beamed icon"></i><div class="track-details"><div class="title">${song.title}</div><div class="artist">${song.artist}</div></div></li>`;
         }).join('')}</ol>`;
         playlistViewContainer.innerHTML = listHTML;
+        updatePlaylistHighlight();
     }
     
-    function renderPaginationControls() {
-        const totalPages = Math.ceil(currentPlaylist.length / songsPerPage);
+    function renderPaginationControls(totalItems) {
+        const totalPages = Math.ceil(totalItems / songsPerPage);
         paginationControlsContainer.style.display = totalPages > 1 && searchInput.value.trim() === '' ? 'flex' : 'none';
         if (totalPages <= 1) { paginationControlsContainer.innerHTML = ''; return; }
         let buttonsHTML = `<button data-page="prev" ${currentPage === 1 ? 'disabled' : ''}><</button>`;
@@ -253,12 +251,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePlaylistHighlight() {
+        if (currentSongIndex < 0) { // Si no hay canción sonando, no resaltar nada
+             document.querySelectorAll('.playlist-view li').forEach(li => li.classList.remove('playing'));
+             return;
+        };
         const currentSong = currentPlaylist[currentSongIndex];
         if(!currentSong) return;
 
         const globalIndex = allSongs.findIndex(s => s.publicUrl === currentSong.publicUrl);
         document.querySelectorAll('.playlist-view li').forEach(li => {
-            li.classList.toggle('playing', parseInt(li.dataset.index) === globalIndex);
+            li.classList.toggle('playing', parseInt(li.dataset.globalIndex) === globalIndex);
         });
     }
 
@@ -270,10 +272,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1);
             
             rows.forEach(row => {
+                // CORRECCIÓN CRÍTICA: Se lee la columna 7 (índice 6) como publicUrl
                 const [title, artist, category, publicId, cover, information, publicUrl] = parseCsvRow(row);
                 if (!category || !publicUrl || !title) return;
-                if (!playlistsData[category]) playlistsData[category] = [];
+                
                 const songObject = { title, artist, category, publicId, cover, information, publicUrl };
+                if (!playlistsData[category]) playlistsData[category] = [];
                 playlistsData[category].push(songObject);
                 allSongs.push(songObject);
             });
@@ -285,19 +289,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 categoryTabsContainer.querySelector('button').classList.add('active');
             }
             
+            // --- ASIGNACIÓN DE EVENTOS ---
             audioPlayer.addEventListener('ended', playNextSong);
             
             playlistViewContainer.addEventListener('click', (e) => {
                 const targetLi = e.target.closest('li');
                 if (targetLi) {
-                    const globalIndex = parseInt(targetLi.dataset.index);
+                    const globalIndex = parseInt(targetLi.dataset.globalIndex);
                     const clickedSong = allSongs[globalIndex];
+                    
                     if (clickedSong.category !== currentCategory) {
                         loadCategory(clickedSong.category);
                     }
+                    // Buscamos el índice de la canción clickeada DENTRO de la playlist actual
                     const localIndex = currentPlaylist.findIndex(s => s.publicUrl === clickedSong.publicUrl);
-                    if (localIndex !== -1 && localIndex !== currentSongIndex) {
-                        loadSong(localIndex);
+                    if (localIndex !== -1) {
+                       loadSong(localIndex);
                     }
                 }
             });
@@ -308,12 +315,16 @@ document.addEventListener('DOMContentLoaded', () => {
             
             searchInput.addEventListener('input', (e) => {
                 const searchTerm = e.target.value.trim();
-                paginationControlsContainer.style.display = searchTerm === '' ? 'flex' : 'none';
+                const results = fuse.search(searchTerm).map(result => result.item);
+                
                 if (searchTerm === '') {
+                    // Si se borra la búsqueda, volvemos a la vista paginada de la categoría actual
+                    currentPage = 1;
                     updatePaginatedView();
                 } else {
-                    const results = fuse.search(searchTerm).map(result => result.item);
+                    // Mostramos todos los resultados sin paginación
                     renderPlaylistView(results);
+                    paginationControlsContainer.style.display = 'none';
                 }
             });
 
