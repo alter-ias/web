@@ -2,72 +2,236 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Prueba DEFINITIVA de Autoplay</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALTERLABPLAY - Music Library (Versión iFrame Definitiva)</title>
+    <!-- ... (Tus metas, links a fuentes, y CSS sin cambios) ... -->
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #2c2c2c; color: white; }
-        button { font-size: 1.2rem; padding: 10px; margin: 10px 0; cursor: pointer; }
-        audio { width: 100%; max-width: 500px; margin-top: 20px; }
-        #status-log { border: 1px solid #ccc; padding: 10px; min-height: 100px; font-family: monospace; }
+        /* ... (Copia aquí TODOS tus estilos de la versión anterior) ... */
+        :root { /* ... */ } body { /* ... */ } /* ... etc ... */
+        .player-controls { display: flex; justify-content: center; align-items: center; gap: 40px; margin-bottom: 25px; }
+        .player-controls button { background: none; border: none; color: var(--secondary-text-color); font-size: 2rem; cursor: pointer; transition: color 0.3s ease, transform 0.2s ease; }
+        .player-controls button:hover { color: var(--text-color); transform: scale(1.1); }
+        .embedded-player-container { width: 100%; height: 90px; border-radius: 8px; overflow: hidden; background-color: rgba(0,0,0,0.2); }
+        .embedded-player-container iframe { width: 100%; height: 100%; border: none; }
     </style>
 </head>
 <body>
+<div class="page-wrapper">
+    <video autoplay muted loop playsinline id="background-video"><!-- ... --></video>
+    <header class="main-header container"><!-- ... --></header>
+    <main class="container">
+        <div class="music-app">
+            <div class="category-tabs" id="category-tabs"></div>
+            <div class="search-container">
+                <input type="search" id="search-input" placeholder="Buscar por artista o canción...">
+            </div>
+            <div class="player-wrapper" id="player-wrapper">
+                <div class="album-art-container">
+                    <img src="assets/img/labplay/default-cover.jpg" alt="Carátula del Álbum" id="album-art">
+                </div>
+                <div class="track-info">
+                    <h2 id="song-title">Selecciona una canción</h2>
+                    <p id="song-artist">para comenzar</p>
+                </div>
+                <div class="player-controls">
+                    <button id="prev-btn" title="Anterior"><i class="bi bi-skip-start-fill"></i></button>
+                    <button id="next-btn" title="Siguiente"><i class="bi bi-skip-end-fill"></i></button>
+                </div>
+                <!-- VOLVEMOS AL IFRAME, ES LA ÚNICA FORMA -->
+                <div class="embedded-player-container">
+                    <iframe id="drive-player" allow="autoplay"></iframe>
+                </div>
+                <div id="song-information"></div>
+            </div>
+            <div class="playlist-view" id="playlist-view"></div>
+            <div class="pagination-controls" id="pagination-controls"></div>
+        </div>
+    </main>
+    <section class="project-description container"><!-- ... --></section>
+    <footer class="page-footer container"><!-- ... --></footer>
+</div>
 
-    <h1>Prueba Definitiva con Elemento <audio></h1>
-    <p>Este método es 100% fiable.</p>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- ELEMENTOS DEL DOM ---
+    const songTitleEl = document.getElementById('song-title');
+    const songArtistEl = document.getElementById('song-artist');
+    const albumArtEl = document.getElementById('album-art');
+    const drivePlayer = document.getElementById('drive-player'); // Usamos el iframe
+    const categoryTabsContainer = document.getElementById('category-tabs');
+    const playlistViewContainer = document.getElementById('playlist-view');
+    const songInformationEl = document.getElementById('song-information');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const searchInput = document.getElementById('search-input');
+
+    // --- CONFIGURACIÓN Y ESTADO ---
+    const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlLj0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
+    const defaultCover = 'assets/img/labplay/default-cover.jpg';
     
-    <button id="play-first-btn">1. Reproducir Primera Canción (Manual)</button>
+    let playlistsData = {};
+    let currentCategory = '';
+    let currentPlaylist = [];
+    let currentSongIndex = -1;
+    let fuse;
     
-    <audio id="audio-player" controls></audio>
+    // El "semáforo" y el "permiso"
+    let hasUserInteracted = false;
+    let isChangingSong = false;
 
-    <h2>Log de Estado:</h2>
-    <div id="status-log"></div>
+    // --- FUNCIONES AUXILIARES ---
+    const shuffleArray = (array) => { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[array[i], array[j]] = [array[j], array[i]];} return array;};
+    const parseCsvRow = (row) => { const c = []; let d = ''; let e = !1; for (let f = 0; f < row.length; f++) { const g = row[f]; if ('"' === g) e && '"' === row[f + 1] ? (d += '"', f++) : e = !e; else if (',' === g && !e) c.push(d.trim()), d = ''; else d += g } c.push(d.trim()); return c.map(h => h.startsWith('"') && h.endsWith('"') ? h.slice(1, -1) : h) };
+    
+    // --- LÓGICA DE REPRODUCCIÓN ---
+    function playNextSong() {
+        if (currentPlaylist.length === 0) return;
+        // La primera vez que un botón nuestro llama a esto, se concede el permiso.
+        if (!hasUserInteracted) hasUserInteracted = true;
+        currentSongIndex = (currentSongIndex + 1) % currentPlaylist.length;
+        loadSong(currentSongIndex);
+    }
+    function playPrevSong() {
+        if (currentPlaylist.length === 0) return;
+        if (!hasUserInteracted) hasUserInteracted = true;
+        currentSongIndex = (currentSongIndex - 1 + currentPlaylist.length) % currentPlaylist.length;
+        loadSong(currentSongIndex);
+    }
+    
+    // --- CARGA DE DATOS Y RENDERIZADO ---
+    function loadSong(index) {
+        if (index < 0 || index >= currentPlaylist.length) return;
+        
+        isChangingSong = true; // <-- SEMÁFORO EN ROJO
+        currentSongIndex = index;
+        const song = currentPlaylist[index];
 
-    <script>
-        const audioPlayer = document.getElementById('audio-player');
-        const playFirstBtn = document.getElementById('play-first-btn');
-        const statusLog = document.getElementById('status-log');
-
-        const playlist = [
-            '1UupSCS3f3JaWChQwD7jpCUvSf_mmTyUs', // Canción 1
-            '15hPI3ju9MGPLVnLFzwajn-XkDe09lvcc'  // Canción 2
-        ];
-        let currentSongIndex = 0;
-
-        function log(message) {
-            console.log(message);
-            statusLog.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}<br>` + statusLog.innerHTML;
+        songTitleEl.textContent = song.title;
+        songArtistEl.textContent = song.artist;
+        albumArtEl.src = (song.cover && song.cover.trim() !== '') ? song.cover : defaultCover;
+        if (song.information && song.information.trim() !== '') {
+            songInformationEl.textContent = song.information;
+            songInformationEl.style.display = 'block';
+        } else {
+            songInformationEl.style.display = 'none';
         }
+        updatePlaylistHighlight();
 
-        function playSong(index) {
-            currentSongIndex = index;
-            const songId = playlist[index];
-            const directUrl = `https://drive.google.com/uc?export=download&id=${songId}`;
+        // Si el usuario ya interactuó, CUALQUIER carga de canción debe intentar el autoplay.
+        const autoplayParam = hasUserInteracted ? '?autoplay=1' : '';
+        drivePlayer.src = `https://drive.google.com/file/d/${song.driveId}/preview${autoplayParam}`;
+    }
+    
+    function loadCategory(category) {
+        if (!playlistsData[category] || currentCategory === category) return;
+        
+        currentCategory = category;
+        currentPlaylist = shuffleArray(playlistsData[category].slice());
+        currentSongIndex = -1;
+        fuse = new Fuse(currentPlaylist, { keys: ['title', 'artist'], threshold: 0.4 });
+        document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.category === category));
+        renderPlaylistView(currentPlaylist);
+
+        if (currentPlaylist.length > 0) {
+            const song = currentPlaylist[0];
+            songTitleEl.textContent = song.title;
+            songArtistEl.textContent = song.artist;
+            albumArtEl.src = (song.cover && song.cover.trim() !== '') ? song.cover : defaultCover;
+            if (song.information && song.information.trim() !== '') {
+                songInformationEl.textContent = song.information;
+                songInformationEl.style.display = 'block';
+            } else {
+                songInformationEl.style.display = 'none';
+            }
+            // Si ya estábamos reproduciendo, la nueva categoría también lo hará.
+            if (hasUserInteracted) {
+                loadSong(0);
+            } else {
+                drivePlayer.src = 'about:blank';
+            }
+        } else {
+            // ... (código para playlist vacía)
+        }
+    }
+
+    function renderPlaylistView(playlistToRender) {
+        // La paginación se ha omitido para simplificar
+        playlistViewContainer.innerHTML = `<ol>${playlistToRender.map((song, index) => {
+             // Buscamos el índice original en la playlist completa para mantener la consistencia
+            const originalIndex = currentPlaylist.findIndex(s => s.driveId === song.driveId);
+            return `<li data-index="${originalIndex}"><i class="bi bi-music-note-beamed icon"></i><div class="track-details"><div class="title">${song.title}</div><div class="artist">${song.artist}</div></div></li>`;
+        }).join('')}</ol>`;
+    }
+    
+    function updatePlaylistHighlight() {
+        document.querySelectorAll('.playlist-view li').forEach(li => {
+            li.classList.toggle('playing', parseInt(li.dataset.index) === currentSongIndex);
+        });
+    }
+
+    // --- INICIALIZACIÓN ---
+    async function init() {
+        try {
+            const response = await fetch(googleSheetCsvUrl);
+            const csvText = await response.text();
+            const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1);
             
-            log(`Cargando URL directa para canción ${index + 1}: ${directUrl}`);
-            audioPlayer.src = directUrl;
-            
-            // El navegador bloquea el primer play(). Lo intentamos, y si falla,
-            // el usuario lo puede iniciar con los controles.
-            audioPlayer.play().catch(error => {
-                log(`Autoplay bloqueado por el navegador. El usuario debe presionar play.`);
+            rows.forEach(row => {
+                const [title, artist, category, driveId, cover, information] = parseCsvRow(row);
+                if (!category || !driveId || !title) return;
+                if (!playlistsData[category]) playlistsData[category] = [];
+                playlistsData[category].push({ title, artist, category, driveId, cover, information });
             });
+            
+            const categories = Object.keys(playlistsData);
+            categoryTabsContainer.innerHTML = categories.map(c => `<button data-category="${c}" class="${c === categories[0] ? 'active' : ''}">${c}</button>`).join('');
+            
+            if (categories.length > 0) { loadCategory(categories[0]); }
+            
+            // --- ASIGNACIÓN DE EVENTOS ---
+            drivePlayer.addEventListener('load', () => {
+                if (isChangingSong) {
+                    isChangingSong = false; // <-- SEMÁFORO EN VERDE
+                    return;
+                }
+                // Si la carga fue espontánea y ya interactuamos, pasar a la siguiente.
+                if (hasUserInteracted && searchInput.value.trim() === '') {
+                   playNextSong();
+                }
+            });
+            
+            playlistViewContainer.addEventListener('click', (e) => {
+                const targetLi = e.target.closest('li');
+                if (targetLi) {
+                    const index = parseInt(targetLi.dataset.index);
+                    if (index !== currentSongIndex) {
+                        if (!hasUserInteracted) hasUserInteracted = true;
+                        loadSong(index);
+                    }
+                }
+            });
+
+            categoryTabsContainer.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') loadCategory(e.target.dataset.category) });
+            prevBtn.addEventListener('click', playPrevSong);
+            nextBtn.addEventListener('click', playNextSong);
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.trim();
+                if (searchTerm === '') {
+                    renderPlaylistView(currentPlaylist);
+                } else {
+                    const results = fuse.search(searchTerm).map(result => result.item);
+                    renderPlaylistView(results);
+                }
+            });
+
+        } catch (error) {
+            console.error("Error al inicializar:", error);
+            songTitleEl.textContent = "Error al cargar";
+            songArtistEl.textContent = "No se pudo conectar a la base de datos.";
         }
-
-        // ¡LA MAGIA! El evento 'ended' es 100% fiable.
-        audioPlayer.addEventListener('ended', () => {
-            log(`Canción ${currentSongIndex + 1} terminada. Reproduciendo siguiente.`);
-            const nextIndex = (currentSongIndex + 1) % playlist.length;
-            playSong(nextIndex);
-        });
-
-        // El primer clic del usuario
-        playFirstBtn.addEventListener('click', () => {
-            log("PRIMERA INTERACCIÓN DEL USUARIO. ¡Autoplay habilitado!");
-            playSong(0);
-        });
-
-        log('Script inicializado. Esperando interacción.');
-    </script>
-
+    }
+    init();
+});
+</script>
 </body>
 </html>
