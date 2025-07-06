@@ -68,22 +68,20 @@
         .embedded-player-container { width: 100%; height: 90px; border-radius: 8px; overflow: hidden; }
         .embedded-player-container iframe { width: 100%; height: 100%; border: none; }
 
-        /* NUEVO: Estilos para el contenedor de información de la canción */
         #song-information {
-            margin-top: 20px; /* Espacio arriba */
-            padding-top: 20px; /* Espacio interno arriba para separar del borde */
-            border-top: 1px solid rgba(255, 255, 255, 0.1); /* Línea separadora */
-            text-align: left; /* Alinear texto a la izquierda */
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: left;
             font-size: 0.95rem;
             line-height: 1.6;
             color: var(--secondary-text-color);
             text-shadow: var(--text-shadow);
-            white-space: pre-wrap; /* Permite saltos de línea si los hay en el sheet */
-            display: none; /* Inicialmente oculto si no hay información */
+            white-space: pre-wrap;
+            display: none;
         }
 
-
-        .playlist-view { margin-top: 20px; min-height: 295px; /* Altura fija para evitar saltos */ border-radius: 10px; padding-right: 5px; }
+        .playlist-view { margin-top: 20px; min-height: 295px; border-radius: 10px; padding-right: 5px; }
         .playlist-view ol { list-style: none; padding: 0; margin: 0; }
         .playlist-view li { display: flex; align-items: center; gap: 15px; padding: 12px 15px; border-radius: 8px; cursor: pointer; transition: background-color 0.3s ease; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .playlist-view li:hover { background-color: rgba(255,255,255,0.1); }
@@ -95,7 +93,6 @@
         .playlist-view li.playing .icon { color: var(--highlight-color); }
         .playlist-view li.playing .title { color: var(--highlight-color); font-weight: 700; }
 
-        /* Estilos para los controles de paginación */
         .pagination-controls {
             display: flex;
             justify-content: center;
@@ -175,12 +172,10 @@
                     <iframe id="drive-player" allow="autoplay"></iframe>
                 </div>
                 
-                <!-- NUEVO: Contenedor para la información de la canción -->
                 <div id="song-information"></div>
 
             </div>
             <div class="playlist-view" id="playlist-view"></div>
-            <!-- Contenedor para los botones de paginación -->
             <div class="pagination-controls" id="pagination-controls"></div>
         </div>
     </main>
@@ -204,12 +199,9 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // ... (El resto del código sin cambios hasta aquí)
 
-    // URL del CSV del Google Sheet
     const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlLj0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
 
-    // Referencias a los elementos del DOM
     const songTitleEl = document.getElementById('song-title');
     const songArtistEl = document.getElementById('song-artist');
     const albumArtEl = document.getElementById('album-art');
@@ -218,7 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const playlistViewContainer = document.getElementById('playlist-view');
     const searchInput = document.getElementById('search-input');
     const paginationControlsContainer = document.getElementById('pagination-controls');
-    // NUEVO: Referencia al elemento donde se mostrará la información
     const songInformationEl = document.getElementById('song-information'); 
 
     let playlistsData = {};
@@ -227,37 +218,77 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSongIndex = -1;
     let fuse;
 
-    // Variables de estado para la paginación
     let currentPage = 1;
     const songsPerPage = 5;
 
+    // =================================================================================
+    // INICIO DE LA CORRECCIÓN
+    // =================================================================================
+    
     /**
-     * Fetches data from the Google Sheet CSV and builds the playlists structure.
-     * Populates playlistsData and initializes the app.
+     * FUNCIÓN CORREGIDA PARA PARSEAR CSV
+     * Parsea una fila de CSV, respetando las comas dentro de campos entre comillas.
+     * @param {string} row - La cadena de texto de una fila del CSV.
+     * @returns {string[]} Un array con las columnas de la fila.
      */
+    function parseCsvRow(row) {
+        const columns = [];
+        let currentColumn = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < row.length; i++) {
+            const char = row[i];
+
+            if (char === '"') {
+                // Si encontramos comillas dobles, verificamos si son escapadas (dos comillas seguidas)
+                if (inQuotes && row[i+1] === '"') {
+                    currentColumn += '"'; // Es una comilla escapada, la añadimos y saltamos la siguiente
+                    i++;
+                } else {
+                    inQuotes = !inQuotes; // Inicia o termina un campo entrecomillado
+                }
+            } else if (char === ',' && !inQuotes) {
+                // Si es una coma y no estamos dentro de comillas, es un separador
+                columns.push(currentColumn.trim());
+                currentColumn = ''; // Reseteamos para la siguiente columna
+            } else {
+                // Cualquier otro caracter se añade a la columna actual
+                currentColumn += char;
+            }
+        }
+        columns.push(currentColumn.trim()); // Añadir la última columna
+        
+        // Limpiamos las comillas que envuelven los campos, si es que quedaron
+        return columns.map(cell => cell.startsWith('"') && cell.endsWith('"') ? cell.slice(1, -1) : cell);
+    }
+    
+    // =================================================================================
+    // FIN DE LA CORRECCIÓN
+    // =================================================================================
+
     async function fetchAndBuildPlaylists() {
         try {
             const response = await fetch(googleSheetCsvUrl);
             if (!response.ok) throw new Error('Error al cargar los datos desde Google Sheets.');
             
             const csvText = await response.text();
-            const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1); // Ignorar la primera fila (encabezados)
+            const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1);
             
             playlistsData = {};
             const categories = new Set();
 
             rows.forEach(row => {
-                // MODIFICADO: Añadimos la columna de información (columna F, índice 5)
-                const [title, artist, category, driveId, cover, information] = row.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''));
+                // APLICAMOS LA NUEVA FUNCIÓN DE PARSEO EN LUGAR DE split(',')
+                const columns = parseCsvRow(row);
+                const [title, artist, category, driveId, cover, information] = columns;
                 
-                // Validar que existan los campos mínimos requeridos
                 if (!category || !driveId || !title) return; 
                 
                 if (!playlistsData[category]) {
                     playlistsData[category] = [];
                     categories.add(category);
                 }
-                // MODIFICADO: Añadimos 'information' al objeto canción
+                
                 playlistsData[category].push({ title, artist, category, driveId, cover, information });
             });
 
@@ -266,16 +297,11 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error(error);
             songTitleEl.textContent = "Error al cargar";
             songArtistEl.textContent = "No se pudo conectar a la base de datos.";
-            // Limpiar y ocultar información también en caso de error
             songInformationEl.textContent = '';
             songInformationEl.style.display = 'none';
         }
     }
 
-    /**
-     * Initializes the application after data is fetched.
-     * @param {string[]} categories - An array of unique categories.
-     */
     function init(categories) {
         renderCategoryTabs(categories);
         if (categories.length > 0) {
@@ -283,31 +309,21 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
              songTitleEl.textContent = "Sin datos";
              songArtistEl.textContent = "La base de datos parece estar vacía.";
-             // Limpiar y ocultar información si no hay categorías/datos
              songInformationEl.textContent = '';
              songInformationEl.style.display = 'none';
         }
-        // Añadir event listeners
         categoryTabsContainer.addEventListener('click', handleCategoryClick);
         playlistViewContainer.addEventListener('click', handlePlaylistClick);
         searchInput.addEventListener('input', handleSearch);
         paginationControlsContainer.addEventListener('click', handlePaginationClick);
     }
     
-    /**
-     * Renders the category tabs.
-     * @param {string[]} categories - An array of category names.
-     */
     function renderCategoryTabs(categories) {
         categoryTabsContainer.innerHTML = categories.map(category => 
             `<button data-category="${category}">${category}</button>`
         ).join('');
     }
 
-    /**
-     * Loads and displays a specific category's playlist.
-     * @param {string} category - The category name to load.
-     */
     function loadCategory(category) {
         if (!playlistsData[category] || currentCategory === category) return;
         
@@ -315,9 +331,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPlaylist = playlistsData[category];
         currentSongIndex = -1;
         searchInput.value = '';
-        currentPage = 1; // Resetea la página a 1 al cambiar de categoría
+        currentPage = 1;
 
-        // Configurar Fuse.js para la búsqueda
         const fuseOptions = {
             keys: ['title', 'artist'],
             includeScore: true,
@@ -325,14 +340,12 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         fuse = new Fuse(currentPlaylist, fuseOptions);
 
-        // Resaltar la pestaña de categoría activa
         document.querySelectorAll('.category-tabs button').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.category === category);
         });
         
-        updatePaginatedView(); // Controla la renderización de la lista
+        updatePaginatedView();
 
-        // Cargar la primera canción de la nueva categoría (o manejar si está vacía)
         if (currentPlaylist.length > 0) {
             loadSong(0);
         } else {
@@ -340,16 +353,11 @@ document.addEventListener('DOMContentLoaded', () => {
             songArtistEl.textContent = `Añade música a "${category}"`;
             albumArtEl.src = 'assets/img/labplay/default-cover.jpg';
             drivePlayer.src = '';
-            // NUEVO: Limpiar y ocultar información si la categoría está vacía
             songInformationEl.textContent = '';
             songInformationEl.style.display = 'none';
         }
     }
     
-    /**
-     * Updates the playlist view based on the current page or search results.
-     * Also renders the pagination controls.
-     */
     function updatePaginatedView() {
         const startIndex = (currentPage - 1) * songsPerPage;
         const endIndex = startIndex + songsPerPage;
@@ -359,11 +367,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderPaginationControls();
     }
     
-    /**
-     * Renders the list of songs in the playlist view.
-     * @param {object[]} playlistToRender - The subset of songs to display (paginated or search results).
-     * @param {number} baseIndex - The index offset for the items being rendered (used for correct song selection).
-     */
     function renderPlaylistView(playlistToRender, baseIndex = 0) {
         if (!playlistToRender || playlistToRender.length === 0) {
             playlistViewContainer.innerHTML = '<p style="text-align:center; padding: 20px 0; color: var(--secondary-text-color);">No se encontraron canciones.</p>';
@@ -371,11 +374,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const listHTML = `<ol>${playlistToRender.map((song, index) => {
-            // Calcular el índice original en currentPlaylist para la selección correcta
-            // Si hay búsqueda, buscamos el índice real del item filtrado.
-            // Si es paginación normal, es baseIndex + el índice dentro del subset paginado.
             const originalIndex = searchInput.value.trim() !== ''
-                ? currentPlaylist.findIndex(s => s.driveId === song.driveId) // Asume que driveId es único
+                ? currentPlaylist.findIndex(s => s.driveId === song.driveId)
                 : baseIndex + index;
             
             return `
@@ -388,15 +388,11 @@ document.addEventListener('DOMContentLoaded', () => {
             </li>
         `}).join('')}</ol>`;
         playlistViewContainer.innerHTML = listHTML;
-        updatePlaylistHighlight(); // Asegura que la canción actual esté resaltada si está en la vista
+        updatePlaylistHighlight();
     }
     
-    /**
-     * Renders the pagination buttons.
-     */
     function renderPaginationControls() {
         const totalPages = Math.ceil(currentPlaylist.length / songsPerPage);
-        // Mostrar controles solo si hay más de una página y no se está buscando
         paginationControlsContainer.style.display = totalPages > 1 && searchInput.value.trim() === '' ? 'flex' : 'none';
         
         if (totalPages <= 1) {
@@ -405,7 +401,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         let buttonsHTML = `<button data-page="prev" ${currentPage === 1 ? 'disabled' : ''}><</button>`;
-        // Generar botones para cada página
         for (let i = 1; i <= totalPages; i++) {
             buttonsHTML += `<button data-page="${i}" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
         }
@@ -414,11 +409,6 @@ document.addEventListener('DOMContentLoaded', () => {
         paginationControlsContainer.innerHTML = buttonsHTML;
     }
 
-
-    /**
-     * Loads and plays a specific song by its index in the current playlist.
-     * @param {number} index - The index of the song in the currentPlaylist array.
-     */
     function loadSong(index) {
         if (index < 0 || index >= currentPlaylist.length) return;
         
@@ -428,44 +418,31 @@ document.addEventListener('DOMContentLoaded', () => {
         songTitleEl.textContent = song.title;
         songArtistEl.textContent = song.artist;
         albumArtEl.src = song.cover || 'assets/img/labplay/default-cover.jpg';
-        // Asegurarse de que el parámetro 'usp=sharing' esté presente para evitar problemas de permisos
         drivePlayer.src = `https://drive.google.com/file/d/${song.driveId}/preview?usp=sharing`; 
         
-        // NUEVO: Cargar y mostrar la información de la canción
         if (song.information && song.information.trim() !== '') {
             songInformationEl.textContent = song.information;
-            songInformationEl.style.display = 'block'; // Mostrar el div si hay información
+            songInformationEl.style.display = 'block';
         } else {
-            songInformationEl.textContent = ''; // Limpiar contenido si no hay información
-            songInformationEl.style.display = 'none'; // Ocultar el div si no hay información
+            songInformationEl.textContent = '';
+            songInformationEl.style.display = 'none';
         }
 
-        updatePlaylistHighlight(); // Resaltar la canción reproducida en la lista visible
+        updatePlaylistHighlight();
     }
     
-    /**
-     * Highlights the currently playing song in the visible playlist list.
-     */
     function updatePlaylistHighlight() {
         document.querySelectorAll('.playlist-view li').forEach(li => {
             li.classList.toggle('playing', parseInt(li.dataset.index) === currentSongIndex);
         });
     }
 
-    /**
-     * Handles click events on the category tabs.
-     * @param {MouseEvent} e - The click event.
-     */
     function handleCategoryClick(e) {
         if (e.target.tagName === 'BUTTON') {
             loadCategory(e.target.dataset.category);
         }
     }
 
-    /**
-     * Handles click events on the playlist items.
-     * @param {MouseEvent} e - The click event.
-     */
     function handlePlaylistClick(e) {
         const targetLi = e.target.closest('li');
         if (targetLi) {
@@ -476,36 +453,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Handles input events on the search box.
-     * Filters the current playlist and updates the view.
-     * @param {InputEvent} e - The input event.
-     */
     function handleSearch(e) {
         const searchTerm = e.target.value.trim();
 
         if (searchTerm === '') {
-            // Si el buscador está vacío, volver a la vista paginada normal
             paginationControlsContainer.style.display = 'flex';
-            currentPage = 1; // Resetear a la primera página
+            currentPage = 1;
             updatePaginatedView();
         } else {
-            // Si hay término de búsqueda, ocultar paginación y mostrar resultados
             paginationControlsContainer.style.display = 'none';
             const results = fuse.search(searchTerm);
             const filteredSongs = results.map(result => result.item);
-            // Renderizar solo los resultados de búsqueda (sin paginación en esta vista)
             renderPlaylistView(filteredSongs);
-            // Asegurarse de que la canción actualmente reproducida (si está en los resultados) se resalte
             updatePlaylistHighlight();
         }
     }
 
-    /**
-     * Handles click events on the pagination controls.
-     * Updates the current page and the playlist view.
-     * @param {MouseEvent} e - The click event.
-     */
     function handlePaginationClick(e) {
         const button = e.target.closest('button');
         if (!button || button.disabled) return;
@@ -521,11 +484,10 @@ document.addEventListener('DOMContentLoaded', () => {
             currentPage = parseInt(pageAction);
         }
         
-        updatePaginatedView(); // Actualizar la vista para la nueva página
-        updatePlaylistHighlight(); // Asegurar que la canción actual se resalte si está en la nueva página
+        updatePaginatedView();
+        updatePlaylistHighlight();
     }
 
-    // Iniciar el proceso de carga de datos
     fetchAndBuildPlaylists();
 });
 </script>
