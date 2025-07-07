@@ -301,15 +301,36 @@ if (currentPlaylist.length > 0) {
                 allSongs.push(songObject);
             });
             
-            fuse = new Fuse(allSongs, { keys: ['title', 'artist'], threshold: 0.4 });
-            const categories = Object.keys(playlistsData);
-            if (categories.length > 0) {
-                categoryTabsContainer.innerHTML = categories.map(c => `<button data-category="${c}">${c}</button>`).join('');
-                loadCategory(categories[0]);
-            } else {
-                 songTitleEl.textContent = "Sin datos";
-                 songArtistEl.textContent = "La base de datos está vacía.";
-            }
+           // ... dentro de la función init() ...
+
+fuse = new Fuse(allSongs, { keys: ['title', 'artist'], threshold: 0.4 });
+const categories = Object.keys(playlistsData);
+if (categories.length > 0) {
+    categoryTabsContainer.innerHTML = categories.map(c => `<button data-category="${c}">${c}</button>`).join('');
+    
+    // --- NUEVA LÓGICA DE INICIO ALEATORIO Y AUTOPLAY ---
+
+    // 1. Escoge una canción totalmente al azar de toda la colección.
+    const randomInitialSong = allSongs[Math.floor(Math.random() * allSongs.length)];
+
+    // 2. Carga su categoría. Esto marcará el botón correcto como "activo"
+    // y creará la lista de reproducción (currentPlaylist) ya barajada.
+    loadCategory(randomInitialSong.category);
+
+    // 3. Encuentra la posición de nuestra canción aleatoria DENTRO de esa nueva lista barajada.
+    const indexInShuffledPlaylist = currentPlaylist.findIndex(song => song.publicId === randomInitialSong.publicId);
+
+    // 4. Llama a loadSong con el índice correcto para que se reproduzca ESA canción específica.
+    // Si por alguna razón no la encuentra (muy improbable), reproduce la primera.
+    loadSong(indexInShuffledPlaylist !== -1 ? indexInShuffledPlaylist : 0);
+
+} else {
+     songTitleEl.textContent = "Sin datos";
+     songArtistEl.textContent = "La base de datos está vacía.";
+}
+
+// ASIGNACIÓN DE EVENTOS
+// ... (el resto del código) ...
             
             // ASIGNACIÓN DE EVENTOS
             audioPlayer.addEventListener('ended', playNextSong);
