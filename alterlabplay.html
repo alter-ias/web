@@ -137,6 +137,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const paginationControlsContainer = document.getElementById('pagination-controls');
 
     // --- CONFIGURACIÓN Y ESTADO ---
+
+    // CAMBIO 1: Se añade la URL base de tu cuenta de Cloudinary.
+    const cloudinaryBaseUrl = 'https://res.cloudinary.com/dy9cywux2/video/upload/';
+    
+    // Esta es la URL para LEER los datos de tu hoja de cálculo.
     const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlLj0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
     const defaultCover = 'assets/img/labplay/default-cover.jpg';
     const songsPerPage = 5;
@@ -182,6 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         updatePlaylistHighlight();
 
+        // Esta línea ahora usará la URL correcta de Cloudinary
         audioPlayer.src = song.publicUrl;
         audioPlayer.play().catch(e => console.warn("Autoplay bloqueado. El usuario debe iniciar la reproducción manualmente."));
     }
@@ -201,9 +207,12 @@ document.addEventListener('DOMContentLoaded', () => {
             songTitleEl.textContent = song.title;
             songArtistEl.textContent = song.artist;
             albumArtEl.src = (song.cover && song.cover.trim() !== '') ? song.cover : defaultCover;
+            // Pre-carga la primera canción en el reproductor sin reproducirla
+            audioPlayer.src = song.publicUrl;
         } else {
             songTitleEl.textContent = "Sin canciones";
             songArtistEl.textContent = "Categoría vacía";
+            audioPlayer.src = "";
         }
     }
 
@@ -224,7 +233,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const listHTML = `<ol>${playlistToRender.map((song) => {
-            const originalIndex = allSongs.findIndex(s => s.publicUrl === song.publicUrl);
+            // Se busca la canción por su ID único, es más seguro que por URL
+            const originalIndex = allSongs.findIndex(s => s.publicId === song.publicId);
             return `<li data-global-index="${originalIndex}"><i class="bi bi-music-note-beamed icon"></i><div class="track-details"><div class="title">${song.title}</div><div class="artist">${song.artist}</div></div></li>`;
         }).join('')}</ol>`;
         playlistViewContainer.innerHTML = listHTML;
@@ -249,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentSong = currentPlaylist[currentSongIndex];
         if(!currentSong) return;
 
-        const globalIndex = allSongs.findIndex(s => s.publicUrl === currentSong.publicUrl);
+        const globalIndex = allSongs.findIndex(s => s.publicId === currentSong.publicId);
         document.querySelectorAll('.playlist-view li').forEach(li => {
             li.classList.toggle('playing', parseInt(li.dataset.globalIndex) === globalIndex);
         });
@@ -263,13 +273,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1);
             
             rows.forEach(row => {
-                // CORRECCIÓN FINAL Y DEFINITIVA: Leer las columnas en el orden correcto.
-                const [title, artist, category, publicId, cover, information, publicUrl] = parseCsvRow(row);
-                if (!category || !publicUrl || !title) {
-                    console.warn("Fila ignorada por falta de datos (publicUrl, etc):", row);
+                // Se leen las 7 columnas del CSV.
+                const [title, artist, category, publicId, cover, information, _ignoredPublicUrl] = parseCsvRow(row);
+
+                // CAMBIO 2: La validación ahora depende del 'publicId' (columna D), que es crucial.
+                if (!category || !publicId || !title) {
+                    console.warn("Fila ignorada por falta de datos esenciales (categoría, título o publicId):", row);
                     return;
                 }
-                const songObject = { title, artist, category, publicId, cover, information, publicUrl };
+                
+                // CAMBIO 3: Se construye la URL final y se crea el objeto de la canción correctamente.
+                const finalCloudinaryUrl = `${cloudinaryBaseUrl}${publicId}`;
+                const songObject = { 
+                    title, 
+                    artist, 
+                    category, 
+                    publicId, // El ID de Cloudinary
+                    cover, 
+                    information, 
+                    publicUrl: finalCloudinaryUrl // La URL completa y correcta
+                };
+
                 if (!playlistsData[category]) playlistsData[category] = [];
                 playlistsData[category].push(songObject);
                 allSongs.push(songObject);
@@ -293,10 +317,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (targetLi) {
                     const globalIndex = parseInt(targetLi.dataset.globalIndex);
                     const clickedSong = allSongs[globalIndex];
+                    if (!clickedSong) return; // Seguridad extra
+
+                    // Si la canción pertenece a otra categoría, cambia la vista
                     if (clickedSong.category !== currentCategory) {
                         loadCategory(clickedSong.category);
                     }
-                    const localIndex = currentPlaylist.findIndex(s => s.publicUrl === clickedSong.publicUrl);
+                    // Encuentra la canción en la lista de reproducción actual y la carga
+                    const localIndex = currentPlaylist.findIndex(s => s.publicId === clickedSong.publicId);
                     if (localIndex !== -1) {
                        loadSong(localIndex);
                     }
