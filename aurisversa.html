@@ -323,15 +323,47 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePlaylistHighlight();
     }
     
-    function renderPaginationControls(totalItems) {
-        const totalPages = Math.ceil(totalItems / songsPerPage);
-        paginationControlsContainer.style.display = totalPages > 1 && searchInput.value.trim() === '' ? 'flex' : 'none';
-        if (totalPages <= 1) { paginationControlsContainer.innerHTML = ''; return; }
-        let buttonsHTML = `<button data-page="prev" ${currentPage === 1 ? 'disabled' : ''}><</button>`;
-        for (let i = 1; i <= totalPages; i++) { buttonsHTML += `<button data-page="${i}" class="${i === currentPage ? 'active' : ''}">${i}</button>`; }
-        buttonsHTML += `<button data-page="next" ${currentPage === totalPages ? 'disabled' : ''}>></button>`;
-        paginationControlsContainer.innerHTML = buttonsHTML;
+  function renderPaginationControls(totalItems) {
+    const totalPages = Math.ceil(totalItems / songsPerPage);
+    paginationControlsContainer.style.display = totalPages > 1 && searchInput.value.trim() === '' ? 'flex' : 'none';
+    if (totalPages <= 1) { 
+        paginationControlsContainer.innerHTML = ''; 
+        return; 
     }
+
+    let buttonsHTML = `<button data-page="prev" ${currentPage === 1 ? 'disabled' : ''}><</button>`;
+    
+    let startPage, endPage;
+
+    if (totalPages <= 3) {
+        // Si hay 3 o menos páginas, muéstralas todas
+        startPage = 1;
+        endPage = totalPages;
+    } else {
+        // Si hay más de 3, calcula la ventana de 3 números
+        if (currentPage === 1) {
+            // Si estamos en la primera página, muestra 1, 2, 3
+            startPage = 1;
+            endPage = 3;
+        } else if (currentPage === totalPages) {
+            // Si estamos en la última página, muestra las últimas 3
+            startPage = totalPages - 2;
+            endPage = totalPages;
+        } else {
+            // Si estamos en medio, muestra la anterior, la actual y la siguiente
+            startPage = currentPage - 1;
+            endPage = currentPage + 1;
+        }
+    }
+
+    // Genera solo los botones para la ventana calculada
+    for (let i = startPage; i <= endPage; i++) {
+        buttonsHTML += `<button data-page="${i}" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+    }
+
+    buttonsHTML += `<button data-page="next" ${currentPage === totalPages ? 'disabled' : ''}>></button>`;
+    paginationControlsContainer.innerHTML = buttonsHTML;
+}
 
     function updatePlaylistHighlight() {
         if (currentSongIndex < 0) {
