@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alter.Drez - IA y Análisis</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+
+    <style>
+        :root {
+            --background-color: #0F121B;
+            --text-color: #FFFFFF;
+            --secondary-text-color: #d1d1d1;
+            --accent-color: #FFFFFF;
+            --highlight-color: rgba(90, 180, 255, 0.5);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { color: var(--text-color); font-family: 'Montserrat', sans-serif; overflow-x: hidden; }
+        #background-video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; object-fit: cover; filter: brightness(0.4); }
+        .container { width: 90%; max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; }
+        .main-header { display: flex; justify-content: center; align-items: center; padding: 30px 0; text-align: center; }
+        .logo a { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-direction: column; }
+        .logo img { height: 40px; width: auto; }
+        .logo .logo-text { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: var(--text-color); }
+        .page-footer { position: relative; z-index: 2; padding: 40px 0 30px; text-align: center; }
+        .social-links a { color: var(--secondary-text-color); font-size: 1.8rem; margin: 0 15px; transition: color 0.3s ease; }
+        .social-links a:hover { color: var(--text-color); }
+
+        .chess-section { padding: 20px 0; display: flex; flex-direction: column; align-items: center; }
+        .chess-title { font-size: 2.5rem; font-weight: 700; margin-bottom: 30px; text-align: center; letter-spacing: 2px; }
+        .chess-container { display: flex; justify-content: center; align-items: flex-start; gap: 40px; width: 100%; flex-wrap: wrap; }
+        
+        .board { width: 60vh; max-width: 600px; min-width: 300px; }
+        .chess-controls {
+            width: 350px;
+            display: flex; flex-direction: column; gap: 15px;
+        }
+
+        .control-panel {
+            padding: 20px;
+            background-color: rgba(15, 18, 27, 0.2); 
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .control-panel h3 {
+            font-weight: 500; margin-bottom: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 10px;
+        }
+
+        .info-panel p { font-size: 1.1rem; margin-bottom: 10px; }
+        .info-panel span { color: var(--text-color); font-weight: 500; }
+
+        .chess-button, select {
+            background: none; border: 1px solid var(--accent-color); padding: 10px 20px;
+            color: var(--text-color); text-decoration: none; font-weight: 500;
+            letter-spacing: 1px; transition: all 0.3s ease; border-radius: 25px;
+            cursor: pointer; font-family: 'Montserrat', sans-serif; font-size: 0.9rem; text-align: center; width: 100%;
+        }
+        .chess-button:hover, select:hover { background-color: var(--accent-color); color: var(--background-color); }
+        select { appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>"); background-repeat: no-repeat; background-position-x: 95%; background-position-y: 50%; padding-right: 40px; }
+        select:hover { background-image: url("data:image/svg+xml;utf8,<svg fill='%230F121B' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/><path d='M0 0h24v24H0z' fill='none'/></svg>"); }
+        
+        .form-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; }
+        .form-group label { font-size: 0.9rem; color: var(--secondary-text-color); }
+        
+        .button-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        #pgn { font-family: 'Courier New', Courier, monospace; font-size: 0.9rem; white-space: pre-wrap; word-wrap: break-word; max-height: 150px; overflow-y: auto; background-color: rgba(0, 0, 0, 0.2); padding: 10px; border-radius: 5px; }
+        .highlight-legal { background: radial-gradient(circle, var(--highlight-color) 20%, transparent 50%); }
+
+        #analysisResult { min-height: 50px; font-size: 0.9rem; line-height: 1.5; color: var(--secondary-text-color); }
+        #analysisResult strong { color: var(--text-color); }
+        #lessonDescription { font-size: 0.9rem; line-height: 1.5; color: var(--secondary-text-color); margin-top: 10px; }
+
+        @media (max-width: 992px) {
+            .chess-container { flex-direction: column; align-items: center; }
+            .board { width: 80vw; max-width: 500px; }
+            .chess-controls { width: 80vw; max-width: 500px; }
+        }
+    </style>
+</head>
+<body>
+    <video autoplay muted loop playsinline id="background-video">
+        <source src="assets/videos/web05.webm" type="video/webm">
+        <source src="assets/videos/web05.mp4" type="video/mp4">
+    </video>
+
+    <header class="main-header container">
+        <div class="logo">
+            <a href="index.html"><img src="assets/img/logo03.png" alt="Alter.Lab Logo"><span class="logo-text">ALTER.LAB</span></a>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="chess-section">
+            <h1 class="chess-title">Alter.Drez</h1>
+            
+            <div class="chess-container">
+                <div id="chessBoard" class="board"></div>
+                
+                <div class="chess-controls">
+                    <!-- Panel de Estado -->
+                    <div class="control-panel info-panel">
+                        <p><strong>Estado:</strong> <span id="status">Cargando motor...</span></p>
+                        <p><strong>Turno:</strong> <span id="turn"></span></p>
+                    </div>
+
+                    <!-- Panel de Juego -->
+                    <div class="control-panel">
+                        <h3>Juego</h3>
+                        <div class="form-group">
+                            <label for="gameMode">Modo de Juego</label>
+                            <select id="gameMode">
+                                <option value="pvc">Jugador vs IA</option>
+                                <option value="pvp">Jugador vs Jugador</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="skillLevel">Nivel de la IA (ELO aprox.)</label>
+                            <select id="skillLevel">
+                                <option value="0">Principiante (800)</option>
+                                <option value="5">Intermedio (1400)</option>
+                                <option value="10">Avanzado (1800)</option>
+                                <option value="15">Experto (2200)</option>
+                                <option value="20">Maestro (2600+)</option>
+                            </select>
+                        </div>
+                        <div class="button-group">
+                            <button id="startBtn" class="chess-button">Nueva Partida</button>
+                            <button id="undoBtn" class="chess-button">Deshacer</button>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Análisis -->
+                    <div class="control-panel">
+                        <h3>Análisis con Stockfish</h3>
+                        <button id="analyzeBtn" class="chess-button">Analizar Posición</button>
+                        <div id="analysisResult"></div>
+                    </div>
+
+                    <!-- Panel de Lecciones -->
+                    <div class="control-panel">
+                        <h3>Lecciones de Aperturas</h3>
+                        <div class="form-group">
+                             <label for="openings">Selecciona una apertura para estudiar</label>
+                            <select id="openings">
+                                <option value="">-- Elige una --</option>
+                            </select>
+                        </div>
+                        <div id="lessonDescription"></div>
+                    </div>
+
+                    <!-- Panel de Movimientos -->
+                    <div class="control-panel">
+                        <h3>Movimientos (PGN)</h3>
+                        <div id="pgn"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="page-footer"></footer>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.js"></script>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        let board = null;
+        const game = new Chess();
+        let engine = null;
+        let gameMode = 'pvc'; // 'pvc' o 'pvp'
+        let playerColor = 'w'; // El jugador siempre empieza con blancas por ahora
+
+        // DOM Elements
+        const statusEl = document.getElementById('status');
+        const turnEl = document.getElementById('turn');
+        const pgnEl = document.getElementById('pgn');
+        const analysisResultEl = document.getElementById('analysisResult');
+        const lessonDescriptionEl = document.getElementById('lessonDescription');
+        const openingsSelect = document.getElementById('openings');
+
+        // --- DATA DE LECCIONES ---
+        const openingsData = [
+            { name: "Apertura Italiana (Giuoco Piano)", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5", desc: "Una de las aperturas más antiguas. Se centra en un rápido desarrollo, control del centro y preparación para el enroque." },
+            { name: "Defensa Siciliana (Variación Najdorf)", pgn: "1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6", desc: "Una respuesta agresiva y popular contra 1.e4. El negro lucha por el control del centro y crea desequilibrios." },
+            { name: "Gambito de Dama Aceptado", pgn: "1. d4 d5 2. c4 dxc4", desc: "El negro cede temporalmente el centro para obtener un desarrollo más libre de sus piezas. Las blancas intentarán recuperar el peón con ventaja." },
+            { name: "Defensa Francesa", pgn: "1. e4 e6", desc: "Una apertura sólida y resistente. El negro permite que las blancas controlen el centro inicialmente, para luego contraatacar." }
+        ];
+
+        function populateOpenings() {
+            openingsData.forEach((op, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = op.name;
+                openingsSelect.appendChild(option);
+            });
+        }
+
+        // --- LÓGICA DE STOCKFISH ---
+        function initStockfish() {
+            engine = new Worker('./stockfish/stockfish.js');
+            engine.onmessage = function(event) {
+                const message = event.data;
+
+                if (message.startsWith('bestmove')) {
+                    const move = message.split(' ')[1];
+                    game.move(move, { sloppy: true });
+                    board.position(game.fen());
+                    updateStatus();
+                } else if (message.startsWith('info depth')) {
+                    // Para análisis
+                    const scoreMatch = message.match(/score (cp|mate) (-?\d+)/);
+                    if (scoreMatch) {
+                        const type = scoreMatch[1];
+                        const value = parseInt(scoreMatch[2], 10);
+                        let evaluation = '';
+                        if (type === 'cp') {
+                            evaluation = (value / 100.0).toFixed(2);
+                            if (game.turn() === 'b') evaluation = (-evaluation).toFixed(2);
+                        } else {
+                            evaluation = `Mate en ${Math.abs(value)}`;
+                        }
+                        const pvMatch = message.match(/pv (.+)/);
+                        const bestLine = pvMatch ? pvMatch[1] : '';
+                        analysisResultEl.innerHTML = `<strong>Evaluación:</strong> ${evaluation}<br><strong>Mejor línea:</strong> ${bestLine}`;
+                    }
+                }
+            };
+            engine.postMessage('uci');
+            engine.postMessage('isready');
+            setSkillLevel();
+            statusEl.textContent = "Motor listo. ¡A jugar!";
+        }
+        
+        function setSkillLevel() {
+            const skill = document.getElementById('skillLevel').value;
+            engine.postMessage(`setoption name Skill Level value ${skill}`);
+        }
+
+        function askStockfish() {
+            if (game.game_over()) return;
+            engine.postMessage(`position fen ${game.fen()}`);
+            engine.postMessage('go depth 15'); // Profundidad de búsqueda
+        }
+
+        function analyzePosition() {
+            analysisResultEl.innerHTML = "Analizando...";
+            engine.postMessage(`position fen ${game.fen()}`);
+            engine.postMessage('go depth 18');
+        }
+
+        // --- LÓGICA DEL JUEGO Y TABLERO ---
+
+        function onDragStart(source, piece) {
+            if (game.game_over() || (gameMode === 'pvc' && game.turn() !== playerColor)) {
+                return false;
+            }
+            if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+        }
+
+        function onDrop(source, target) {
+            const move = game.move({ from: source, to: target, promotion: 'q' });
+            if (move === null) return 'snapback';
+            updateStatus();
+            
+            // Si es el turno de la IA, pedirle que mueva
+            if (gameMode === 'pvc' && !game.game_over()) {
+                window.setTimeout(askStockfish, 250);
+            }
+        }
+
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+
+        function updateStatus() {
+            let status = '';
+            const moveColor = game.turn() === 'b' ? 'Negras' : 'Blancas';
+
+            if (game.in_checkmate()) {
+                status = `Fin de la partida, ${moveColor} en Jaque Mate.`;
+            } else if (game.in_draw()) {
+                status = 'Fin de la partida, tablas.';
+            } else {
+                status = `Turno de las ${moveColor}.`;
+                if (game.in_check()) status += ' ¡Jaque!';
+            }
+
+            statusEl.innerHTML = status;
+            turnEl.textContent = moveColor;
+            pgnEl.innerHTML = game.pgn();
+        }
+        
+        function resetGame() {
+            game.reset();
+            board.start();
+            updateStatus();
+            analysisResultEl.innerHTML = "";
+            lessonDescriptionEl.innerHTML = "";
+            openingsSelect.value = "";
+        }
+
+        // --- CONFIGURACIÓN E INICIALIZACIÓN ---
+
+        const config = {
+            draggable: true,
+            position: 'start',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            onSnapEnd: onSnapEnd,
+            pieceTheme: 'assets/img/alterdrez/pieces/{piece}.png'
+        };
+        board = Chessboard('chessBoard', config);
+        
+        // --- EVENT LISTENERS ---
+
+        document.getElementById('startBtn').addEventListener('click', resetGame);
+        document.getElementById('undoBtn').addEventListener('click', () => {
+            game.undo();
+            if(gameMode === 'pvc') game.undo(); // Deshacer el movimiento de la IA también
+            board.position(game.fen());
+            updateStatus();
+        });
+
+        document.getElementById('gameMode').addEventListener('change', (e) => {
+            gameMode = e.target.value;
+            resetGame();
+        });
+        
+        document.getElementById('skillLevel').addEventListener('change', setSkillLevel);
+        document.getElementById('analyzeBtn').addEventListener('click', analyzePosition);
+
+        openingsSelect.addEventListener('change', (e) => {
+            if (e.target.value === "") {
+                resetGame();
+                return;
+            }
+            const selectedOpening = openingsData[e.target.value];
+            game.load_pgn(selectedOpening.pgn);
+            board.position(game.fen());
+            updateStatus();
+            lessonDescriptionEl.textContent = selectedOpening.desc;
+        });
+
+        $(window).on('resize', board.resize);
+        
+        // Iniciar todo
+        initStockfish();
+        populateOpenings();
+        updateStatus();
+    });
+    </script>
+</body>
+</html>
