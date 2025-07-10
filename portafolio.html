@@ -100,12 +100,10 @@
             background-color: #000;
         }
         
-        /* CAMBIO CSS #1: Se añadió 'video' para que los videos se ajusten como las imágenes */
         .grid-item img, .grid-item video, .grid-item iframe {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             object-fit: cover; border: none;
         }
-        /* CAMBIO CSS #2: Se añadió 'video' para aplicar el efecto hover */
         .grid-item img, .grid-item video { transition: opacity 0.3s ease; }
         .grid-item:hover img, .grid-item:hover video { opacity: 0.7; }
         
@@ -200,12 +198,10 @@
             <!-- Categoría 4: Co-Laboratorio (Antes Proyectos Musicales) -->
             <div class="category-block">
                 <h2 class="category-title" id="cat-music-projects"></h2>
-                <!-- CAMBIO: Se añadió un ID para identificarlo en el script y se quitó el play-icon -->
                 <div class="grid-item" id="co-laboratorio-grid-item">
                     <video autoplay muted loop playsinline>
                         <source src="assets/videos/portafolio04.webm" type="video/mp4">
                     </video>
-                    <!-- El play-icon se ha quitado de aquí, ya que no es un reproductor de Vimeo -->
                 </div>
             </div>
         </div>
@@ -215,6 +211,7 @@
         </section>
     </main>
 
+    <!-- ===== INICIO DEL BLOQUE SCRIPT MODIFICADO ===== -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const translations = {
@@ -224,7 +221,7 @@
                     'cat-music': 'Videos Musicales', 
                     'cat-shorts': 'Cortos Animados', 
                     'cat-web': 'Páginas Web', 
-                    'cat-music-projects': 'Co-Laboratorio', // CAMBIO: Texto de la categoría
+                    'cat-music-projects': 'Co-Laboratorio', 
                     'cta-quote': 'COTIZA TU PROYECTO' 
                 },
                 en: { 
@@ -233,7 +230,7 @@
                     'cat-music': 'Music Videos', 
                     'cat-shorts': 'Animated Shorts', 
                     'cat-web': 'Websites', 
-                    'cat-music-projects': 'Co-Laboratorio', // CAMBIO: Texto de la categoría
+                    'cat-music-projects': 'Co-Laboratorio',
                     'cta-quote': 'QUOTE YOUR PROJECT' 
                 },
                 fr: { 
@@ -242,7 +239,7 @@
                     'cat-music': 'Vidéos Musicales', 
                     'cat-shorts': "Courts métrages d'animation", 
                     'cat-web': 'Sites Web', 
-                    'cat-music-projects': 'Co-Laboratorio', // CAMBIO: Texto de la categoría
+                    'cat-music-projects': 'Co-Laboratorio',
                     'cta-quote': 'DEMANDEZ UN DEVIS' 
                 }
             };
@@ -274,7 +271,6 @@
             const gridItems = document.querySelectorAll('.grid-item');
             
             gridItems.forEach(item => {
-                // Solo guardar originalContent si no es el item de Co-Laboratorio, ya que ese no se reproducirá como Vimeo
                 if (item.id !== 'co-laboratorio-grid-item') {
                     item.originalContent = item.innerHTML;
                 }
@@ -282,30 +278,25 @@
 
             gridItems.forEach(item => {
                 item.addEventListener('click', function() {
-                    // Si es el item de Co-Laboratorio, redirige
                     if (this.id === 'co-laboratorio-grid-item') {
-                        window.open('https://www.alterlabgen.lat/kaylum.html', '_blank'); // Abre en una nueva pestaña
-                        return; // Detiene la ejecución para este elemento
+                        window.open('https://www.alterlabgen.lat/kaylum.html', '_blank');
+                        return;
                     }
 
-                    // Lógica existente para reproducir videos de Vimeo para los otros grid-items
                     const isPlaying = this.querySelector('iframe');
                     gridItems.forEach(otherItem => {
-                        // Solo resetear el contenido original si el elemento es un reproductor de Vimeo
                         if (otherItem.id !== 'co-laboratorio-grid-item' && otherItem.originalContent) {
                             otherItem.innerHTML = otherItem.originalContent;
                         }
                     });
+
                     if (!isPlaying) {
                         const vimeoId = this.dataset.vimeoId;
                         if (vimeoId) {
-                            let embedUrl;
-                            const params = 'autoplay=1&muted=1&title=0&byline=0&portrait=0';
-                            if (vimeoId.includes('?')) {
-                                embedUrl = `https://player.vimeo.com/video/${vimeoId}&${params}`;
-                            } else {
-                                embedUrl = `https://player.vimeo.com/video/${vimeoId}?${params}`;
-                            }
+                            // Parámetros para el video de Vimeo. `autoplay=1` es clave.
+                            const params = 'autoplay=1&title=0&byline=0&portrait=0';
+                            const embedUrl = `https://player.vimeo.com/video/${vimeoId}?${params}`;
+                            
                             const iframe = document.createElement('iframe');
                             iframe.src = embedUrl;
                             iframe.style.width = '100%';
@@ -313,13 +304,30 @@
                             iframe.setAttribute('frameborder', '0');
                             iframe.setAttribute('allow', 'autoplay; fullscreen; picture-in-picture');
                             iframe.setAttribute('allowfullscreen', '');
+                            
                             this.innerHTML = '';
                             this.appendChild(iframe);
+
+                            // --- INICIO DE LA MODIFICACIÓN ---
+                            // Una vez que el iframe está en el DOM, solicitamos la pantalla completa.
+                            // Esto debe hacerse en respuesta directa a un evento de usuario (como este 'click').
+                            // Se incluyen prefijos para compatibilidad con diferentes navegadores.
+                            if (iframe.requestFullscreen) {
+                                iframe.requestFullscreen();
+                            } else if (iframe.mozRequestFullScreen) { // Firefox
+                                iframe.mozRequestFullScreen();
+                            } else if (iframe.webkitRequestFullscreen) { // Chrome, Safari and Opera
+                                iframe.webkitRequestFullscreen();
+                            } else if (iframe.msRequestFullscreen) { // IE/Edge
+                                iframe.msRequestFullscreen();
+                            }
+                            // --- FIN DE LA MODIFICACIÓN ---
                         }
                     }
                 });
             });
         });
     </script>
+    <!-- ===== FIN DEL BLOQUE SCRIPT MODIFICADO ===== -->
 </body>
 </html>
