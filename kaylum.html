@@ -69,11 +69,12 @@
         #song-info-toggle-btn { display: none; width: 100%; background-color: transparent; border: 1px solid var(--player-border-color); color: var(--text-color); font-family: 'Montserrat', sans-serif; font-weight: 500; padding: 8px 18px; border-radius: 20px; cursor: pointer; transition: all 0.3s ease; margin-bottom: 15px; }
         #song-info-toggle-btn:hover { background-color: rgba(255, 255, 255, 0.1); border-color: var(--text-color); }
         
+        /* CORRECCIÓN: CSS para "Sobre esta Rola" */
         #song-information { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-out, padding 0.5s ease-out; padding: 0; border-top: none; text-align: left; font-size: 0.95rem; line-height: 1.6; color: var(--secondary-text-color); text-shadow: var(--text-shadow); white-space: pre-wrap; }
         #song-information.is-open {
-            max-height: 250px;
-            overflow-y: auto;
-            padding: 20px 10px 20px 0;
+            max-height: 250px; /* Altura máxima razonable para móviles */
+            overflow-y: auto;   /* Barra de scroll si el contenido se desborda */
+            padding: 20px 10px 20px 0; /* Espacio para la barra de scroll */
             border-top: 1px solid rgba(255, 255, 255, 0.1);
         }
         
@@ -126,24 +127,9 @@
         .description-wrapper { max-width: 700px; margin: 0 auto; background-color: rgba(15, 18, 27, 0.3); backdrop-filter: blur(8px); border: 1px solid var(--player-border-color); border-radius: 15px; }
         #about-toggle-btn { background-color: transparent; border: 1px solid var(--player-border-color); color: var(--text-color); font-family: 'Montserrat', sans-serif; font-weight: 500; border-radius: 20px; cursor: pointer; transition: all 0.3s ease; width: 100%; font-size: 1.2rem; padding: 10px 20px; }
         #about-toggle-btn:hover { background-color: rgba(255, 255, 255, 0.1); border-color: var(--text-color); }
-        
-        #about-content { 
-            max-height: 0; 
-            overflow: hidden; 
-            transition: max-height 0.7s ease-in-out; 
-            padding: 0 30px; 
-            text-align: center;
-        }
-        #about-content p {
-            margin-bottom: 1.5em;
-            text-align: justify;
-        }
-        #about-content p:last-child {
-            margin-bottom: 0;
-        }
-        
-        #about-content.is-open { max-height: 2000px; padding: 30px 30px 30px; }
-        .flux-diagram { width: 100%; max-width: 500px; border-radius: 10px; margin: 25px auto; border: 1px solid var(--player-border-color); display: block; }
+        #about-content { max-height: 0; overflow: hidden; transition: max-height 0.7s ease-in-out; padding: 0 30px; text-align: justify; }
+        #about-content.is-open { max-height: 2000px; padding: 0 30px 30px; }
+        .flux-diagram { width: 100%; border-radius: 10px; margin: 25px 0; border: 1px solid var(--player-border-color); }
     </style>
 </head>
 <body>
@@ -152,8 +138,7 @@
     <header class="main-header container">
         <div class="logo-container">
             <div class="logo">
-                <!-- CAMBIO: El enlace del logo ahora apunta a www.alterlabgen.lat -->
-                <a href="https://www.alterlabgen.lat"><img src="assets/img/logo03.png" alt="Kaylum Logo"><span class="logo-text">KAYLUM</span></a>
+                <a href="#"><img src="assets/img/logo03.png" alt="Kaylum Logo"><span class="logo-text">KAYLUM</span></a>
                 <p class="subtitle">Neologismo que fusiona la raíz maya K'ay (canto) y Lum (tierra), significando 'Canto de la Tierra'.</p>
             </div>
         </div>
@@ -207,7 +192,8 @@
         <div class="description-wrapper">
             <button id="about-toggle-btn">Acerca de este proyecto</button>
             <div id="about-content">
-                <p>
+                <!-- CORRECCIÓN: Contenido restaurado -->
+                <p style="margin-top: 25px;">
                     Daniel Ek, CEO de Spotify, ha liderado una inversión millonaria en Helsing, startup alemana especializada en drones de combate con inteligencia artificial. Este acto alimenta una infraestructura de dominación que afecta de manera desproporcionada al Sur Global.
                 </p>
                 <p>
@@ -258,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- CONFIGURACIÓN Y ESTADO ---
     const cloudinaryBaseUrl = 'https://res.cloudinary.com/dy9cywux2/video/upload/';
-    const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlL0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
+    const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlLj0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
     const skinsPath = 'assets/img/labplay/skins/';
     const defaultCover = 'assets/img/labplay/default-cover.jpg';
     const songsPerPage = 5;
@@ -276,31 +262,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let isRepeatActive = false;
     let userFavorites = [];
     
-    // --- NUEVA FUNCIÓN: Carga todas las preferencias del usuario ---
-    function loadUserSettings() {
-        // Cargar color de texto
-        const savedColor = localStorage.getItem('kaylum_textColor');
-        if (savedColor) {
-            document.documentElement.style.setProperty('--text-color', savedColor);
-            colorPicker.value = savedColor;
-        }
-
-        // Cargar índice del skin (se aplicará después de cargar la lista de skins)
-        const savedSkinIndex = localStorage.getItem('kaylum_skinIndex');
-        if (savedSkinIndex !== null) {
-            currentSkinIndex = parseInt(savedSkinIndex, 10);
-        }
-
-        // Cargar favoritos
-        const savedFavorites = localStorage.getItem('kaylum_favorites');
-        if (savedFavorites) {
-            userFavorites = JSON.parse(savedFavorites);
-        }
-        if (userFavorites.length > 0) {
-            playlistsData['Favoritos'] = [];
-        }
-    }
-
     function renderCategoryTabs() {
         const categories = Object.keys(playlistsData);
         categoryTabsContainer.innerHTML = categories.map(c => {
@@ -315,6 +276,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function loadUserData() {
+        const savedFavorites = localStorage.getItem('kaylum_favorites');
+        if (savedFavorites) {
+            userFavorites = JSON.parse(savedFavorites);
+        }
+        if (userFavorites.length > 0) {
+            playlistsData['Favoritos'] = [];
+        }
+    }
+    
+    function saveUserData() {
+        localStorage.setItem('kaylum_favorites', JSON.stringify(userFavorites));
+    }
+
+    // CORRECCIÓN: Lógica para mostrar/ocultar la pestaña de favoritos dinámicamente
     function toggleFavorite() {
         if (currentSongIndex < 0) return;
         const songId = currentPlaylist[currentSongIndex].publicId;
@@ -328,23 +304,23 @@ document.addEventListener('DOMContentLoaded', () => {
             userFavorites.push(songId);
         }
         
-        localStorage.setItem('kaylum_favorites', JSON.stringify(userFavorites));
         const hasFavoritesNow = userFavorites.length > 0;
 
+        // Si antes no había favoritos y ahora sí, crea la pestaña
         if (hasFavoritesNow && !hadFavoritesBefore) {
             playlistsData['Favoritos'] = [];
             renderCategoryTabs();
         } 
+        // Si antes había favoritos y ahora no, elimina la pestaña
         else if (!hasFavoritesNow && hadFavoritesBefore) {
             delete playlistsData['Favoritos'];
             if (currentCategory === 'Favoritos') {
-                const firstCategory = Object.keys(playlistsData)[0];
-                if (firstCategory) loadCategory(firstCategory);
-            } else {
-               renderCategoryTabs();
+                loadCategory(Object.keys(playlistsData)[0]);
             }
+            renderCategoryTabs();
         }
 
+        saveUserData();
         updateFavoriteButton();
     }
 
@@ -545,10 +521,6 @@ document.addEventListener('DOMContentLoaded', () => {
             skins = skinFiles.map(file => `${skinsPath}${file}`);
 
             if (skins.length > 0) {
-                // Valida el índice guardado antes de usarlo
-                if (isNaN(currentSkinIndex) || currentSkinIndex < 0 || currentSkinIndex >= skins.length) {
-                    currentSkinIndex = 0;
-                }
                 const initialSkin = skins[currentSkinIndex];
                 const extension = initialSkin.split('.').pop();
                 if (['webm', 'mp4'].includes(extension)) {
@@ -567,8 +539,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- INICIALIZACIÓN ---
     async function init() {
-        loadUserSettings();
+        loadUserData();
         await loadSkins();
 
         try {
@@ -576,8 +549,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const csvText = await response.text();
             const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1);
             
-            rows.reverse();
-
             rows.forEach(row => {
                 const [title, artist, category, publicId, cover, information] = parseCsvRow(row);
                 if (!category || !publicId || !title) return;
@@ -612,7 +583,9 @@ document.addEventListener('DOMContentLoaded', () => {
                  songArtistEl.textContent = "La base de datos está vacía.";
             }
 
+            // --- ASIGNACIÓN DE EVENTOS ---
             audioPlayer.addEventListener('ended', handleSongEnd);
+            
             playlistViewContainer.addEventListener('click', (e) => {
                 const targetLi = e.target.closest('li');
                 if (targetLi) {
@@ -626,6 +599,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (localIndex !== -1) loadSong(localIndex);
                 }
             });
+
             songArtistEl.addEventListener('click', () => {
                 const artistName = songArtistEl.textContent;
                 if (!artistName || artistName === 'para comenzar') return;
@@ -637,6 +611,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadCategory(artistCategoryName);
                 }
             });
+
             categoryTabsContainer.addEventListener('click', (e) => { const btn = e.target.closest('button'); if (btn) loadCategory(btn.dataset.category) });
             prevBtn.addEventListener('click', playPrevSong);
             nextBtn.addEventListener('click', playNextSong);
@@ -644,7 +619,9 @@ document.addEventListener('DOMContentLoaded', () => {
             repeatBtn.addEventListener('click', toggleRepeat);
             shareBtn.addEventListener('click', shareSong);
             addToFavoritesBtn.addEventListener('click', toggleFavorite);
+            
             searchInput.addEventListener('input', () => { currentPage = 1; updatePaginatedView(); });
+
             paginationControlsContainer.addEventListener('click', (e) => {
                 const button = e.target.closest('button');
                 if (!button || button.disabled) return;
@@ -661,6 +638,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 else if (!isNaN(pageAction)) currentPage = parseInt(pageAction);
                 updatePaginatedView();
             });
+            
             aboutToggleBtn.addEventListener('click', () => { aboutContent.classList.toggle('is-open'); });
             songInfoToggleBtn.addEventListener('click', () => { songInformationEl.classList.toggle('is-open'); });
             adventureModeBtn.addEventListener('click', () => {
@@ -668,16 +646,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 playlistsData[adventureCategoryName] = shuffleArray(allSongs);
                 renderCategoryTabs();
                 loadCategory(adventureCategoryName);
-            });
+_            });
             
-            // AJUSTE: Guardar el skin seleccionado
             changeSkinBtn.addEventListener('click', () => {
                 if(skins.length === 0) return;
                 currentSkinIndex = (currentSkinIndex + 1) % skins.length;
-                localStorage.setItem('kaylum_skinIndex', currentSkinIndex); // Guardar
                 const newSkinSrc = skins[currentSkinIndex];
                 const extension = newSkinSrc.split('.').pop().toLowerCase();
+                
                 backgroundVideo.style.opacity = 0;
+
                 setTimeout(() => {
                     if (['webm', 'mp4'].includes(extension)) {
                         backgroundVideo.style.backgroundImage = 'none';
@@ -691,12 +669,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     backgroundVideo.style.opacity = 1;
                 }, 500);
             });
-            
-            // AJUSTE: Guardar el color seleccionado
             colorPicker.addEventListener('input', (e) => {
-                const newColor = e.target.value;
-                document.documentElement.style.setProperty('--text-color', newColor);
-                localStorage.setItem('kaylum_textColor', newColor); // Guardar
+                document.documentElement.style.setProperty('--text-color', e.target.value);
             });
 
         } catch (error) {
