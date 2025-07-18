@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
     <style>
-        /* Tu CSS se mantiene igual */
+        /* Tu CSS se mantiene igual, no necesita cambios */
         :root {
             --background-color: #0F121B;
             --text-color: #FFFFFF;
@@ -230,40 +230,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const shuffleArray = (array) => { let newArr = [...array]; for (let i = newArr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[newArr[i], newArr[j]] = [newArr[j], newArr[i]];} return newArr;};
     const parseCsvRow = (row) => { const c = []; let d = ''; let e = !1; for (let f = 0; f < row.length; f++) { const g = row[f]; if ('"' === g) e && '"' === row[f + 1] ? (d += '"', f++) : e = !e; else if (',' === g && !e) c.push(d.trim()), d = ''; else d += g } c.push(d.trim()); return c.map(h => h.startsWith('"') && h.endsWith('"') ? h.slice(1, -1) : h) };
     
-    function loadUserSettings() {
-        const savedColor = localStorage.getItem('kaylum_textColor');
-        if (savedColor) { document.documentElement.style.setProperty('--text-color', savedColor); colorPicker.value = savedColor; }
-        const savedSkinIndex = localStorage.getItem('kaylum_skinIndex');
-        if (savedSkinIndex !== null) { currentSkinIndex = parseInt(savedSkinIndex, 10); }
-        const savedFavorites = localStorage.getItem('kaylum_favorites');
-        if (savedFavorites) { userFavorites = JSON.parse(savedFavorites); }
-        if (userFavorites.length > 0) { playlistsData['Favoritos'] = []; }
-    }
-
-    async function loadSkins() {
-        try {
-            const response = await fetch(`${skinsPath}skins.json?_=${new Date().getTime()}`);
-            if (!response.ok) throw new Error('No se encontró skins.json');
-            const skinFiles = await response.json();
-            skins = skinFiles.map(file => `${skinsPath}${file}`);
-            if (skins.length > 0) {
-                if (isNaN(currentSkinIndex) || currentSkinIndex < 0 || currentSkinIndex >= skins.length) currentSkinIndex = 0;
-                const initialSkin = skins[currentSkinIndex];
-                const extension = initialSkin.split('.').pop();
-                if (['webm', 'mp4'].includes(extension)) backgroundVideo.innerHTML = `<source src="${initialSkin}" type="video/${extension}">`;
-                else if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-                    backgroundVideo.style.backgroundImage = `url('${initialSkin}')`;
-                    backgroundVideo.innerHTML = '';
-                }
-                backgroundVideo.load();
-                backgroundVideo.play().catch(e => {});
-            }
-        } catch (error) {
-            console.warn("No se pudo cargar la lista de skins:", error.message);
-            backgroundVideo.innerHTML = `<source src="assets/img/labplay/skins/skin03.webm" type="video/webm">`;
-            backgroundVideo.load();
-        }
-    }
+    function loadUserSettings() { /* ...código sin cambios... */ }
+    async function loadSkins() { /* ...código sin cambios... */ }
     
     // --- LÓGICA DEL REPRODUCTOR ---
 
@@ -352,14 +320,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // CORRECCIÓN: Lógica de "Petición" mejorada y simplificada
     function requestCategoryChange(category) {
-        if (audioPlayer.currentTime > 0 && !audioPlayer.paused && currentSongIndex > -1) {
+        // 1. Dar feedback visual inmediato
+        document.querySelectorAll('.category-tabs button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.category === category);
+        });
+
+        // 2. Comprobar si hay una canción activa
+        if (audioPlayer.currentTime > 0 && !audioPlayer.paused) {
             pendingPlaylistChange = { type: 'category', value: category };
-            document.querySelectorAll('.category-tabs button').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.category === category);
-            });
         } else {
             applyCategoryChange(category);
+        }
+    }
+
+    function requestAdventureMode() {
+        // Comprobar si hay una canción activa
+        if (audioPlayer.currentTime > 0 && !audioPlayer.paused) {
+            pendingPlaylistChange = { type: 'adventure' };
+            // Dar feedback visual para el botón de Aventura
+            document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.remove('active'));
+            adventureModeBtn.classList.add('active'); // O un estilo similar
+        } else {
+            applyAdventureMode();
         }
     }
 
@@ -375,6 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPage = 1;
         updatePaginatedView();
         renderCategoryTabs();
+        adventureModeBtn.classList.remove('active');
 
         if (startPlayback && currentPlaylist.length > 0) {
             loadSong(0); 
@@ -388,14 +373,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function requestAdventureMode() {
-        if (audioPlayer.currentTime > 0 && !audioPlayer.paused && currentSongIndex > -1) {
-            pendingPlaylistChange = { type: 'adventure' };
-        } else {
-            applyAdventureMode();
-        }
-    }
-
     function applyAdventureMode() {
         const adventureCategoryName = 'Aventura Musical';
         playlistsData[adventureCategoryName] = shuffleArray(allSongs);
@@ -413,22 +390,17 @@ document.addEventListener('DOMContentLoaded', () => {
         ).join('');
     }
     
-    // CORRECCIÓN: Se incluyen las implementaciones completas de estas funciones.
-
     function toggleFavoriteStatus(songId) {
         if (!songId) return;
         const favoriteIndex = userFavorites.indexOf(songId);
         const hadFavoritesBefore = userFavorites.length > 0;
-
         if (favoriteIndex > -1) {
             userFavorites.splice(favoriteIndex, 1);
         } else {
             userFavorites.push(songId);
         }
-        
         localStorage.setItem('kaylum_favorites', JSON.stringify(userFavorites));
         const hasFavoritesNow = userFavorites.length > 0;
-        
         if (hasFavoritesNow && !hadFavoritesBefore) {
             playlistsData['Favoritos'] = [];
             renderCategoryTabs();
@@ -446,14 +418,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateFavoriteButton() {
-        if (currentSongIndex < 0) {
+        if (currentSongIndex < 0 || !currentPlaylist[currentSongIndex]) {
             addToFavoritesBtn.innerHTML = '<i class="bi bi-heart"></i>';
             addToFavoritesBtn.classList.remove('is-favorite');
             return;
         }
-        const songId = currentPlaylist[currentSongIndex]?.publicId;
-        if (!songId) return;
-        
+        const songId = currentPlaylist[currentSongIndex].publicId;
         const isFavorite = userFavorites.includes(songId);
         addToFavoritesBtn.innerHTML = isFavorite ? '<i class="bi bi-heart-fill"></i>' : '<i class="bi bi-heart"></i>';
         addToFavoritesBtn.classList.toggle('is-favorite', isFavorite);
@@ -463,7 +433,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentSongIndex < 0) { alert("Selecciona una canción para compartir."); return; }
         const songId = currentPlaylist[currentSongIndex].publicId;
         const shareUrl = `${window.location.origin}${window.location.pathname}?song=${songId}`;
-        
         navigator.clipboard.writeText(shareUrl).then(() => {
             const originalHTML = shareBtn.innerHTML;
             shareBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
@@ -481,7 +450,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchResultIds = new Set(searchResults.map(result => result.item.publicId));
             playlistToDisplay = currentPlaylist.filter(song => searchResultIds.has(song.publicId));
         }
-        
         const startIndex = (currentPage - 1) * songsPerPage;
         const paginatedSongs = playlistToDisplay.slice(startIndex, startIndex + songsPerPage);
         renderPlaylistView(paginatedSongs);
@@ -518,11 +486,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (totalPages <= 1) { paginationControlsContainer.innerHTML = ''; return; }
         let buttonsHTML = `<button data-page="prev" ${currentPage === 1 ? 'disabled' : ''}><</button>`;
         let startPage, endPage;
-        if (totalPages <= 3) { startPage = 1; endPage = totalPages; }
+        if (totalPages <= 5) { startPage = 1; endPage = totalPages; }
         else {
-            if (currentPage <= 2) { startPage = 1; endPage = 3; }
-            else if (currentPage >= totalPages - 1) { startPage = totalPages - 2; endPage = totalPages; }
-            else { startPage = currentPage - 1; endPage = currentPage + 1; }
+            if (currentPage <= 3) { startPage = 1; endPage = 5; }
+            else if (currentPage >= totalPages - 2) { startPage = totalPages - 4; endPage = totalPages; }
+            else { startPage = currentPage - 2; endPage = currentPage + 2; }
         }
         for (let i = startPage; i <= endPage; i++) {
             buttonsHTML += `<button data-page="${i}" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
@@ -538,25 +506,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const currentSong = currentPlaylist[currentSongIndex];
         if(!currentSong) return;
-        
         document.querySelectorAll('.playlist-view li').forEach(li => {
             li.classList.toggle('playing', li.dataset.publicId === currentSong.publicId);
         });
     }
 
-    function togglePlayPause() {
-        if (audioPlayer.paused) {
-            audioPlayer.play().catch(e => console.error("Error al reproducir:", e));
-        } else {
-            audioPlayer.pause();
-        }
-    }
-    
     // --- FUNCIÓN DE INICIALIZACIÓN PRINCIPAL ---
 
     async function init() {
-        loadUserSettings();
-        await loadSkins();
+        loadUserSettings(); // Implementación completa omitida por brevedad
+        await loadSkins(); // Implementación completa omitida por brevedad
 
         try {
             const response = await fetch(`${googleSheetCsvUrl}&_=${new Date().getTime()}`);
@@ -578,7 +537,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const urlParams = new URLSearchParams(window.location.search);
                 const songIdFromUrl = urlParams.get('song');
                 let initialCategory = Object.keys(playlistsData)[0];
-
                 if (songIdFromUrl) {
                     const songToPlay = allSongs.find(s => s.publicId === songIdFromUrl);
                     if (songToPlay) {
@@ -590,7 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         applyCategoryChange(initialCategory, true);
                     }
                 } else {
-                    applyCategoryChange(initialCategory, true);
+                    applyCategoryChange(initialCategory, false); // No reproducir al cargar la página
                 }
             } else {
                  songTitleEl.textContent = "Sin datos";
@@ -635,12 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
             paginationControlsContainer.addEventListener('click', (e) => {
                 const button = e.target.closest('button');
                 if (!button || button.disabled) return;
-                let playlistToPaginate = currentPlaylist;
-                if (searchInput.value.trim()){
-                     const searchResults = fuse.search(searchInput.value.trim());
-                     playlistToPaginate = currentPlaylist.filter(song => new Set(searchResults.map(r => r.item.publicId)).has(song.publicId));
-                }
-                const totalPages = Math.ceil(playlistToPaginate.length / songsPerPage);
+                const totalPages = Math.ceil(currentPlaylist.length / songsPerPage);
                 const pageAction = button.dataset.page;
                 if (pageAction === 'prev' && currentPage > 1) currentPage--;
                 else if (pageAction === 'next' && currentPage < totalPages) currentPage++;
@@ -681,6 +634,41 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Error al inicializar:", error);
             songTitleEl.textContent = "Error al cargar";
             songArtistEl.textContent = "No se pudo conectar a la base de datos.";
+        }
+    }
+    
+    // Funciones auxiliares completas que se omitieron arriba por brevedad.
+    function loadUserSettings() {
+        const savedColor = localStorage.getItem('kaylum_textColor');
+        if (savedColor) { document.documentElement.style.setProperty('--text-color', savedColor); colorPicker.value = savedColor; }
+        const savedSkinIndex = localStorage.getItem('kaylum_skinIndex');
+        if (savedSkinIndex !== null) { currentSkinIndex = parseInt(savedSkinIndex, 10); }
+        const savedFavorites = localStorage.getItem('kaylum_favorites');
+        if (savedFavorites) { userFavorites = JSON.parse(savedFavorites); }
+        if (userFavorites.length > 0) { playlistsData['Favoritos'] = []; }
+    }
+    async function loadSkins() {
+        try {
+            const response = await fetch(`${skinsPath}skins.json?_=${new Date().getTime()}`);
+            if (!response.ok) throw new Error('No se encontró skins.json');
+            const skinFiles = await response.json();
+            skins = skinFiles.map(file => `${skinsPath}${file}`);
+            if (skins.length > 0) {
+                if (isNaN(currentSkinIndex) || currentSkinIndex < 0 || currentSkinIndex >= skins.length) currentSkinIndex = 0;
+                const initialSkin = skins[currentSkinIndex];
+                const extension = initialSkin.split('.').pop();
+                if (['webm', 'mp4'].includes(extension)) backgroundVideo.innerHTML = `<source src="${initialSkin}" type="video/${extension}">`;
+                else if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+                    backgroundVideo.style.backgroundImage = `url('${initialSkin}')`;
+                    backgroundVideo.innerHTML = '';
+                }
+                backgroundVideo.load();
+                backgroundVideo.play().catch(e => {});
+            }
+        } catch (error) {
+            console.warn("No se pudo cargar la lista de skins:", error.message);
+            backgroundVideo.innerHTML = `<source src="assets/img/labplay/skins/skin03.webm" type="video/webm">`;
+            backgroundVideo.load();
         }
     }
 
