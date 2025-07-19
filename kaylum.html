@@ -3,14 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KAYLUM - Canto de la Tierra</title>
+    <title>KAYLUM - Escucha a la Tierra</title>
+
+    <script>
+        // Carga el color del texto guardado para evitar un parpadeo de color al recargar.
+        (function() {
+            const savedColor = localStorage.getItem('kaylum_textColor');
+            if (savedColor) {
+                document.documentElement.style.setProperty('--text-color', savedColor);
+            }
+        })();
+    </script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
     <style>
-        /* Tu CSS se mantiene igual, no necesita cambios */
         :root {
             --background-color: #0F121B;
             --text-color: #FFFFFF;
@@ -27,25 +37,21 @@
         .logo a { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-direction: column; }
         .logo img { height: 40px; width: auto; }
         .logo .logo-text { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; text-shadow: var(--text-shadow); color: var(--text-color); }
-        .logo .subtitle { font-size: 0.9rem; color: var(--secondary-text-color); font-weight: 400; margin-top: 5px; letter-spacing: 0.5px; font-style: italic; max-width: 400px; margin-left: auto; margin-right: auto; line-height: 1.4; }
         main { flex-grow: 1; display: flex; align-items: center; justify-content: center; padding: 20px 0; }
         .music-app { width: 100%; max-width: 480px; }
         .category-tabs { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-bottom: 25px; }
         .category-tabs button { background-color: transparent; border: 1px solid var(--player-border-color); color: var(--text-color); font-family: 'Montserrat', sans-serif; font-weight: 500; font-size: 0.85rem; padding: 6px 14px; border-radius: 20px; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 6px; }
         .category-tabs button:hover { background-color: rgba(255, 255, 255, 0.1); border-color: var(--text-color); }
-        .category-tabs button.active, .category-tabs button.pending { background-color: rgba(255, 255, 255, 0.2); border-color: var(--text-color); color: var(--text-color); font-weight: 700; }
+        .category-tabs button.active { background-color: rgba(255, 255, 255, 0.2); border-color: var(--text-color); color: var(--text-color); font-weight: 700; }
         .search-container { margin-bottom: 25px; }
         #search-input { width: 100%; padding: 12px 15px; background-color: rgba(255, 255, 255, 0.1); border: 1px solid var(--player-border-color); border-radius: 25px; color: var(--text-color); font-family: 'Montserrat', sans-serif; font-size: 0.9rem; outline: none; transition: border-color 0.3s ease, background-color 0.3s ease; }
         #search-input:focus { border-color: var(--text-color); }
         .player-wrapper { padding: 30px; border: 2px solid var(--player-border-color); border-radius: 15px; text-align: center; background-color: rgba(15, 18, 27, 0.3); backdrop-filter: blur(8px); }
         .album-art-container { width: 100%; max-width: 250px; margin: 0 auto 25px; }
         #album-art { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 10px; box-shadow: 0 5px 25px rgba(0,0,0,0.5); }
-        .track-info { display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 8px; }
-        .track-info h2 { font-size: 1.6rem; font-weight: 700; text-shadow: var(--text-shadow); }
-        #add-to-favorites-btn { background: none; border: none; color: var(--secondary-text-color); font-size: 1.5rem; cursor: pointer; transition: color 0.3s ease, transform 0.2s ease; padding: 0; line-height: 1; }
-        #add-to-favorites-btn:hover { color: var(--text-color); transform: scale(1.1); }
-        #add-to-favorites-btn.is-favorite { color: var(--text-color); opacity: 1; }
-        #song-artist { cursor: pointer; transition: color 0.3s ease; display: inline-block; padding: 5px 10px; border-radius: 15px; margin-top: -15px; font-size: 1rem; color: var(--secondary-text-color); margin-bottom: 25px; text-shadow: var(--text-shadow); }
+        .track-info { margin-bottom: 8px; }
+        .track-info h2 { font-size: 1.6rem; font-weight: 700; text-shadow: var(--text-shadow); text-align: center; }
+        #song-artist { cursor: pointer; transition: color 0.3s ease; display: inline-block; padding: 5px 10px; border-radius: 15px; font-size: 1rem; color: var(--secondary-text-color); margin-bottom: 25px; text-shadow: var(--text-shadow); }
         #song-artist:hover { color: var(--text-color); background-color: rgba(255,255,255,0.1); }
         .player-controls { display: flex; justify-content: center; align-items: center; gap: 30px; margin-bottom: 25px; }
         .player-controls button { background: none; border: none; color: var(--secondary-text-color); font-size: 2rem; cursor: pointer; transition: color 0.3s ease, transform 0.2s ease; }
@@ -60,19 +66,15 @@
         #song-information.is-open { max-height: 250px; overflow-y: auto; padding: 20px 10px 20px 0; border-top: 1px solid rgba(255, 255, 255, 0.1); }
         .playlist-view { margin-top: 20px; min-height: 295px; border-radius: 10px; padding-right: 5px; }
         .playlist-view ol { list-style: none; padding: 0; margin: 0; }
-        .playlist-view li { display: flex; align-items: center; gap: 15px; padding: 12px 15px; border-radius: 8px; cursor: pointer; transition: background-color 0.3s ease, box-shadow 0.3s ease; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .playlist-view li { display: flex; align-items: center; gap: 15px; padding: 12px 15px; border-radius: 8px; cursor: pointer; transition: background-color 0.3s ease; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .playlist-view li:hover { background-color: rgba(255,255,255,0.1); }
         .playlist-view li .track-details { flex-grow: 1; min-width: 0; }
         .playlist-view li .title { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .playlist-view li .artist { font-size: 0.85rem; color: var(--secondary-text-color); }
         .playlist-view li .icon { font-size: 1.2rem; color: transparent; }
         .playlist-view li.playing { background-color: rgba(255, 255, 255, 0.1); }
-        .playlist-view li.queued { box-shadow: 0 0 8px var(--text-color); } /* Estilo para la canción en cola */
         .playlist-view li.playing .icon { color: var(--text-color); }
         .playlist-view li.playing .title { color: var(--text-color); font-weight: 700; }
-        .playlist-favorite-btn { background: none; border: none; color: var(--secondary-text-color); font-size: 1.2rem; cursor: pointer; transition: color 0.3s ease, transform 0.2s ease; padding: 5px; margin-left: 10px; flex-shrink: 0; }
-        .playlist-favorite-btn:hover { color: var(--text-color); transform: scale(1.1); }
-        .playlist-favorite-btn.is-favorite { color: var(--text-color); }
         .pagination-controls { display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 20px; padding-bottom: 10px; }
         .pagination-controls button { background: none; border: none; color: var(--text-color); font-weight: 500; font-size: 1rem; cursor: pointer; transition: opacity 0.3s ease; opacity: 0.6; padding: 5px; }
         .pagination-controls button:hover:not(:disabled) { opacity: 1; }
@@ -81,7 +83,7 @@
         .adventure-mode-container { text-align: center; padding: 30px 0 10px; }
         #adventure-mode-btn { background-color: transparent; border: 1px solid var(--player-border-color); color: var(--text-color); font-family: 'Montserrat', sans-serif; font-weight: 500; font-size: 0.85rem; padding: 6px 14px; border-radius: 20px; cursor: pointer; transition: all 0.3s ease; }
         #adventure-mode-btn:hover { background-color: rgba(255, 255, 255, 0.1); border-color: var(--text-color); }
-        #adventure-mode-btn.active, #adventure-mode-btn.pending { background-color: rgba(255, 255, 255, 0.2); border-color: var(--text-color); color: var(--text-color); font-weight: 700; }
+        #adventure-mode-btn.active { background-color: rgba(255, 255, 255, 0.2); border-color: var(--text-color); color: var(--text-color); font-weight: 700; }
         .personalization-section { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 15px; padding: 20px 0; margin-top: 15px; border-top: 1px solid rgba(255, 255, 255, 0.2); }
         .personalization-btn { background-color: transparent; border: 1px solid var(--player-border-color); color: var(--text-color); font-family: 'Montserrat', sans-serif; font-weight: 500; font-size: 0.85rem; padding: 6px 14px; border-radius: 20px; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
         .personalization-btn:hover { background-color: rgba(255, 255, 255, 0.1); border-color: var(--text-color); }
@@ -95,17 +97,17 @@
         #about-content p:last-child { margin-bottom: 0; }
         #about-content.is-open { max-height: 2000px; padding: 30px 30px 30px; }
         .flux-diagram { width: 100%; max-width: 500px; border-radius: 10px; margin: 25px auto; border: 1px solid var(--player-border-color); display: block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .spinner { display: inline-block; width: 1em; height: 1em; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .75s linear infinite; }
     </style>
 </head>
 <body>
-    <!-- Tu HTML Body se mantiene igual -->
     <div class="page-wrapper">
         <video autoplay muted loop playsinline id="background-video"></video>
         <header class="main-header container">
             <div class="logo-container">
                 <div class="logo">
-                    <a href="index.html"><img src="assets/img/logo03.png" alt="Kaylum Logo"><span class="logo-text">KAYLUM</span></a>
-                    <p class="subtitle">Neologismo que fusiona la raíz maya K'ay (canto) y Lum (tierra), significando 'Canto de la Tierra'.</p>
+                    <a href=""><img src="assets/img/logo03.png" alt="Kaylum Logo"><span class="logo-text">KAYLUM</span></a>
                 </div>
             </div>
         </header>
@@ -113,7 +115,7 @@
             <div class="music-app">
                 <div class="category-tabs" id="category-tabs"></div>
                 <div class="search-container">
-                    <input type="search" id="search-input" placeholder="Buscar por artista o canción...">
+                    <input type="search" id="search-input" placeholder="Buscar en toda la biblioteca...">
                 </div>
                 <div class="player-wrapper" id="player-wrapper">
                     <div class="album-art-container">
@@ -121,7 +123,6 @@
                     </div>
                     <div class="track-info">
                         <h2 id="song-title">Selecciona una canción</h2>
-                        <button id="add-to-favorites-btn" title="Añadir a Favoritos"><i class="bi bi-heart"></i></button>
                     </div>
                     <p id="song-artist">para comenzar</p>
                     <div class="player-controls">
@@ -142,7 +143,6 @@
                 <div class="adventure-mode-container">
                     <button id="adventure-mode-btn">MÁQUINA DEL TIEMPO</button>
                 </div>
-    
                 <div class="personalization-section">
                     <button id="change-skin-btn" class="personalization-btn">
                         <i class="bi bi-easel"></i> Cambiar Skin
@@ -162,14 +162,14 @@
                         Daniel Ek, CEO de Spotify, ha liderado una inversión millonaria en Helsing, startup alemana especializada en drones de combate con inteligencia artificial. Este acto alimenta una infraestructura de dominación que afecta de manera desproporcionada al Sur Global.
                     </p>
                     <p>
-                        Como respuesta, desde el Laboratorio de Arte Generativo impulsamos <strong>KAYLUM</strong>: una plataforma que ofrece a nuestra comunidad una alternativa para escuchar y compartir su música favorita sin suscripciones. El proyecto está potenciado por agentes automatizados que catalogan el acervo, haciendo posible que se actualice con solo subir canciones a un servidor, demostrando el poder de la automatización para liberar trabajo y no para precarizarlo.
+                        Como respuesta, desde el Laboratorio de Arte Generativo impulsamos <strong>KAYLUM (Neologismo que fusiona la raíz maya K'ay (escucha) y Lum (tierra))</strong>: una plataforma que ofrece a nuestra comunidad una alternativa para escuchar y compartir su música favorita sin suscripciones. El proyecto está potenciado por agentes automatizados que catalogan el acervo, haciendo posible que se actualice con solo subir canciones a un servidor, demostrando el poder de la automatización para liberar trabajo y no para precarizarlo.
                     </p>
                     <img src="assets/img/labplay/alterplayflux.png" alt="Diagrama de flujo del proyecto Kaylum" class="flux-diagram">
                     <p>
                         Este proyecto, como cada una de nuestras iniciativas, busca demostrar que la tecnología no es inherentemente nociva. Es una herramienta poderosa que, usada de forma colectiva, nos permite construir proyectos potentes que fortalecen la autonomía y confrontan directamente los planes de la élite tecnofeudal.
                     </p>
                     <p>
-                        Mientras ell@s dicen Guerra, nosotr@s decimos Paz. Por eso, la primera selección de este reproductor se basa en música que se ha posicionado contra la industria bélica. Somos conscientes de que un proyecto así desafía las nociones de propiedad intelectual, por lo que aclaramos que <strong>no existe fin de lucro alguno</strong>. Nuestra intención es el intercambio libre de la cultura.
+                        Mientras ell@s dicen Guerra, nosotr@s decimos Paz. Por eso, la primera selección de este reproductor se basó en música que se ha posicionado contra la industria bélica. Somos conscientes de que un proyecto así desafía las nociones de propiedad intelectual, por lo que aclaramos que <strong>no existe fin de lucro alguno</strong>. Nuestra intención es el intercambio libre de la cultura.
                     </p>
                     <p>
                         Nuestra ambición trasciende el simple intercambio; soñamos con que este espacio evolucione hacia un refugio para l@s artistas independientes que rechazan mantener los privilegios de una élite que abusa de su trabajo. Invitamos a l@s artistas, músic@s, podcaster@s y experimentador@s sonoros a alojar sus creaciones en este espacio, construido por tod@s y para tod@s.
@@ -177,12 +177,14 @@
                 </div>
             </div>
         </section>
-        <footer class="page-footer container"></footer>
+        <footer class="page-footer container">
+        </footer>
     </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // --- ELEMENTOS DEL DOM ---
+
+    // 1. SELECTORES DEL DOM
     const songTitleEl = document.getElementById('song-title');
     const songArtistEl = document.getElementById('song-artist');
     const albumArtEl = document.getElementById('album-art');
@@ -204,9 +206,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const colorPicker = document.getElementById('color-picker');
     const repeatBtn = document.getElementById('repeat-btn');
     const shareBtn = document.getElementById('share-btn');
-    const addToFavoritesBtn = document.getElementById('add-to-favorites-btn');
-
-    // --- CONFIGURACIÓN Y ESTADO ---
+    
+    // 2. CONSTANTES Y ESTADO DE LA APLICACIÓN
     const cloudinaryBaseUrl = 'https://res.cloudinary.com/dy9cywux2/video/upload/';
     const googleSheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxbKnkTFmkECMfd_cRKchEv2XGOHII6YlLj0M0ragfExCtRWB2S0qTIZYrrFCTk3sxxctY2dnVgUif/pub?output=csv';
     const skinsPath = 'assets/img/labplay/skins/';
@@ -216,6 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let playlistsData = {};
     let currentCategory = '';
     let currentPlaylist = [];
+    let displayedPlaylist = []; // Playlist que se muestra en la UI (puede ser la misma que currentPlaylist o la que está en cola)
     let allSongs = [];
     let currentSongIndex = -1;
     let fuse;
@@ -224,57 +226,59 @@ document.addEventListener('DOMContentLoaded', () => {
     let skins = [];
     let currentSkinIndex = 0;
     let isRepeatActive = false;
-    let userFavorites = [];
-    let pendingPlaylistChange = null; // **CORRECCIÓN**: Esta variable es la clave. Almacenará la acción pendiente.
-    
-    // --- FUNCIONES AUXILIARES Y DE INICIALIZACIÓN ---
-    const shuffleArray = (array) => { let newArr = [...array]; for (let i = newArr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[newArr[i], newArr[j]] = [newArr[j], newArr[i]];} return newArr;};
+    let nextPlaylistInfo = null; // Clave para la lógica de no interrumpir la canción actual
+
+    // 3. DEFINICIÓN DE FUNCIONES
+
+    // --- Funciones auxiliares ---
+    const shuffleArray = (array) => { let newArr = [...array]; for (let i = newArr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[newArr[i], newArr[j]] = [newArr[j], newArr[i]]; } return newArr; };
     const parseCsvRow = (row) => { const c = []; let d = ''; let e = !1; for (let f = 0; f < row.length; f++) { const g = row[f]; if ('"' === g) e && '"' === row[f + 1] ? (d += '"', f++) : e = !e; else if (',' === g && !e) c.push(d.trim()), d = ''; else d += g } c.push(d.trim()); return c.map(h => h.startsWith('"') && h.endsWith('"') ? h.slice(1, -1) : h) };
-    
-    function loadUserSettings() { /* ...código sin cambios... */ }
-    async function loadSkins() { /* ...código sin cambios... */ }
-    
-    // --- LÓGICA DEL REPRODUCTOR ---
 
-    /**
-     * **CORRECCIÓN**: Esta función ahora es el "despachador" central.
-     * Se ejecuta al terminar una canción y decide qué hacer a continuación:
-     * 1. Si hay un cambio de lista pendiente, lo aplica.
-     * 2. Si el modo repetición está activo, reinicia la canción.
-     * 3. Si no, reproduce la siguiente canción de la lista actual.
-     */
-    function handleSongEnd() {
-        // Limpiar cualquier feedback visual de una acción pendiente
-        clearPendingVisuals();
-
-        if (pendingPlaylistChange) {
-            const change = pendingPlaylistChange;
-            pendingPlaylistChange = null; 
-            
-            // Aplicar el cambio que estaba en cola
-            switch(change.type) {
-                case 'category':
-                    applyCategoryChange(change.value, true);
-                    break;
-                case 'adventure':
-                    applyAdventureMode(true);
-                    break;
-                case 'song':
-                    applySongChange(change.publicId);
-                    break;
-            }
-            return; // Detenemos la ejecución para no llamar a playNextSong()
+    // --- Lógica del reproductor y Playlist ---
+    function loadSong(playlistIndex) {
+        if (playlistIndex < 0 || playlistIndex >= currentPlaylist.length) {
+            if (currentPlaylist.length > 0) loadSong(0); // Reinicia si el índice es inválido
+            return;
+        }
+        currentSongIndex = playlistIndex;
+        const song = currentPlaylist[currentSongIndex];
+        
+        songTitleEl.textContent = song.title;
+        songArtistEl.textContent = song.artist;
+        albumArtEl.src = song.cover?.trim() || defaultCover;
+        
+        songInformationEl.classList.remove('is-open');
+        if (song.information?.trim()) {
+            songInformationEl.textContent = song.information;
+            songInfoToggleBtn.style.display = 'block';
+        } else {
+            songInfoToggleBtn.style.display = 'none';
         }
         
-        if (isRepeatActive) {
-            audioPlayer.currentTime = 0;
-            audioPlayer.play();
-        } else {
-            playNextSong();
+        updatePlaylistHighlight();
+        audioPlayer.src = song.publicUrl;
+        audioPlayer.play().catch(() => {}); // Intenta reproducir, ignora errores de autoplay
+        
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: song.title,
+                artist: song.artist,
+                album: `KAYLUM: ${song.category}`,
+                artwork: [{ src: albumArtEl.src, sizes: '250x250', type: 'image/jpeg' }]
+            });
         }
     }
 
     function playNextSong() {
+        if (nextPlaylistInfo) {
+            // Si hay una lista en cola, la cargamos ahora
+            currentCategory = nextPlaylistInfo.category;
+            currentPlaylist = nextPlaylistInfo.playlist;
+            nextPlaylistInfo = null; // Limpiamos la cola
+            loadSong(0);
+            updatePaginatedView(); // Actualizamos la vista con la nueva lista
+            return;
+        }
         if (currentPlaylist.length === 0) return;
         currentSongIndex = (currentSongIndex + 1) % currentPlaylist.length;
         loadSong(currentSongIndex);
@@ -285,174 +289,209 @@ document.addEventListener('DOMContentLoaded', () => {
         currentSongIndex = (currentSongIndex - 1 + currentPlaylist.length) % currentPlaylist.length;
         loadSong(currentSongIndex);
     }
-    
-    function toggleShuffle() { /* ...código sin cambios... */ }
-    function toggleRepeat() { /* ...código sin cambios... */ }
 
-    function loadSong(playlistIndex, fromUrl = false) {
-        if (playlistIndex < 0 || playlistIndex >= currentPlaylist.length) return;
-        currentSongIndex = playlistIndex;
-        const song = currentPlaylist[playlistIndex];
-
-        songTitleEl.textContent = song.title;
-        songArtistEl.textContent = song.artist;
-        albumArtEl.src = (song.cover && song.cover.trim() !== '') ? song.cover : defaultCover;
-        songInformationEl.classList.remove('is-open');
-        songInformationEl.textContent = song.information || '';
-        songInfoToggleBtn.style.display = song.information ? 'block' : 'none';
-        
-        updatePlaylistHighlight();
-        updateFavoriteButton();
-        
-        audioPlayer.src = song.publicUrl;
-        audioPlayer.play().catch(e => console.warn("Autoplay bloqueado.", e));
-        
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.metadata = new MediaMetadata({
-                title: song.title, artist: song.artist, album: `KAYLUM: ${song.category}`,
-                artwork: [{ src: albumArtEl.src, sizes: '250x250', type: 'image/jpeg' }]
-            });
-        }
-        
-        if (fromUrl) {
-            const newUrl = `${window.location.origin}${window.location.pathname}`;
-            window.history.replaceState({path: newUrl}, '', newUrl);
-        }
-    }
-    
-    // --- **CORRECCIÓN**: LÓGICA DE GESTIÓN DE LA COLA DE REPRODUCCIÓN ---
-
-    const isPlaying = () => audioPlayer.currentTime > 0 && !audioPlayer.paused;
-
-    // Elimina los estilos "pending" o "queued" de la UI
-    function clearPendingVisuals() {
-        document.querySelectorAll('.pending').forEach(el => el.classList.remove('pending'));
-        document.querySelectorAll('.queued').forEach(el => el.classList.remove('queued'));
-    }
-
-    /**
-     * **CORRECCIÓN**: Esta función no cambia la categoría inmediatamente.
-     * En su lugar, pone la petición en cola si hay una canción en curso.
-     */
-    function requestCategoryChange(category) {
-        clearPendingVisuals();
-        // Feedback visual inmediato para el usuario
-        document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.remove('active', 'pending'));
-        const targetBtn = document.querySelector(`.category-tabs button[data-category="${category}"]`);
-        if (targetBtn) targetBtn.classList.add(isPlaying() ? 'pending' : 'active');
-        adventureModeBtn.classList.remove('active', 'pending');
-
-        if (isPlaying()) {
-            pendingPlaylistChange = { type: 'category', value: category };
+    function handleSongEnd() {
+        if (isRepeatActive) {
+            audioPlayer.currentTime = 0;
+            audioPlayer.play();
         } else {
-            applyCategoryChange(category, true);
+            playNextSong();
         }
     }
 
-    function requestAdventureMode() {
-        clearPendingVisuals();
-        document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.remove('active', 'pending'));
-        adventureModeBtn.classList.add(isPlaying() ? 'pending' : 'active');
-
-        if (isPlaying()) {
-            pendingPlaylistChange = { type: 'adventure' };
+    function togglePlayPause() {
+        if (audioPlayer.paused) {
+            audioPlayer.play().catch(() => {});
         } else {
-            applyAdventureMode(true);
+            audioPlayer.pause();
         }
     }
-    
-    function requestSongChange(songId, listItemElement) {
-        clearPendingVisuals();
-        if (listItemElement) listItemElement.classList.add('queued');
+
+    function toggleRepeat() {
+        isRepeatActive = !isRepeatActive;
+        repeatBtn.classList.toggle('active', isRepeatActive);
+    }
+
+    function shareSong() {
+        if (currentSongIndex < 0) return;
+        const songId = currentPlaylist[currentSongIndex].publicId;
+        const shareUrl = `${window.location.origin}${window.location.pathname}?song=${songId}`;
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            shareBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
+            setTimeout(() => { shareBtn.innerHTML = '<i class="bi bi-share-fill"></i>'; }, 2000);
+        }).catch(() => alert("No se pudo copiar el enlace."));
+    }
+
+    function getPlaylistForCategory(category) {
+        return playlistsData[category] || [];
+    }
+
+    function handlePlaylistUpdate(newPlaylist) {
+        const isPlaying = !audioPlayer.paused && audioPlayer.src;
+        if (isPlaying) {
+            // Si una canción está sonando, ponemos la nueva lista en cola
+            nextPlaylistInfo = { playlist: newPlaylist, category: currentCategory };
+            // Actualizamos la vista de la lista para que el usuario vea el cambio, aunque la música no cambie todavía
+            displayedPlaylist = newPlaylist;
+            currentPage = 1;
+            updatePaginatedView();
+        } else {
+            // Si no hay nada sonando, cambiamos la lista inmediatamente
+            currentPlaylist = newPlaylist;
+            displayedPlaylist = newPlaylist;
+            currentPage = 1;
+            updatePaginatedView();
+            if (currentPlaylist.length > 0) loadSong(0);
+        }
+    }
+
+    function loadCategory(category) {
+        if (category === currentCategory && !nextPlaylistInfo) return; // Evita recargar lo mismo
         
-        if (isPlaying()) {
-             pendingPlaylistChange = { type: 'song', publicId: songId };
-        } else {
-             applySongChange(songId);
-        }
-    }
-    
-    // --- **CORRECCIÓN**: Funciones que aplican los cambios ---
-
-    function applyCategoryChange(category, startPlayback = true) {
+        const isPlaying = !audioPlayer.paused && audioPlayer.src;
         currentCategory = category;
-        if (category === 'Favoritos') {
-            currentPlaylist = allSongs.filter(song => userFavorites.includes(song.publicId));
+        const newSourceList = getPlaylistForCategory(category);
+        const newPlaylist = isShuffleActive ? shuffleArray(newSourceList) : [...newSourceList];
+        
+        renderCategoryTabs(); // Actualiza el botón activo
+
+        if (isPlaying) {
+            nextPlaylistInfo = { playlist: newPlaylist, category: category };
+            displayedPlaylist = newPlaylist;
         } else {
-            const categorySongs = playlistsData[category] || [];
-            currentPlaylist = isShuffleActive ? shuffleArray(categorySongs) : [...categorySongs];
+            currentPlaylist = newPlaylist;
+            displayedPlaylist = newPlaylist;
         }
         
         currentPage = 1;
         updatePaginatedView();
-        renderCategoryTabs(); // Actualiza el estado visual de los botones de categoría
-        adventureModeBtn.classList.remove('active', 'pending');
 
-        if (startPlayback && currentPlaylist.length > 0) {
-            loadSong(0); 
-        } else if (startPlayback) {
+        if (!isPlaying && currentPlaylist.length > 0) {
+            loadSong(0);
+        } else if (!isPlaying && currentPlaylist.length === 0) {
             songTitleEl.textContent = "Sin canciones";
             songArtistEl.textContent = "Categoría vacía";
-            audioPlayer.src = "";
             albumArtEl.src = defaultCover;
-            updatePlaylistHighlight();
-            updateFavoriteButton();
+            audioPlayer.src = "";
+        }
+    }
+
+    function toggleShuffle() {
+        isShuffleActive = !isShuffleActive;
+        shuffleBtn.classList.toggle('active', isShuffleActive);
+        
+        const sourceList = getPlaylistForCategory(currentCategory);
+        const newPlaylist = isShuffleActive ? shuffleArray(sourceList) : [...sourceList];
+        handlePlaylistUpdate(newPlaylist);
+    }
+
+    // --- Renderizado y Paginación ---
+    function renderPlaylistView(playlistToRender) {
+        if (!playlistToRender || playlistToRender.length === 0) {
+            let message = searchInput.value.trim() ? 'No se encontraron resultados.' : 'No hay canciones en esta categoría.';
+            playlistViewContainer.innerHTML = `<p style="text-align:center; padding: 20px 0; color:var(--secondary-text-color);">${message}</p>`;
+            return;
+        }
+        const listHTML = playlistToRender.map(song => {
+            // Se usa el índice global para identificar la canción sin importar la lista actual
+            const globalIndex = allSongs.findIndex(s => s.publicId === song.publicId);
+            return `
+                <li data-global-index="${globalIndex}">
+                    <i class="bi bi-music-note-beamed icon"></i>
+                    <div class="track-details">
+                        <div class="title">${song.title}</div>
+                        <div class="artist">${song.artist}</div>
+                    </div>
+                </li>`;
+        }).join('');
+        playlistViewContainer.innerHTML = `<ol>${listHTML}</ol>`;
+        updatePlaylistHighlight();
+    }
+
+    function renderCategoryTabs() {
+        const categories = Object.keys(playlistsData).filter(c => !c.startsWith('Artista:'));
+        const buttonsHTML = categories.map(c => `<button data-category="${c}">${c}</button>`).join('');
+        categoryTabsContainer.innerHTML = buttonsHTML;
+        document.querySelectorAll('.category-tabs button').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.category === currentCategory);
+        });
+    }
+
+    function updatePlaylistHighlight() {
+        document.querySelectorAll('.playlist-view li').forEach(li => li.classList.remove('playing'));
+        if (currentSongIndex < 0 || !currentPlaylist[currentSongIndex]) return;
+
+        const currentSongId = currentPlaylist[currentSongIndex].publicId;
+        const globalIndexToHighlight = allSongs.findIndex(s => s.publicId === currentSongId);
+        
+        const listItem = document.querySelector(`.playlist-view li[data-global-index="${globalIndexToHighlight}"]`);
+        if (listItem) {
+            listItem.classList.add('playing');
         }
     }
     
-    function applyAdventureMode(startPlayback = true) {
-        const adventureCategoryName = 'Aventura Musical';
-        if (!playlistsData[adventureCategoryName]) {
-            playlistsData[adventureCategoryName] = [];
-        }
-        playlistsData[adventureCategoryName] = shuffleArray(allSongs);
-        applyCategoryChange(adventureCategoryName, startPlayback);
-    }
-
-    function applySongChange(songId) {
-        const songToPlay = allSongs.find(s => s.publicId === songId);
-        if (!songToPlay) return;
+    function updatePaginatedView() {
+        const searchTerm = searchInput.value.trim();
+        let listSource = displayedPlaylist;
         
-        // Cambia a la categoría de la canción sin iniciar la reproducción aún
-        applyCategoryChange(songToPlay.category, false);
+        if (searchTerm.length > 1) {
+            listSource = fuse.search(searchTerm).map(result => result.item);
+            document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.remove('active'));
+            adventureModeBtn.classList.remove('active');
+        } else {
+             document.querySelectorAll('.category-tabs button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.category === currentCategory);
+            });
+            adventureModeBtn.classList.toggle('active', currentCategory === 'Aventura Musical');
+        }
+        
+        const paginatedSongs = listSource.slice((currentPage - 1) * songsPerPage, currentPage * songsPerPage);
+        renderPlaylistView(paginatedSongs);
+        renderPaginationControls(listSource.length);
+    }
+    
+    function renderPaginationControls(totalItems) { /* ...código idéntico a la versión anterior... */ }
 
-        // Encuentra la canción en la nueva lista y la reproduce
-        const newIndex = currentPlaylist.findIndex(s => s.publicId === songToPlay.publicId);
-        if(newIndex > -1) {
-            loadSong(newIndex);
+    // --- Carga Inicial y Configuración de Eventos ---
+    async function loadSkins() {
+        try {
+            const response = await fetch(`${skinsPath}skins.json?_=${new Date().getTime()}`);
+            if (!response.ok) return;
+            const skinFiles = await response.json();
+            skins = skinFiles.map(file => `${skinsPath}${file}`);
+            
+            if (skins.length > 0) {
+                const savedSkinIndex = parseInt(localStorage.getItem('kaylum_skinIndex'), 10) || 0;
+                currentSkinIndex = savedSkinIndex < skins.length ? savedSkinIndex : 0;
+                const initialSkin = skins[currentSkinIndex];
+                const extension = initialSkin.split('.').pop().toLowerCase();
+                if (['webm', 'mp4'].includes(extension)) {
+                    backgroundVideo.innerHTML = `<source src="${initialSkin}" type="video/${extension}">`;
+                } else {
+                    backgroundVideo.style.backgroundImage = `url('${initialSkin}')`;
+                    backgroundVideo.innerHTML = '';
+                }
+                backgroundVideo.load();
+                backgroundVideo.play().catch(() => {});
+            }
+        } catch (error) {
+            console.warn("No se pudo cargar la lista de skins:", error.message);
         }
     }
-
-    // --- LÓGICA DE LA INTERFAZ (UI) ---
-    function renderCategoryTabs() { /* ...código sin cambios... */ }
-    function toggleFavoriteStatus(songId) { /* ...código sin cambios... */ }
-    function updateFavoriteButton() { /* ...código sin cambios... */ }
-    function shareSong() { /* ...código sin cambios... */ }
-    function updatePaginatedView() { /* ...código sin cambios... */ }
-    function renderPlaylistView(playlistToRender) { /* ...código sin cambios... */ }
-    function renderPaginationControls(totalItems) { /* ...código sin cambios... */ }
-    function updatePlaylistHighlight() {
-        document.querySelectorAll('.playlist-view li').forEach(li => {
-            li.classList.remove('playing');
-        });
-        if (currentSongIndex < 0 || !currentPlaylist[currentSongIndex]) return;
-        const currentSong = currentPlaylist[currentSongIndex];
-        const currentLi = document.querySelector(`.playlist-view li[data-public-id="${currentSong.publicId}"]`);
-        if (currentLi) {
-            currentLi.classList.add('playing');
-        }
-    }
-
-    // --- FUNCIÓN DE INICIALIZACIÓN PRINCIPAL ---
-
+    
     async function init() {
-        loadUserSettings();
+        playlistViewContainer.innerHTML = `<p style="text-align:center; padding: 40px 0; color:var(--secondary-text-color); font-style: italic;">Cargando música... <span class="spinner"></span></p>`;
         await loadSkins();
-
+        
         try {
             const response = await fetch(`${googleSheetCsvUrl}&_=${new Date().getTime()}`);
+            if (!response.ok) throw new Error("Fallo de red");
             const csvText = await response.text();
+            if (!csvText) throw new Error("CSV vacío");
+            
             const rows = csvText.trim().replace(/\r/g, '').split('\n').slice(1);
+            allSongs = [];
+            playlistsData = {};
             
             rows.forEach(row => {
                 const [title, artist, category, publicId, cover, information] = parseCsvRow(row);
@@ -463,327 +502,145 @@ document.addEventListener('DOMContentLoaded', () => {
                 allSongs.push(songObject);
             });
             
-            fuse = new Fuse(allSongs, { keys: ['title', 'artist'], threshold: 0.4 });
-            
-            if (allSongs.length > 0) {
-                const urlParams = new URLSearchParams(window.location.search);
-                const songIdFromUrl = urlParams.get('song');
-                let initialCategory = Object.keys(playlistsData).find(cat => cat !== 'Favoritos') || Object.keys(playlistsData)[0];
-                
-                if (songIdFromUrl) {
-                    const songToPlay = allSongs.find(s => s.publicId === songIdFromUrl);
-                    if (songToPlay) {
-                        applyCategoryChange(songToPlay.category, false); // Carga la categoría
-                        const indexToPlay = currentPlaylist.findIndex(s => s.publicId === songIdFromUrl);
-                        if (indexToPlay !== -1) loadSong(indexToPlay, true); // Reproduce la canción
-                    } else {
-                        applyCategoryChange(initialCategory, false);
-                    }
-                } else {
-                    applyCategoryChange(initialCategory, false); // No reproducir al cargar la página
-                    updatePaginatedView();
-                }
-            } else {
-                 songTitleEl.textContent = "Sin datos";
-                 songArtistEl.textContent = "La base de datos está vacía.";
-            }
-
-            // --- LISTENERS (SECCIÓN CORREGIDA) ---
-            audioPlayer.addEventListener('ended', handleSongEnd);
-            categoryTabsContainer.addEventListener('click', (e) => {
-                const btn = e.target.closest('button');
-                if (btn && btn.dataset.category) requestCategoryChange(btn.dataset.category);
-            });
-            adventureModeBtn.addEventListener('click', requestAdventureMode);
-            shuffleBtn.addEventListener('click', toggleShuffle);
-            repeatBtn.addEventListener('click', toggleRepeat);
-            prevBtn.addEventListener('click', playPrevSong);
-            nextBtn.addEventListener('click', playNextSong);
-            shareBtn.addEventListener('click', shareSong);
-            addToFavoritesBtn.addEventListener('click', () => { if(currentSongIndex > -1 && currentPlaylist[currentSongIndex]) toggleFavoriteStatus(currentPlaylist[currentSongIndex].publicId); });
-            searchInput.addEventListener('input', () => { currentPage = 1; updatePaginatedView(); });
-
-            /**
-             * **CORRECCIÓN**: El listener de la lista ahora decide si reproducir,
-             * cambiar inmediatamente o poner en cola la canción.
-             */
-            playlistViewContainer.addEventListener('click', (e) => {
-                const favoriteBtn = e.target.closest('.playlist-favorite-btn');
-                const listItem = e.target.closest('li');
-
-                if (favoriteBtn) {
-                    toggleFavoriteStatus(favoriteBtn.dataset.publicId);
-                    return; // Detenemos para no disparar el click de la canción
-                } 
-                
-                if (listItem) {
-                    const clickedSongId = listItem.dataset.publicId;
-                    const clickedSong = allSongs.find(s => s.publicId === clickedSongId);
-                    if (!clickedSong) return;
-
-                    const songIsInCurrentPlaylist = currentPlaylist.some(s => s.publicId === clickedSongId);
-
-                    if (songIsInCurrentPlaylist) {
-                        // Si la canción está en la lista actual, la reproducimos inmediatamente.
-                        const localIndex = currentPlaylist.findIndex(s => s.publicId === clickedSongId);
-                        if (localIndex !== -1) loadSong(localIndex);
-                    } else {
-                        // Si la canción NO está en la lista, la solicitamos (se pondrá en cola si es necesario)
-                        requestSongChange(clickedSongId, listItem);
-                    }
-                }
-            });
-
-            paginationControlsContainer.addEventListener('click', (e) => {
-                const button = e.target.closest('button');
-                if (!button || button.disabled) return;
-                let playlistToPaginate = currentPlaylist;
-                if (searchInput.value.trim()){
-                    const searchResults = fuse.search(searchInput.value.trim());
-                    const searchResultIds = new Set(searchResults.map(result => result.item.publicId));
-                    playlistToPaginate = currentPlaylist.filter(song => searchResultIds.has(song.publicId));
-                }
-                const totalPages = Math.ceil(playlistToPaginate.length / songsPerPage);
-                const pageAction = button.dataset.page;
-                if (pageAction === 'prev' && currentPage > 1) currentPage--;
-                else if (pageAction === 'next' && currentPage < totalPages) currentPage++;
-                else if (!isNaN(pageAction)) currentPage = parseInt(pageAction);
-                updatePaginatedView();
-            });
-
-            // ... resto de listeners sin cambios
-            aboutToggleBtn.addEventListener('click', () => aboutContent.classList.toggle('is-open'));
-            songInfoToggleBtn.addEventListener('click', () => songInformationEl.classList.toggle('is-open'));
-            changeSkinBtn.addEventListener('click', () => { /* ...código sin cambios... */ });
-            colorPicker.addEventListener('input', (e) => { document.documentElement.style.setProperty('--text-color', e.target.value); localStorage.setItem('kaylum_textColor', e.target.value); });
-            if ('mediaSession' in navigator) {
-                navigator.mediaSession.setActionHandler('play', () => audioPlayer.play());
-                navigator.mediaSession.setActionHandler('pause', () => audioPlayer.pause());
-                navigator.mediaSession.setActionHandler('previoustrack', playPrevSong);
-                navigator.mediaSession.setActionHandler('nexttrack', playNextSong);
-            }
+            if (allSongs.length === 0) throw new Error("No se parsearon canciones");
         } catch (error) {
-            console.error("Error al inicializar:", error);
-            songTitleEl.textContent = "Error al cargar";
-            songArtistEl.textContent = "No se pudo conectar a la base de datos.";
+            console.error("Error al cargar la música desde la red:", error);
+            playlistViewContainer.innerHTML = `<p style="text-align:center; padding: 20px 0; color:var(--secondary-text-color);">No se pudo cargar la música. Revisa tu conexión a internet.</p>`;
+            return; // Detener la ejecución si no hay canciones
         }
+        
+        fuse = new Fuse(allSongs, { keys: ['title', 'artist', 'information'], threshold: 0.4, minMatchCharLength: 2 });
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const songIdFromUrl = urlParams.get('song');
+        let initialCategory = allSongs[0]?.category;
+        
+        if (songIdFromUrl) {
+            initialCategory = allSongs.find(s => s.publicId === songIdFromUrl)?.category || initialCategory;
+        }
+        
+        loadCategory(initialCategory);
+        
+        if (songIdFromUrl) {
+            const songToPlayIndex = currentPlaylist.findIndex(s => s.publicId === songIdFromUrl);
+            if (songToPlayIndex !== -1) {
+                loadSong(songToPlayIndex);
+            }
+        }
+        
+        setupEventListeners();
     }
     
-    // Funciones auxiliares completas que se omitieron arriba por brevedad.
-    function loadUserSettings() {
-        const savedColor = localStorage.getItem('kaylum_textColor');
-        if (savedColor) { document.documentElement.style.setProperty('--text-color', savedColor); colorPicker.value = savedColor; }
-        const savedSkinIndex = localStorage.getItem('kaylum_skinIndex');
-        if (savedSkinIndex !== null) { currentSkinIndex = parseInt(savedSkinIndex, 10); }
-        const savedFavorites = localStorage.getItem('kaylum_favorites');
-        if (savedFavorites) { userFavorites = JSON.parse(savedFavorites); }
-        if (userFavorites.length > 0) { playlistsData['Favoritos'] = []; }
-    }
-    async function loadSkins() {
-        try {
-            const response = await fetch(`${skinsPath}skins.json?_=${new Date().getTime()}`);
-            if (!response.ok) throw new Error('No se encontró skins.json');
-            const skinFiles = await response.json();
-            skins = skinFiles.map(file => `${skinsPath}${file}`);
-            if (skins.length > 0) {
-                if (isNaN(currentSkinIndex) || currentSkinIndex < 0 || currentSkinIndex >= skins.length) currentSkinIndex = 0;
-                const initialSkin = skins[currentSkinIndex];
-                const extension = initialSkin.split('.').pop().toLowerCase();
-                if (['webm', 'mp4'].includes(extension)) {
-                    const source = document.createElement('source');
-                    source.src = initialSkin;
-                    source.type = `video/${extension}`;
-                    backgroundVideo.innerHTML = '';
-                    backgroundVideo.appendChild(source);
-                    backgroundVideo.style.backgroundImage = 'none';
-                } else if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-                    backgroundVideo.style.backgroundImage = `url('${initialSkin}')`;
-                    backgroundVideo.innerHTML = '';
-                }
-                backgroundVideo.load();
-                backgroundVideo.play().catch(e => {});
+    function setupEventListeners() {
+        audioPlayer.addEventListener('ended', handleSongEnd);
+        
+        playlistViewContainer.addEventListener('click', (e) => {
+            const targetLi = e.target.closest('li');
+            if (!targetLi) return;
+            
+            const globalIndex = parseInt(targetLi.dataset.globalIndex);
+            const clickedSongId = allSongs[globalIndex].publicId;
+            const playlistIndex = displayedPlaylist.findIndex(s => s.publicId === clickedSongId);
+            
+            if (playlistIndex !== -1) {
+                // Si la canción ya está en la lista mostrada, la reproduce
+                currentPlaylist = displayedPlaylist;
+                nextPlaylistInfo = null; // Limpiamos la cola por si acaso
+                loadSong(playlistIndex);
             }
-        } catch (error) {
-            console.warn("No se pudo cargar la lista de skins:", error.message);
-            const source = document.createElement('source');
-            source.src = "assets/img/labplay/skins/skin03.webm";
-            source.type = "video/webm";
-            backgroundVideo.innerHTML = '';
-            backgroundVideo.appendChild(source);
-            backgroundVideo.load();
-        }
-    }
-    function toggleShuffle() {
-        isShuffleActive = !isShuffleActive;
-        shuffleBtn.classList.toggle('active', isShuffleActive);
-        
-        const currentlyPlayingSong = currentPlaylist[currentSongIndex];
-        let basePlaylist;
-        if (currentCategory === 'Favoritos') {
-            basePlaylist = allSongs.filter(song => userFavorites.includes(song.publicId));
-        } else if (currentCategory === 'Aventura Musical') {
-             basePlaylist = allSongs; // Aventura siempre usa todas las canciones
-        } else {
-            basePlaylist = playlistsData[currentCategory] || [];
-        }
-        
-        currentPlaylist = isShuffleActive ? shuffleArray(basePlaylist) : [...basePlaylist];
-        
-        if (currentlyPlayingSong) {
-            const newIndex = currentPlaylist.findIndex(s => s.publicId === currentlyPlayingSong.publicId);
-            currentSongIndex = newIndex > -1 ? newIndex : (currentPlaylist.length > 0 ? 0 : -1);
-        } else {
-            currentSongIndex = -1;
-        }
-        updatePaginatedView();
-    }
-    function toggleRepeat() {
-        isRepeatActive = !isRepeatActive;
-        repeatBtn.classList.toggle('active', isRepeatActive);
-    }
-    function renderCategoryTabs() {
-        const categories = Object.keys(playlistsData);
-        if (!categories.includes('Aventura Musical') && allSongs.length > 0) {
-            // Asegurarse de que 'Aventura Musical' no se muestre como una pestaña normal
-        }
-        categoryTabsContainer.innerHTML = Object.keys(playlistsData).filter(c => c !== 'Aventura Musical').map(c => 
-            `<button data-category="${c}" class="${c === currentCategory ? 'active' : ''}">
-                ${c === 'Favoritos' ? '<i class="bi bi-star"></i>' : ''} ${c}
-             </button>`
-        ).join('');
-    }
-    function toggleFavoriteStatus(songId) {
-        if (!songId) return;
-        const favoriteIndex = userFavorites.indexOf(songId);
-        const hadFavoritesCategory = !!playlistsData['Favoritos'];
-        if (favoriteIndex > -1) {
-            userFavorites.splice(favoriteIndex, 1);
-        } else {
-            userFavorites.push(songId);
-        }
-        localStorage.setItem('kaylum_favorites', JSON.stringify(userFavorites));
-        
-        const hasFavoritesNow = userFavorites.length > 0;
-        if (hasFavoritesNow && !hadFavoritesCategory) {
-            playlistsData['Favoritos'] = [];
-        } else if (!hasFavoritesNow && hadFavoritesCategory) {
-            delete playlistsData['Favoritos'];
-            if (currentCategory === 'Favoritos') {
-                const firstCategory = Object.keys(playlistsData).find(cat => cat !== 'Favoritos' && cat !== 'Aventura Musical') || Object.keys(playlistsData)[0];
-                if (firstCategory) requestCategoryChange(firstCategory);
-            }
-        }
-        
-        if(currentCategory === 'Favoritos') {
-           applyCategoryChange('Favoritos', false);
-        } else {
-           updatePaginatedView();
-        }
-        updateFavoriteButton();
-        renderCategoryTabs();
-    }
-    function updateFavoriteButton() {
-        if (currentSongIndex < 0 || !currentPlaylist[currentSongIndex]) {
-            addToFavoritesBtn.innerHTML = '<i class="bi bi-heart"></i>';
-            addToFavoritesBtn.classList.remove('is-favorite');
-            return;
-        }
-        const songId = currentPlaylist[currentSongIndex].publicId;
-        const isFavorite = userFavorites.includes(songId);
-        addToFavoritesBtn.innerHTML = isFavorite ? '<i class="bi bi-heart-fill"></i>' : '<i class="bi bi-heart"></i>';
-        addToFavoritesBtn.classList.toggle('is-favorite', isFavorite);
-    }
-    function shareSong() {
-        if (currentSongIndex < 0 || !currentPlaylist[currentSongIndex]) { alert("Selecciona una canción para compartir."); return; }
-        const songId = currentPlaylist[currentSongIndex].publicId;
-        const shareUrl = `${window.location.origin}${window.location.pathname}?song=${songId}`;
-        navigator.clipboard.writeText(shareUrl).then(() => {
-            const originalHTML = shareBtn.innerHTML;
-            shareBtn.innerHTML = '<i class="bi bi-check-lg"></i>';
-            setTimeout(() => { shareBtn.innerHTML = originalHTML; }, 2000);
-        }).catch(err => {
-            console.error('Error al copiar el enlace: ', err);
-            alert("No se pudo copiar el enlace.");
         });
-    }
-    function updatePaginatedView() {
-        let playlistToDisplay = currentPlaylist;
-        if (searchInput.value.trim()){
-            const searchResults = fuse.search(searchInput.value.trim());
-            const searchResultIds = new Set(searchResults.map(result => result.item.publicId));
-            playlistToDisplay = currentPlaylist.filter(song => searchResultIds.has(song.publicId));
-        }
-        const startIndex = (currentPage - 1) * songsPerPage;
-        const paginatedSongs = playlistToDisplay.slice(startIndex, startIndex + songsPerPage);
-        renderPlaylistView(paginatedSongs);
-        renderPaginationControls(playlistToDisplay.length);
-    }
-    function renderPlaylistView(playlistToRender) {
-        if (!playlistToRender || playlistToRender.length === 0) {
-            playlistViewContainer.innerHTML = `<p style="text-align:center; padding: 20px 0; color:var(--secondary-text-color);">${searchInput.value.trim() ? 'No se encontraron resultados.' : 'No hay canciones en esta categoría.'}</p>`;
-            return;
-        }
-        const listHTML = `<ol>${playlistToRender.map((song) => {
-            const isFavorite = userFavorites.includes(song.publicId);
-            const heartIconClass = isFavorite ? 'bi-heart-fill' : 'bi-heart';
-            return `
-                <li data-public-id="${song.publicId}">
-                    <i class="bi bi-music-note-beamed icon"></i>
-                    <div class="track-details">
-                        <div class="title">${song.title}</div>
-                        <div class="artist">${song.artist}</div>
-                    </div>
-                    <button class="playlist-favorite-btn ${isFavorite ? 'is-favorite' : ''}" data-public-id="${song.publicId}" title="Añadir/Quitar de Favoritos">
-                        <i class="bi ${heartIconClass}"></i>
-                    </button>
-                </li>`;
-        }).join('')}</ol>`;
-        playlistViewContainer.innerHTML = listHTML;
-        updatePlaylistHighlight();
-    }
-    function renderPaginationControls(totalItems) {
-        const totalPages = Math.ceil(totalItems / songsPerPage);
-        paginationControlsContainer.style.display = totalPages > 1 ? 'flex' : 'none';
-        if (totalPages <= 1) { paginationControlsContainer.innerHTML = ''; return; }
-        let buttonsHTML = `<button data-page="prev" ${currentPage === 1 ? 'disabled' : ''}><</button>`;
-        let startPage, endPage;
-        if (totalPages <= 5) { startPage = 1; endPage = totalPages; }
-        else {
-            if (currentPage <= 3) { startPage = 1; endPage = 5; }
-            else if (currentPage >= totalPages - 2) { startPage = totalPages - 4; endPage = totalPages; }
-            else { startPage = currentPage - 2; endPage = currentPage + 2; }
-        }
-        for (let i = startPage; i <= endPage; i++) {
-            buttonsHTML += `<button data-page="${i}" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
-        }
-        buttonsHTML += `<button data-page="next" ${currentPage === totalPages ? 'disabled' : ''}>></button>`;
-        paginationControlsContainer.innerHTML = buttonsHTML;
-    }
-    changeSkinBtn.addEventListener('click', () => {
-        if(skins.length === 0) return;
-        currentSkinIndex = (currentSkinIndex + 1) % skins.length;
-        localStorage.setItem('kaylum_skinIndex', currentSkinIndex);
-        const newSkinSrc = skins[currentSkinIndex];
-        const extension = newSkinSrc.split('.').pop().toLowerCase();
-        backgroundVideo.style.opacity = 0;
-        setTimeout(() => {
-            if (['webm', 'mp4'].includes(extension)) {
-                backgroundVideo.style.backgroundImage = 'none';
-                const source = document.createElement('source');
-                source.src = newSkinSrc;
-                source.type = `video/${extension}`;
-                backgroundVideo.innerHTML = '';
-                backgroundVideo.appendChild(source);
-                backgroundVideo.load();
-                backgroundVideo.play().catch(e => {});
-            } else if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-                backgroundVideo.innerHTML = '';
-                backgroundVideo.style.backgroundImage = `url('${newSkinSrc}')`;
+        
+        songArtistEl.addEventListener('click', () => {
+            const artistName = songArtistEl.textContent;
+            if (!artistName || artistName === 'para comenzar') return;
+            const artistSongs = allSongs.filter(song => song.artist === artistName);
+            if (artistSongs.length > 0) {
+                const artistCatName = `Artista: ${artistName}`;
+                playlistsData[artistCatName] = artistSongs;
+                document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.remove('active'));
+                loadCategory(artistCatName);
             }
-            backgroundVideo.style.opacity = 1;
-        }, 500);
-    });
+        });
+        
+        categoryTabsContainer.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (btn) loadCategory(btn.dataset.category);
+        });
+        
+        paginationControlsContainer.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button || button.disabled) return;
+            const pageAction = button.dataset.page;
+            if (pageAction === 'prev') currentPage--;
+            else if (pageAction === 'next') currentPage++;
+            else currentPage = parseInt(pageAction);
+            updatePaginatedView();
+        });
+        
+        adventureModeBtn.addEventListener('click', () => {
+            if (allSongs.length > 0) {
+                currentCategory = 'Aventura Musical';
+                const adventurePlaylist = shuffleArray(allSongs);
+                handlePlaylistUpdate(adventurePlaylist);
+                renderCategoryTabs();
+                adventureModeBtn.classList.add('active');
+            }
+        });
 
+        changeSkinBtn.addEventListener('click', () => {
+            if (skins.length === 0) return;
+            currentSkinIndex = (currentSkinIndex + 1) % skins.length;
+            localStorage.setItem('kaylum_skinIndex', currentSkinIndex);
+            const newSkinSrc = skins[currentSkinIndex];
+            const extension = newSkinSrc.split('.').pop().toLowerCase();
+            backgroundVideo.style.opacity = 0;
+            setTimeout(() => {
+                if (['webm', 'mp4'].includes(extension)) {
+                    backgroundVideo.style.backgroundImage = 'none';
+                    backgroundVideo.innerHTML = `<source src="${newSkinSrc}" type="video/${extension}">`;
+                    backgroundVideo.load();
+                    backgroundVideo.play().catch(() => {});
+                } else {
+                    backgroundVideo.innerHTML = '';
+                    backgroundVideo.style.backgroundImage = `url('${newSkinSrc}')`;
+                }
+                backgroundVideo.style.opacity = 1;
+            }, 500);
+        });
+
+        colorPicker.addEventListener('input', (e) => {
+            document.documentElement.style.setProperty('--text-color', e.target.value);
+            localStorage.setItem('kaylum_textColor', e.target.value);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (document.activeElement !== searchInput && e.code === 'Space') {
+                e.preventDefault();
+                togglePlayPause();
+            }
+        });
+
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', togglePlayPause);
+            navigator.mediaSession.setActionHandler('pause', togglePlayPause);
+            navigator.mediaSession.setActionHandler('previoustrack', playPrevSong);
+            navigator.mediaSession.setActionHandler('nexttrack', playNextSong);
+        }
+
+        prevBtn.addEventListener('click', playPrevSong);
+        nextBtn.addEventListener('click', playNextSong);
+        shuffleBtn.addEventListener('click', toggleShuffle);
+        repeatBtn.addEventListener('click', toggleRepeat);
+        shareBtn.addEventListener('click', shareSong);
+        searchInput.addEventListener('input', () => { currentPage = 1; updatePaginatedView(); });
+        aboutToggleBtn.addEventListener('click', () => aboutContent.classList.toggle('is-open'));
+        songInfoToggleBtn.addEventListener('click', () => songInformationEl.classList.toggle('is-open'));
+    }
+    
+    // --- Resto de funciones idénticas ---
+    function renderPaginationControls(totalItems) { const totalPages = Math.ceil(totalItems / songsPerPage); paginationControlsContainer.style.display = totalPages > 1 ? 'flex' : 'none'; if (totalPages <= 1) { paginationControlsContainer.innerHTML = ''; return; } let buttonsHTML = `<button data-page="prev" ${currentPage === 1 ? 'disabled' : ''}><</button>`; let startPage = Math.max(1, currentPage - 2); let endPage = Math.min(totalPages, currentPage + 2); if (currentPage <= 3) { startPage = 1; endPage = Math.min(totalPages, 5); } if (currentPage >= totalPages - 2) { startPage = Math.max(1, totalPages - 4); endPage = totalPages; } for (let i = startPage; i <= endPage; i++) { buttonsHTML += `<button data-page="${i}" class="${i === currentPage ? 'active' : ''}">${i}</button>`; } buttonsHTML += `<button data-page="next" ${currentPage === totalPages ? 'disabled' : ''}>></button>`; paginationControlsContainer.innerHTML = buttonsHTML; }
+
+    // 4. EJECUCIÓN INICIAL
     init();
 });
 </script>
