@@ -163,7 +163,27 @@
             </div>
         </main>
         <section class="project-description container">
-             <!-- Contenido del proyecto idéntico al original -->
+            <div class="description-wrapper">
+                <button id="about-toggle-btn">Acerca de este proyecto</button>
+                <div id="about-content">
+                    <p>
+                        Daniel Ek, CEO de Spotify, ha liderado una inversión millonaria en Helsing, startup alemana especializada en drones de combate con inteligencia artificial. Este acto alimenta una infraestructura de dominación que afecta de manera desproporcionada al Sur Global.
+                    </p>
+                    <p>
+                        Como respuesta, desde el Laboratorio de Arte Generativo impulsamos <strong>KAYLUM (Neologismo que fusiona la raíz maya K'ay (escucha) y Lum (tierra))</strong>: una plataforma que ofrece a nuestra comunidad una alternativa para escuchar y compartir su música favorita sin suscripciones. El proyecto está potenciado por agentes automatizados que catalogan el acervo, haciendo posible que se actualice con solo subir canciones a un servidor, demostrando el poder de la automatización para liberar trabajo y no para precarizarlo.
+                    </p>
+                    <img src="assets/img/labplay/alterplayflux.png" alt="Diagrama de flujo del proyecto Kaylum" class="flux-diagram">
+                    <p>
+                        Este proyecto, como cada una de nuestras iniciativas, busca demostrar que la tecnología no es inherentemente nociva. Es una herramienta poderosa que, usada de forma colectiva, nos permite construir proyectos potentes que fortalecen la autonomía y confrontan directamente los planes de la élite tecnofeudal.
+                    </p>
+                    <p>
+                        Mientras ell@s dicen Guerra, nosotr@s decimos Paz. Por eso, la primera selección de este reproductor se basó en música que se ha posicionado contra la industria bélica. Somos conscientes de que un proyecto así desafía las nociones de propiedad intelectual, por lo que aclaramos que <strong>no existe fin de lucro alguno</strong>. Nuestra intención es el intercambio libre de la cultura.
+                    </p>
+                    <p>
+                        Nuestra ambición trasciende el simple intercambio; soñamos con que este espacio evolucione hacia un refugio para l@s artistas independientes que rechazan mantener los privilegios de una élite que abusa de su trabajo. Invitamos a l@s artistas, músic@s, podcaster@s y experimentador@s sonoros a alojar sus creaciones en este espacio, construido por tod@s y para tod@s.
+                    </p>
+                </div>
+            </div>
         </section>
         <footer class="page-footer container">
         </footer>
@@ -215,7 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let skins = [];
     let currentSkinIndex = 0;
     let isRepeatActive = false;
-    let userFavorites = []; // SE MANTIENE
+    let userFavorites = [];
     let nextPlaylistInfo = null;
 
     // 3. DEFINICIÓN DE FUNCIONES
@@ -224,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const shuffleArray = (array) => { let newArr = [...array]; for (let i = newArr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[newArr[i], newArr[j]] = [newArr[j], newArr[i]]; } return newArr; };
     const parseCsvRow = (row) => { const c = []; let d = ''; let e = !1; for (let f = 0; f < row.length; f++) { const g = row[f]; if ('"' === g) e && '"' === row[f + 1] ? (d += '"', f++) : e = !e; else if (',' === g && !e) c.push(d.trim()), d = ''; else d += g } c.push(d.trim()); return c.map(h => h.startsWith('"') && h.endsWith('"') ? h.slice(1, -1) : h) };
     
-    // --- Lógica de Favoritos (SE MANTIENE) ---
+    // --- Lógica de Favoritos ---
     function toggleFavorite(songId) {
         if (!songId) return;
         const favIndex = userFavorites.indexOf(songId);
@@ -236,46 +256,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         localStorage.setItem('kaylum_favorites', JSON.stringify(userFavorites));
-        updateFavoriteStatus(songId); // Actualiza los botones en la UI
+        updateFavoriteStatusUI(songId);
 
         const hadFavoritesCategory = !!playlistsData['Favoritos'];
         if (userFavorites.length > 0 && !hadFavoritesCategory) {
-            playlistsData['Favoritos'] = []; // Crea la categoría si es el primer favorito
+            playlistsData['Favoritos'] = [];
         } else if (userFavorites.length === 0 && hadFavoritesCategory) {
-            delete playlistsData['Favoritos']; // Elimina la categoría si ya no hay favoritos
+            delete playlistsData['Favoritos'];
             if (currentCategory === 'Favoritos') {
-                // Si estábamos en favoritos, cambiamos a la primera categoría disponible
                 loadCategory(Object.keys(playlistsData).find(k => !k.startsWith('Artista:')) || '');
             }
         }
 
         if (currentCategory === 'Favoritos') {
-            // Si estamos viendo la lista de favoritos, la actualizamos en el acto
             const newList = getPlaylistForCategory('Favoritos');
             handlePlaylistUpdate(isShuffleActive ? shuffleArray(newList) : newList);
         }
-        renderCategoryTabs(); // Siempre refresca las pestañas
+        renderCategoryTabs();
     }
 
-    function updateFavoriteStatus(songId) {
+    function updateFavoriteStatusUI(songId) {
         const isFavorite = songId && userFavorites.includes(songId);
-        const statusClass = isFavorite ? 'is-favorite' : '';
         const icon = isFavorite ? '<i class="bi bi-heart-fill"></i>' : '<i class="bi bi-heart"></i>';
         const title = isFavorite ? 'Quitar de Favoritos' : 'Añadir a Favoritos';
         
-        // Actualizar el botón principal del reproductor
         if (currentSongIndex > -1 && currentPlaylist[currentSongIndex]?.publicId === songId) {
-            addToFavoritesBtn.className = ''; // Limpiar clases previas
-            if(statusClass) addToFavoritesBtn.classList.add(statusClass);
+            addToFavoritesBtn.classList.toggle('is-favorite', isFavorite);
             addToFavoritesBtn.innerHTML = icon;
             addToFavoritesBtn.title = title;
         }
 
-        // Actualizar el botón en la lista de reproducción
         const playlistBtn = document.querySelector(`.playlist-fav-btn[data-song-id="${songId}"]`);
         if (playlistBtn) {
-            playlistBtn.className = 'playlist-fav-btn'; // Limpiar
-            if(statusClass) playlistBtn.classList.add(statusClass);
+            playlistBtn.classList.toggle('is-favorite', isFavorite);
             playlistBtn.innerHTML = icon;
             playlistBtn.title = title;
         }
@@ -291,7 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
         songInformationEl.classList.remove('is-open');
         if (song.information?.trim()) { songInformationEl.textContent = song.information; songInfoToggleBtn.style.display = 'block'; } else { songInfoToggleBtn.style.display = 'none'; }
         updatePlaylistHighlight(); 
-        updateFavoriteStatus(song.publicId); // Actualiza el estado del corazón para la nueva canción
+        updateFavoriteStatusUI(song.publicId);
         audioPlayer.src = song.publicUrl; audioPlayer.play().catch(() => {});
         if ('mediaSession' in navigator) { navigator.mediaSession.metadata = new MediaMetadata({ title: song.title, artist: song.artist, album: `KAYLUM: ${song.category}`, artwork: [{ src: albumArtEl.src, sizes: '250x250', type: 'image/jpeg' }] }); }
     }
@@ -299,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function playNextSong() {
         if (nextPlaylistInfo) {
             currentCategory = nextPlaylistInfo.category; currentPlaylist = nextPlaylistInfo.playlist; nextPlaylistInfo = null;
-            updatePaginatedView(); // Actualiza la vista con la nueva lista
+            updatePaginatedView();
             loadSong(0);
             return;
         }
@@ -354,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (!isPlaying && currentPlaylist.length === 0) {
             songTitleEl.textContent = "Sin canciones"; songArtistEl.textContent = "Categoría vacía";
             albumArtEl.src = defaultCover; audioPlayer.src = "";
-            updateFavoriteStatus(null);
+            updateFavoriteStatusUI(null);
         }
     }
 
@@ -378,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<li data-global-index="${globalIndex}"><i class="bi bi-music-note-beamed icon"></i><div class="track-details"><div class="title">${song.title}</div><div class="artist">${song.artist}</div></div><div class="playlist-actions"><button class="playlist-fav-btn" data-song-id="${song.publicId}"></button></div></li>`;
         }).join('');
         playlistViewContainer.innerHTML = `<ol>${listHTML}</ol>`;
-        playlistToRender.forEach(song => { updateFavoriteStatus(song.publicId); });
+        playlistToRender.forEach(song => { updateFavoriteStatusUI(song.publicId); });
         updatePlaylistHighlight();
     }
 
@@ -393,31 +406,8 @@ document.addEventListener('DOMContentLoaded', () => {
         categoryTabsContainer.innerHTML = buttonsHTML;
     }
 
-    function updatePlaylistHighlight() {
-        document.querySelectorAll('.playlist-view li').forEach(li => li.classList.remove('playing'));
-        if (currentSongIndex < 0 || !currentPlaylist[currentSongIndex]) return;
-        const currentSongId = currentPlaylist[currentSongIndex].publicId;
-        const globalIndexToHighlight = allSongs.findIndex(s => s.publicId === currentSongId);
-        const listItem = document.querySelector(`.playlist-view li[data-global-index="${globalIndexToHighlight}"]`);
-        if (listItem) listItem.classList.add('playing');
-    }
-
-    function updatePaginatedView() {
-        const searchTerm = searchInput.value.trim();
-        let listSource = displayedPlaylist;
-        if (searchTerm.length > 1) {
-            listSource = fuse.search(searchTerm).map(result => result.item);
-            document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.remove('active'));
-            adventureModeBtn.classList.remove('active');
-        } else {
-            renderCategoryTabs(); // Re-render para asegurar el estado 'active' correcto
-            adventureModeBtn.classList.toggle('active', currentCategory === 'Aventura Musical');
-        }
-        const paginatedSongs = listSource.slice((currentPage - 1) * songsPerPage, currentPage * songsPerPage);
-        renderPlaylistView(paginatedSongs);
-        renderPaginationControls(listSource.length);
-    }
-    
+    function updatePlaylistHighlight() { /* ...código idéntico... */ }
+    function updatePaginatedView() { /* ...código idéntico... */ }
     function renderPaginationControls(totalItems) { /* ...código idéntico... */ }
 
     // --- Carga Inicial y Eventos ---
@@ -491,9 +481,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const playlistIndex = displayedPlaylist.findIndex(s => s.publicId === clickedSongId);
             if (playlistIndex !== -1) { currentPlaylist = displayedPlaylist; nextPlaylistInfo = null; loadSong(playlistIndex); }
         });
-        songArtistEl.addEventListener('click', () => { /* ...código idéntico... */ });
+        songArtistEl.addEventListener('click', () => { const artistName = songArtistEl.textContent; if (!artistName || artistName === 'para comenzar') return; const artistSongs = allSongs.filter(song => song.artist === artistName); if (artistSongs.length > 0) { const artistCatName = `Artista: ${artistName}`; playlistsData[artistCatName] = artistSongs; document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.remove('active')); loadCategory(artistCatName); } });
         categoryTabsContainer.addEventListener('click', (e) => { const btn = e.target.closest('button'); if (btn) loadCategory(btn.dataset.category) });
-        paginationControlsContainer.addEventListener('click', (e) => { /* ...código idéntico... */ });
+        paginationControlsContainer.addEventListener('click', (e) => { const button = e.target.closest('button'); if (!button || button.disabled) return; const pageAction = button.dataset.page; if (pageAction === 'prev') currentPage--; else if (pageAction === 'next') currentPage++; else currentPage = parseInt(pageAction); updatePaginatedView(); });
         prevBtn.addEventListener('click', playPrevSong);
         nextBtn.addEventListener('click', playNextSong);
         shuffleBtn.addEventListener('click', toggleShuffle);
@@ -503,21 +493,19 @@ document.addEventListener('DOMContentLoaded', () => {
         searchInput.addEventListener('input', () => { currentPage = 1; updatePaginatedView(); });
         aboutToggleBtn.addEventListener('click', () => aboutContent.classList.toggle('is-open'));
         songInfoToggleBtn.addEventListener('click', () => songInformationEl.classList.toggle('is-open'));
-        adventureModeBtn.addEventListener('click', () => { if (allSongs.length > 0) { currentCategory = 'Aventura Musical'; const adventurePlaylist = shuffleArray(allSongs); renderCategoryTabs(); handlePlaylistUpdate(adventurePlaylist); } });
-        changeSkinBtn.addEventListener('click', () => { /* ...código idéntico... */ });
+        adventureModeBtn.addEventListener('click', () => { if (allSongs.length > 0) { currentCategory = 'Aventura Musical'; const adventurePlaylist = shuffleArray(allSongs); handlePlaylistUpdate(adventurePlaylist); renderCategoryTabs(); adventureModeBtn.classList.add('active'); } });
+        changeSkinBtn.addEventListener('click', () => { if (skins.length === 0) { alert("No hay skins disponibles."); return; } currentSkinIndex = (currentSkinIndex + 1) % skins.length; localStorage.setItem('kaylum_skinIndex', currentSkinIndex); const newSkinSrc = skins[currentSkinIndex]; const extension = newSkinSrc.split('.').pop().toLowerCase(); backgroundVideo.style.opacity = 0; setTimeout(() => { if (['webm', 'mp4'].includes(extension)) { backgroundVideo.style.backgroundImage = 'none'; backgroundVideo.innerHTML = `<source src="${newSkinSrc}" type="video/${extension}">`; backgroundVideo.load(); backgroundVideo.play().catch(() => {}); } else { backgroundVideo.innerHTML = ''; backgroundVideo.style.backgroundImage = `url('${newSkinSrc}')`; } backgroundVideo.style.opacity = 1; }, 500); });
         colorPicker.addEventListener('input', (e) => { document.documentElement.style.setProperty('--text-color', e.target.value); localStorage.setItem('kaylum_textColor', e.target.value); });
         document.addEventListener('keydown', (e) => { if (document.activeElement !== searchInput && e.code === 'Space') { e.preventDefault(); togglePlayPause(); } });
-        if ('mediaSession' in navigator) { /* ...código idéntico... */ }
+        if ('mediaSession' in navigator) { navigator.mediaSession.setActionHandler('play', togglePlayPause); navigator.mediaSession.setActionHandler('pause', togglePlayPause); navigator.mediaSession.setActionHandler('previoustrack', playPrevSong); navigator.mediaSession.setActionHandler('nexttrack', playNextSong); }
     }
     
     // --- Código idéntico y sin cambios (reutilizado) ---
+    function updatePlaylistHighlight() { document.querySelectorAll('.playlist-view li').forEach(li => li.classList.remove('playing')); if (currentSongIndex < 0 || !currentPlaylist[currentSongIndex]) return; const currentSongId = currentPlaylist[currentSongIndex].publicId; const globalIndexToHighlight = allSongs.findIndex(s => s.publicId === currentSongId); const listItem = document.querySelector(`.playlist-view li[data-global-index="${globalIndexToHighlight}"]`); if (listItem) listItem.classList.add('playing'); }
+    function updatePaginatedView() { const searchTerm = searchInput.value.trim(); let listSource = displayedPlaylist; if (searchTerm.length > 1) { listSource = fuse.search(searchTerm).map(result => result.item); document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.remove('active')); adventureModeBtn.classList.remove('active'); } else { renderCategoryTabs(); adventureModeBtn.classList.toggle('active', currentCategory === 'Aventura Musical'); } const paginatedSongs = listSource.slice((currentPage - 1) * songsPerPage, currentPage * songsPerPage); renderPlaylistView(paginatedSongs); renderPaginationControls(listSource.length); }
     function renderPaginationControls(totalItems) { const totalPages = Math.ceil(totalItems / songsPerPage); paginationControlsContainer.style.display = totalPages > 1 ? 'flex' : 'none'; if (totalPages <= 1) { paginationControlsContainer.innerHTML = ''; return; } let buttonsHTML = `<button data-page="prev" ${currentPage === 1 ? 'disabled' : ''}><</button>`; let startPage = Math.max(1, currentPage - 2); let endPage = Math.min(totalPages, currentPage + 2); if (currentPage <= 3) { startPage = 1; endPage = Math.min(totalPages, 5); } if (currentPage >= totalPages - 2) { startPage = Math.max(1, totalPages - 4); endPage = totalPages; } for (let i = startPage; i <= endPage; i++) { buttonsHTML += `<button data-page="${i}" class="${i === currentPage ? 'active' : ''}">${i}</button>`; } buttonsHTML += `<button data-page="next" ${currentPage === totalPages ? 'disabled' : ''}>></button>`; paginationControlsContainer.innerHTML = buttonsHTML; }
     async function loadSkins() { try { const response = await fetch(`${skinsPath}skins.json?_=${new Date().getTime()}`); if (!response.ok) return; const skinFiles = await response.json(); skins = skinFiles.map(file => `${skinsPath}${file}`); if (skins.length > 0) { const savedSkinIndex = parseInt(localStorage.getItem('kaylum_skinIndex'), 10) || 0; currentSkinIndex = savedSkinIndex < skins.length ? savedSkinIndex : 0; const initialSkin = skins[currentSkinIndex]; const extension = initialSkin.split('.').pop().toLowerCase(); if (['webm', 'mp4'].includes(extension)) { backgroundVideo.innerHTML = `<source src="${initialSkin}" type="video/${extension}">`; } else { backgroundVideo.style.backgroundImage = `url('${initialSkin}')`; backgroundVideo.innerHTML = ''; } backgroundVideo.load(); backgroundVideo.play().catch(() => {}); } } catch (error) { console.warn("No se pudo cargar skins:", error.message); } }
-    songArtistEl.addEventListener('click', () => { const artistName = songArtistEl.textContent; if (!artistName || artistName === 'para comenzar') return; const artistSongs = allSongs.filter(song => song.artist === artistName); if (artistSongs.length > 0) { const artistCatName = `Artista: ${artistName}`; playlistsData[artistCatName] = artistSongs; document.querySelectorAll('.category-tabs button').forEach(btn => btn.classList.remove('active')); loadCategory(artistCatName); } });
-    paginationControlsContainer.addEventListener('click', (e) => { const button = e.target.closest('button'); if (!button || button.disabled) return; const pageAction = button.dataset.page; if (pageAction === 'prev') currentPage--; else if (pageAction === 'next') currentPage++; else currentPage = parseInt(pageAction); updatePaginatedView(); });
-    changeSkinBtn.addEventListener('click', () => { if (skins.length === 0) { alert("No hay skins disponibles."); return; } currentSkinIndex = (currentSkinIndex + 1) % skins.length; localStorage.setItem('kaylum_skinIndex', currentSkinIndex); const newSkinSrc = skins[currentSkinIndex]; const extension = newSkinSrc.split('.').pop().toLowerCase(); backgroundVideo.style.opacity = 0; setTimeout(() => { if (['webm', 'mp4'].includes(extension)) { backgroundVideo.style.backgroundImage = 'none'; backgroundVideo.innerHTML = `<source src="${newSkinSrc}" type="video/${extension}">`; backgroundVideo.load(); backgroundVideo.play().catch(() => {}); } else { backgroundVideo.innerHTML = ''; backgroundVideo.style.backgroundImage = `url('${newSkinSrc}')`; } backgroundVideo.style.opacity = 1; }, 500); });
-    if ('mediaSession' in navigator) { navigator.mediaSession.setActionHandler('play', togglePlayPause); navigator.mediaSession.setActionHandler('pause', togglePlayPause); navigator.mediaSession.setActionHandler('previoustrack', playPrevSong); navigator.mediaSession.setActionHandler('nexttrack', playNextSong); }
-
+    
     // 4. EJECUCIÓN INICIAL
     init();
 });
