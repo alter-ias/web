@@ -41,17 +41,86 @@
     .blog-content p { font-size: 1.1rem; line-height: 1.7; color: var(--secondary-text-color); margin-bottom: 20px; }
     .blog-content a { color: var(--text-color); font-weight: 500; text-decoration: none; border-bottom: 1px solid var(--secondary-text-color); transition: color 0.3s, border-color 0.3s; }
     .blog-content a:hover { color: var(--accent-color); border-color: var(--accent-color); }
-    .image-mosaic { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; margin: 30px 0; }
-    .image-mosaic img { width: 100%; height: auto; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); }
+    
+    /* --- NUEVO ESTILO DE MOSAICO Y LIGHTBOX --- */
+    .image-mosaic {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr); /* 4 columnas por defecto */
+        gap: 10px;
+        margin: 30px 0;
+    }
+    .mosaic-item {
+        overflow: hidden;
+        border-radius: 8px;
+        position: relative;
+    }
+    .mosaic-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        border-radius: 8px;
+        transition: transform 0.3s ease, filter 0.3s ease;
+        cursor: pointer;
+    }
+    .mosaic-item:hover img {
+        transform: scale(1.05);
+        filter: brightness(1.1);
+    }
+
+    /* Estilos del Lightbox */
+    .lightbox {
+        position: fixed;
+        z-index: 1000;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+        display: none; /* Oculto por defecto */
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        animation: fadeIn 0.3s ease;
+    }
+    .lightbox.visible {
+        display: flex;
+    }
+    .lightbox-content {
+        max-width: 90vw;
+        max-height: 90vh;
+        animation: zoomIn 0.3s ease;
+    }
+    .lightbox-close {
+        position: absolute;
+        top: 15px;
+        right: 35px;
+        color: #fff;
+        font-size: 40px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: color 0.2s ease;
+    }
+    .lightbox-close:hover {
+        color: var(--secondary-text-color);
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes zoomIn { from { transform: scale(0.8); } to { transform: scale(1); } }
+    /* --- FIN NUEVOS ESTILOS --- */
+    
     .contact-link-section { padding: 40px 0; text-align: center; }
     .cta-button { display: inline-block; border: 1px solid var(--accent-color); padding: 15px 35px; color: var(--text-color); text-decoration: none; font-weight: 500; letter-spacing: 1px; transition: background-color 0.3s ease, color 0.3s ease; border-radius: 25px; }
     .cta-button:hover { background-color: var(--accent-color); color: var(--background-color); }
+    
     @media (max-width: 768px) {
         .blog-content { padding: 30px 20px; }
         .blog-content h1 { font-size: 2rem; }
         .blog-content h2 { font-size: 1.7rem; }
         .blog-content p { font-size: 1rem; }
-        .image-mosaic { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+        .image-mosaic { grid-template-columns: repeat(3, 1fr); } /* 3 columnas en tablet */
+    }
+    @media (max-width: 480px) {
+        .image-mosaic { grid-template-columns: repeat(2, 1fr); } /* 2 columnas en móvil */
     }
     </style>
 </head>
@@ -107,24 +176,72 @@
         </section>
     </main>
 
+    <!-- HTML DEL LIGHTBOX (VISOR) -->
+    <div class="lightbox" id="lightbox">
+        <span class="lightbox-close" id="lightbox-close">&times;</span>
+        <img class="lightbox-content" id="lightbox-img">
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Generar mosaicos de imágenes
+            // --- INICIO: LÓGICA DEL MOSAICO Y LIGHTBOX ---
             const mosaicBocetos = document.getElementById('mosaic-bocetos');
             const mosaicFinales = document.getElementById('mosaic-finales');
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            const lightboxClose = document.getElementById('lightbox-close');
+
+            // Función para crear un item del mosaico y añadirle el evento de click
+            const createMosaicItem = (src, alt) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'mosaic-item';
+                
+                const img = document.createElement('img');
+                img.src = src;
+                img.alt = alt;
+
+                img.addEventListener('click', () => {
+                    lightboxImg.src = src;
+                    lightbox.classList.add('visible');
+                });
+
+                itemDiv.appendChild(img);
+                return itemDiv;
+            };
+
+            // Generar mosaico de bocetos
             for (let i = 1; i <= 13; i++) {
-                const img = document.createElement('img');
-                img.src = `assets/img/sanjacinto/boceto${String(i).padStart(2, '0')}.png`;
-                img.alt = `Boceto ${i}`;
-                mosaicBocetos.appendChild(img);
+                const item = createMosaicItem(
+                    `assets/img/sanjacinto/boceto${String(i).padStart(2, '0')}.png`,
+                    `Boceto ${i}`
+                );
+                mosaicBocetos.appendChild(item);
             }
+            
+            // Generar mosaico de finales
             for (let i = 1; i <= 10; i++) {
-                const img = document.createElement('img');
-                img.src = `assets/img/sanjacinto/final${String(i).padStart(2, '0')}.png`;
-                img.alt = `Imagen Final ${i}`;
-                mosaicFinales.appendChild(img);
+                const item = createMosaicItem(
+                    `assets/img/sanjacinto/final${String(i).padStart(2, '0')}.png`,
+                    `Imagen Final ${i}`
+                );
+                mosaicFinales.appendChild(item);
             }
 
+            // Eventos para cerrar el lightbox
+            const closeLightbox = () => {
+                lightbox.classList.remove('visible');
+            };
+            lightboxClose.addEventListener('click', closeLightbox);
+            lightbox.addEventListener('click', (e) => {
+                // Si se hace clic en el fondo (el contenedor) y no en la imagen
+                if (e.target === lightbox) {
+                    closeLightbox();
+                }
+            });
+            // --- FIN: LÓGICA DEL MOSAICO Y LIGHTBOX ---
+
+
+            // --- LÓGICA DE TRADUCCIÓN (SIN CAMBIOS) ---
             const translations = {
                 es: {
                     'nav-blog': 'Blog',
@@ -200,7 +317,6 @@
             langEsButton.addEventListener('click', () => setLanguage('es'));
             langFrButton.addEventListener('click', () => setLanguage('fr'));
             
-            // Establecer el idioma inicial
             setLanguage('es');
         });
     </script>
