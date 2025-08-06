@@ -42,71 +42,23 @@
     .blog-content a { color: var(--text-color); font-weight: 500; text-decoration: none; border-bottom: 1px solid var(--secondary-text-color); transition: color 0.3s, border-color 0.3s; }
     .blog-content a:hover { color: var(--accent-color); border-color: var(--accent-color); }
     
-    /* --- NUEVO ESTILO DE MOSAICO Y LIGHTBOX --- */
-    .image-mosaic {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr); /* 4 columnas por defecto */
-        gap: 10px;
-        margin: 30px 0;
-    }
-    .mosaic-item {
-        overflow: hidden;
-        border-radius: 8px;
-        position: relative;
-    }
-    .mosaic-item img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-        border-radius: 8px;
-        transition: transform 0.3s ease, filter 0.3s ease;
-        cursor: pointer;
-    }
-    .mosaic-item:hover img {
-        transform: scale(1.05);
-        filter: brightness(1.1);
-    }
+    .image-mosaic { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 30px 0; }
+    .mosaic-item { overflow: hidden; border-radius: 8px; position: relative; }
+    .mosaic-item img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 8px; transition: transform 0.3s ease, filter 0.3s ease; cursor: pointer; }
+    .mosaic-item:hover img { transform: scale(1.05); filter: brightness(1.1); }
 
-    /* Estilos del Lightbox */
-    .lightbox {
-        position: fixed;
-        z-index: 1000;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.9);
-        display: none; /* Oculto por defecto */
-        justify-content: center;
-        align-items: center;
-        padding: 20px;
-        animation: fadeIn 0.3s ease;
-    }
-    .lightbox.visible {
-        display: flex;
-    }
-    .lightbox-content {
-        max-width: 90vw;
-        max-height: 90vh;
-        animation: zoomIn 0.3s ease;
-    }
-    .lightbox-close {
-        position: absolute;
-        top: 15px;
-        right: 35px;
-        color: #fff;
-        font-size: 40px;
-        font-weight: bold;
-        cursor: pointer;
-        transition: color 0.2s ease;
-    }
-    .lightbox-close:hover {
-        color: var(--secondary-text-color);
-    }
+    /* Estilos del Lightbox y Navegación */
+    .lightbox { position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); display: none; justify-content: center; align-items: center; animation: fadeIn 0.3s ease; }
+    .lightbox.visible { display: flex; }
+    .lightbox-content { max-width: 85vw; max-height: 85vh; transition: opacity 0.2s ease-in-out; }
+    .lightbox-close { position: absolute; top: 15px; right: 35px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer; transition: color 0.2s ease; z-index: 1002; }
+    .lightbox-close:hover { color: var(--secondary-text-color); }
+    .lightbox-arrow { position: absolute; top: 50%; transform: translateY(-50%); color: white; font-size: 2rem; cursor: pointer; padding: 16px; user-select: none; transition: color 0.2s ease, background-color 0.2s ease; z-index: 1001; border-radius: 8px; }
+    .lightbox-arrow:hover { background-color: rgba(255, 255, 255, 0.1); }
+    #lightbox-prev { left: 15px; }
+    #lightbox-next { right: 15px; }
+    
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes zoomIn { from { transform: scale(0.8); } to { transform: scale(1); } }
-    /* --- FIN NUEVOS ESTILOS --- */
     
     .contact-link-section { padding: 40px 0; text-align: center; }
     .cta-button { display: inline-block; border: 1px solid var(--accent-color); padding: 15px 35px; color: var(--text-color); text-decoration: none; font-weight: 500; letter-spacing: 1px; transition: background-color 0.3s ease, color 0.3s ease; border-radius: 25px; }
@@ -117,10 +69,13 @@
         .blog-content h1 { font-size: 2rem; }
         .blog-content h2 { font-size: 1.7rem; }
         .blog-content p { font-size: 1rem; }
-        .image-mosaic { grid-template-columns: repeat(3, 1fr); } /* 3 columnas en tablet */
+        .image-mosaic { grid-template-columns: repeat(3, 1fr); }
     }
     @media (max-width: 480px) {
-        .image-mosaic { grid-template-columns: repeat(2, 1fr); } /* 2 columnas en móvil */
+        .image-mosaic { grid-template-columns: repeat(2, 1fr); }
+        .lightbox-arrow { padding: 10px; }
+        #lightbox-prev { left: 5px; }
+        #lightbox-next { right: 5px; }
     }
     </style>
 </head>
@@ -157,18 +112,15 @@
                 <p id="p4"></p>
                 <p id="p5"></p>
                 
-                <div class="image-mosaic" id="mosaic-bocetos">
-                    <!-- Las imágenes de bocetos se generarán aquí con JS -->
-                </div>
+                <div class="image-mosaic" id="mosaic-bocetos"></div>
 
                 <p id="p6"></p>
                 <p id="p7"></p>
                 <p id="p8"></p>
-                <p id="p9"></p>
 
-                <div class="image-mosaic" id="mosaic-finales">
-                    <!-- Las imágenes finales se generarán aquí con JS -->
-                </div>
+                <div class="image-mosaic" id="mosaic-finales"></div>
+
+                <p id="p9"></p>
             </div>
         </section>
         <section class="contact-link-section container">
@@ -176,78 +128,137 @@
         </section>
     </main>
 
-    <!-- HTML DEL LIGHTBOX (VISOR) -->
+    <!-- HTML del Lightbox con flechas de navegación -->
     <div class="lightbox" id="lightbox">
         <span class="lightbox-close" id="lightbox-close">&times;</span>
+        <span class="lightbox-arrow" id="lightbox-prev">&#10094;</span>
         <img class="lightbox-content" id="lightbox-img">
+        <span class="lightbox-arrow" id="lightbox-next">&#10095;</span>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // --- INICIO: LÓGICA DEL MOSAICO Y LIGHTBOX ---
+            // --- INICIO: LÓGICA DEL MOSAICO Y LIGHTBOX CON NAVEGACIÓN ---
             const mosaicBocetos = document.getElementById('mosaic-bocetos');
             const mosaicFinales = document.getElementById('mosaic-finales');
             const lightbox = document.getElementById('lightbox');
             const lightboxImg = document.getElementById('lightbox-img');
             const lightboxClose = document.getElementById('lightbox-close');
+            const lightboxPrev = document.getElementById('lightbox-prev');
+            const lightboxNext = document.getElementById('lightbox-next');
 
-            // Función para crear un item del mosaico y añadirle el evento de click
-            const createMosaicItem = (src, alt) => {
+            let galleryImages = [];
+            let currentImageIndex = 0;
+
+            const createMosaicItem = (src, alt, index) => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'mosaic-item';
-                
                 const img = document.createElement('img');
                 img.src = src;
                 img.alt = alt;
 
                 img.addEventListener('click', () => {
-                    lightboxImg.src = src;
-                    lightbox.classList.add('visible');
+                    currentImageIndex = index;
+                    openLightbox();
                 });
 
                 itemDiv.appendChild(img);
                 return itemDiv;
             };
 
-            // Generar mosaico de bocetos
-            for (let i = 1; i <= 12; i++) {
-                const item = createMosaicItem(
-                    `assets/img/sanjacinto/boceto${String(i).padStart(2, '0')}.png`,
-                    `Boceto ${i}`
-                );
-                mosaicBocetos.appendChild(item);
-            }
-            
-            // Generar mosaico de finales
-            for (let i = 1; i <= 12; i++) {
-                const item = createMosaicItem(
-                    `assets/img/sanjacinto/final${String(i).padStart(2, '0')}.png`,
-                    `Imagen Final ${i}`
-                );
-                mosaicFinales.appendChild(item);
-            }
+            const populateGalleries = () => {
+                let imageIndexCounter = 0;
+                galleryImages = []; // Limpiar la galería para reconstruirla
+                mosaicBocetos.innerHTML = '';
+                mosaicFinales.innerHTML = '';
 
-            // Eventos para cerrar el lightbox
+                // Generar mosaico de bocetos
+                for (let i = 1; i <= 12; i++) {
+                    const src = `assets/img/sanjacinto/boceto${String(i).padStart(2, '0')}.png`;
+                    galleryImages.push(src);
+                    const item = createMosaicItem(src, `Boceto ${i}`, imageIndexCounter);
+                    mosaicBocetos.appendChild(item);
+                    imageIndexCounter++;
+                }
+                
+                // Generar mosaico de finales
+                for (let i = 1; i <= 12; i++) {
+                    const src = `assets/img/sanjacinto/final${String(i).padStart(2, '0')}.png`;
+                    galleryImages.push(src);
+                    const item = createMosaicItem(src, `Imagen Final ${i}`, imageIndexCounter);
+                    mosaicFinales.appendChild(item);
+                    imageIndexCounter++;
+                }
+            };
+            
+            const updateLightboxImage = () => {
+                if (galleryImages.length > 0) {
+                    lightboxImg.style.opacity = 0;
+                    setTimeout(() => {
+                        lightboxImg.src = galleryImages[currentImageIndex];
+                        lightboxImg.style.opacity = 1;
+                    }, 100);
+                }
+            };
+            
+            const showNextImage = () => {
+                currentImageIndex = (currentImageIndex + 1) % galleryImages.length;
+                updateLightboxImage();
+            };
+            
+            const showPrevImage = () => {
+                currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length;
+                updateLightboxImage();
+            };
+
+            const handleKeydown = (e) => {
+                if (e.key === 'ArrowRight') showNextImage();
+                if (e.key === 'ArrowLeft') showPrevImage();
+                if (e.key === 'Escape') closeLightbox();
+            };
+
+            const openLightbox = () => {
+                updateLightboxImage();
+                lightbox.classList.add('visible');
+                document.addEventListener('keydown', handleKeydown);
+            };
+
             const closeLightbox = () => {
                 lightbox.classList.remove('visible');
+                document.removeEventListener('keydown', handleKeydown);
             };
+
             lightboxClose.addEventListener('click', closeLightbox);
-            lightbox.addEventListener('click', (e) => {
-                // Si se hace clic en el fondo (el contenedor) y no en la imagen
-                if (e.target === lightbox) {
-                    closeLightbox();
-                }
-            });
-            // --- FIN: LÓGICA DEL MOSAICO Y LIGHTBOX ---
+            lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
+            lightboxPrev.addEventListener('click', showPrevImage);
+            lightboxNext.addEventListener('click', showNextImage);
+
+            // Lógica para swipe en móvil
+            let touchStartX = 0;
+            let touchEndX = 0;
+
+            lightbox.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, { passive: true });
+
+            lightbox.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                handleSwipe();
+            }, { passive: true });
+            
+            const handleSwipe = () => {
+                if (touchEndX < touchStartX - 50) showNextImage(); // Swipe Izquierda
+                if (touchEndX > touchStartX + 50) showPrevImage(); // Swipe Derecha
+            };
+            
+            populateGalleries(); // Cargar imágenes al inicio
+            // --- FIN: LÓGICA DEL MOSAICO ---
 
 
-            // --- LÓGICA DE TRADUCCIÓN (SIN CAMBIOS) ---
+            // --- LÓGICA DE TRADUCCIÓN ---
             const translations = {
                 es: {
-                    'nav-blog': 'Blog',
-                    'nav-portfolio': 'Portafolio',
-                    'nav-courses': 'Cursos',
-                    'contact-button': 'CONTACTO',
+                    'nav-blog': 'Blog', 'nav-portfolio': 'Portafolio', 'nav-courses': 'Cursos', 'contact-button': 'CONTACTO',
                     'blog-title': 'PETER GABRIEL - SAN JACINTO (VIDEO POR ALTER.LAB)',
                     'p1': 'La idea central del video es el poder de la comunidad. Buscamos representar la experiencia espiritual de San Jacinto —el crecimiento interior de un joven que presencia la desaparición de su comunidad y territorio— y, al mismo tiempo, el otro gran mensaje de la canción: la importancia de mantenerse firme ante las adversidades de la sociedad moderna.',
                     'p2': 'Esperamos que el video no solo capture este mensaje, sino que también refleje que su creación es el resultado de un proceso comunitario. Compartimos ideas, herramientas y flujos de trabajo para crear y ensamblar cada elemento. Para lograrlo, el uso de herramientas generativas se complementó con técnicas tradicionales de animación y edición.',
@@ -261,10 +272,7 @@
                     'p9': 'Durante el proceso, para consistencia y control de personajes y escenarios, utilizamos modelado en 3D y programas como Blender, para encontrar frames precisos que nos permiten resolver ideas concretas que de otra forma la arbitrariedad de los modelos generativos no pueden manejar.'
                 },
                 en: {
-                    'nav-blog': 'Blog',
-                    'nav-portfolio': 'Portfolio',
-                    'nav-courses': 'Courses',
-                    'contact-button': 'CONTACT',
+                    'nav-blog': 'Blog', 'nav-portfolio': 'Portfolio', 'nav-courses': 'Courses', 'contact-button': 'CONTACT',
                     'blog-title': 'PETER GABRIEL - SAN JACINTO (VIDEO BY ALTER.LAB)',
                     'p1': 'The central idea of the video is the power of community. We seek to represent the spiritual experience of San Jacinto—the inner growth of a young man witnessing the disappearance of his community and territory—and, at the same time, the other great message of the song: the importance of standing firm against the adversities of modern society.',
                     'p2': 'We hope the video not only captures this message but also reflects that its creation is the result of a community process. We shared ideas, tools, and workflows to create and assemble each element. To achieve this, the use of generative tools was complemented by traditional animation and editing techniques.',
@@ -278,10 +286,7 @@
                     'p9': 'During the process, for consistency and control of characters and scenery, we use 3D modeling and programs like Blender to find precise frames that allow us to resolve specific ideas that the randomness of generative models cannot otherwise handle.'
                 },
                 fr: {
-                    'nav-blog': 'Blog',
-                    'nav-portfolio': 'Portfolio',
-                    'nav-courses': 'Cours',
-                    'contact-button': 'CONTACT',
+                    'nav-blog': 'Blog', 'nav-portfolio': 'Portfolio', 'nav-courses': 'Cours', 'contact-button': 'CONTACT',
                     'blog-title': 'PETER GABRIEL - SAN JACINTO (VIDÉO PAR ALTER.LAB)',
                     'p1': "L'idée centrale de la vidéo est le pouvoir de la communauté. Nous cherchons à représenter l'expérience spirituelle de San Jacinto —la croissance intérieure d'un jeune homme témoin de la disparition de sa communauté et de son territoire— et, en même temps, l'autre grand message de la chanson : l'importance de rester ferme face aux adversités de la société moderne.",
                     'p2': "Nous espérons que la vidéo non seulement capture ce message, mais reflète également que sa création est le résultat d'un processus communautaire. Nous avons partagé des idées, des outils et des flux de travail pour créer et assembler chaque élément. Pour y parvenir, l'utilisation d'outils génératifs a été complétée par des techniques traditionnelles d'animation et de montage.",
@@ -303,9 +308,7 @@
                 const langData = translations[lang];
                 Object.keys(langData).forEach(key => {
                     const element = document.getElementById(key);
-                    if (element) {
-                        element.innerHTML = langData[key];
-                    }
+                    if (element) { element.innerHTML = langData[key]; }
                 });
                 langEnButton.classList.toggle('active', lang === 'en');
                 langEsButton.classList.toggle('active', lang === 'es');
