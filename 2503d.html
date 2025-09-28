@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DREAM250 - Conceptual Visual Presentation (with Controls)</title>
+    <title>DREAM250 - Conceptual Visual Presentation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
@@ -55,17 +55,16 @@
             flex-direction: column;
             align-items: center;
         }
-        /* NEW STYLES for the intro text */
         .hero-intro {
             font-size: 1.2rem;
             font-family: 'Merriweather', serif;
             color: rgba(255, 255, 255, 0.85);
             max-width: 65ch;
-            margin-top: 55vh; /* Pushes the text down below the 3D model */
+            margin-top: 55vh;
             line-height: 1.8;
             text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
-            opacity: 0; /* Initially hidden */
-            animation: fadeIn 2s ease 1s forwards; /* Fade in animation */
+            opacity: 0;
+            animation: fadeIn 2s ease 1s forwards;
         }
 
         @keyframes fadeIn {
@@ -95,12 +94,12 @@
         @media (max-width: 768px) {
              .hero-intro {
                 font-size: 1rem;
-                margin-top: 60vh; /* Adjust vertical position for mobile */
+                margin-top: 60vh;
                 max-width: 90%;
             }
             .project-section { padding: 60px 20px; }
              .project-section:first-of-type {
-                padding-top: 20px; /* Ensure consistency on mobile */
+                padding-top: 20px;
             }
             .section-header h3 { font-size: 2.2rem; }
             .main-video-asset .video-placeholder { height: 300px; font-size: 4rem; }
@@ -293,48 +292,29 @@
     </footer>
 
     <!-- SCRIPT SECTION -->
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     <script type="importmap">
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.150.1/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/",
-                "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm"
+                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/"
             }
         }
     </script>
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        import { GUI } from 'lil-gui';
 
-        // --- PARAMETERS OBJECT ---
-        const parameters = {
-            desktopModelScale: 3.648,
+        // --- FINAL PARAMETERS ---
+        const params = {
+            desktopModelScale: 2.9,
             mobileModelScale: 2.2,
-            desktopModelPositionY: -1.0, // Better starting Y position for desktop
-            mobileModelPositionY: -0.8,  // Better starting Y position for mobile
+            desktopModelPositionY: -1.0,
+            mobileModelPositionY: -0.8,
             mouseIntensity: 0.484,
             smoothingFactor: 0.05,
             initialCameraZ: 5.51,
             scrollZoomEnd: 13.699
         };
-
-        // --- GUI SETUP ---
-        const gui = new GUI();
-        const desktopFolder = gui.addFolder('Desktop Controls');
-        desktopFolder.add(parameters, 'desktopModelScale', 1, 10).name('Desktop Scale');
-        desktopFolder.add(parameters, 'desktopModelPositionY', -5, 5).name('Desktop Position Y');
-        
-        const mobileFolder = gui.addFolder('Mobile Controls');
-        mobileFolder.add(parameters, 'mobileModelScale', 1, 10).name('Mobile Scale');
-        mobileFolder.add(parameters, 'mobileModelPositionY', -5, 5).name('Mobile Position Y');
-
-        const generalFolder = gui.addFolder('General Controls');
-        generalFolder.add(parameters, 'mouseIntensity', 0, 1).name('Mouse Intensity');
-        generalFolder.add(parameters, 'initialCameraZ', 1, 20).name('Initial Distance');
-        generalFolder.add(parameters, 'scrollZoomEnd', 1, 20).name('Final Distance (Scroll)');
-
 
         // --- SCENE SETUP ---
         const scene = new THREE.Scene();
@@ -360,8 +340,8 @@
             'assets/3d/250base.glb',
             function (gltf) {
                 model = gltf.scene;
-                scene.add(model);
                 updateModelTransform();
+                scene.add(model);
             },
             undefined,
             function (error) {
@@ -370,6 +350,7 @@
         );
 
         // --- EVENT LISTENERS & HANDLERS ---
+        camera.position.z = params.initialCameraZ;
         let mouseX = 0;
         let mouseY = 0;
         
@@ -389,56 +370,48 @@
         window.addEventListener('mousemove', handlePointerMove);
         window.addEventListener('touchstart', handlePointerMove, { passive: true });
         window.addEventListener('touchmove', handlePointerMove, { passive: true });
-        window.addEventListener('scroll', updateCameraOnScroll);
-        window.addEventListener('resize', onWindowResize);
 
-        // --- FUNCTIONS ---
+        window.addEventListener('scroll', () => {
+            const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
+            if (scrollableHeight <= 0) return;
+            
+            const scrollPercent = window.scrollY / scrollableHeight;
+            const zoomDistance = params.initialCameraZ - params.scrollZoomEnd;
+            camera.position.z = params.initialCameraZ - (scrollPercent * zoomDistance);
+        });
+
         function updateModelTransform() {
             if (!model) return;
             const isMobile = window.innerWidth < 768;
-            const scale = isMobile ? parameters.mobileModelScale : parameters.desktopModelScale;
-            const positionY = isMobile ? parameters.mobileModelPositionY : parameters.desktopModelPositionY;
+            const scale = isMobile ? params.mobileModelScale : params.desktopModelScale;
+            const positionY = isMobile ? params.mobileModelPositionY : params.desktopModelPositionY;
             
             model.scale.set(scale, scale, scale);
             model.position.y = positionY;
         }
 
-        function updateCameraOnScroll() {
-            const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
-            if (scrollableHeight <= 0) return;
-            
-            const scrollPercent = window.scrollY / scrollableHeight;
-            const zoomDistance = parameters.initialCameraZ - parameters.scrollZoomEnd;
-            camera.position.z = parameters.initialCameraZ - (scrollPercent * zoomDistance);
-        }
-
-        function onWindowResize() {
+        window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             updateModelTransform();
-        }
+        });
 
         // --- RENDER LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             
             if (model) {
-                // Live update from GUI controls
-                updateModelTransform();
+                const targetRotationX = mouseY * params.mouseIntensity;
+                const targetRotationY = mouseX * params.mouseIntensity;
 
-                const targetRotationX = mouseY * parameters.mouseIntensity;
-                const targetRotationY = mouseX * parameters.mouseIntensity;
-
-                model.rotation.x += (targetRotationX - model.rotation.x) * parameters.smoothingFactor;
-                model.rotation.y += (targetRotationY - model.rotation.y) * parameters.smoothingFactor;
+                model.rotation.x += (targetRotationX - model.rotation.x) * params.smoothingFactor;
+                model.rotation.y += (targetRotationY - model.rotation.y) * params.smoothingFactor;
             }
 
             renderer.render(scene, camera);
         }
         
-        // --- INITIALIZE ---
-        updateCameraOnScroll();
         animate();
     </script>
 
