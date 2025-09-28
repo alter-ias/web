@@ -134,7 +134,6 @@
         #sound-toggle svg { width: 18px; height: 18px; stroke: rgba(255, 255, 255, 0.8); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
         #sound-toggle .sound-on { display: none; }
         
-        /* --- UPDATED LIGHTBOX STYLES --- */
         #lightbox {
             position: fixed;
             top: 0; left: 0;
@@ -158,7 +157,7 @@
             max-height: 90%;
             object-fit: contain;
             user-select: none;
-            cursor: default; /* Clicks on image itself don't bubble up */
+            cursor: pointer;
         }
 
         @media (max-width: 768px) {
@@ -186,6 +185,7 @@
     </header>
 
     <main>
+        <!-- The content of the main tag remains exactly the same -->
         <!-- SECCIÓN 1: CONCEPTUAL VISUAL PRESENTATION -->
         <section class="project-section fade-in-section" id="conceptual-presentation">
             <div class="section-header">
@@ -311,7 +311,7 @@
         <p>All concept art and visual development by El Laboratorio de Arte Generativo Alter.Lab.<br>DREAM250 Conceptual Presentation &copy; 2025. For internal review only.</p>
     </footer>
 
-    <!-- NEW: LIGHTBOX HTML STRUCTURE (WITHOUT BUTTONS) -->
+    <!-- LIGHTBOX HTML STRUCTURE -->
     <div id="lightbox">
         <img id="lightbox-img" src="">
     </div>
@@ -337,9 +337,9 @@
         const fragmentShader = `
             uniform vec2 u_resolution;
             uniform float u_time;
-            
-            vec3 color_top_left = vec3(0.22, 0.48, 0.82);   // Cyan/Blue
-            vec3 color_bottom_right = vec3(0.5, 0.2, 0.8); // Indigo/Purple
+            uniform vec3 u_colorA;
+            uniform vec3 u_colorB;
+            uniform float u_grainIntensity;
             
             float random(vec2 st) {
                 return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -349,15 +349,18 @@
                 vec2 uv = gl_FragCoord.xy / u_resolution.xy;
                 float time = u_time * 0.1;
                 
-                vec3 base_gradient = mix(color_top_left, color_bottom_right, (uv.x + uv.y) * 0.5 + sin(time) * 0.1);
-                float grain = (random(uv * (u_time + 1.0)) - 0.5) * 0.05;
+                vec3 base_gradient = mix(u_colorA, u_colorB, (uv.x + uv.y) * 0.5 + sin(time) * 0.1);
+                float grain = (random(uv * (u_time + 1.0)) - 0.5) * u_grainIntensity;
                 
                 gl_FragColor = vec4(base_gradient + grain, 1.0);
             }
         `;
         const uniforms = {
             u_time: { value: 0.0 },
-            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+            u_colorA: { value: new THREE.Color('#000055') },
+            u_colorB: { value: new THREE.Color('#800000') },
+            u_grainIntensity: { value: 0.0304 }
         };
         const bgMaterial = new THREE.ShaderMaterial({ fragmentShader, uniforms });
         const bgPlane = new THREE.PlaneGeometry(2, 2);
@@ -369,21 +372,36 @@
             desktopModelScale: 2.9, mobileModelScale: 2.2,
             desktopModelPositionY: -1.0, mobileModelPositionY: -0.8,
             mouseIntensity: 0.484, smoothingFactor: 0.05,
-            initialCameraZ: 5.51, scrollZoomEnd: 13.699
+            initialCameraZ: 5.51, scrollZoomEnd: 13.699,
+            ambientIntensity: 0.672,
+            directionalIntensity: 0.861,
+            emissiveColor: '#ffffff',
+            emissiveIntensity: 2.0
         };
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg-3d'), alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        const ambientLight = new THREE.AmbientLight(0xffffff, params.ambientIntensity);
         scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, params.directionalIntensity);
         directionalLight.position.set(5, 10, 7.5);
         scene.add(directionalLight);
         const loader = new GLTFLoader();
         let model;
-        loader.load('assets/3d/250base.glb', (gltf) => { model = gltf.scene; updateModelTransform(); scene.add(model); }, undefined, (e) => console.error(e));
+        loader.load('assets/3d/250base.glb', (gltf) => {
+            model = gltf.scene;
+            model.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    child.material.emissive.set(params.emissiveColor);
+                    child.material.emissiveIntensity = params.emissiveIntensity;
+                }
+            });
+            updateModelTransform();
+            scene.add(model);
+        }, undefined, (e) => console.error(e));
+        
         camera.position.z = params.initialCameraZ;
         let mouseX = 0, mouseY = 0;
         
@@ -416,105 +434,4 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            bgRenderer.setSize(window.innerWidth, window.innerHeight);
-            uniforms.u_resolution.value.x = window.innerWidth;
-            uniforms.u_resolution.value.y = window.innerHeight;
-            updateModelTransform();
-        });
-        const clock = new THREE.Clock();
-        function animate() {
-            requestAnimationFrame(animate);
-            uniforms.u_time.value = clock.getElapsedTime();
-            bgRenderer.render(bgScene, bgCamera);
-            if (model) {
-                const targetRotationX = mouseY * params.mouseIntensity;
-                const targetRotationY = mouseX * params.mouseIntensity;
-                model.rotation.x += (targetRotationX - model.rotation.x) * params.smoothingFactor;
-                model.rotation.y += (targetRotationY - model.rotation.y) * params.smoothingFactor;
-            }
-            renderer.render(scene, camera);
-        }
-        
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('is-visible'); observer.unobserve(entry.target); } });
-        }, { threshold: 0.1 });
-        document.querySelectorAll('.fade-in-section').forEach(section => observer.observe(section));
-        
-        const video = document.querySelector('.main-video-asset video');
-        const soundButton = document.querySelector('#sound-toggle');
-        const soundOnIcon = soundButton.querySelector('.sound-on');
-        const soundOffIcon = soundButton.querySelector('.sound-off');
-        soundButton.addEventListener('click', (event) => {
-            event.stopPropagation();
-            video.muted = !video.muted;
-            if (video.muted) { soundOnIcon.style.display = 'none'; soundOffIcon.style.display = 'block'; }
-            else { soundOnIcon.style.display = 'block'; soundOffIcon.style.display = 'none'; video.play(); }
-        });
-        video.addEventListener('click', (event) => {
-            event.stopPropagation();
-            if (!document.fullscreenElement) { video.requestFullscreen().catch(err => { alert(`Error: ${err.message}`); }); }
-            else { if (document.exitFullscreen) { document.exitFullscreen(); } }
-        });
-
-        // --- NEW LIGHTBOX LOGIC ---
-        const lightbox = document.getElementById('lightbox');
-        const lightboxImg = document.getElementById('lightbox-img');
-        const galleryImages = document.querySelectorAll('.asset-gallery img');
-        const imgSrcs = Array.from(galleryImages).map(img => img.src);
-        let currentIndex = 0;
-
-        function showImage(index) {
-            currentIndex = index;
-            lightboxImg.src = imgSrcs[currentIndex];
-        }
-
-        async function openLightbox(index) {
-            showImage(index);
-            lightbox.classList.add('active');
-            document.body.classList.add('lightbox-active');
-            try {
-                if (window.innerWidth < 768 && screen.orientation && screen.orientation.lock) {
-                    await screen.orientation.lock('landscape-primary').catch(() => {});
-                }
-            } catch (e) { console.warn("Screen orientation lock failed.", e); }
-        }
-
-        function closeLightbox() {
-            lightbox.classList.remove('active');
-            document.body.classList.remove('lightbox-active');
-            if (screen.orientation && screen.orientation.unlock) {
-                screen.orientation.unlock();
-            }
-        }
-
-        function showNext() { showImage((currentIndex + 1) % imgSrcs.length); }
-        function showPrev() { showImage((currentIndex - 1 + imgSrcs.length) % imgSrcs.length); }
-
-        galleryImages.forEach((img, index) => {
-            img.addEventListener('click', () => openLightbox(index));
-        });
-
-        lightbox.addEventListener('click', closeLightbox); // Click background to close
-        lightboxImg.addEventListener('click', (e) => e.stopPropagation()); // Click image does not close
-
-        document.addEventListener('keydown', e => {
-            if (lightbox.classList.contains('active')) {
-                if (e.key === 'ArrowRight') showNext();
-                if (e.key === 'ArrowLeft') showPrev();
-                if (e.key === 'Escape') closeLightbox();
-            }
-        });
-
-        let touchStartX = 0;
-        lightbox.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-        lightbox.addEventListener('touchend', e => {
-            let touchEndX = e.changedTouches[0].screenX;
-            if (touchEndX < touchStartX - 50) showNext();
-            if (touchEndX > touchStartX + 50) showPrev();
-        });
-        
-        animate();
-    </script>
-
-</body>
-</html>
+            bgRenderer.setSize(wi
