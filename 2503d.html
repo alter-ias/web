@@ -50,13 +50,18 @@
             z-index: 2;
             text-align: center;
             padding: 20px;
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
             pointer-events: none;
         }
         
         /* --- STYLES FOR THE REST OF THE PAGE --- */
         .project-section { max-width: 1200px; margin: 0 auto; padding: 80px 40px; border-bottom: 1px solid var(--border-color); }
         .project-section:last-of-type { border-bottom: none; }
+
+        /* NEW RULE: Reduces top padding for the first section to bring it closer to the hero */
+        .project-section:first-of-type {
+            padding-top: 20px;
+        }
+
         .section-header h3 { font-size: 3rem; color: #fff; margin-bottom: 10px; }
         .section-header hr { border: 0; height: 3px; width: 80px; background-color: var(--accent-red); margin-bottom: 40px; }
         .section-description { font-size: 1.1rem; max-width: 800px; margin: 40px 0; color: rgba(240, 240, 240, 0.85); }
@@ -73,6 +78,9 @@
         /* --- RESPONSIVE STYLES --- */
         @media (max-width: 768px) {
             .project-section { padding: 60px 20px; }
+             .project-section:first-of-type {
+                padding-top: 20px; /* Ensure consistency on mobile */
+            }
             .section-header h3 { font-size: 2.2rem; }
             .main-video-asset .video-placeholder { height: 300px; font-size: 4rem; }
             .asset-gallery { gap: 20px; }
@@ -84,7 +92,7 @@
     <header class="hero">
         <canvas id="bg-3d"></canvas>
         <div class="hero-content">
-            <!-- Title removed as requested -->
+            <!-- Title removed -->
         </div>
     </header>
 
@@ -277,8 +285,9 @@
         // --- FINAL PARAMETERS ---
         const params = {
             desktopModelScale: 3.648,
-            mobileModelScale: 2.2, // Custom scale for screens smaller than 768px
-            modelPositionY: -2.62,
+            mobileModelScale: 2.2,
+            desktopModelPositionY: -2.62,
+            mobileModelPositionY: -1.8, // NEW: Separate vertical position for mobile
             mouseIntensity: 0.484,
             smoothingFactor: 0.05,
             initialCameraZ: 5.51,
@@ -309,8 +318,7 @@
             'assets/3d/250base.glb',
             function (gltf) {
                 model = gltf.scene;
-                model.position.y = params.modelPositionY;
-                updateModelScale(); // Set initial scale based on screen size
+                updateModelTransform(); // Set initial scale and position based on screen size
                 scene.add(model);
             },
             undefined,
@@ -350,17 +358,21 @@
             camera.position.z = params.initialCameraZ - (scrollPercent * zoomDistance);
         });
 
-        function updateModelScale() {
+        function updateModelTransform() {
             if (!model) return;
-            const scale = window.innerWidth < 768 ? params.mobileModelScale : params.desktopModelScale;
+            const isMobile = window.innerWidth < 768;
+            const scale = isMobile ? params.mobileModelScale : params.desktopModelScale;
+            const positionY = isMobile ? params.mobileModelPositionY : params.desktopModelPositionY;
+            
             model.scale.set(scale, scale, scale);
+            model.position.y = positionY;
         }
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-            updateModelScale(); // Update scale on resize
+            updateModelTransform(); // Update scale and position on resize
         });
 
         // --- RENDER LOOP ---
