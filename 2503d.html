@@ -100,12 +100,13 @@
             backdrop-filter: blur(10px);
         }
         .asset:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
+        .asset img { cursor: pointer; } /* Added cursor for images */
         .asset img, .asset video { width: 100%; height: 250px; object-fit: cover; display: block; }
         .main-video-asset video { height: 500px; cursor: pointer; }
         .asset-caption { padding: 15px; background: rgba(0,0,0,0.2); }
         .asset-caption h4 { font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 1rem; margin-bottom: 5px; color: #fff; }
         .asset-caption p { font-size: 0.9rem; color: rgba(240, 240, 240, 0.8); }
-        .footer { text-align: center; padding: 40px 20px; font-size: 0.9rem; color: rgba(255,255,255,0.6); }
+        .footer { text-align: center; padding: 40px 20px; font-size: 0.9rem; color: rgba(255,255,255,0.6); line-height: 1.6; }
 
         .fade-in-section { opacity: 0; transform: translateY(30px); transition: opacity 0.8s ease-out, transform 0.8s ease-out; }
         .fade-in-section.is-visible { opacity: 1; transform: translateY(0); }
@@ -155,7 +156,6 @@
     </header>
 
     <main>
-        <!-- The content of the main tag remains exactly the same -->
         <!-- SECCIÓN 1: CONCEPTUAL VISUAL PRESENTATION -->
         <section class="project-section fade-in-section" id="conceptual-presentation">
             <div class="section-header">
@@ -278,7 +278,7 @@
     </main>
     
     <footer class="footer">
-        <p>DREAM250 Conceptual Presentation &copy; 2025 by Alter.Lab. For internal review only.</p>
+        <p>All concept art and visual development by El Laboratorio de Arte Generativo Alter.Lab.<br>DREAM250 Conceptual Presentation &copy; 2025. For internal review only.</p>
     </footer>
 
     <!-- SCRIPT SECTION -->
@@ -302,9 +302,9 @@
         const fragmentShader = `
             uniform vec2 u_resolution;
             uniform float u_time;
-            uniform vec3 u_colorA;
-            uniform vec3 u_colorB;
-            uniform float u_grainIntensity;
+            
+            vec3 color_top_left = vec3(0.22, 0.48, 0.82);   // Cyan/Blue
+            vec3 color_bottom_right = vec3(0.5, 0.2, 0.8); // Indigo/Purple
             
             float random(vec2 st) {
                 return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -314,18 +314,18 @@
                 vec2 uv = gl_FragCoord.xy / u_resolution.xy;
                 float time = u_time * 0.1;
                 
-                vec3 base_gradient = mix(u_colorA, u_colorB, (uv.x + uv.y) * 0.5 + sin(time) * 0.1);
-                float grain = (random(uv * (u_time + 1.0)) - 0.5) * u_grainIntensity;
+                // Animated diagonal gradient
+                vec3 base_gradient = mix(color_top_left, color_bottom_right, (uv.x + uv.y) * 0.5 + sin(time) * 0.1);
+                
+                // Add fine grain
+                float grain = (random(uv * (u_time + 1.0)) - 0.5) * 0.05; // Grain intensity
                 
                 gl_FragColor = vec4(base_gradient + grain, 1.0);
             }
         `;
         const uniforms = {
             u_time: { value: 0.0 },
-            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-            u_colorA: { value: new THREE.Color('#000055') },
-            u_colorB: { value: new THREE.Color('#800000') },
-            u_grainIntensity: { value: 0.0304 }
+            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         };
         const bgMaterial = new THREE.ShaderMaterial({ fragmentShader, uniforms });
         const bgPlane = new THREE.PlaneGeometry(2, 2);
@@ -337,36 +337,21 @@
             desktopModelScale: 2.9, mobileModelScale: 2.2,
             desktopModelPositionY: -1.0, mobileModelPositionY: -0.8,
             mouseIntensity: 0.484, smoothingFactor: 0.05,
-            initialCameraZ: 5.51, scrollZoomEnd: 13.699,
-            ambientIntensity: 0.672,
-            directionalIntensity: 0.861,
-            emissiveColor: '#ffffff',
-            emissiveIntensity: 2.0
+            initialCameraZ: 5.51, scrollZoomEnd: 13.699
         };
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg-3d'), alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        const ambientLight = new THREE.AmbientLight(0xffffff, params.ambientIntensity);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, params.directionalIntensity);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
         directionalLight.position.set(5, 10, 7.5);
         scene.add(directionalLight);
         const loader = new GLTFLoader();
         let model;
-        loader.load('assets/3d/250base.glb', (gltf) => {
-            model = gltf.scene;
-            model.traverse((child) => {
-                if (child.isMesh && child.material) {
-                    child.material.emissive.set(params.emissiveColor);
-                    child.material.emissiveIntensity = params.emissiveIntensity;
-                }
-            });
-            updateModelTransform();
-            scene.add(model);
-        }, undefined, (e) => console.error(e));
-        
+        loader.load('assets/3d/250base.glb', (gltf) => { model = gltf.scene; updateModelTransform(); scene.add(model); }, undefined, (e) => console.error(e));
         camera.position.z = params.initialCameraZ;
         let mouseX = 0, mouseY = 0;
         
@@ -442,6 +427,31 @@
             }
         });
         
+        // --- NEW: IMAGE FULLSCREEN LOGIC ---
+        const galleryImages = document.querySelectorAll('.asset-gallery img');
+        galleryImages.forEach(img => {
+            img.addEventListener('click', async () => {
+                try {
+                    if (!document.fullscreenElement) {
+                        if (window.innerWidth < 768 && screen.orientation && screen.orientation.lock) {
+                            await screen.orientation.lock('landscape-primary').catch(() => {});
+                        }
+                        await img.requestFullscreen();
+                    } else {
+                        await document.exitFullscreen();
+                    }
+                } catch (err) {
+                    console.error("Fullscreen API error:", err);
+                }
+            });
+        });
+        // Unlock orientation when exiting fullscreen (e.g., via ESC key)
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement && screen.orientation && screen.orientation.unlock) {
+                screen.orientation.unlock();
+            }
+        });
+
         animate();
     </script>
 
