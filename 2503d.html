@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DREAM250 - Conceptual Visual Presentation (with Controls)</title>
+    <title>DREAM250 - Conceptual Visual Presentation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
@@ -271,38 +271,27 @@
     </footer>
 
     <!-- SCRIPT SECTION -->
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     <script type="importmap">
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.150.1/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/",
-                "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm"
+                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/"
             }
         }
     </script>
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        import { GUI } from 'lil-gui';
 
-        // --- PARAMETERS OBJECT ---
-        const parameters = {
-            modelScale: 6,
-            modelPositionY: -1.0,
-            mouseIntensity: 0.2,
+        // --- FINAL PARAMETERS ---
+        const params = {
+            modelScale: 3.648,
+            modelPositionY: -2.62,
+            mouseIntensity: 0.484,
             smoothingFactor: 0.05,
-            initialCameraZ: 8,
-            scrollZoomEnd: 5
+            initialCameraZ: 5.51,
+            scrollZoomEnd: 13.699
         };
-
-        // --- GUI SETUP ---
-        const gui = new GUI();
-        gui.add(parameters, 'modelScale', 1, 20).name('Tamaño (Escala)');
-        gui.add(parameters, 'modelPositionY', -5, 5).name('Posición Vertical');
-        gui.add(parameters, 'mouseIntensity', 0, 1).name('Intensidad Mouse');
-        gui.add(parameters, 'initialCameraZ', 1, 20).name('Distancia Inicial');
-        gui.add(parameters, 'scrollZoomEnd', 1, 20).name('Distancia Final (Scroll)');
 
         // --- SCENE SETUP ---
         const scene = new THREE.Scene();
@@ -328,9 +317,9 @@
             'assets/3d/250base.glb',
             function (gltf) {
                 model = gltf.scene;
+                model.scale.set(params.modelScale, params.modelScale, params.modelScale);
+                model.position.y = params.modelPositionY;
                 scene.add(model);
-                // Initial update from parameters
-                updateModelTransform();
             },
             undefined,
             function (error) {
@@ -339,61 +328,47 @@
         );
 
         // --- EVENT LISTENERS & HANDLERS ---
+        camera.position.z = params.initialCameraZ;
         let mouseX = 0;
         let mouseY = 0;
+        
         window.addEventListener('mousemove', (event) => {
             mouseX = (event.clientX / window.innerWidth) * 2 - 1;
             mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
         });
 
-        window.addEventListener('scroll', updateCameraOnScroll);
-        window.addEventListener('resize', onWindowResize);
-
-        // --- FUNCTIONS ---
-        function updateModelTransform() {
-            if (model) {
-                model.scale.set(parameters.modelScale, parameters.modelScale, parameters.modelScale);
-                model.position.y = parameters.modelPositionY;
-            }
-        }
-
-        function updateCameraOnScroll() {
+        window.addEventListener('scroll', () => {
             const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
             if (scrollableHeight <= 0) return;
             
             const scrollPercent = window.scrollY / scrollableHeight;
-            const zoomDistance = parameters.initialCameraZ - parameters.scrollZoomEnd;
-            camera.position.z = parameters.initialCameraZ - (scrollPercent * zoomDistance);
-        }
+            const zoomDistance = params.initialCameraZ - params.scrollZoomEnd;
+            camera.position.z = params.initialCameraZ - (scrollPercent * zoomDistance);
+        });
 
-        function onWindowResize() {
+        window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-        }
+        });
 
         // --- RENDER LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             
             if (model) {
-                // Live update from GUI controls
-                updateModelTransform();
+                const targetRotationX = mouseY * params.mouseIntensity;
+                const targetRotationY = mouseX * params.mouseIntensity;
 
-                const targetRotationX = mouseY * parameters.mouseIntensity;
-                const targetRotationY = mouseX * parameters.mouseIntensity;
-
-                model.rotation.x += (targetRotationX - model.rotation.x) * parameters.smoothingFactor;
-                model.rotation.y += (targetRotationY - model.rotation.y) * parameters.smoothingFactor;
+                model.rotation.x += (targetRotationX - model.rotation.x) * params.smoothingFactor;
+                model.rotation.y += (targetRotationY - model.rotation.y) * params.smoothingFactor;
             }
 
             renderer.render(scene, camera);
         }
         
-        // --- INITIALIZE ---
-        updateCameraOnScroll(); // Set initial camera position based on scroll (usually 0)
         animate();
     </script>
 
 </body>
-</html>```
+</html>
