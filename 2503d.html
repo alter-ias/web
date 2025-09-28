@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --dark-blue: #0a192f;
+            --base-blue: #3a7bd5;
             --accent-red: #b22234;
             --text-light: #f0f0f0;
             --border-color: rgba(255, 255, 255, 0.2);
@@ -17,7 +17,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Merriweather', serif;
-            background-color: var(--dark-blue); /* Fallback color */
+            background-color: var(--base-blue); /* Fallback color */
             color: var(--text-light);
             line-height: 1.7;
             overflow-x: hidden;
@@ -220,10 +220,7 @@
                 </div>
                 <div class="asset">
                     <img src="assets/img/250b03.png" alt="Concept Art: Symbols of Liberty">
-                    <div class="asset-caption">
-                        <h4>Symbols of Liberty</h4>
-                        <p>Visual concepts for key American ideals: Liberty, Justice, and the pursuit of Truth.</p>
-                    </div>
+                    <div class="asset-caption"><h4>Symbols of Liberty</h4><p>Visual concepts for key American ideals: Liberty, Justice, and the pursuit of Truth.</p></div>
                 </div>
             </div>
         </section>
@@ -296,43 +293,33 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // --- UNIFIED SCENE SETUP (No more separate BG scene) ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({
-            canvas: document.querySelector('#bg-3d'),
-            alpha: true 
-        });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-
-        // --- NEW UNIFORM IRIDESCENT SHADER BACKGROUND ---
+        // --- BACKGROUND SHADER SETUP ---
+        const bgScene = new THREE.Scene();
+        const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        const bgRenderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#iridescent-bg') });
+        bgRenderer.setSize(window.innerWidth, window.innerHeight);
         const fragmentShader = `
             uniform vec2 u_resolution;
             uniform float u_time;
             
-            vec3 color_base = vec3(0.039, 0.10, 0.184); // Solid Dark Blue from your first approved version
-            vec3 color_accent1 = vec3(0.698, 0.133, 0.204); // Accent Red
-            vec3 color_accent2 = vec3(0.2, 0.4, 0.8);     // A brighter, more vibrant Blue
+            vec3 color_top_left = vec3(0.22, 0.48, 0.82);   // Cyan/Blue
+            vec3 color_bottom_right = vec3(0.5, 0.2, 0.8); // Indigo/Purple
+            
+            float random(vec2 st) {
+                return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+            }
             
             void main() {
                 vec2 uv = gl_FragCoord.xy / u_resolution.xy;
-                float time = u_time * 0.2;
+                float time = u_time * 0.1;
                 
-                // Create large, slow, overlapping sine waves for a smooth gradient effect
-                float wave1 = sin(uv.x * 2.5 + uv.y * 1.5 + time) * 0.5 + 0.5;
-                float wave2 = sin(uv.x * 1.5 + uv.y * 2.5 + time * 0.7) * 0.5 + 0.5;
+                // Animated diagonal gradient
+                vec3 base_gradient = mix(color_top_left, color_bottom_right, (uv.x + uv.y) * 0.5 + sin(time) * 0.1);
                 
-                // Mix the two accent colors based on the first wave
-                vec3 sheen_color = mix(color_accent1, color_accent2, wave1);
+                // Add fine grain
+                float grain = (random(uv * (u_time + 1.0)) - 0.5) * 0.05; // Grain intensity
                 
-                // Use the second wave to control the intensity of the sheen, making it subtle
-                float sheen_intensity = pow(wave2, 2.0) * 0.15; // Max 15% intensity
-                
-                // Blend the subtle sheen over the solid base color
-                vec3 final_color = mix(color_base, sheen_color, sheen_intensity);
-                
-                gl_FragColor = vec4(final_color, 1.0);
+                gl_FragColor = vec4(base_gradient + grain, 1.0);
             }
         `;
         const uniforms = {
@@ -342,16 +329,20 @@
         const bgMaterial = new THREE.ShaderMaterial({ fragmentShader, uniforms });
         const bgPlane = new THREE.PlaneGeometry(2, 2);
         const background = new THREE.Mesh(bgPlane, bgMaterial);
-        background.position.z = -20;
-        scene.add(background);
+        bgScene.add(background);
 
-        // --- 3D MODEL SCENE ---
+        // --- MAIN 3D MODEL SCENE ---
         const params = {
             desktopModelScale: 2.9, mobileModelScale: 2.2,
             desktopModelPositionY: -1.0, mobileModelPositionY: -0.8,
             mouseIntensity: 0.484, smoothingFactor: 0.05,
             initialCameraZ: 5.51, scrollZoomEnd: 13.699
         };
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg-3d'), alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -392,6 +383,7 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            bgRenderer.setSize(window.innerWidth, window.innerHeight);
             uniforms.u_resolution.value.x = window.innerWidth;
             uniforms.u_resolution.value.y = window.innerHeight;
             updateModelTransform();
@@ -400,6 +392,7 @@
         function animate() {
             requestAnimationFrame(animate);
             uniforms.u_time.value = clock.getElapsedTime();
+            bgRenderer.render(bgScene, bgCamera);
             if (model) {
                 const targetRotationX = mouseY * params.mouseIntensity;
                 const targetRotationY = mouseX * params.mouseIntensity;
@@ -424,7 +417,6 @@
             if (video.muted) { soundOnIcon.style.display = 'none'; soundOffIcon.style.display = 'block'; }
             else { soundOnIcon.style.display = 'block'; soundOffIcon.style.display = 'none'; video.play(); }
         });
-
         video.addEventListener('click', (event) => {
             event.stopPropagation();
             if (!document.fullscreenElement) {
