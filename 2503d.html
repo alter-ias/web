@@ -9,15 +9,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --dark-blue: #0a192f;
+            --base-blue: #3a7bd5;
             --accent-red: #b22234;
             --text-light: #f0f0f0;
-            --border-color: rgba(255, 255, 255, 0.1);
+            --border-color: rgba(255, 255, 255, 0.2);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Merriweather', serif;
-            background-color: var(--dark-blue); /* Fallback color */
+            background-color: var(--base-blue); /* Fallback color */
             color: var(--text-light);
             line-height: 1.7;
             overflow-x: hidden;
@@ -28,6 +28,16 @@
             letter-spacing: 1.5px;
         }
         
+        /* --- STYLES FOR SHADER BACKGROUND --- */
+        #iridescent-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
         /* --- STYLES FOR THE 3D HERO --- */
         .hero {
             height: 100vh;
@@ -59,7 +69,7 @@
         .hero-intro {
             font-size: 1.2rem;
             font-family: 'Merriweather', serif;
-            color: rgba(255, 255, 255, 0.85);
+            color: rgba(255, 255, 255, 0.9);
             max-width: 65ch;
             margin-top: 55vh;
             line-height: 1.8;
@@ -73,24 +83,36 @@
         /* --- STYLES FOR THE REST OF THE PAGE --- */
         main {
             position: relative;
-            z-index: 5; /* Ensure content is on top of the fixed background */
-            background: var(--dark-blue);
+            z-index: 5;
+            background: transparent; /* Make main transparent to see the shader */
         }
-        .project-section { max-width: 1200px; margin: 0 auto; padding: 80px 40px; border-bottom: 1px solid var(--border-color); }
-        .project-section:last-of-type { border-bottom: none; }
+        .project-section { max-width: 1200px; margin: 0 auto; padding: 80px 40px; }
+        /* Remove border from all but the last section */
+        .project-section:not(:last-of-type) { border-bottom: 1px solid var(--border-color); }
         .project-section:first-of-type { padding-top: 20px; }
         .section-header h3 { font-size: 3rem; color: #fff; margin-bottom: 10px; }
         .section-header hr { border: 0; height: 3px; width: 80px; background-color: var(--accent-red); margin-bottom: 40px; }
-        .section-description { font-size: 1.1rem; max-width: 800px; margin: 40px 0; color: rgba(240, 240, 240, 0.85); }
+        .section-description { font-size: 1.1rem; max-width: 800px; margin: 40px 0; color: rgba(240, 240, 240, 0.9); }
         .asset-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
-        .asset { position: relative; background-color: rgba(0,0,0,0.2); border: 1px solid var(--border-color); border-radius: 5px; overflow: hidden; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        
+        /* UPDATED: Frosted Glass effect for assets */
+        .asset { 
+            position: relative; 
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px; 
+            overflow: hidden; 
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+        }
         .asset:hover { transform: translateY(-10px); box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
         .asset img, .asset video { width: 100%; height: 250px; object-fit: cover; display: block; }
         .main-video-asset video { height: 500px; cursor: pointer; }
         .asset-caption { padding: 15px; background: rgba(0,0,0,0.2); }
         .asset-caption h4 { font-family: 'Oswald', sans-serif; text-transform: uppercase; font-size: 1rem; margin-bottom: 5px; color: #fff; }
-        .asset-caption p { font-size: 0.9rem; color: rgba(240, 240, 240, 0.7); }
-        .footer { text-align: center; padding: 40px 20px; font-size: 0.9rem; color: rgba(255,255,255,0.5); }
+        .asset-caption p { font-size: 0.9rem; color: rgba(240, 240, 240, 0.8); }
+        .footer { text-align: center; padding: 40px 20px; font-size: 0.9rem; color: rgba(255,255,255,0.6); }
 
         /* --- STYLES FOR SCROLL ANIMATION --- */
         .fade-in-section { opacity: 0; transform: translateY(30px); transition: opacity 0.8s ease-out, transform 0.8s ease-out; }
@@ -139,7 +161,8 @@
     </style>
 </head>
 <body>
-    <!-- The canvas for the 3D model now also handles the background -->
+    <canvas id="iridescent-bg"></canvas>
+
     <header class="hero">
         <canvas id="bg-3d"></canvas>
         <div class="hero-content">
@@ -288,12 +311,12 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // --- UNIFIED SCENE SETUP ---
+        // --- UNIFIED SCENE SETUP (No more separate BG scene) ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({
             canvas: document.querySelector('#bg-3d'),
-            alpha: true // Important for layering if ever needed, but now it's the base
+            alpha: true 
         });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -303,28 +326,29 @@
             uniform vec2 u_resolution;
             uniform float u_time;
             
-            vec3 color_base = vec3(0.039, 0.10, 0.184); // Solid Dark Blue from your first approved version
-            vec3 color_accent1 = vec3(0.698, 0.133, 0.204); // Accent Red
-            vec3 color_accent2 = vec3(0.2, 0.4, 0.8);     // A brighter, more vibrant Blue
+            vec3 color_top_left = vec3(0.22, 0.48, 0.82);   // Cyan/Blue
+            vec3 color_bottom_right = vec3(0.5, 0.2, 0.8); // Indigo/Purple
+            vec3 color_accent = vec3(0.7, 0.13, 0.2);       // Accent Red
+            
+            float random(vec2 st) {
+                return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+            }
             
             void main() {
                 vec2 uv = gl_FragCoord.xy / u_resolution.xy;
                 float time = u_time * 0.2;
                 
-                // Create large, slow, overlapping sine waves for a smooth gradient effect
-                float wave1 = sin(uv.x * 2.0 - uv.y * 1.5 + time) * 0.5 + 0.5;
-                float wave2 = sin(uv.x * 1.5 + uv.y * 2.5 + time * 0.7) * 0.5 + 0.5;
+                // Base diagonal gradient
+                vec3 base_gradient = mix(color_top_left, color_bottom_right, (uv.x + uv.y) * 0.5 + sin(time) * 0.1);
                 
-                // Mix the two accent colors based on the first wave
-                vec3 sheen_color = mix(color_accent1, color_accent2, wave1);
+                // Slow moving waves for the red accent
+                float wave = sin(uv.y * 3.0 + time) * 0.5 + 0.5;
+                vec3 color = mix(base_gradient, color_accent, wave * 0.1); // Low intensity for red
                 
-                // Use the second wave to control the intensity of the sheen, making it subtle
-                float sheen_intensity = pow(wave2, 2.0) * 0.15; // Max 15% intensity
+                // Add fine grain
+                float grain = (random(uv * u_time) - 0.5) * 0.1;
                 
-                // Blend the subtle sheen over the solid base color
-                vec3 final_color = mix(color_base, sheen_color, sheen_intensity);
-                
-                gl_FragColor = vec4(final_color, 1.0);
+                gl_FragColor = vec4(color + grain, 1.0);
             }
         `;
         const uniforms = {
@@ -334,7 +358,7 @@
         const bgMaterial = new THREE.ShaderMaterial({ fragmentShader, uniforms });
         const bgPlane = new THREE.PlaneGeometry(2, 2);
         const background = new THREE.Mesh(bgPlane, bgMaterial);
-        background.position.z = -20; // Place it far behind everything
+        background.position.z = -20;
         scene.add(background);
 
         // --- 3D MODEL SCENE ---
