@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DREAM250 - Conceptual Visual Presentation</title>
+    <title>DREAM250 - Conceptual Visual Presentation (with Controls)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
@@ -53,8 +53,16 @@
             text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
             pointer-events: none;
         }
+        .hero-content h2 {
+            font-size: 1.5rem;
+            font-family: 'Merriweather', serif;
+            font-weight: normal;
+            text-transform: none;
+            color: rgba(255,255,255,0.8);
+            margin-top: 10px;
+        }
         
-        /* --- STYLES FOR THE REST OF THE PAGE --- */
+        /* --- STYLES FOR THE REST OF THE PAGE (UNCHANGED) --- */
         .project-section { max-width: 1200px; margin: 0 auto; padding: 80px 40px; border-bottom: 1px solid var(--border-color); }
         .project-section:last-of-type { border-bottom: none; }
         .section-header h3 { font-size: 3rem; color: #fff; margin-bottom: 10px; }
@@ -72,6 +80,7 @@
 
         /* --- RESPONSIVE STYLES --- */
         @media (max-width: 768px) {
+            .hero-content h2 { font-size: 1.2rem; }
             .project-section { padding: 60px 20px; }
             .section-header h3 { font-size: 2.2rem; }
             .main-video-asset .video-placeholder { height: 300px; font-size: 4rem; }
@@ -84,7 +93,7 @@
     <header class="hero">
         <canvas id="bg-3d"></canvas>
         <div class="hero-content">
-            <!-- Subtitle removed as requested -->
+            <h2>Conceptual Visual Presentation</h2>
         </div>
     </header>
 
@@ -262,19 +271,40 @@
     </footer>
 
     <!-- SCRIPT SECTION -->
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.150.1/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/",
+                "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm"
+            }
+        }
+    </script>
     <script type="module">
-        import * as THREE from 'https://unpkg.com/three@0.150.1/build/three.module.js';
-        import { GLTFLoader } from 'https://unpkg.com/three@0.150.1/examples/jsm/loaders/GLTFLoader.js';
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { GUI } from 'lil-gui';
 
-        // --- FINAL PARAMETERS ---
-        const modelScale = 3.648;
-        const modelPositionY = -2.62;
-        const mouseIntensity = 0.484;
-        const smoothingFactor = 0.05;
-        const initialCameraZ = 5.51;
-        const scrollZoomEnd = 13.699;
-        // ------------------------
+        // --- PARAMETERS OBJECT ---
+        const parameters = {
+            modelScale: 6,
+            modelPositionY: -1.0,
+            mouseIntensity: 0.2,
+            smoothingFactor: 0.05,
+            initialCameraZ: 8,
+            scrollZoomEnd: 5
+        };
 
+        // --- GUI SETUP ---
+        const gui = new GUI();
+        gui.add(parameters, 'modelScale', 1, 20).name('Tamaño (Escala)');
+        gui.add(parameters, 'modelPositionY', -5, 5).name('Posición Vertical');
+        gui.add(parameters, 'mouseIntensity', 0, 1).name('Intensidad Mouse');
+        gui.add(parameters, 'initialCameraZ', 1, 20).name('Distancia Inicial');
+        gui.add(parameters, 'scrollZoomEnd', 1, 20).name('Distancia Final (Scroll)');
+
+        // --- SCENE SETUP ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({
@@ -284,21 +314,23 @@
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
 
+        // --- LIGHTING ---
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
         directionalLight.position.set(5, 10, 7.5);
         scene.add(directionalLight);
 
+        // --- MODEL LOADING ---
         const loader = new GLTFLoader();
         let model;
         loader.load(
             'assets/3d/250base.glb',
             function (gltf) {
                 model = gltf.scene;
-                model.scale.set(modelScale, modelScale, modelScale);
-                model.position.set(0, modelPositionY, 0);
                 scene.add(model);
+                // Initial update from parameters
+                updateModelTransform();
             },
             undefined,
             function (error) {
@@ -306,54 +338,62 @@
             }
         );
 
-        camera.position.z = initialCameraZ;
-
-        let targetRotationX = 0;
-        let targetRotationY = 0;
+        // --- EVENT LISTENERS & HANDLERS ---
         let mouseX = 0;
         let mouseY = 0;
-
-        function onMouseMove(event) {
+        window.addEventListener('mousemove', (event) => {
             mouseX = (event.clientX / window.innerWidth) * 2 - 1;
             mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        window.addEventListener('scroll', updateCameraOnScroll);
+        window.addEventListener('resize', onWindowResize);
+
+        // --- FUNCTIONS ---
+        function updateModelTransform() {
+            if (model) {
+                model.scale.set(parameters.modelScale, parameters.modelScale, parameters.modelScale);
+                model.position.y = parameters.modelPositionY;
+            }
         }
-        window.addEventListener('mousemove', onMouseMove);
 
         function updateCameraOnScroll() {
             const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
             if (scrollableHeight <= 0) return;
             
             const scrollPercent = window.scrollY / scrollableHeight;
-            const zoomDistance = initialCameraZ - scrollZoomEnd;
-            if (camera) {
-                camera.position.z = initialCameraZ - (scrollPercent * zoomDistance);
-            }
+            const zoomDistance = parameters.initialCameraZ - parameters.scrollZoomEnd;
+            camera.position.z = parameters.initialCameraZ - (scrollPercent * zoomDistance);
         }
-        window.addEventListener('scroll', updateCameraOnScroll);
 
-        window.addEventListener('resize', () => {
+        function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        }
 
+        // --- RENDER LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             
             if (model) {
-                targetRotationX = mouseY * mouseIntensity;
-                targetRotationY = mouseX * mouseIntensity;
+                // Live update from GUI controls
+                updateModelTransform();
 
-                model.rotation.x += (targetRotationX - model.rotation.x) * smoothingFactor;
-                model.rotation.y += (targetRotationY - model.rotation.y) * smoothingFactor;
+                const targetRotationX = mouseY * parameters.mouseIntensity;
+                const targetRotationY = mouseX * parameters.mouseIntensity;
+
+                model.rotation.x += (targetRotationX - model.rotation.x) * parameters.smoothingFactor;
+                model.rotation.y += (targetRotationY - model.rotation.y) * parameters.smoothingFactor;
             }
 
             renderer.render(scene, camera);
         }
         
-        updateCameraOnScroll();
+        // --- INITIALIZE ---
+        updateCameraOnScroll(); // Set initial camera position based on scroll (usually 0)
         animate();
     </script>
 
 </body>
-</html>
+</html>```
