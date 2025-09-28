@@ -30,7 +30,7 @@
         /* --- STYLES FOR THE 3D HERO --- */
         .hero {
             height: 100vh;
-            position: relative; /* Needed for z-index layering */
+            position: relative;
             overflow: hidden;
             display: flex;
             justify-content: center;
@@ -43,6 +43,7 @@
             width: 100%;
             height: 100%;
             z-index: 1; /* Behind the content */
+            cursor: move;
         }
         .hero-content {
             position: relative;
@@ -50,6 +51,7 @@
             text-align: center;
             padding: 20px;
             text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
+            pointer-events: none; /* Allows mouse events to pass through to the canvas */
         }
         .hero-content h2 {
             font-size: 1.5rem;
@@ -91,13 +93,11 @@
     <header class="hero">
         <canvas id="bg-3d"></canvas>
         <div class="hero-content">
-            <!-- The 3D model replaces the H1 title -->
             <h2>Conceptual Visual Presentation</h2>
         </div>
     </header>
 
     <main>
-        <!-- SECTIONS (PROLOGUE, BECOMING AMERICAN, etc.) -->
         <!-- The rest of your content remains exactly the same as before -->
         <!-- SECCIÓN 1: PRÓLOGO -->
         <section class="project-section" id="prologue">
@@ -275,36 +275,36 @@
         import * as THREE from 'https://unpkg.com/three@0.127.0/build/three.module.js';
         import { GLTFLoader } from 'https://unpkg.com/three@0.127.0/examples/jsm/loaders/GLTFLoader.js';
 
-        // --- SCENE SETUP ---
+        // --- PARÁMETROS PARA AJUSTAR ---
+        const modelScale = 12;          // Qué tan grande es el modelo (más grande = más grande)
+        const modelPositionY = -1.5;      // Posición vertical (números negativos lo bajan)
+        const mouseIntensity = 0.3;     // Qué tanto reacciona al mouse (más grande = más movimiento)
+        const smoothingFactor = 0.05;   // Qué tan suave es el movimiento (más pequeño = más suave)
+        // --------------------------------
+
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({
             canvas: document.querySelector('#bg-3d'),
-            alpha: true // Makes background transparent
+            alpha: true
         });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
 
-        // --- LIGHTING ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5); // Soft ambient light
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1); // Directional light from above
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
         directionalLight.position.set(5, 10, 7.5);
         scene.add(directionalLight);
 
-        // --- MODEL LOADING ---
         const loader = new GLTFLoader();
         let model;
         loader.load(
             'assets/3d/250base.glb',
             function (gltf) {
                 model = gltf.scene;
-
-                // --- AJUSTA ESTOS VALORES para posicionar y escalar tu modelo correctamente ---
-                model.scale.set(1, 1, 1);       // Escala del modelo (ej. 1.5 para 50% más grande)
-                model.position.set(0, -0.5, 0); // Posición (X, Y, Z)
-                // -----------------------------------------------------------------------------
-
+                model.scale.set(modelScale, modelScale, modelScale);
+                model.position.set(0, modelPositionY, 0);
                 scene.add(model);
             },
             undefined,
@@ -313,32 +313,47 @@
             }
         );
 
-        // --- SCROLL INTERACTION ---
-        const initialCameraZ = 5; // Initial distance of the camera
-        const scrollZoomEnd = 2;  // How close the camera gets at the end of the scroll
+        const initialCameraZ = 5;
+        const scrollZoomEnd = 2;
         camera.position.z = initialCameraZ;
+
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        let mouseX = 0;
+        let mouseY = 0;
+
+        function onMouseMove(event) {
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+        window.addEventListener('mousemove', onMouseMove);
 
         function updateCameraOnScroll() {
             const scrollPercent = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight);
             const zoomDistance = initialCameraZ - scrollZoomEnd;
-            camera.position.z = initialCameraZ - (scrollPercent * zoomDistance);
+            if (camera) {
+                camera.position.z = initialCameraZ - (scrollPercent * zoomDistance);
+            }
         }
         window.addEventListener('scroll', updateCameraOnScroll);
 
-        // --- RESIZE HANDLER ---
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // --- RENDER LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             
-            // Optional: add a subtle rotation to the model
             if (model) {
-                model.rotation.y += 0.001;
+                // Calculate target rotation based on mouse position
+                targetRotationX = mouseY * mouseIntensity;
+                targetRotationY = mouseX * mouseIntensity;
+
+                // Smoothly interpolate the model's rotation towards the target
+                model.rotation.x += (targetRotationX - model.rotation.x) * smoothingFactor;
+                model.rotation.y += (targetRotationY - model.rotation.y) * smoothingFactor;
             }
 
             renderer.render(scene, camera);
