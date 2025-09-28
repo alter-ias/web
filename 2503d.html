@@ -23,7 +23,7 @@
             overflow-x: hidden;
         }
         body.lightbox-active {
-            overflow: hidden; /* Prevent background scroll when lightbox is open */
+            overflow: hidden;
         }
         h1, h2, h3 {
             font-family: 'Oswald', sans-serif;
@@ -134,7 +134,7 @@
         #sound-toggle svg { width: 18px; height: 18px; stroke: rgba(255, 255, 255, 0.8); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
         #sound-toggle .sound-on { display: none; }
         
-        /* --- NEW: STYLES FOR LIGHTBOX --- */
+        /* --- UPDATED LIGHTBOX STYLES --- */
         #lightbox {
             position: fixed;
             top: 0; left: 0;
@@ -147,6 +147,7 @@
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s ease;
+            cursor: pointer;
         }
         #lightbox.active {
             opacity: 1;
@@ -157,20 +158,8 @@
             max-height: 90%;
             object-fit: contain;
             user-select: none;
+            cursor: default; /* Clicks on image itself don't bubble up */
         }
-        .lightbox-btn {
-            position: absolute;
-            color: rgba(255,255,255,0.7);
-            font-size: 3rem;
-            cursor: pointer;
-            user-select: none;
-            transition: color 0.2s ease;
-        }
-        .lightbox-btn:hover { color: white; }
-        #lightbox-close { top: 20px; right: 30px; font-family: Arial, sans-serif; font-weight: bold; }
-        #lightbox-prev { top: 50%; left: 20px; transform: translateY(-50%); }
-        #lightbox-next { top: 50%; right: 20px; transform: translateY(-50%); }
-
 
         @media (max-width: 768px) {
              .hero-intro { font-size: 1rem; margin-top: 60vh; max-width: 90%; }
@@ -197,7 +186,6 @@
     </header>
 
     <main>
-        <!-- The content of the main tag remains exactly the same -->
         <!-- SECCIÓN 1: CONCEPTUAL VISUAL PRESENTATION -->
         <section class="project-section fade-in-section" id="conceptual-presentation">
             <div class="section-header">
@@ -323,14 +311,10 @@
         <p>All concept art and visual development by El Laboratorio de Arte Generativo Alter.Lab.<br>DREAM250 Conceptual Presentation &copy; 2025. For internal review only.</p>
     </footer>
 
-    <!-- NEW: LIGHTBOX HTML STRUCTURE -->
+    <!-- NEW: LIGHTBOX HTML STRUCTURE (WITHOUT BUTTONS) -->
     <div id="lightbox">
-        <div id="lightbox-close" class="lightbox-btn">&times;</div>
-        <div id="lightbox-prev" class="lightbox-btn">&lt;</div>
         <img id="lightbox-img" src="">
-        <div id="lightbox-next" class="lightbox-btn">&gt;</div>
     </div>
-
 
     <!-- SCRIPT SECTION -->
     <script type="importmap">
@@ -345,17 +329,11 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // The entire 3D and animation logic remains unchanged...
-        // ... (omitting for brevity, it's identical to the last correct version)
-
-        // --- UNIFIED SCENE SETUP ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg-3d'), alpha: true });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-
-        // --- NEW UNIFORM IRIDESCENT SHADER BACKGROUND ---
+        // --- BACKGROUND SHADER SETUP ---
+        const bgScene = new THREE.Scene();
+        const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        const bgRenderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#iridescent-bg') });
+        bgRenderer.setSize(window.innerWidth, window.innerHeight);
         const fragmentShader = `
             uniform vec2 u_resolution;
             uniform float u_time;
@@ -384,16 +362,20 @@
         const bgMaterial = new THREE.ShaderMaterial({ fragmentShader, uniforms });
         const bgPlane = new THREE.PlaneGeometry(2, 2);
         const background = new THREE.Mesh(bgPlane, bgMaterial);
-        background.position.z = -20;
-        scene.add(background);
+        bgScene.add(background);
 
-        // --- 3D MODEL SCENE ---
+        // --- MAIN 3D MODEL SCENE ---
         const params = {
             desktopModelScale: 2.9, mobileModelScale: 2.2,
             desktopModelPositionY: -1.0, mobileModelPositionY: -0.8,
             mouseIntensity: 0.484, smoothingFactor: 0.05,
             initialCameraZ: 5.51, scrollZoomEnd: 13.699
         };
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg-3d'), alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -434,6 +416,7 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            bgRenderer.setSize(window.innerWidth, window.innerHeight);
             uniforms.u_resolution.value.x = window.innerWidth;
             uniforms.u_resolution.value.y = window.innerHeight;
             updateModelTransform();
@@ -442,6 +425,7 @@
         function animate() {
             requestAnimationFrame(animate);
             uniforms.u_time.value = clock.getElapsedTime();
+            bgRenderer.render(bgScene, bgCamera);
             if (model) {
                 const targetRotationX = mouseY * params.mouseIntensity;
                 const targetRotationY = mouseX * params.mouseIntensity;
@@ -468,11 +452,8 @@
         });
         video.addEventListener('click', (event) => {
             event.stopPropagation();
-            if (!document.fullscreenElement) {
-                video.requestFullscreen().catch(err => { alert(`Error: ${err.message}`); });
-            } else {
-                if (document.exitFullscreen) { document.exitFullscreen(); }
-            }
+            if (!document.fullscreenElement) { video.requestFullscreen().catch(err => { alert(`Error: ${err.message}`); }); }
+            else { if (document.exitFullscreen) { document.exitFullscreen(); } }
         });
 
         // --- NEW LIGHTBOX LOGIC ---
@@ -495,9 +476,7 @@
                 if (window.innerWidth < 768 && screen.orientation && screen.orientation.lock) {
                     await screen.orientation.lock('landscape-primary').catch(() => {});
                 }
-            } catch (e) {
-                console.warn("Screen orientation lock not supported or failed.", e);
-            }
+            } catch (e) { console.warn("Screen orientation lock failed.", e); }
         }
 
         function closeLightbox() {
@@ -508,23 +487,15 @@
             }
         }
 
-        function showNext() {
-            const nextIndex = (currentIndex + 1) % imgSrcs.length;
-            showImage(nextIndex);
-        }
-
-        function showPrev() {
-            const prevIndex = (currentIndex - 1 + imgSrcs.length) % imgSrcs.length;
-            showImage(prevIndex);
-        }
+        function showNext() { showImage((currentIndex + 1) % imgSrcs.length); }
+        function showPrev() { showImage((currentIndex - 1 + imgSrcs.length) % imgSrcs.length); }
 
         galleryImages.forEach((img, index) => {
             img.addEventListener('click', () => openLightbox(index));
         });
 
-        document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
-        document.getElementById('lightbox-next').addEventListener('click', showNext);
-        document.getElementById('lightbox-prev').addEventListener('click', showPrev);
+        lightbox.addEventListener('click', closeLightbox); // Click background to close
+        lightboxImg.addEventListener('click', (e) => e.stopPropagation()); // Click image does not close
 
         document.addEventListener('keydown', e => {
             if (lightbox.classList.contains('active')) {
@@ -535,17 +506,12 @@
         });
 
         let touchStartX = 0;
-        let touchEndX = 0;
         lightbox.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
         lightbox.addEventListener('touchend', e => {
-            touchEndX = e.changedTouches[0].screenX;
-            handleSwipe();
-        });
-
-        function handleSwipe() {
+            let touchEndX = e.changedTouches[0].screenX;
             if (touchEndX < touchStartX - 50) showNext();
             if (touchEndX > touchStartX + 50) showPrev();
-        }
+        });
         
         animate();
     </script>
