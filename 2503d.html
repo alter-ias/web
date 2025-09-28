@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DREAM250 - Conceptual Visual Presentation</title>
+    <title>DREAM250 - Conceptual Visual Presentation (with Controls)</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --base-blue: #3a7bd5;
+            --dark-blue: #0a192f;
             --accent-red: #b22234;
             --text-light: #f0f0f0;
             --border-color: rgba(255, 255, 255, 0.2);
@@ -17,7 +17,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Merriweather', serif;
-            background-color: var(--base-blue); /* Fallback color */
+            background-color: var(--dark-blue); /* Fallback color */
             color: var(--text-light);
             line-height: 1.7;
             overflow-x: hidden;
@@ -28,7 +28,6 @@
             letter-spacing: 1.5px;
         }
         
-        /* --- STYLES FOR SHADER BACKGROUND --- */
         #iridescent-bg {
             position: fixed;
             top: 0;
@@ -37,8 +36,6 @@
             height: 100%;
             z-index: -1;
         }
-
-        /* --- STYLES FOR THE 3D HERO --- */
         .hero {
             height: 100vh;
             position: relative;
@@ -77,17 +74,14 @@
             opacity: 0;
             animation: fadeIn 2s ease 1s forwards;
         }
-
         @keyframes fadeIn { to { opacity: 1; } }
         
-        /* --- STYLES FOR THE REST OF THE PAGE --- */
         main {
             position: relative;
             z-index: 5;
-            background: transparent; /* Make main transparent to see the shader */
+            background: transparent;
         }
         .project-section { max-width: 1200px; margin: 0 auto; padding: 80px 40px; }
-        /* Remove border from all but the last section */
         .project-section:not(:last-of-type) { border-bottom: 1px solid var(--border-color); }
         .project-section:first-of-type { padding-top: 20px; }
         .section-header h3 { font-size: 3rem; color: #fff; margin-bottom: 10px; }
@@ -95,7 +89,6 @@
         .section-description { font-size: 1.1rem; max-width: 800px; margin: 40px 0; color: rgba(240, 240, 240, 0.9); }
         .asset-gallery { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
         
-        /* UPDATED: Frosted Glass effect for assets */
         .asset { 
             position: relative; 
             background: rgba(255, 255, 255, 0.05);
@@ -114,11 +107,9 @@
         .asset-caption p { font-size: 0.9rem; color: rgba(240, 240, 240, 0.8); }
         .footer { text-align: center; padding: 40px 20px; font-size: 0.9rem; color: rgba(255,255,255,0.6); }
 
-        /* --- STYLES FOR SCROLL ANIMATION --- */
         .fade-in-section { opacity: 0; transform: translateY(30px); transition: opacity 0.8s ease-out, transform 0.8s ease-out; }
         .fade-in-section.is-visible { opacity: 1; transform: translateY(0); }
 
-        /* --- STYLES FOR SOUND TOGGLE BUTTON --- */
         #sound-toggle {
             position: absolute;
             top: 15px;
@@ -136,18 +127,9 @@
             transition: background-color 0.2s ease;
         }
         #sound-toggle:hover { background: rgba(0, 0, 0, 0.7); }
-        #sound-toggle svg {
-            width: 18px;
-            height: 18px;
-            stroke: rgba(255, 255, 255, 0.8);
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            fill: none;
-        }
+        #sound-toggle svg { width: 18px; height: 18px; stroke: rgba(255, 255, 255, 0.8); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
         #sound-toggle .sound-on { display: none; }
 
-        /* --- RESPONSIVE STYLES --- */
         @media (max-width: 768px) {
              .hero-intro { font-size: 1rem; margin-top: 60vh; max-width: 90%; }
             .project-section { padding: 60px 20px; }
@@ -173,6 +155,7 @@
     </header>
 
     <main>
+        <!-- The content of the main tag remains exactly the same -->
         <!-- SECCIÓN 1: CONCEPTUAL VISUAL PRESENTATION -->
         <section class="project-section fade-in-section" id="conceptual-presentation">
             <div class="section-header">
@@ -299,36 +282,42 @@
     </footer>
 
     <!-- SCRIPT SECTION -->
+    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     <script type="importmap">
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.150.1/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/"
+                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/",
+                "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm"
             }
         }
     </script>
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { GUI } from 'lil-gui';
 
-        // --- UNIFIED SCENE SETUP (No more separate BG scene) ---
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({
-            canvas: document.querySelector('#bg-3d'),
-            alpha: true 
-        });
-        renderer.setPixelRatio(window.devicePixelRatio);
-        renderer.setSize(window.innerWidth, window.innerHeight);
-
-        // --- NEW UNIFORM IRIDESCENT SHADER BACKGROUND ---
+        // --- BACKGROUND SHADER SETUP ---
+        const bgParameters = {
+            colorA: '#007cf0', // Cyan/Blue
+            colorB: '#7b4397', // Indigo/Purple
+            grainIntensity: 0.05
+        };
+        const gui = new GUI();
+        gui.addColor(bgParameters, 'colorA').name('Color Superior');
+        gui.addColor(bgParameters, 'colorB').name('Color Inferior');
+        gui.add(bgParameters, 'grainIntensity', 0, 0.2).name('Intensidad Grano');
+        
+        const bgScene = new THREE.Scene();
+        const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        const bgRenderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#iridescent-bg') });
+        bgRenderer.setSize(window.innerWidth, window.innerHeight);
         const fragmentShader = `
             uniform vec2 u_resolution;
             uniform float u_time;
-            
-            vec3 color_top_left = vec3(0.22, 0.48, 0.82);   // Cyan/Blue
-            vec3 color_bottom_right = vec3(0.5, 0.2, 0.8); // Indigo/Purple
-            vec3 color_accent = vec3(0.7, 0.13, 0.2);       // Accent Red
+            uniform vec3 u_colorA;
+            uniform vec3 u_colorB;
+            uniform float u_grainIntensity;
             
             float random(vec2 st) {
                 return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -336,38 +325,42 @@
             
             void main() {
                 vec2 uv = gl_FragCoord.xy / u_resolution.xy;
-                float time = u_time * 0.2;
+                float time = u_time * 0.1;
                 
-                // Base diagonal gradient
-                vec3 base_gradient = mix(color_top_left, color_bottom_right, (uv.x + uv.y) * 0.5 + sin(time) * 0.1);
-                
-                // Slow moving waves for the red accent
-                float wave = sin(uv.y * 3.0 + time) * 0.5 + 0.5;
-                vec3 color = mix(base_gradient, color_accent, wave * 0.1); // Low intensity for red
+                // Animated diagonal gradient
+                vec3 base_gradient = mix(u_colorA, u_colorB, (uv.x + uv.y) * 0.5 + sin(time) * 0.1);
                 
                 // Add fine grain
-                float grain = (random(uv * u_time) - 0.5) * 0.1;
+                float grain = (random(uv * (u_time + 1.0)) - 0.5) * u_grainIntensity;
                 
-                gl_FragColor = vec4(color + grain, 1.0);
+                gl_FragColor = vec4(base_gradient + grain, 1.0);
             }
         `;
         const uniforms = {
             u_time: { value: 0.0 },
-            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+            u_colorA: { value: new THREE.Color(bgParameters.colorA) },
+            u_colorB: { value: new THREE.Color(bgParameters.colorB) },
+            u_grainIntensity: { value: bgParameters.grainIntensity }
         };
         const bgMaterial = new THREE.ShaderMaterial({ fragmentShader, uniforms });
         const bgPlane = new THREE.PlaneGeometry(2, 2);
         const background = new THREE.Mesh(bgPlane, bgMaterial);
-        background.position.z = -20;
-        scene.add(background);
+        bgScene.add(background);
 
-        // --- 3D MODEL SCENE ---
+
+        // --- MAIN 3D MODEL SCENE ---
         const params = {
             desktopModelScale: 2.9, mobileModelScale: 2.2,
             desktopModelPositionY: -1.0, mobileModelPositionY: -0.8,
             mouseIntensity: 0.484, smoothingFactor: 0.05,
             initialCameraZ: 5.51, scrollZoomEnd: 13.699
         };
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg-3d'), alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
@@ -408,6 +401,7 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            bgRenderer.setSize(window.innerWidth, window.innerHeight);
             uniforms.u_resolution.value.x = window.innerWidth;
             uniforms.u_resolution.value.y = window.innerHeight;
             updateModelTransform();
@@ -415,7 +409,13 @@
         const clock = new THREE.Clock();
         function animate() {
             requestAnimationFrame(animate);
+            // Update uniforms from GUI
             uniforms.u_time.value = clock.getElapsedTime();
+            uniforms.u_colorA.value.set(bgParameters.colorA);
+            uniforms.u_colorB.value.set(bgParameters.colorB);
+            uniforms.u_grainIntensity.value = bgParameters.grainIntensity;
+
+            bgRenderer.render(bgScene, bgCamera);
             if (model) {
                 const targetRotationX = mouseY * params.mouseIntensity;
                 const targetRotationY = mouseX * params.mouseIntensity;
