@@ -17,7 +17,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Merriweather', serif;
-            background-color: var(--dark-blue);
+            background-color: var(--dark-blue); /* Fallback color */
             color: var(--text-light);
             line-height: 1.7;
         }
@@ -27,6 +27,16 @@
             letter-spacing: 1.5px;
         }
         
+        /* --- NEW: STYLES FOR SHADER BACKGROUND --- */
+        #iridescent-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Place it behind all content */
+        }
+
         /* --- STYLES FOR THE 3D HERO --- */
         .hero {
             height: 100vh;
@@ -90,13 +100,13 @@
         .fade-in-section { opacity: 0; transform: translateY(30px); transition: opacity 0.8s ease-out, transform 0.8s ease-out; }
         .fade-in-section.is-visible { opacity: 1; transform: translateY(0); }
 
-        /* --- NEW: STYLES FOR SOUND TOGGLE BUTTON --- */
+        /* --- UPDATED: STYLES FOR SOUND TOGGLE BUTTON --- */
         #sound-toggle {
             position: absolute;
             bottom: 15px;
             right: 15px;
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             background: rgba(0, 0, 0, 0.5);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 50%;
@@ -105,13 +115,21 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            transition: background-color 0.2s ease;
+        }
+        #sound-toggle:hover {
+            background: rgba(0, 0, 0, 0.7);
         }
         #sound-toggle svg {
-            width: 20px;
-            height: 20px;
-            fill: rgba(255, 255, 255, 0.8);
+            width: 18px;
+            height: 18px;
+            stroke: rgba(255, 255, 255, 0.8);
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
         }
-        #sound-toggle .sound-on { display: none; } /* Hide by default */
+        #sound-toggle .sound-on { display: none; }
 
         /* --- RESPONSIVE STYLES --- */
         @media (max-width: 768px) {
@@ -125,6 +143,7 @@
     </style>
 </head>
 <body>
+    <canvas id="iridescent-bg"></canvas>
 
     <header class="hero">
         <canvas id="bg-3d"></canvas>
@@ -146,8 +165,8 @@
             <div class="main-video-asset asset">
                  <video autoplay loop muted playsinline src="assets/videos/2502.webm"></video>
                  <div id="sound-toggle">
-                    <svg class="sound-off" viewBox="0 0 24 24"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
-                    <svg class="sound-on" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                    <svg class="sound-off" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                    <svg class="sound-on" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                  </div>
                 <div class="asset-caption">
                     <h4>Motion Test</h4>
@@ -156,6 +175,7 @@
             </div>
         </section>
 
+        <!-- The rest of the content remains the same... -->
         <!-- SECCIÓN 2: BECOMING AMERICAN -->
         <section class="project-section fade-in-section" id="becoming-american">
             <div class="section-header">
@@ -274,19 +294,64 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // --- FINAL PARAMETERS ---
+        // --- BACKGROUND SHADER ---
+        const bgScene = new THREE.Scene();
+        const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        const bgRenderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#iridescent-bg') });
+        bgRenderer.setSize(window.innerWidth, window.innerHeight);
+
+        const fragmentShader = `
+            uniform vec2 u_resolution;
+            uniform float u_time;
+            
+            vec3 colorA = vec3(0.039, 0.10, 0.184); // Dark Blue
+            vec3 colorB = vec3(0.698, 0.133, 0.204); // Accent Red
+            vec3 colorC = vec3(0.9, 0.9, 0.95); // White/Silver
+
+            float random (in vec2 st) {
+                return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+            }
+
+            float noise (in vec2 st) {
+                vec2 i = floor(st);
+                vec2 f = fract(st);
+                float a = random(i);
+                float b = random(i + vec2(1.0, 0.0));
+                float c = random(i + vec2(0.0, 1.0));
+                float d = random(i + vec2(1.0, 1.0));
+                vec2 u = f*f*(3.0-2.0*f);
+                return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+            }
+
+            void main() {
+                vec2 st = gl_FragCoord.xy/u_resolution.xy;
+                st.x *= u_resolution.x/u_resolution.y;
+                
+                float n = noise(st * 2.0 + u_time * 0.1);
+                
+                vec3 finalColor = mix(colorA, colorB, smoothstep(0.3, 0.6, n));
+                finalColor = mix(finalColor, colorC, smoothstep(0.7, 0.75, n));
+
+                gl_FragColor = vec4(finalColor, 1.0);
+            }
+        `;
+        const uniforms = {
+            u_time: { value: 0.0 },
+            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+        };
+        const bgMaterial = new THREE.ShaderMaterial({ fragmentShader, uniforms });
+        const bgPlane = new THREE.PlaneGeometry(2, 2);
+        const bgMesh = new THREE.Mesh(bgPlane, bgMaterial);
+        bgScene.add(bgMesh);
+
+        // --- MAIN 3D MODEL SCENE ---
         const params = {
-            desktopModelScale: 2.9,
-            mobileModelScale: 2.2,
-            desktopModelPositionY: -1.0,
-            mobileModelPositionY: -0.8,
-            mouseIntensity: 0.484,
-            smoothingFactor: 0.05,
-            initialCameraZ: 5.51,
-            scrollZoomEnd: 13.699
+            desktopModelScale: 2.9, mobileModelScale: 2.2,
+            desktopModelPositionY: -1.0, mobileModelPositionY: -0.8,
+            mouseIntensity: 0.484, smoothingFactor: 0.05,
+            initialCameraZ: 5.51, scrollZoomEnd: 13.699
         };
 
-        // --- SCENE SETUP ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({
@@ -296,43 +361,27 @@
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
 
-        // --- LIGHTING ---
         const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
         directionalLight.position.set(5, 10, 7.5);
         scene.add(directionalLight);
 
-        // --- MODEL LOADING ---
         const loader = new GLTFLoader();
         let model;
-        loader.load(
-            'assets/3d/250base.glb',
-            function (gltf) {
-                model = gltf.scene;
-                updateModelTransform();
-                scene.add(model);
-            },
-            undefined,
-            function (error) {
-                console.error('An error happened while loading the model:', error);
-            }
-        );
+        loader.load('assets/3d/250base.glb', (gltf) => {
+            model = gltf.scene;
+            updateModelTransform();
+            scene.add(model);
+        }, undefined, (error) => console.error('An error happened', error));
 
-        // --- EVENT LISTENERS & HANDLERS ---
         camera.position.z = params.initialCameraZ;
-        let mouseX = 0;
-        let mouseY = 0;
+        let mouseX = 0, mouseY = 0;
         
         function handlePointerMove(event) {
             let clientX, clientY;
-            if (event.touches) {
-                clientX = event.touches[0].clientX;
-                clientY = event.touches[0].clientY;
-            } else {
-                clientX = event.clientX;
-                clientY = event.clientY;
-            }
+            if (event.touches) { clientX = event.touches[0].clientX; clientY = event.touches[0].clientY; }
+            else { clientX = event.clientX; clientY = event.clientY; }
             mouseX = (clientX / window.innerWidth) * 2 - 1;
             mouseY = -(clientY / window.innerHeight) * 2 + 1;
         }
@@ -342,9 +391,9 @@
         window.addEventListener('touchmove', handlePointerMove, { passive: true });
 
         window.addEventListener('scroll', () => {
-            const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
+            const h = document.documentElement;
+            const scrollableHeight = h.scrollHeight - h.clientHeight;
             if (scrollableHeight <= 0) return;
-            
             const scrollPercent = window.scrollY / scrollableHeight;
             const zoomDistance = params.initialCameraZ - params.scrollZoomEnd;
             camera.position.z = params.initialCameraZ - (scrollPercent * zoomDistance);
@@ -355,7 +404,6 @@
             const isMobile = window.innerWidth < 768;
             const scale = isMobile ? params.mobileModelScale : params.desktopModelScale;
             const positionY = isMobile ? params.mobileModelPositionY : params.desktopModelPositionY;
-            
             model.scale.set(scale, scale, scale);
             model.position.y = positionY;
         }
@@ -364,25 +412,29 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            bgRenderer.setSize(window.innerWidth, window.innerHeight);
+            uniforms.u_resolution.value.x = window.innerWidth;
+            uniforms.u_resolution.value.y = window.innerHeight;
+
             updateModelTransform();
         });
 
-        // --- RENDER LOOP ---
+        const clock = new THREE.Clock();
         function animate() {
             requestAnimationFrame(animate);
+            uniforms.u_time.value = clock.getElapsedTime();
+            bgRenderer.render(bgScene, bgCamera);
             
             if (model) {
                 const targetRotationX = mouseY * params.mouseIntensity;
                 const targetRotationY = mouseX * params.mouseIntensity;
-
                 model.rotation.x += (targetRotationX - model.rotation.x) * params.smoothingFactor;
                 model.rotation.y += (targetRotationY - model.rotation.y) * params.smoothingFactor;
             }
-
             renderer.render(scene, camera);
         }
         
-        // --- SCROLL FADE-IN ANIMATION ---
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
@@ -390,16 +442,9 @@
                     observer.unobserve(entry.target);
                 }
             });
-        }, {
-            threshold: 0.1
-        });
-
-        const sectionsToAnimate = document.querySelectorAll('.fade-in-section');
-        sectionsToAnimate.forEach(section => {
-            observer.observe(section);
-        });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.fade-in-section').forEach(section => observer.observe(section));
         
-        // --- VIDEO SOUND TOGGLE LOGIC ---
         const video = document.querySelector('.main-video-asset video');
         const soundButton = document.querySelector('#sound-toggle');
         const soundOnIcon = soundButton.querySelector('.sound-on');
@@ -413,7 +458,7 @@
             } else {
                 soundOnIcon.style.display = 'block';
                 soundOffIcon.style.display = 'none';
-                video.play(); // Ensure video plays when unmuted
+                video.play();
             }
         });
         
