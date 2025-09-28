@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
+    <title>DREAM250 - Conceptual Visual Presentation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
@@ -53,16 +53,8 @@
             text-shadow: 2px 2px 8px rgba(0,0,0,0.7);
             pointer-events: none;
         }
-        .hero-content h2 {
-            font-size: 1.5rem;
-            font-family: 'Merriweather', serif;
-            font-weight: normal;
-            text-transform: none;
-            color: rgba(255,255,255,0.8);
-            margin-top: 10px;
-        }
         
-        /* --- STYLES FOR THE REST OF THE PAGE (UNCHANGED) --- */
+        /* --- STYLES FOR THE REST OF THE PAGE --- */
         .project-section { max-width: 1200px; margin: 0 auto; padding: 80px 40px; border-bottom: 1px solid var(--border-color); }
         .project-section:last-of-type { border-bottom: none; }
         .section-header h3 { font-size: 3rem; color: #fff; margin-bottom: 10px; }
@@ -80,7 +72,6 @@
 
         /* --- RESPONSIVE STYLES --- */
         @media (max-width: 768px) {
-            .hero-content h2 { font-size: 1.2rem; }
             .project-section { padding: 60px 20px; }
             .section-header h3 { font-size: 2.2rem; }
             .main-video-asset .video-placeholder { height: 300px; font-size: 4rem; }
@@ -93,7 +84,7 @@
     <header class="hero">
         <canvas id="bg-3d"></canvas>
         <div class="hero-content">
-            <h2>Conceptual Visual Presentation</h2>
+            <!-- Title removed as requested -->
         </div>
     </header>
 
@@ -285,7 +276,8 @@
 
         // --- FINAL PARAMETERS ---
         const params = {
-            modelScale: 3.648,
+            desktopModelScale: 3.648,
+            mobileModelScale: 2.2, // Custom scale for screens smaller than 768px
             modelPositionY: -2.62,
             mouseIntensity: 0.484,
             smoothingFactor: 0.05,
@@ -317,8 +309,8 @@
             'assets/3d/250base.glb',
             function (gltf) {
                 model = gltf.scene;
-                model.scale.set(params.modelScale, params.modelScale, params.modelScale);
                 model.position.y = params.modelPositionY;
+                updateModelScale(); // Set initial scale based on screen size
                 scene.add(model);
             },
             undefined,
@@ -332,10 +324,22 @@
         let mouseX = 0;
         let mouseY = 0;
         
-        window.addEventListener('mousemove', (event) => {
-            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
-        });
+        function handlePointerMove(event) {
+            let clientX, clientY;
+            if (event.touches) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+            mouseX = (clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(clientY / window.innerHeight) * 2 + 1;
+        }
+
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('touchstart', handlePointerMove, { passive: true });
+        window.addEventListener('touchmove', handlePointerMove, { passive: true });
 
         window.addEventListener('scroll', () => {
             const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
@@ -346,10 +350,17 @@
             camera.position.z = params.initialCameraZ - (scrollPercent * zoomDistance);
         });
 
+        function updateModelScale() {
+            if (!model) return;
+            const scale = window.innerWidth < 768 ? params.mobileModelScale : params.desktopModelScale;
+            model.scale.set(scale, scale, scale);
+        }
+
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            updateModelScale(); // Update scale on resize
         });
 
         // --- RENDER LOOP ---
