@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DREAM250 - Conceptual Visual Presentation (with Controls)</title>
+    <title>DREAM250 - Conceptual Visual Presentation</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
@@ -282,61 +282,50 @@
     </footer>
 
     <!-- SCRIPT SECTION -->
-    <script async src="https://unpkg.com/es-module-shims@1.6.3/dist/es-module-shims.js"></script>
     <script type="importmap">
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.150.1/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/",
-                "lil-gui": "https://cdn.jsdelivr.net/npm/lil-gui@0.19/+esm"
+                "three/addons/": "https://unpkg.com/three@0.150.1/examples/jsm/"
             }
         }
     </script>
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        import { GUI } from 'lil-gui';
-
-        // --- GUI and PARAMETERS SETUP ---
-        const gui = new GUI();
-        const lightingParams = {
-            ambientIntensity: 0.5,
-            directionalIntensity: 1.0,
-            emissiveColor: '#000000',
-            emissiveIntensity: 0
-        };
-        const lightingFolder = gui.addFolder('Modelo 3D (Iluminación)');
-        lightingFolder.add(lightingParams, 'ambientIntensity', 0, 2).name('Luz Ambiental');
-        lightingFolder.add(lightingParams, 'directionalIntensity', 0, 3).name('Luz Direccional');
-        lightingFolder.addColor(lightingParams, 'emissiveColor').name('Color Emisivo');
-        lightingFolder.add(lightingParams, 'emissiveIntensity', 0, 2).name('Intensidad Emisiva');
 
         // --- BACKGROUND SHADER SETUP ---
-        // (The background shader and its GUI are unchanged from the previous version)
-        const bgParameters = { colorA: '#007cf0', colorB: '#7b4397', grainIntensity: 0.05 };
-        const bgFolder = gui.addFolder('Fondo (Tornasol)');
-        bgFolder.addColor(bgParameters, 'colorA').name('Color Superior');
-        bgFolder.addColor(bgParameters, 'colorB').name('Color Inferior');
-        bgFolder.add(bgParameters, 'grainIntensity', 0, 0.2).name('Intensidad Grano');
-        
         const bgScene = new THREE.Scene();
         const bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
         const bgRenderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#iridescent-bg') });
         bgRenderer.setSize(window.innerWidth, window.innerHeight);
         const fragmentShader = `
-            uniform vec2 u_resolution; uniform float u_time;
-            uniform vec3 u_colorA; uniform vec3 u_colorB; uniform float u_grainIntensity;
-            float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123); }
+            uniform vec2 u_resolution;
+            uniform float u_time;
+            uniform vec3 u_colorA;
+            uniform vec3 u_colorB;
+            uniform float u_grainIntensity;
+            
+            float random(vec2 st) {
+                return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+            }
+            
             void main() {
-                vec2 uv = gl_FragCoord.xy / u_resolution.xy; float time = u_time * 0.1;
+                vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+                float time = u_time * 0.1;
+                
                 vec3 base_gradient = mix(u_colorA, u_colorB, (uv.x + uv.y) * 0.5 + sin(time) * 0.1);
                 float grain = (random(uv * (u_time + 1.0)) - 0.5) * u_grainIntensity;
+                
                 gl_FragColor = vec4(base_gradient + grain, 1.0);
-            }`;
+            }
+        `;
         const uniforms = {
-            u_time: { value: 0.0 }, u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
-            u_colorA: { value: new THREE.Color(bgParameters.colorA) }, u_colorB: { value: new THREE.Color(bgParameters.colorB) },
-            u_grainIntensity: { value: bgParameters.grainIntensity }
+            u_time: { value: 0.0 },
+            u_resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+            u_colorA: { value: new THREE.Color('#000055') },
+            u_colorB: { value: new THREE.Color('#800000') },
+            u_grainIntensity: { value: 0.0304 }
         };
         const bgMaterial = new THREE.ShaderMaterial({ fragmentShader, uniforms });
         const bgPlane = new THREE.PlaneGeometry(2, 2);
@@ -348,25 +337,39 @@
             desktopModelScale: 2.9, mobileModelScale: 2.2,
             desktopModelPositionY: -1.0, mobileModelPositionY: -0.8,
             mouseIntensity: 0.484, smoothingFactor: 0.05,
-            initialCameraZ: 5.51, scrollZoomEnd: 13.699
+            initialCameraZ: 5.51, scrollZoomEnd: 13.699,
+            ambientIntensity: 0.672,
+            directionalIntensity: 0.861,
+            emissiveColor: '#ffffff',
+            emissiveIntensity: 2.0
         };
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg-3d'), alpha: true });
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.setSize(window.innerWidth, window.innerHeight);
-        const ambientLight = new THREE.AmbientLight(0xffffff, lightingParams.ambientIntensity);
+        const ambientLight = new THREE.AmbientLight(0xffffff, params.ambientIntensity);
         scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, lightingParams.directionalIntensity);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, params.directionalIntensity);
         directionalLight.position.set(5, 10, 7.5);
         scene.add(directionalLight);
         const loader = new GLTFLoader();
         let model;
-        loader.load('assets/3d/250base.glb', (gltf) => { model = gltf.scene; updateModelTransform(); scene.add(model); }, undefined, (e) => console.error(e));
+        loader.load('assets/3d/250base.glb', (gltf) => {
+            model = gltf.scene;
+            model.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    child.material.emissive.set(params.emissiveColor);
+                    child.material.emissiveIntensity = params.emissiveIntensity;
+                }
+            });
+            updateModelTransform();
+            scene.add(model);
+        }, undefined, (e) => console.error(e));
+        
         camera.position.z = params.initialCameraZ;
         let mouseX = 0, mouseY = 0;
         
-        // (Event Listeners and update functions remain the same)
         function handlePointerMove(event) {
             let clientX, clientY;
             if (event.touches) { clientX = event.touches[0].clientX; clientY = event.touches[0].clientY; }
@@ -401,28 +404,12 @@
             uniforms.u_resolution.value.y = window.innerHeight;
             updateModelTransform();
         });
-        
         const clock = new THREE.Clock();
         function animate() {
             requestAnimationFrame(animate);
-            
-            // Update Background from GUI
             uniforms.u_time.value = clock.getElapsedTime();
-            uniforms.u_colorA.value.set(bgParameters.colorA);
-            uniforms.u_colorB.value.set(bgParameters.colorB);
-            uniforms.u_grainIntensity.value = bgParameters.grainIntensity;
             bgRenderer.render(bgScene, bgCamera);
-
-            // Update 3D Model from GUI
-            ambientLight.intensity = lightingParams.ambientIntensity;
-            directionalLight.intensity = lightingParams.directionalIntensity;
             if (model) {
-                model.traverse((child) => {
-                    if (child.isMesh && child.material) {
-                        child.material.emissive.set(lightingParams.emissiveColor);
-                        child.material.emissiveIntensity = lightingParams.emissiveIntensity;
-                    }
-                });
                 const targetRotationX = mouseY * params.mouseIntensity;
                 const targetRotationY = mouseX * params.mouseIntensity;
                 model.rotation.x += (targetRotationX - model.rotation.x) * params.smoothingFactor;
@@ -431,7 +418,6 @@
             renderer.render(scene, camera);
         }
         
-        // (Observer and video logic remains the same)
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('is-visible'); observer.unobserve(entry.target); } });
         }, { threshold: 0.1 });
@@ -447,7 +433,6 @@
             if (video.muted) { soundOnIcon.style.display = 'none'; soundOffIcon.style.display = 'block'; }
             else { soundOnIcon.style.display = 'block'; soundOffIcon.style.display = 'none'; video.play(); }
         });
-
         video.addEventListener('click', (event) => {
             event.stopPropagation();
             if (!document.fullscreenElement) {
