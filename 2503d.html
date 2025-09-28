@@ -271,15 +271,18 @@
     </footer>
 
     <!-- THREE.JS SCRIPT -->
+       <!-- THREE.JS SCRIPT -->
     <script type="module">
         import * as THREE from 'https://unpkg.com/three@0.127.0/build/three.module.js';
         import { GLTFLoader } from 'https://unpkg.com/three@0.127.0/examples/jsm/loaders/GLTFLoader.js';
 
         // --- PARÁMETROS PARA AJUSTAR ---
-        const modelScale = 12;          // Qué tan grande es el modelo (más grande = más grande)
-        const modelPositionY = -1.5;      // Posición vertical (números negativos lo bajan)
-        const mouseIntensity = 0.3;     // Qué tanto reacciona al mouse (más grande = más movimiento)
-        const smoothingFactor = 0.05;   // Qué tan suave es el movimiento (más pequeño = más suave)
+        const modelScale = 6;           // Qué tan grande es el modelo (antes 12, ahora 6)
+        const modelPositionY = -1.0;      // Posición vertical (ajustado para centrar mejor)
+        const mouseIntensity = 0.2;     // Qué tanto reacciona al mouse (reducido para más sutileza)
+        const smoothingFactor = 0.05;   // Qué tan suave es el movimiento
+        const initialCameraZ = 8;       // Distancia inicial de la cámara (aumentada para más espacio)
+        const scrollZoomEnd = 5;        // Qué tan cerca llega la cámara (aumentado para un zoom menos agresivo)
         // --------------------------------
 
         const scene = new THREE.Scene();
@@ -313,8 +316,6 @@
             }
         );
 
-        const initialCameraZ = 5;
-        const scrollZoomEnd = 2;
         camera.position.z = initialCameraZ;
 
         let targetRotationX = 0;
@@ -329,7 +330,10 @@
         window.addEventListener('mousemove', onMouseMove);
 
         function updateCameraOnScroll() {
-            const scrollPercent = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight);
+            const scrollableHeight = document.documentElement.scrollHeight - window.innerHeight;
+            if (scrollableHeight <= 0) return; // Evita división por cero si no hay scroll
+            
+            const scrollPercent = window.scrollY / scrollableHeight;
             const zoomDistance = initialCameraZ - scrollZoomEnd;
             if (camera) {
                 camera.position.z = initialCameraZ - (scrollPercent * zoomDistance);
@@ -347,11 +351,9 @@
             requestAnimationFrame(animate);
             
             if (model) {
-                // Calculate target rotation based on mouse position
                 targetRotationX = mouseY * mouseIntensity;
                 targetRotationY = mouseX * mouseIntensity;
 
-                // Smoothly interpolate the model's rotation towards the target
                 model.rotation.x += (targetRotationX - model.rotation.x) * smoothingFactor;
                 model.rotation.y += (targetRotationY - model.rotation.y) * smoothingFactor;
             }
@@ -360,6 +362,5 @@
         }
         animate();
     </script>
-
 </body>
 </html>
