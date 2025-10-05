@@ -20,14 +20,15 @@
         .hero-description { position: absolute; bottom: 5%; left: 50%; transform: translateX(-50%); width: 100%; max-width: 700px; padding: 2rem; text-align: center; pointer-events: none; z-index: 2; }
         .scroll-container { position: relative; z-index: 3; }
         .scroll-spacer { height: 100vh; }
-        .content-block { padding: 4rem 2rem; max-width: 1200px; margin: 0 auto; background-color: var(--color-fondo); min-height: 100vh; }
+        .content-block { padding: 4rem 2rem; max-width: 1400px; /* Aumentamos el ancho máximo */ margin: 0 auto; background-color: var(--color-fondo); min-height: 100vh; }
 
-        .interactive-project-block { display: flex; gap: 2rem; align-items: flex-start; }
-        .project-col-model { flex: 0 0 25%; }
-        .project-col-text { flex: 0 0 25%; }
-        .project-col-visuals { flex: 1; }
+        /* --- LAYOUT DE 3 COLUMNAS CORREGIDO --- */
+        .interactive-project-block { display: flex; gap: 2.5rem; align-items: flex-start; }
+        .project-col-model { flex: 0 0 30%; }  /* Columna del modelo más ancha */
+        .project-col-text { flex: 0 0 20%; }   /* Columna de texto más estrecha */
+        .project-col-visuals { flex: 1; }      /* El resto para los visuales */
 
-        #ramona-canvas-container { width: 100%; height: 40vh; cursor: move; margin-bottom: 2rem; }
+        #ramona-canvas-container { width: 100%; height: 50vh; cursor: move; margin-bottom: 2rem; }
         
         #playlist-controls audio { width: 100%; margin-top: 1rem; }
         .track-list { list-style: none; padding: 0; }
@@ -44,6 +45,7 @@
         
         @media (max-width: 900px) {
             .interactive-project-block { flex-direction: column; }
+            .project-col-visuals, .project-col-model, .project-col-text { flex: 0 0 100%; } /* Ocupan todo el ancho */
             .project-col-visuals { order: 1; } .project-col-model { order: 2; } .project-col-text { order: 3; }
             #ramona-canvas-container { height: 50vh; }
         }
@@ -62,7 +64,8 @@
             <h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1>
         </header>
         <section class="hero-description">
-            <p>Este es un mensaje en una botella, arrojado al vasto océano digital...</p>
+            <!-- TEXTO COMPLETO RESTAURADO -->
+            <p>Este es un mensaje en una botella, arrojado al vasto océano digital. Un experimento que mezcla escritos, música, dibujos y animaciones. Todo está permitido aquí, conectado por hilos invisibles que forman una única obra de arte digital. Un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p>
         </section>
     </div>
 
@@ -99,10 +102,9 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // ... El código de la ESCENA 1 (HERO) permanece exactamente igual ...
+        // ... El código de la ESCENA 1 (HERO) permanece igual ...
         const heroParams = {
-            desktopModelScale: 2.9, desktopModelPositionY: 0.2,
-            mobileModelScale: 2.0, mobileModelPositionY: 0.7,
+            desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7,
             initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088,
             cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5,
         };
@@ -125,16 +127,16 @@
             updateHeroModelTransform();
             heroScene.add(heroModel);
         });
-
+        
         // =================================================================
-        // ESCENA 2: PROYECTO INTERACTIVO (RAMONA)
+        // ESCENA 2: PROYECTO INTERACTIVO (RAMONA) - AJUSTES DE TAMAÑO
         // =================================================================
-        const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05 };
+        const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05, initialScale: 2.5, cameraDistance: 2.0 };
         const ramonaContainer = document.getElementById('ramona-canvas-container');
         const ramonaScene = new THREE.Scene();
         const ramonaCamera = new THREE.PerspectiveCamera(75, ramonaContainer.clientWidth / ramonaContainer.clientHeight, 0.1, 1000);
-        ramonaCamera.position.z = 2.5;
-        const ramonaRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        ramonaCamera.position.z = ramonaParams.cameraDistance;
+        const ramonaRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // alpha: true para fondo transparente
         ramonaRenderer.setPixelRatio(window.devicePixelRatio);
         ramonaRenderer.setSize(ramonaContainer.clientWidth, ramonaContainer.clientHeight);
         ramonaContainer.appendChild(ramonaRenderer.domElement);
@@ -145,12 +147,13 @@
         let ramonaModel;
         new GLTFLoader().load('./assets/3d/ramona.glb', (gltf) => {
             ramonaModel = gltf.scene;
+            ramonaModel.scale.setScalar(ramonaParams.initialScale); // Aumentamos la escala
             ramonaModel.position.sub(new THREE.Box3().setFromObject(ramonaModel).getCenter(new THREE.Vector3()));
             ramonaScene.add(ramonaModel);
         });
 
         // =================================================================
-        // LÓGICA DE DATOS Y PLAYLIST (ACTUALIZADA)
+        // LÓGICA DE DATOS Y PLAYLIST (CORREGIDA)
         // =================================================================
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
         const audioPlayer = document.getElementById('audio-player');
@@ -162,23 +165,34 @@
             try {
                 const response = await fetch(CSV_URL);
                 const csvText = await response.text();
-                // Parseamos el CSV, omitiendo la cabecera (slice(1))
-                const data = csvText.split('\r\n').slice(1).map(row => {
-                    // CUIDADO: Esta división simple puede fallar si el texto contiene comas.
-                    // Para este caso, asumimos que no las contiene o que se manejarán.
-                    const [titulo, audio, texto, video] = row.split(',');
-                    return {
-                        titulo: titulo ? titulo.trim().replace(/"/g, '') : "Sin título",
-                        audio: audio ? audio.trim() : "",
-                        text: texto ? texto.trim().replace(/"/g, '') : "",
-                        video: video ? video.trim() : ""
-                    };
+                const data = csvText.split('\n').slice(1).map(row => {
+                    const cleanRow = row.trim();
+                    // CORRECCIÓN: Parseo de CSV robusto para manejar comas dentro del texto
+                    const values = [];
+                    let current = '';
+                    let inQuotes = false;
+                    for (const char of cleanRow) {
+                        if (char === '"' && inQuotes) {
+                            inQuotes = false;
+                        } else if (char === '"') {
+                            inQuotes = true;
+                        } else if (char === ',' && !inQuotes) {
+                            values.push(current);
+                            current = '';
+                        } else {
+                            current += char;
+                        }
+                    }
+                    values.push(current);
+
+                    const [audio, text, video] = values;
+                    return { audio, text, video };
                 });
 
                 populatePlaylist(data);
             } catch (error) {
                 console.error("Error al cargar los datos del proyecto:", error);
-                textDisplay.innerHTML = `<p>No se pudo cargar el contenido del proyecto.</p>`;
+                textDisplay.innerHTML = `<p>No se pudo cargar el contenido.</p>`;
             }
         }
 
@@ -187,14 +201,14 @@
             data.forEach((track, index) => {
                 const li = document.createElement('li');
                 li.className = 'track-item';
-                li.textContent = track.titulo; // Usamos la columna 'titulo'
+                li.textContent = `Pista ${index + 1}`; // Título genérico y limpio
                 li.dataset.index = index;
                 trackList.appendChild(li);
             });
 
             trackList.addEventListener('click', (e) => {
                 if (e.target.classList.contains('track-item')) {
-                    const index = parseInt(e.target.dataset.index);
+                    const index = parseInt(e.target.dataset.index, 10);
                     updateContent(index, data);
                 }
             });
@@ -206,10 +220,11 @@
 
         function updateContent(index, data) {
             const track = data[index];
-            // Asignamos las URLs públicas directamente
-            audioPlayer.src = track.audio; 
-            visualDisplay.src = track.video;
-            textDisplay.innerHTML = `<p>${track.text}</p>`;
+            if (!track) return;
+            // ASIGNACIÓN CORRECTA DE DATOS
+            audioPlayer.src = track.audio; // Columna A
+            visualDisplay.src = track.video; // Columna C
+            textDisplay.innerHTML = `<p>${track.text}</p>`; // Columna B
 
             document.querySelectorAll('.track-item').forEach(item => item.classList.remove('active'));
             document.querySelector(`.track-item[data-index="${index}"]`).classList.add('active');
@@ -217,7 +232,7 @@
 
         initProject();
 
-        // ... El resto del código (LÓGICA GENERAL, ANIMACIÓN Y EVENTOS) permanece igual ...
+        // ... LÓGICA GENERAL DE ANIMACIÓN Y EVENTOS ...
         let mouseX = 0, mouseY = 0;
         function handlePointerMove(event) {
             mouseX = (event.clientX / window.innerWidth) * 2 - 1;
@@ -228,21 +243,18 @@
             if (!heroModel) return;
             const isMobile = window.innerWidth < 768;
             const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale;
-            heroModel.scale.set(scale, scale, scale);
+            heroModel.scale.setScalar(scale);
             heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY;
         }
         function animate() {
             requestAnimationFrame(animate);
             if (heroModel) {
-                const targetRotationY = mouseX * heroParams.mouseIntensity + heroParams.initialRotationY;
-                heroModel.rotation.y += (targetRotationY - heroModel.rotation.y) * heroParams.smoothingFactor;
+                heroModel.rotation.y += ((mouseX * heroParams.mouseIntensity + heroParams.initialRotationY) - heroModel.rotation.y) * heroParams.smoothingFactor;
             }
             heroRenderer.render(heroScene, heroCamera);
             if (ramonaModel) {
-                const targetRotationX = mouseY * ramonaParams.mouseIntensity;
-                const targetRotationY = mouseX * ramonaParams.mouseIntensity;
-                ramonaModel.rotation.x += (targetRotationX - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
-                ramonaModel.rotation.y += (targetRotationY - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
+                ramonaModel.rotation.x += ((mouseY * ramonaParams.mouseIntensity) - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
+                ramonaModel.rotation.y += ((mouseX * ramonaParams.mouseIntensity) - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
             }
             ramonaRenderer.render(ramonaScene, ramonaCamera);
         }
