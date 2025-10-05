@@ -9,7 +9,7 @@
         :root {
             --color-fondo: rgb(22, 24, 28); --color-texto: rgb(230, 230, 230);
             --color-acento: rgb(190, 225, 218);
-            --font-titulos: 'Lora', serif; --font-cuerpo: 'Work Sans', sans-serif;
+            --font-titulos: 'Lora', serif; --font-cuerpo: 'Work Sans', sans-serif; --font-mono: 'Roboto Mono', monospace;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: var(--font-cuerpo); background-color: var(--color-fondo); color: var(--color-texto); overflow-x: hidden; }
@@ -22,38 +22,19 @@
         .scroll-spacer { height: 100vh; }
         .content-block { padding: 4rem 2rem; max-width: 700px; margin: 0 auto; background-color: var(--color-fondo); min-height: 100vh; }
 
-        /* --- NUEVO CSS: Bloque de dos columnas para Ramona --- */
-        .dual-column-block {
-            display: flex;
-            align-items: center;
-            gap: 2rem;
-        }
-        .model-column, .text-column {
-            flex: 1; /* Ambas columnas ocupan el 50% */
-        }
-        .model-container {
-            width: 100%;
-            height: 60vh;
-            border-radius: 8px;
-            background-color: rgba(0,0,0,0.2);
-        }
-        .model-canvas-ramona {
-            width: 100%; height: 100%;
-            border-radius: 8px; cursor: grab;
-        }
+        .dual-column-block { display: flex; align-items: center; gap: 2rem; }
+        .model-column, .text-column { flex: 1; }
+        .model-container { width: 100%; height: 60vh; border-radius: 8px; background-color: rgba(0,0,0,0.2); }
+        .model-canvas-ramona { width: 100%; height: 100%; border-radius: 8px; cursor: grab; }
         
-        /* --- NUEVO CSS: Estilos para el Reproductor de Música --- */
         .music-player { margin-top: 1.5rem; }
         .music-player audio { width: 100%; }
-        /* Estilos personalizados para el reproductor en Chrome/Safari */
         audio::-webkit-media-controls-panel { background-color: rgba(255, 255, 255, 0.1); }
         audio::-webkit-media-controls-play-button { color: var(--color-acento); }
-        audio::-webkit-media-controls-current-time-display,
-        audio::-webkit-media-controls-time-remaining-display { color: var(--color-texto); }
-        audio::-webkit-media-controls-timeline { border-radius: 4px; background-color: rgba(0,0,0,0.3); }
-        audio::-webkit-media-controls-volume-slider { background-color: rgba(0,0,0,0.3); border-radius: 4px; }
         
         h1 { font-family: var(--font-titulos); font-size: 3rem; margin-bottom: 1rem; }
+        /* CORRECCIÓN: Regla de CSS para el subtítulo restaurada */
+        h1 span { font-family: var(--font-mono); font-size: 1rem; display: block; margin-top: 10px; color: var(--color-acento); }
         h3 { font-family: var(--font-titulos); font-size: 1.5rem; color: var(--color-acento); margin-bottom: 1rem; }
         p { line-height: 1.8; margin-bottom: 1.5rem; }
         
@@ -61,7 +42,6 @@
             h1 { font-size: 2.2rem; }
             .hero-header { top: 18%; }
             .hero-description { bottom: 2%; font-size: 0.9rem; max-width: 90%; }
-            /* Hacemos que el layout de Ramona sea vertical en móvil */
             .dual-column-block { flex-direction: column; }
             .model-container { height: 40vh; margin-bottom: 2rem; }
         }
@@ -72,7 +52,8 @@
     <div class="fixed-hero-container">
         <div id="canvas-container"></div>
         <header class="hero-header">
-            <h1>Que la ternura nos salve<span>Un jardín digital experimental</span></h1>
+            <!-- TÍTULO Y SUBTÍTULO CORREGIDOS -->
+            <h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1>
         </header>
         <section class="hero-description">
             <p>Este es un mensaje en una botella, arrojado al vasto océano digital. Un experimento que mezcla escritos, música, dibujos y animaciones. Todo está permitido aquí, conectado por hilos invisibles que forman una única obra de arte digital. Un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p>
@@ -82,15 +63,12 @@
     <main class="scroll-container">
         <div class="scroll-spacer"></div>
         <section class="content-block">
-            <!-- BLOQUE DE RAMONA -->
             <div class="dual-column-block">
-                <!-- Columna Izquierda: Modelo 3D -->
                 <div class="model-column">
                     <div class="model-container">
                         <canvas class="model-canvas-ramona"></canvas>
                     </div>
                 </div>
-                <!-- Columna Derecha: Texto y Reproductor -->
                 <div class="text-column">
                     <h3>Ramona, Tema I</h3>
                     <p>Aquí puedes escribir la historia detrás de la pieza, las emociones que la inspiraron, o cualquier texto que acompañe a la música y al arte visual.</p>
@@ -126,9 +104,13 @@
         const heroScene = new THREE.Scene();
         const heroCamera = new THREE.PerspectiveCamera(75, heroContainer.clientWidth / heroContainer.clientHeight, 0.1, 1000);
         heroCamera.position.z = heroParams.cameraDistance;
-        const heroRenderer = new THREE.WebGLRenderer({ canvas: heroContainer, antialias: true, alpha: true });
+
+        // CORRECCIÓN: Se crea el renderer y LUEGO se añade su canvas al contenedor
+        const heroRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         heroRenderer.setPixelRatio(window.devicePixelRatio);
         heroRenderer.setSize(heroContainer.clientWidth, heroContainer.clientHeight);
+        heroContainer.appendChild(heroRenderer.domElement);
+
         const heroAmbientLight = new THREE.AmbientLight(0xffffff, heroParams.ambientIntensity);
         heroScene.add(heroAmbientLight);
         const heroDirectionalLight = new THREE.DirectionalLight(0xffffff, heroParams.directionalIntensity);
@@ -165,7 +147,6 @@
         ramonaScene.add(ramonaDirectionalLight);
         new GLTFLoader().load('./assets/3d/ramona.glb', (gltf) => {
             const model = gltf.scene;
-            model.scale.set(1.0, 1.0, 1.0); // Ajusta la escala inicial de Ramona aquí
             const box = new THREE.Box3().setFromObject(model);
             model.position.sub(box.getCenter(new THREE.Vector3()));
             ramonaScene.add(model);
