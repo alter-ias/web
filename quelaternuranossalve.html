@@ -23,6 +23,9 @@
         p { line-height: 1.8; margin-bottom: 1.5rem; }
         a { color: var(--color-acento-links); text-decoration: none; border-bottom: 1px dashed var(--color-acento-links); transition: color 0.3s ease; }
         a:hover { color: var(--color-texto); }
+        
+        /* Estilos para el GUI para que no interfiera con el texto */
+        .lil-gui { z-index: 1000 !important; }
     </style>
 </head>
 <body>
@@ -43,7 +46,8 @@
         {
             "imports": {
                 "three": "https://unpkg.com/three@0.163.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/"
+                "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/",
+                "lil-gui": "https://unpkg.com/lil-gui@0.19.1/dist/lil-gui.esm.js"
             }
         }
     </script>
@@ -51,34 +55,18 @@
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { GUI } from 'lil-gui';
 
         // =================================================================
-        // TU PANEL DE CONTROL PRINCIPAL
+        // TU PANEL DE CONTROL - AHORA CONECTADO A LA GUI VISIBLE
         // =================================================================
         const params = {
-            // --- Posición en Escritorio ---
-            desktopModelPositionX: 0,      // Muévelo de izquierda a derecha
-            desktopModelPositionY: -1.2,   // Muévelo de arriba a abajo (valores más altos = más arriba)
-            desktopModelPositionZ: 0,      // Muévelo adelante y atrás
-
-            // --- Posición en Móvil ---
-            mobileModelPositionX: 0,
-            mobileModelPositionY: -1.5,
-            mobileModelPositionZ: 0,
-            
-            // --- Rotación Inicial (en radianes) ---
-            initialRotationX: 0,         // Inclínalo hacia adelante o atrás
-            initialRotationY: 0.5,       // Gíralo de izquierda a derecha (valores positivos giran a la izquierda)
-            initialRotationZ: 0,         // Inclínalo de lado a lado
-
-            // --- Escala y Otros ---
-            desktopModelScale: 3.5,
-            mobileModelScale: 2.8,
-            mouseIntensity: 0.3,
-            smoothingFactor: 0.05,
-            initialCameraZ: 5,
-            ambientIntensity: 1.5,
-            directionalIntensity: 3.0,
+            desktopModelPositionX: 0, desktopModelPositionY: -1.2, desktopModelPositionZ: 0,
+            mobileModelPositionX: 0, mobileModelPositionY: -1.5, mobileModelPositionZ: 0,
+            initialRotationX: 0, initialRotationY: 0.5, initialRotationZ: 0,
+            desktopModelScale: 3.5, mobileModelScale: 2.8,
+            mouseIntensity: 0.3, smoothingFactor: 0.05,
+            initialCameraZ: 5, ambientIntensity: 1.5, directionalIntensity: 3.0,
         };
         // =================================================================
 
@@ -107,21 +95,42 @@
                 const box = new THREE.Box3().setFromObject(model);
                 const center = box.getCenter(new THREE.Vector3());
                 model.position.sub(center);
-                
-                // Aplicamos la rotación inicial del panel de control
-                model.rotation.x = params.initialRotationX;
-                model.rotation.y = params.initialRotationY;
-                model.rotation.z = params.initialRotationZ;
-                
                 updateModelTransform();
                 scene.add(model);
             },
             undefined,
-            function (error) {
-                console.error('Un error ocurrió al cargar el modelo:', error);
-            }
+            function (error) { console.error('Un error ocurrió al cargar el modelo:', error); }
         );
         
+        // --- CREACIÓN DEL PANEL DE CONTROL VISIBLE (lil-gui) ---
+        const gui = new GUI();
+        gui.title("Panel de Control (Ocultar con 'H')");
+        
+        // Carpeta para Posición y Escala
+        const transformFolder = gui.addFolder('Posición y Escala').close();
+        transformFolder.add(params, 'desktopModelScale', 0.1, 10, 0.1).name('Escala (Escritorio)').onChange(updateModelTransform);
+        transformFolder.add(params, 'desktopModelPositionX', -10, 10, 0.1).name('Posición X (Escritorio)').onChange(updateModelTransform);
+        transformFolder.add(params, 'desktopModelPositionY', -10, 10, 0.1).name('Posición Y (Escritorio)').onChange(updateModelTransform);
+        transformFolder.add(params, 'desktopModelPositionZ', -10, 10, 0.1).name('Posición Z (Escritorio)').onChange(updateModelTransform);
+
+        // Carpeta para Rotación
+        const rotationFolder = gui.addFolder('Rotación Inicial').close();
+        rotationFolder.add(params, 'initialRotationX', -Math.PI, Math.PI, 0.01).name('Rotación X');
+        rotationFolder.add(params, 'initialRotationY', -Math.PI, Math.PI, 0.01).name('Rotación Y');
+        rotationFolder.add(params, 'initialRotationZ', -Math.PI, Math.PI, 0.01).name('Rotación Z');
+
+        // Carpeta para Interacción y Cámara
+        const interactionFolder = gui.addFolder('Interacción y Cámara').close();
+        interactionFolder.add(params, 'mouseIntensity', 0, 2, 0.01).name('Intensidad del Cursor');
+        interactionFolder.add(params, 'smoothingFactor', 0.01, 0.2, 0.001).name('Suavizado');
+        interactionFolder.add(camera.position, 'z', 1, 20, 0.1).name('Distancia Cámara');
+
+        // Carpeta para Iluminación
+        const lightFolder = gui.addFolder('Iluminación').close();
+        lightFolder.add(params, 'ambientIntensity', 0, 5, 0.1).name('Luz Ambiente').onChange(val => ambientLight.intensity = val);
+        lightFolder.add(params, 'directionalIntensity', 0, 5, 0.1).name('Luz Principal').onChange(val => directionalLight.intensity = val);
+
+
         let mouseX = 0, mouseY = 0;
         function handlePointerMove(event) {
             let clientX, clientY;
@@ -145,7 +154,6 @@
             const scale = isMobile ? params.mobileModelScale : params.desktopModelScale;
             model.scale.set(scale, scale, scale);
             
-            // Aplicamos la posición de los 3 ejes desde el panel de control
             model.position.x = isMobile ? params.mobileModelPositionX : params.desktopModelPositionX;
             model.position.y = isMobile ? params.mobileModelPositionY : params.desktopModelPositionY;
             model.position.z = isMobile ? params.mobileModelPositionZ : params.desktopModelPositionZ;
@@ -154,11 +162,13 @@
         function animate() {
             requestAnimationFrame(animate);
             if (model) {
-                // La rotación del ratón se suma a la rotación inicial
                 const targetRotationX = mouseY * params.mouseIntensity + params.initialRotationX;
                 const targetRotationY = mouseX * params.mouseIntensity + params.initialRotationY;
+                const targetRotationZ = params.initialRotationZ; // La rotación Z se mantiene fija
+                
                 model.rotation.x += (targetRotationX - model.rotation.x) * params.smoothingFactor;
                 model.rotation.y += (targetRotationY - model.rotation.y) * params.smoothingFactor;
+                model.rotation.z += (targetRotationZ - model.rotation.z) * params.smoothingFactor;
             }
             renderer.render(scene, camera);
         }
