@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Que la ternura nos salve</title>
+    <style>
+        /* --- Importación de Fuentes (Google Fonts) --- */
+        @import url('https://fonts.googleapis.com/css2?family=Lora:wght@500&family=Roboto+Mono&family=Work+Sans:wght@300;400&display=swap');
+
+        /* --- Paleta "El Archivo de Tinta" --- */
+        :root {
+            --color-fondo: rgb(22, 24, 28);
+            --color-texto: rgb(230, 230, 230);
+            --color-acento-modelo: rgb(166, 214, 203);
+            --color-acento-links: rgb(190, 225, 218);
+            --font-titulos: 'Lora', serif;
+            --font-cuerpo: 'Work Sans', sans-serif;
+            --font-mono: 'Roboto Mono', monospace;
+        }
+
+        /* --- Estilos Generales --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-cuerpo);
+            background-color: var(--color-fondo);
+            color: var(--color-texto);
+            overflow-x: hidden;
+        }
+
+        /* --- Lienzo 3D --- */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: -1;
+            /* El cursor 'move' indica interactividad */
+            cursor: move; 
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- Contenido de la Página --- */
+        .content {
+            padding: 2rem;
+            max-width: 700px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+            /* Evita que el texto capture los eventos del ratón */
+            pointer-events: none; 
+        }
+        /* Habilitamos los eventos en los links para que se puedan clickear */
+        .content a {
+            pointer-events: all;
+        }
+
+
+        header {
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        h1 {
+            font-family: var(--font-titulos);
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        h1 span {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            display: block;
+            margin-top: 10px;
+            color: var(--color-acento-links);
+        }
+
+        p {
+            line-height: 1.8;
+            margin-bottom: 1.5rem;
+        }
+        
+        a {
+            color: var(--color-acento-links);
+            text-decoration: none;
+            border-bottom: 1px dashed var(--color-acento-links);
+            transition: color 0.3s ease;
+        }
+        
+        a:hover {
+            color: var(--color-texto);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <main class="content">
+        <header>
+            <h1>
+                Que la ternura nos salve
+                <span>Un jardín digital experimental</span>
+            </h1>
+        </header>
+
+        <section>
+            <h2>Sobre este espacio</h2>
+            <p>Este es un mensaje en una botella, arrojado al vasto océano digital. Un experimento que mezcla <a href="#">escritos</a>, música, <a href="#">dibujos</a> y animaciones. Todo está permitido aquí, conectado por hilos invisibles que forman una única obra de arte digital.</p>
+            <p>La pieza central es una máquina de escribir, un artefacto de un tiempo más lento. Simboliza la intención detrás de cada palabra, de cada nota y de cada trazo. Es un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p>
+        </section>
+    </main>
+
+    <!-- Importamos la librería Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.163.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // =================================================================
+        // TU PANEL DE CONTROL PRINCIPAL
+        // =================================================================
+        const params = {
+            // --- Escala y Posición ---
+            desktopModelScale: 3.5,     // Tamaño en escritorio
+            mobileModelScale: 2.8,      // Tamaño en móvil
+            desktopModelPositionY: -1.8,  // Posición vertical en escritorio
+            mobileModelPositionY: -1.5,   // Posición vertical en móvil
+
+            // --- Interacción del Cursor ---
+            mouseIntensity: 0.3,    // Qué tanto rota el modelo con el ratón
+            smoothingFactor: 0.05,  // Qué tan suave es el movimiento (valores más bajos son más suaves)
+
+            // --- Cámara e Iluminación ---
+            initialCameraZ: 5,        // Posición inicial de la cámara (qué tan cerca está)
+            ambientIntensity: 1.5,    // Intensidad de la luz de ambiente
+            directionalIntensity: 3.0, // Intensidad de la luz principal (sol)
+        };
+        // =================================================================
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.z = params.initialCameraZ;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        // --- Luces ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, params.ambientIntensity);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, params.directionalIntensity);
+        directionalLight.position.set(5, 10, 7.5);
+        scene.add(directionalLight);
+
+        // --- Cargar el Modelo GLB ---
+        const loader = new GLTFLoader();
+        let model; // Variable para guardar el modelo
+        loader.load(
+            './assets/3d/maquina.glb',
+            function (gltf) {
+                model = gltf.scene;
+                // Centramos la geometría para que rote sobre su propio eje
+                const box = new THREE.Box3().setFromObject(model);
+                const center = box.getCenter(new THREE.Vector3());
+                model.position.sub(center);
+                
+                updateModelTransform(); // Aplicamos la escala y posición inicial
+                scene.add(model);
+            },
+            undefined,
+            function (error) {
+                console.error('Un error ocurrió al cargar el modelo:', error);
+            }
+        );
+        
+        // --- Lógica de Interacción con el Cursor ---
+        let mouseX = 0, mouseY = 0;
+        
+        function handlePointerMove(event) {
+            let clientX, clientY;
+            // Soporte para eventos táctiles y de ratón
+            if (event.touches) {
+                clientX = event.touches[0].clientX;
+                clientY = event.touches[0].clientY;
+            } else {
+                clientX = event.clientX;
+                clientY = event.clientY;
+            }
+            // Convertimos la posición a un rango de -1 a 1
+            mouseX = (clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(clientY / window.innerHeight) * 2 + 1;
+        }
+
+        // --- Escuchadores de Eventos ---
+        window.addEventListener('mousemove', handlePointerMove);
+        window.addEventListener('touchstart', handlePointerMove, { passive: true });
+        window.addEventListener('touchmove', handlePointerMove, { passive: true });
+
+        // --- Función para actualizar escala/posición responsiva ---
+        function updateModelTransform() {
+            if (!model) return;
+            const isMobile = window.innerWidth < 768;
+            const scale = isMobile ? params.mobileModelScale : params.desktopModelScale;
+            const positionY = isMobile ? params.mobileModelPositionY : params.desktopModelPositionY;
+            model.scale.set(scale, scale, scale);
+            model.position.y = positionY;
+        }
+        
+        // --- Bucle de Animación ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Solo animamos si el modelo ya se cargó
+            if (model) {
+                // Calculamos la rotación objetivo basada en la posición del cursor
+                const targetRotationX = mouseY * params.mouseIntensity;
+                const targetRotationY = mouseX * params.mouseIntensity;
+
+                // Aplicamos el suavizado (interpolación) para un movimiento fluido
+                model.rotation.x += (targetRotationX - model.rotation.x) * params.smoothingFactor;
+                model.rotation.y += (targetRotationY - model.rotation.y) * params.smoothingFactor;
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // --- Manejo del redimensionamiento de la ventana ---
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            updateModelTransform(); // Re-calculamos la escala y posición al redimensionar
+        });
+
+        animate();
+    </script>
+</body>
+</html>
