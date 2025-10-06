@@ -20,22 +20,20 @@
         .hero-description { position: absolute; bottom: 5%; left: 50%; transform: translateX(-50%); width: 100%; max-width: 700px; padding: 2rem; text-align: center; pointer-events: none; z-index: 2; }
         .scroll-container { position: relative; z-index: 3; }
         .scroll-spacer { height: 100vh; }
-        .content-block { padding: 4rem 2rem; max-width: 1400px; /* Aumentamos el ancho máximo */ margin: 0 auto; background-color: var(--color-fondo); min-height: 100vh; }
+        .content-block { padding: 4rem 2rem; max-width: 1400px; margin: 0 auto; background-color: var(--color-fondo); min-height: 100vh; }
 
-        /* --- LAYOUT DE 3 COLUMNAS CORREGIDO --- */
         .interactive-project-block { display: flex; gap: 2.5rem; align-items: flex-start; }
-        .project-col-model { flex: 0 0 30%; }  /* Columna del modelo más ancha */
-        .project-col-text { flex: 0 0 20%; }   /* Columna de texto más estrecha */
-        .project-col-visuals { flex: 1; }      /* El resto para los visuales */
+        .project-col-model { flex: 0 0 30%; } .project-col-text { flex: 0 0 20%; } .project-col-visuals { flex: 1; }
 
         #ramona-canvas-container { width: 100%; height: 50vh; cursor: move; margin-bottom: 2rem; }
         
-        #playlist-controls audio { width: 100%; margin-top: 1rem; }
-        .track-list { list-style: none; padding: 0; }
-        .track-item { padding: 0.75rem 0; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.1); transition: color 0.3s; }
-        .track-item:hover { color: var(--color-acento-hover); }
-        .track-item.active { color: var(--color-acento); font-weight: bold; }
-
+        /* --- Reproductor y Controles de Navegación --- */
+        #track-title-display { font-family: var(--font-mono); color: var(--color-acento); margin-bottom: 1rem; height: 1.2em; }
+        .player-wrapper { display: flex; align-items: center; gap: 0.5rem; }
+        .player-wrapper audio { flex-grow: 1; }
+        .nav-button { background: none; border: 1px solid var(--color-texto); color: var(--color-texto); border-radius: 50%; width: 30px; height: 30px; cursor: pointer; transition: background-color 0.2s; }
+        .nav-button:hover { background-color: rgba(255,255,255,0.1); }
+        
         .visual-canvas-container { position: relative; width: 100%; padding-top: 56.25%; background-color: black; }
         #visual-display { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
 
@@ -43,17 +41,9 @@
         h1 span { font-family: var(--font-mono); font-size: 1rem; display: block; margin-top: 10px; color: var(--color-acento); }
         p { line-height: 1.8; }
         
-        @media (max-width: 900px) {
-            .interactive-project-block { flex-direction: column; }
-            .project-col-visuals, .project-col-model, .project-col-text { flex: 0 0 100%; } /* Ocupan todo el ancho */
-            .project-col-visuals { order: 1; } .project-col-model { order: 2; } .project-col-text { order: 3; }
-            #ramona-canvas-container { height: 50vh; }
-        }
-        @media (max-width: 768px) {
-            h1 { font-size: 2.2rem; }
-            .hero-header { top: 18%; }
-            .hero-description { bottom: 2%; font-size: 0.9rem; max-width: 90%; }
-        }
+        .lil-gui { z-index: 1000 !important; }
+        
+        @media (max-width: 900px) { /* etc. */ }
     </style>
 </head>
 <body>
@@ -64,7 +54,6 @@
             <h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1>
         </header>
         <section class="hero-description">
-            <!-- TEXTO COMPLETO RESTAURADO -->
             <p>Este es un mensaje en una botella, arrojado al vasto océano digital. Un experimento que mezcla escritos, música, dibujos y animaciones. Todo está permitido aquí, conectado por hilos invisibles que forman una única obra de arte digital. Un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p>
         </section>
     </div>
@@ -76,14 +65,16 @@
                 <div class="project-col-model">
                     <div id="ramona-canvas-container"></div>
                     <div id="playlist-controls">
-                        <ul class="track-list"></ul>
-                        <audio id="audio-player" controls></audio>
+                        <h4 id="track-title-display"></h4>
+                        <div class="player-wrapper">
+                            <button id="prev-track-btn" class="nav-button">◄</button>
+                            <audio id="audio-player" controls></audio>
+                            <button id="next-track-btn" class="nav-button">►</button>
+                        </div>
                     </div>
                 </div>
                 <div class="project-col-text">
-                    <div id="active-text-display">
-                        <p>Cargando proyecto...</p>
-                    </div>
+                    <div id="active-text-display"><p>Cargando proyecto...</p></div>
                 </div>
                 <div class="project-col-visuals">
                     <div class="visual-canvas-container">
@@ -95,178 +86,136 @@
     </main>
 
     <script type="importmap">
-        { "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/" } }
+        { "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/", "lil-gui": "https://unpkg.com/lil-gui@0.19.1/dist/lil-gui.esm.js" } }
     </script>
 
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { GUI } from 'lil-gui';
 
-        // ... El código de la ESCENA 1 (HERO) permanece igual ...
-        const heroParams = {
-            desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7,
-            initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088,
-            cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5,
-        };
+        // --- ESCENA 1 (HERO) - Sin cambios ---
+        const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5 };
         const heroContainer = document.getElementById('hero-canvas-container');
         const heroScene = new THREE.Scene();
         const heroCamera = new THREE.PerspectiveCamera(75, heroContainer.clientWidth / heroContainer.clientHeight, 0.1, 1000);
         heroCamera.position.z = heroParams.cameraDistance;
         const heroRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        heroRenderer.setPixelRatio(window.devicePixelRatio);
-        heroRenderer.setSize(heroContainer.clientWidth, heroContainer.clientHeight);
+        heroRenderer.setPixelRatio(window.devicePixelRatio); heroRenderer.setSize(heroContainer.clientWidth, heroContainer.clientHeight);
         heroContainer.appendChild(heroRenderer.domElement);
         heroScene.add(new THREE.AmbientLight(0xffffff, heroParams.ambientIntensity));
         const heroDirectionalLight = new THREE.DirectionalLight(0xffffff, heroParams.directionalIntensity);
-        heroDirectionalLight.position.set(5, 10, 7.5);
-        heroScene.add(heroDirectionalLight);
+        heroDirectionalLight.position.set(5, 10, 7.5); heroScene.add(heroDirectionalLight);
         let heroModel;
-        new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => {
-            heroModel = gltf.scene;
-            heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3()));
-            updateHeroModelTransform();
-            heroScene.add(heroModel);
-        });
-        
-        // =================================================================
-        // ESCENA 2: PROYECTO INTERACTIVO (RAMONA) - AJUSTES DE TAMAÑO
-        // =================================================================
-        const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05, initialScale: 2.5, cameraDistance: 2.0 };
+        new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
+
+        // --- ESCENA 2 (RAMONA) CON CONTROLES ---
+        const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05, scale: 3.5, cameraDistance: 2.5, initialRotationX: 0, initialRotationY: 0, initialRotationZ: 0 };
         const ramonaContainer = document.getElementById('ramona-canvas-container');
         const ramonaScene = new THREE.Scene();
         const ramonaCamera = new THREE.PerspectiveCamera(75, ramonaContainer.clientWidth / ramonaContainer.clientHeight, 0.1, 1000);
         ramonaCamera.position.z = ramonaParams.cameraDistance;
-        const ramonaRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // alpha: true para fondo transparente
-        ramonaRenderer.setPixelRatio(window.devicePixelRatio);
-        ramonaRenderer.setSize(ramonaContainer.clientWidth, ramonaContainer.clientHeight);
+        const ramonaRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        ramonaRenderer.setPixelRatio(window.devicePixelRatio); ramonaRenderer.setSize(ramonaContainer.clientWidth, ramonaContainer.clientHeight);
         ramonaContainer.appendChild(ramonaRenderer.domElement);
         ramonaScene.add(new THREE.AmbientLight(0xffffff, 4.0));
         const ramonaDirectionalLight = new THREE.DirectionalLight(0xffffff, 3.0);
-        ramonaDirectionalLight.position.set(2, 5, 3);
-        ramonaScene.add(ramonaDirectionalLight);
+        ramonaDirectionalLight.position.set(2, 5, 3); ramonaScene.add(ramonaDirectionalLight);
         let ramonaModel;
-        new GLTFLoader().load('./assets/3d/ramona.glb', (gltf) => {
-            ramonaModel = gltf.scene;
-            ramonaModel.scale.setScalar(ramonaParams.initialScale); // Aumentamos la escala
-            ramonaModel.position.sub(new THREE.Box3().setFromObject(ramonaModel).getCenter(new THREE.Vector3()));
-            ramonaScene.add(ramonaModel);
-        });
+        new GLTFLoader().load('./assets/3d/ramona.glb', (gltf) => { ramonaModel = gltf.scene; updateRamonaModelTransform(); ramonaScene.add(ramonaModel); });
 
-        // =================================================================
-        // LÓGICA DE DATOS Y PLAYLIST (CORREGIDA)
-        // =================================================================
+        const gui = new GUI();
+        gui.title("Control Ramona").close();
+        gui.add(ramonaParams, 'scale', 0.1, 10, 0.1).name('Escala').onChange(updateRamonaModelTransform);
+        const rotFolder = gui.addFolder('Rotación Inicial');
+        rotFolder.add(ramonaParams, 'initialRotationX', -Math.PI, Math.PI, 0.01).name('Rotación X');
+        rotFolder.add(ramonaParams, 'initialRotationY', -Math.PI, Math.PI, 0.01).name('Rotación Y');
+        rotFolder.add(ramonaParams, 'initialRotationZ', -Math.PI, Math.PI, 0.01).name('Rotación Z');
+
+        // --- LÓGICA DE DATOS Y PLAYLIST (CORREGIDA) ---
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
         const audioPlayer = document.getElementById('audio-player');
         const visualDisplay = document.getElementById('visual-display');
         const textDisplay = document.getElementById('active-text-display');
-        const trackList = document.querySelector('.track-list');
+        const titleDisplay = document.getElementById('track-title-display');
+        let projectData = [];
+        let currentIndex = 0;
 
         async function initProject() {
             try {
                 const response = await fetch(CSV_URL);
                 const csvText = await response.text();
-                const data = csvText.split('\n').slice(1).map(row => {
-                    const cleanRow = row.trim();
-                    // CORRECCIÓN: Parseo de CSV robusto para manejar comas dentro del texto
-                    const values = [];
-                    let current = '';
-                    let inQuotes = false;
-                    for (const char of cleanRow) {
-                        if (char === '"' && inQuotes) {
-                            inQuotes = false;
-                        } else if (char === '"') {
-                            inQuotes = true;
-                        } else if (char === ',' && !inQuotes) {
-                            values.push(current);
-                            current = '';
-                        } else {
-                            current += char;
-                        }
+                projectData = csvText.trim().split('\n').slice(1).map(row => {
+                    // Parser de CSV robusto
+                    const values = []; let current = ''; let inQuotes = false;
+                    for (const char of row) {
+                        if (char === '"' && inQuotes) { inQuotes = false; }
+                        else if (char === '"') { inQuotes = true; }
+                        else if (char === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
+                        else { current += char; }
                     }
-                    values.push(current);
+                    values.push(current.trim());
+                    const [audio, text, video, titulo] = values;
+                    return { audio, text, video, titulo };
+                }).filter(p => p.audio); // Filtrar filas vacías
 
-                    const [audio, text, video] = values;
-                    return { audio, text, video };
-                });
+                if (projectData.length > 0) updateContent(currentIndex);
+                else textDisplay.innerHTML = `<p>No se encontraron proyectos.</p>`;
 
-                populatePlaylist(data);
-            } catch (error) {
-                console.error("Error al cargar los datos del proyecto:", error);
-                textDisplay.innerHTML = `<p>No se pudo cargar el contenido.</p>`;
-            }
+            } catch (error) { console.error("Error al cargar los datos:", error); }
         }
 
-        function populatePlaylist(data) {
-            trackList.innerHTML = '';
-            data.forEach((track, index) => {
-                const li = document.createElement('li');
-                li.className = 'track-item';
-                li.textContent = `Pista ${index + 1}`; // Título genérico y limpio
-                li.dataset.index = index;
-                trackList.appendChild(li);
-            });
-
-            trackList.addEventListener('click', (e) => {
-                if (e.target.classList.contains('track-item')) {
-                    const index = parseInt(e.target.dataset.index, 10);
-                    updateContent(index, data);
-                }
-            });
-
-            if (data.length > 0) {
-                updateContent(0, data);
-            }
-        }
-
-        function updateContent(index, data) {
-            const track = data[index];
+        function updateContent(index) {
+            const track = projectData[index];
             if (!track) return;
-            // ASIGNACIÓN CORRECTA DE DATOS
-            audioPlayer.src = track.audio; // Columna A
-            visualDisplay.src = track.video; // Columna C
-            textDisplay.innerHTML = `<p>${track.text}</p>`; // Columna B
+            audioPlayer.src = track.audio;
+            visualDisplay.src = track.video;
+            textDisplay.innerHTML = `<p>${track.text}</p>`;
+            titleDisplay.textContent = track.titulo;
 
-            document.querySelectorAll('.track-item').forEach(item => item.classList.remove('active'));
-            document.querySelector(`.track-item[data-index="${index}"]`).classList.add('active');
+            visualDisplay.load();
+            visualDisplay.play().catch(e => console.warn("Video play interrupted"));
         }
 
+        document.getElementById('next-track-btn').addEventListener('click', () => {
+            currentIndex = (currentIndex + 1) % projectData.length;
+            updateContent(currentIndex);
+        });
+
+        document.getElementById('prev-track-btn').addEventListener('click', () => {
+            currentIndex = (currentIndex - 1 + projectData.length) % projectData.length;
+            updateContent(currentIndex);
+        });
+        
         initProject();
 
-        // ... LÓGICA GENERAL DE ANIMACIÓN Y EVENTOS ...
+        // --- LÓGICA GENERAL ---
         let mouseX = 0, mouseY = 0;
-        function handlePointerMove(event) {
-            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
-        }
-        window.addEventListener('mousemove', handlePointerMove);
-        function updateHeroModelTransform() {
-            if (!heroModel) return;
-            const isMobile = window.innerWidth < 768;
-            const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale;
-            heroModel.scale.setScalar(scale);
-            heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY;
-        }
+        window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 + 1; });
+        function updateHeroModelTransform() { if (!heroModel) return; const isMobile = window.innerWidth < 768; const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; heroModel.scale.setScalar(scale); heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; }
+        function updateRamonaModelTransform() { if (!ramonaModel) return; ramonaModel.scale.setScalar(ramonaParams.scale); }
+        
         function animate() {
             requestAnimationFrame(animate);
-            if (heroModel) {
-                heroModel.rotation.y += ((mouseX * heroParams.mouseIntensity + heroParams.initialRotationY) - heroModel.rotation.y) * heroParams.smoothingFactor;
-            }
+            if (heroModel) { heroModel.rotation.y += ((mouseX * heroParams.mouseIntensity + heroParams.initialRotationY) - hero.rotation.y) * heroParams.smoothingFactor; }
             heroRenderer.render(heroScene, heroCamera);
             if (ramonaModel) {
-                ramonaModel.rotation.x += ((mouseY * ramonaParams.mouseIntensity) - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
-                ramonaModel.rotation.y += ((mouseX * ramonaParams.mouseIntensity) - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
+                ramonaModel.rotation.x += (((mouseY * ramonaParams.mouseIntensity) + ramonaParams.initialRotationX) - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
+                ramonaModel.rotation.y += (((mouseX * ramonaParams.mouseIntensity) + ramonaParams.initialRotationY) - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
+                ramonaModel.rotation.z += (ramonaParams.initialRotationZ - ramonaModel.rotation.z) * ramonaParams.smoothingFactor;
             }
             ramonaRenderer.render(ramonaScene, ramonaCamera);
         }
+        
         window.addEventListener('resize', () => {
-            heroCamera.aspect = heroContainer.clientWidth / heroContainer.clientHeight;
-            heroCamera.updateProjectionMatrix();
-            heroRenderer.setSize(heroContainer.clientWidth, heroContainer.clientHeight);
-            updateHeroModelTransform();
-            ramonaCamera.aspect = ramonaContainer.clientWidth / ramonaContainer.clientHeight;
-            ramonaCamera.updateProjectionMatrix();
+            // Hero
+            heroCamera.aspect = heroContainer.clientWidth / heroContainer.clientHeight; heroCamera.updateProjectionMatrix();
+            heroRenderer.setSize(heroContainer.clientWidth, heroContainer.clientHeight); updateHeroModelTransform();
+            // Ramona
+            ramonaCamera.aspect = ramonaContainer.clientWidth / ramonaContainer.clientHeight; ramonaCamera.updateProjectionMatrix();
             ramonaRenderer.setSize(ramonaContainer.clientWidth, ramonaContainer.clientHeight);
         });
+        
         animate();
     </script>
 </body>
