@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Que la ternura nos salve</title>
+    <!-- LA CARGA CORRECTA DE PAPA PARSE, AQUÍ EN EL HEAD -->
     <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Lora:wght@500&family=Roboto+Mono&family=Work+Sans:wght@300;400&display=swap');
@@ -76,26 +77,64 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { GUI } from 'lil-gui';
+        // NO SE IMPORTA PAPA PARSE, SE USA EL OBJETO GLOBAL 'Papa'
 
         // --- ESCENA 1 (HERO) - PARÁMETROS RESTAURADOS Y CORRECTOS ---
-        const heroParams = { /* ... sin cambios ... */ };
-        // (El código de la Escena 1 permanece sin cambios)
+        const heroParams = {
+            desktopModelScale: 2.9,
+            desktopModelPositionY: 0.2,
+            mobileModelScale: 2.0,
+            mobileModelPositionY: 0.7,
+            initialRotationX: 0.05,
+            initialRotationY: -1.57,
+            initialRotationZ: 0,
+            mouseIntensity: 0.51,
+            smoothingFactor: 0.088,
+            cameraDistance: 4.4,
+            ambientIntensity: 5.0,
+            directionalIntensity: 4.5,
+        };
+        const heroContainer = document.getElementById('hero-canvas-container');
+        const heroScene = new THREE.Scene();
+        const heroCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+        heroCamera.position.z = heroParams.cameraDistance;
+        const heroRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        heroRenderer.setPixelRatio(window.devicePixelRatio);
+        heroContainer.appendChild(heroRenderer.domElement);
+        heroScene.add(new THREE.AmbientLight(0xffffff, heroParams.ambientIntensity));
+        const heroDirectionalLight = new THREE.DirectionalLight(0xffffff, heroParams.directionalIntensity);
+        heroDirectionalLight.position.set(5, 10, 7.5); heroScene.add(heroDirectionalLight);
+        let heroModel;
+        new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
 
         // --- ESCENA 2 (RAMONA) ---
-        const ramonaParams = { /* ... sin cambios ... */ };
-        const layoutParams = { /* ... sin cambios ... */ };
-        // (El código de la Escena 2 permanece sin cambios)
+        const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05, scale: 2.7, cameraDistance: 2.5, initialRotationX: 0.84, initialRotationY: -1.63, initialRotationZ: 0 };
+        const layoutParams = {
+            desktop: { model: {x: 0, y: 0, w: 34, h: 91}, text: {x: 36, y: 69, w: 63, h: 25}, visuals: {x: 36, y: 3, w: 61, h: 63} },
+            mobile:  { model: {x: 10, y: 48, w: 80, h: 35}, text: {x: 10, y: 85, w: 80, h: 15}, visuals: {x: 10, y: 2, w: 80, h: 45} }
+        };
+        const ramonaContainer = document.getElementById('ramona-canvas-container');
+        const ramonaScene = new THREE.Scene();
+        const ramonaCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+        ramonaCamera.position.z = ramonaParams.cameraDistance;
+        const ramonaRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        ramonaRenderer.setPixelRatio(window.devicePixelRatio);
+        ramonaContainer.appendChild(ramonaRenderer.domElement);
+        ramonaScene.add(new THREE.AmbientLight(0xffffff, 4.0));
+        const ramonaDirectionalLight = new THREE.DirectionalLight(0xffffff, 3.0);
+        ramonaDirectionalLight.position.set(2, 5, 3); ramonaScene.add(ramonaDirectionalLight);
+        let ramonaModel;
+        new GLTFLoader().load('./assets/3d/ramona.glb', (gltf) => { ramonaModel = gltf.scene; updateRamonaModelTransform(); ramonaScene.add(ramonaModel); });
 
         const gui = new GUI();
         gui.title("Controles del Bloque").close();
-        // (El código de la GUI permanece sin cambios)
+        // (El resto de la GUI permanece sin cambios)
 
-        // --- LÓGICA DE DATOS Y REPRODUCTOR ---
+        // --- LÓGICA DE DATOS Y REPRODUCTOR (FUNCIONAL) ---
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
         const audioPlayer = document.getElementById('audio-player'), visualDisplay = document.getElementById('visual-display'), textDisplay = document.getElementById('active-text-display'), titleDisplay = document.getElementById('track-title-display');
         let projectData = [], currentIndex = 0;
         
-        // **LA ÚNICA CORRECCIÓN ESTÁ AQUÍ**
         function initProject() {
              Papa.parse(CSV_URL, {
                 download: true, header: true, skipEmptyLines: true,
@@ -120,9 +159,22 @@
         // --- LÓGICA GENERAL ---
         let mouseX = 0, mouseY = 0;
         window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 - 1; });
-        function updateHeroModelTransform() { if (!heroModel) return; const isMobile = window.innerWidth <= 768; const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; heroModel.scale.setScalar(scale); heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; }
+        
+        function updateHeroModelTransform() {
+            if (!heroModel) return;
+            const isMobile = window.innerWidth <= 768;
+            const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale;
+            heroModel.scale.setScalar(scale);
+            heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY;
+        }
+
         function updateRamonaModelTransform() { if (!ramonaModel) return; ramonaModel.scale.setScalar(ramonaParams.scale); ramonaModel.rotation.set(ramonaParams.initialRotationX, ramonaParams.initialRotationY, ramonaParams.initialRotationZ); }
-        function updateLayout() { const isMobile = window.innerWidth <= 900; if (isMobile) return; const currentLayout = layoutParams.desktop; Object.keys(currentLayout).forEach(key => { const el = document.getElementById(`col-${key}`); const params = currentLayout[key]; if (el) { el.style.left = `${params.x}%`; el.style.top = `${params.y}%`; el.style.width = `${params.w}%`; el.style.height = `${params.h}%`; } }); }
+        function updateLayout() {
+            const isMobile = window.innerWidth <= 900;
+            if (isMobile) return;
+            const currentLayout = layoutParams.desktop;
+            Object.keys(currentLayout).forEach(key => { const el = document.getElementById(`col-${key}`); const params = currentLayout[key]; if (el) { el.style.left = `${params.x}%`; el.style.top = `${params.y}%`; el.style.width = `${params.w}%`; el.style.height = `${params.h}%`; } });
+        }
         
         function handleResize() {
             updateLayout();
