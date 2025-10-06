@@ -66,8 +66,13 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { GUI } from 'lil-gui';
 
-        // --- ESCENA 1 (HERO) ---
-        const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5 };
+        // --- PARÁMETROS FIJOS PARA HERO ---
+        const heroParams = {
+            desktopModelScale: 2.9, desktopModelPositionY: 0.2,
+            mobileModelScale: 2.0, mobileModelPositionY: 0.7,
+            initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088,
+            cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5
+        };
         const heroContainer = document.getElementById('hero-canvas-container');
         const heroScene = new THREE.Scene();
         const heroCamera = new THREE.PerspectiveCamera(75, heroContainer.clientWidth / heroContainer.clientHeight, 0.1, 1000);
@@ -81,12 +86,14 @@
         let heroModel;
         new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
 
-        // --- ESCENA 2 (RAMONA) Y CONTROLES ---
-        const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05, scale: 4.5, cameraDistance: 2.5, initialRotationX: 0, initialRotationY: 0, initialRotationZ: 0 };
+        // --- PARÁMETROS PARA RAMONA Y LAYOUT ---
+        const ramonaParams = {
+            mouseIntensity: 0.4, smoothingFactor: 0.05,
+            scale: 2.7, cameraDistance: 2.5,
+            initialRotationX: 0.84, initialRotationY: -1.63, initialRotationZ: 0
+        };
         const layoutParams = {
-            // VALORES FINALES PARA ESCRITORIO
             desktop: { model: {x: 0, y: 0, w: 34, h: 91}, text: {x: 36, y: 69, w: 63, h: 25}, visuals: {x: 36, y: 3, w: 61, h: 63} },
-            // Valores por defecto para móvil (ajustables)
             mobile:  { model: {x: 10, y: 35, w: 80, h: 30}, text: {x: 10, y: 70, w: 80, h: 25}, visuals: {x: 10, y: 5, w: 80, h: 25} }
         };
         const ramonaContainer = document.getElementById('ramona-canvas-container');
@@ -120,13 +127,10 @@
 
         // --- LÓGICA DE DATOS Y REPRODUCTOR ---
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
-        const audioPlayer = document.getElementById('audio-player');
-        const visualDisplay = document.getElementById('visual-display');
-        const textDisplay = document.getElementById('active-text-display');
-        const titleDisplay = document.getElementById('track-title-display');
-        let projectData = [];
-        let currentIndex = 0;
-
+        const audioPlayer = document.getElementById('audio-player'), visualDisplay = document.getElementById('visual-display');
+        const textDisplay = document.getElementById('active-text-display'), titleDisplay = document.getElementById('track-title-display');
+        let projectData = [], currentIndex = 0;
+        
         function initProject() {
             Papa.parse(CSV_URL, {
                 download: true, header: true, skipEmptyLines: true,
@@ -138,7 +142,6 @@
                 error: (error) => console.error("Error al parsear CSV:", error),
             });
         }
-
         function updateContent(index) {
             const track = projectData[index];
             if (!track) return;
@@ -146,10 +149,8 @@
             visualDisplay.src = track.video;
             textDisplay.innerHTML = `<p>${track.texto}</p>`;
             titleDisplay.textContent = track.titulo;
-            visualDisplay.load();
-            visualDisplay.play().catch(e => {});
+            visualDisplay.load(); visualDisplay.play().catch(e => {});
         }
-
         const playPauseBtn = document.getElementById('play-pause-btn'), playIcon = document.getElementById('play-icon'), pauseIcon = document.getElementById('pause-icon');
         const muteBtn = document.getElementById('mute-btn'), muteIcon = document.getElementById('mute-icon'), unmuteIcon = document.getElementById('unmute-icon');
         playPauseBtn.addEventListener('click', () => audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause());
@@ -169,20 +170,13 @@
         function updateLayout() {
             const isMobile = window.innerWidth <= 900;
             const currentLayout = isMobile ? layoutParams.mobile : layoutParams.desktop;
-            Object.keys(currentLayout).forEach(key => {
-                const el = document.getElementById(`col-${key}`);
-                const params = currentLayout[key];
-                if (el) { el.style.left = `${params.x}%`; el.style.top = `${params.y}%`; el.style.width = `${params.w}%`; el.style.height = `${params.h}%`; }
-            });
+            Object.keys(currentLayout).forEach(key => { const el = document.getElementById(`col-${key}`); const params = currentLayout[key]; if (el) { el.style.left = `${params.x}%`; el.style.top = `${params.y}%`; el.style.width = `${params.w}%`; el.style.height = `${params.h}%`; } });
         }
         
         function animate() {
             requestAnimationFrame(animate);
-            if (heroModel) {
-                heroModel.rotation.y += (((mouseX * heroParams.mouseIntensity) + heroParams.initialRotationY) - heroModel.rotation.y) * heroParams.smoothingFactor;
-            }
+            if (heroModel) { heroModel.rotation.y += (((mouseX * heroParams.mouseIntensity) + heroParams.initialRotationY) - heroModel.rotation.y) * heroParams.smoothingFactor; }
             if(heroRenderer) heroRenderer.render(heroScene, heroCamera);
-            
             if (ramonaModel && ramonaRenderer) {
                 ramonaModel.rotation.x += (((mouseY * ramonaParams.mouseIntensity) + ramonaParams.initialRotationX) - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
                 ramonaModel.rotation.y += (((mouseX * ramonaParams.mouseIntensity) + ramonaParams.initialRotationY) - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
@@ -201,12 +195,7 @@
             updateLayout();
         });
         
-        // Carga diferida para optimizar el arranque
-        setTimeout(() => {
-            initRamonaScene();
-            initProject();
-        }, 500); // Espera 500ms antes de cargar los assets del segundo bloque
-
+        setTimeout(() => { initRamonaScene(); initProject(); }, 500);
         updateLayout();
         animate();
     </script>
