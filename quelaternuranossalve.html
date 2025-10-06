@@ -23,16 +23,17 @@
         .content-block { padding: 4rem 2rem; max-width: 1400px; margin: 0 auto; background-color: var(--color-fondo); min-height: 100vh; }
 
         .interactive-project-block { display: flex; gap: 2.5rem; align-items: flex-start; }
-        .project-col-model { flex: 0 0 30%; } .project-col-text { flex: 0 0 20%; } .project-col-visuals { flex: 1; }
+        .project-col-model { flex: 0 0 30%; } .project-col-text { flex: 0 0 20%; white-space: pre-wrap; /* Respeta saltos de línea del texto */ } .project-col-visuals { flex: 1; }
 
         #ramona-canvas-container { width: 100%; height: 50vh; cursor: move; margin-bottom: 2rem; }
         
-        /* --- Reproductor y Controles de Navegación --- */
-        #track-title-display { font-family: var(--font-mono); color: var(--color-acento); margin-bottom: 1rem; height: 1.2em; }
-        .player-wrapper { display: flex; align-items: center; gap: 0.5rem; }
-        .player-wrapper audio { flex-grow: 1; }
-        .nav-button { background: none; border: 1px solid var(--color-texto); color: var(--color-texto); border-radius: 50%; width: 30px; height: 30px; cursor: pointer; transition: background-color 0.2s; }
-        .nav-button:hover { background-color: rgba(255,255,255,0.1); }
+        /* --- NUEVO REPRODUCTOR PERSONALIZADO --- */
+        #track-title-display { font-family: var(--font-mono); color: var(--color-acento); margin-bottom: 1rem; height: 1.2em; text-align: center;}
+        .custom-player { display: flex; justify-content: center; align-items: center; gap: 1rem; }
+        .player-button { background: none; border: 1px solid var(--color-texto); color: var(--color-texto); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; padding: 0; }
+        .player-button:hover { background-color: rgba(255,255,255,0.1); border-color: var(--color-acento-hover); }
+        .player-button svg { width: 18px; height: 18px; fill: var(--color-texto); }
+        .hidden { display: none; }
         
         .visual-canvas-container { position: relative; width: 100%; padding-top: 56.25%; background-color: black; }
         #visual-display { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -66,11 +67,23 @@
                     <div id="ramona-canvas-container"></div>
                     <div id="playlist-controls">
                         <h4 id="track-title-display"></h4>
-                        <div class="player-wrapper">
-                            <button id="prev-track-btn" class="nav-button">◄</button>
-                            <audio id="audio-player" controls></audio>
-                            <button id="next-track-btn" class="nav-button">►</button>
+                        <div class="custom-player">
+                            <button id="prev-btn" class="player-button">
+                                <svg viewBox="0 0 24 24"><path d="M18 18V6l-8.5 6 8.5 6Zm-9-6 8.5-6v12L9 12Z"/></svg>
+                            </button>
+                            <button id="play-pause-btn" class="player-button">
+                                <svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                <svg id="pause-icon" class="hidden" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                            </button>
+                            <button id="next-btn" class="player-button">
+                                <svg viewBox="0 0 24 24"><path d="m6 6 8.5 6L6 18V6Zm9 12v- контекстL-8.5-6 8.5-6Z"/></svg>
+                            </button>
+                             <button id="mute-btn" class="player-button">
+                                <svg id="unmute-icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                                <svg id="mute-icon" class="hidden" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                            </button>
                         </div>
+                        <audio id="audio-player" class="hidden"></audio>
                     </div>
                 </div>
                 <div class="project-col-text">
@@ -94,7 +107,7 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { GUI } from 'lil-gui';
 
-        // --- ESCENA 1 (HERO) - Sin cambios ---
+        // --- ESCENA 1 (HERO) ---
         const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5 };
         const heroContainer = document.getElementById('hero-canvas-container');
         const heroScene = new THREE.Scene();
@@ -132,7 +145,7 @@
         rotFolder.add(ramonaParams, 'initialRotationY', -Math.PI, Math.PI, 0.01).name('Rotación Y');
         rotFolder.add(ramonaParams, 'initialRotationZ', -Math.PI, Math.PI, 0.01).name('Rotación Z');
 
-        // --- LÓGICA DE DATOS Y PLAYLIST (CORREGIDA) ---
+        // --- LÓGICA DE DATOS Y NUEVO REPRODUCTOR ---
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
         const audioPlayer = document.getElementById('audio-player');
         const visualDisplay = document.getElementById('visual-display');
@@ -141,28 +154,33 @@
         let projectData = [];
         let currentIndex = 0;
 
+        function parseCSV(text) {
+            const lines = text.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim());
+            return lines.slice(1).map(line => {
+                const values = [];
+                let current = ''; let inQuotes = false;
+                for (const char of line) {
+                    if (char === '"' && inQuotes) inQuotes = false;
+                    else if (char === '"') inQuotes = true;
+                    else if (char === ',' && !inQuotes) { values.push(current.trim().replace(/^"|"$/g, '')); current = ''; }
+                    else current += char;
+                }
+                values.push(current.trim().replace(/^"|"$/g, ''));
+                const entry = {};
+                headers.forEach((header, i) => entry[header] = values[i]);
+                return entry;
+            });
+        }
+
         async function initProject() {
             try {
                 const response = await fetch(CSV_URL);
                 const csvText = await response.text();
-                projectData = csvText.trim().split('\n').slice(1).map(row => {
-                    // Parser de CSV robusto
-                    const values = []; let current = ''; let inQuotes = false;
-                    for (const char of row) {
-                        if (char === '"' && inQuotes) { inQuotes = false; }
-                        else if (char === '"') { inQuotes = true; }
-                        else if (char === ',' && !inQuotes) { values.push(current.trim()); current = ''; }
-                        else { current += char; }
-                    }
-                    values.push(current.trim());
-                    const [audio, text, video, titulo] = values;
-                    return { audio, text, video, titulo };
-                }).filter(p => p.audio); // Filtrar filas vacías
-
+                projectData = parseCSV(csvText).filter(p => p.audio && p.video && p.texto && p.titulo);
                 if (projectData.length > 0) updateContent(currentIndex);
-                else textDisplay.innerHTML = `<p>No se encontraron proyectos.</p>`;
-
-            } catch (error) { console.error("Error al cargar los datos:", error); }
+                else textDisplay.innerHTML = `<p>No se encontraron proyectos completos.</p>`;
+            } catch (error) { console.error("Error al cargar datos:", error); }
         }
 
         function updateContent(index) {
@@ -170,23 +188,33 @@
             if (!track) return;
             audioPlayer.src = track.audio;
             visualDisplay.src = track.video;
-            textDisplay.innerHTML = `<p>${track.text}</p>`;
+            textDisplay.innerHTML = `<p>${track.texto}</p>`;
             titleDisplay.textContent = track.titulo;
-
-            visualDisplay.load();
-            visualDisplay.play().catch(e => console.warn("Video play interrupted"));
+            visualDisplay.load(); // Esencial para cargar el nuevo video
         }
 
-        document.getElementById('next-track-btn').addEventListener('click', () => {
-            currentIndex = (currentIndex + 1) % projectData.length;
-            updateContent(currentIndex);
+        // Controles del nuevo reproductor
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const muteBtn = document.getElementById('mute-btn');
+        const muteIcon = document.getElementById('mute-icon');
+        const unmuteIcon = document.getElementById('unmute-icon');
+        
+        playPauseBtn.addEventListener('click', () => {
+            if (audioPlayer.paused) audioPlayer.play();
+            else audioPlayer.pause();
+        });
+        audioPlayer.addEventListener('play', () => { playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden'); });
+        audioPlayer.addEventListener('pause', () => { playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden'); });
+        document.getElementById('next-btn').addEventListener('click', () => { currentIndex = (currentIndex + 1) % projectData.length; updateContent(currentIndex); audioPlayer.play(); });
+        document.getElementById('prev-btn').addEventListener('click', () => { currentIndex = (currentIndex - 1 + projectData.length) % projectData.length; updateContent(currentIndex); audioPlayer.play(); });
+        muteBtn.addEventListener('click', () => { audioPlayer.muted = !audioPlayer.muted; });
+        audioPlayer.addEventListener('volumechange', () => {
+            if (audioPlayer.muted) { muteIcon.classList.remove('hidden'); unmuteIcon.classList.add('hidden'); }
+            else { muteIcon.classList.add('hidden'); unmuteIcon.classList.remove('hidden'); }
         });
 
-        document.getElementById('prev-track-btn').addEventListener('click', () => {
-            currentIndex = (currentIndex - 1 + projectData.length) % projectData.length;
-            updateContent(currentIndex);
-        });
-        
         initProject();
 
         // --- LÓGICA GENERAL ---
@@ -197,21 +225,21 @@
         
         function animate() {
             requestAnimationFrame(animate);
-            if (heroModel) { heroModel.rotation.y += ((mouseX * heroParams.mouseIntensity + heroParams.initialRotationY) - hero.rotation.y) * heroParams.smoothingFactor; }
+            if (heroModel) { heroModel.rotation.y += (((mouseX * heroParams.mouseIntensity) + heroParams.initialRotationY) - heroModel.rotation.y) * heroParams.smoothingFactor; }
             heroRenderer.render(heroScene, heroCamera);
             if (ramonaModel) {
-                ramonaModel.rotation.x += (((mouseY * ramonaParams.mouseIntensity) + ramonaParams.initialRotationX) - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
-                ramonaModel.rotation.y += (((mouseX * ramonaParams.mouseIntensity) + ramonaParams.initialRotationY) - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
+                const targetRotX = (mouseY * ramonaParams.mouseIntensity) + ramonaParams.initialRotationX;
+                const targetRotY = (mouseX * ramonaParams.mouseIntensity) + ramonaParams.initialRotationY;
+                ramonaModel.rotation.x += (targetRotX - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
+                ramonaModel.rotation.y += (targetRotY - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
                 ramonaModel.rotation.z += (ramonaParams.initialRotationZ - ramonaModel.rotation.z) * ramonaParams.smoothingFactor;
             }
             ramonaRenderer.render(ramonaScene, ramonaCamera);
         }
         
         window.addEventListener('resize', () => {
-            // Hero
             heroCamera.aspect = heroContainer.clientWidth / heroContainer.clientHeight; heroCamera.updateProjectionMatrix();
             heroRenderer.setSize(heroContainer.clientWidth, heroContainer.clientHeight); updateHeroModelTransform();
-            // Ramona
             ramonaCamera.aspect = ramonaContainer.clientWidth / ramonaContainer.clientHeight; ramonaCamera.updateProjectionMatrix();
             ramonaRenderer.setSize(ramonaContainer.clientWidth, ramonaContainer.clientHeight);
         });
