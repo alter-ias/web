@@ -8,13 +8,11 @@
     <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Lora:wght@500&family=Roboto+Mono&family=Work+Sans:wght@300;400&display=swap');
-        /* NUEVAS FUENTES PARA EL TERCER BLOQUE */
         @import url('https://fonts.googleapis.com/css2?family=Limelight&family=Rye&display=swap');
 
         :root {
             --color-fondo: rgb(22, 24, 28); --color-texto: rgb(230, 230, 230);
             --color-acento: rgb(190, 225, 218); --color-acento-hover: white;
-            /* AÑADIMOS NUEVOS COLORES PASTEL */
             --color-pastel-cyan: rgb(190, 225, 218);
             --color-pastel-orange: #ffb347;
             --color-pastel-yellow: #fdfd96;
@@ -66,10 +64,10 @@
              .hero-description { bottom: 2%; font-size: 0.9rem; max-width: 90%; }
         }
 
-        /* --- CSS AJUSTADO PARA EL EFECTO PIN & WIPE --- */
+        /* --- CSS CORREGIDO PARA EL EFECTO PIN & WIPE --- */
         .pin-container {
             position: relative;
-            height: 200vh; /* Da 100vh de recorrido de scroll para la animación */
+            height: 200vh;
             width: 100%;
         }
 
@@ -81,7 +79,8 @@
         }
 
         .erasure-block {
-            position: absolute;
+            /* LA CLAVE: Cambiado a 'fixed' para un movimiento puramente horizontal */
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
@@ -91,11 +90,9 @@
             justify-content: center;
             align-items: center;
             overflow: hidden;
-            /* AÑADIDO: Fondo sólido para cubrir el contenido */
             background-color: var(--color-fondo);
-            /* AÑADIDO: Pista de rendimiento para el navegador */
             will-change: transform;
-            /* Estado inicial: Fuera de la pantalla a la derecha */
+            /* El estado inicial y final se gestiona por JS, pero lo definimos fuera de la vista */
             transform: translateX(100%);
         }
 
@@ -139,7 +136,7 @@
             .font-bitcount-alt { font-size: 9vw; }
             .pin-container { height: 150vh; }
         }
-        /* --- FIN DE CSS AJUSTADO --- */
+        /* --- FIN DE CSS CORREGIDO --- */
 
     </style>
 </head>
@@ -170,11 +167,6 @@
                 </section>
             </div>
         </section>
-        
-        <div style="height: 100vh; display: flex; align-items: center; justify-content: center; background: #111;">
-            <h2>Siguiente sección de la página...</h2>
-        </div>
-
     </main>
     
     <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/", "lil-gui": "https://unpkg.com/lil-gui@0.19.1/dist/lil-gui.esm.js" } }</script>
@@ -305,7 +297,7 @@
         animate();
     </script>
 
-    <!-- --- INICIO DEL SCRIPT MEJORADO PARA LA ANIMACIÓN DE SCROLL --- -->
+    <!-- --- SCRIPT DE ANIMACIÓN DE SCROLL (SIN CAMBIOS, AHORA ACTÚA SOBRE EL ELEMENTO 'FIXED') --- -->
     <script type="module">
         const pinContainer = document.querySelector('.pin-container');
         const erasureBlock = document.querySelector('.erasure-block');
@@ -313,40 +305,34 @@
 
         function updateAnimation() {
             const rect = pinContainer.getBoundingClientRect();
-            // La distancia total que podemos "scrollear" mientras el contenedor está fijado
             const scrollableDistance = pinContainer.offsetHeight - window.innerHeight;
 
-            // Calculamos el progreso del scroll. Empieza en 0 y termina en 1.
-            // -rect.top es la cantidad de píxeles que hemos scrolleado "dentro" del contenedor.
             let progress = -rect.top / scrollableDistance;
-            
-            // Nos aseguramos que el progreso nunca sea menor que 0 o mayor que 1
             progress = Math.max(0, Math.min(1, progress));
 
-            // Mapeamos el progreso (0 a 1) a un valor de translateX (100% a 0%)
             const transformX = 100 - (progress * 100);
-
-            // Aplicamos la transformación al bloque 3
-            erasureBlock.style.transform = `translateX(${transformX}%)`;
             
-            // Permitimos que el próximo evento de scroll active una nueva actualización
+            // Ocultamos el bloque si aún no hemos llegado a la zona de scroll para evitar que aparezca prematuramente
+            if (rect.top > 0) {
+                 erasureBlock.style.visibility = 'hidden';
+            } else {
+                 erasureBlock.style.visibility = 'visible';
+                 erasureBlock.style.transform = `translateX(${transformX}%)`;
+            }
+            
             isTicking = false;
         }
 
         function onScroll() {
-            // Usamos isTicking para evitar que la función se ejecute demasiadas veces
             if (!isTicking) {
-                // requestAnimationFrame sincroniza la animación con el repintado del navegador
                 window.requestAnimationFrame(updateAnimation);
                 isTicking = true;
             }
         }
         
-        // Ejecutamos una vez al cargar la página para establecer la posición inicial correcta
-        onScroll(); 
-        // Añadimos el listener para el evento de scroll
+        onScroll();
         window.addEventListener('scroll', onScroll, { passive: true });
     </script>
-     <!-- --- FIN DEL SCRIPT MEJORADO --- -->
+
 </body>
 </html>
