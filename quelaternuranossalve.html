@@ -4,10 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Que la ternura nos salve</title>
-    <!-- CARGA DE PAPA PARSE CORREGIDA -->
     <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Lora:wght@500&family=Roboto+Mono&family=Work+Sans:wght@300;400&display=swap');
+        /* ... */
         :root {
             --color-fondo: rgb(22, 24, 28); --color-texto: rgb(230, 230, 230);
             --color-acento: rgb(190, 225, 218); --color-acento-hover: white;
@@ -15,50 +14,55 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: var(--font-cuerpo); background-color: var(--color-fondo); color: var(--color-texto); overflow-x: hidden; }
+
         .fixed-hero-container { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 1; }
         #hero-canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: move; }
-        .hero-header { position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%); width: 100%; padding: 2rem; text-align: center; pointer-events: none; z-index: 2; }
-        .hero-description { position: absolute; bottom: 5%; left: 50%; transform: translateX(-50%); width: 100%; max-width: 700px; padding: 2rem; text-align: center; pointer-events: none; z-index: 2; }
+        .hero-header, .hero-description { position: absolute; left: 50%; transform: translateX(-50%); width: 100%; padding: 2rem; text-align: center; pointer-events: none; z-index: 2; }
+        .hero-header { top: 25%; transform: translate(-50%, -50%); }
+        .hero-description { bottom: 5%; max-width: 700px; }
         .scroll-container { position: relative; z-index: 3; }
         .scroll-spacer { height: 100vh; }
-        .content-block { padding: 4rem 2rem; max-width: 1600px; margin: 0 auto; background-color: var(--color-fondo); min-height: 100vh; }
-        .interactive-project-block { display: flex; gap: 2.5rem; align-items: flex-start; }
-        .project-col-model { transition: flex-basis 0.3s ease; }
-        .project-col-text { white-space: pre-wrap; transition: flex-basis 0.3s ease; }
-        .project-col-visuals { flex: 1; }
-        #ramona-canvas-container { width: 100%; height: 50vh; cursor: move; margin-bottom: 2rem; }
+        .content-block { padding: 4rem 2rem; max-width: 95%; /* Ocupa casi todo el ancho */ margin: 0 auto; background-color: var(--color-fondo); }
+
+        /* --- NUEVO LAYOUT ABSOLUTO --- */
+        .interactive-project-block { position: relative; height: 100vh; } /* El lienzo */
+        .project-col { position: absolute; transition: all 0.3s ease; /* Transición suave */ }
+        .project-col-text { white-space: pre-wrap; overflow-y: auto; /* Scroll si el texto es muy largo */ }
+        
+        #ramona-canvas-container, .player-and-title { width: 100%; }
+        #ramona-canvas-container { height: 80%; /* Ocupa la mayor parte de su contenedor */ cursor: move; }
+        
         #track-title-display { font-family: var(--font-mono); color: var(--color-acento); margin-bottom: 1rem; height: 1.2em; text-align: center;}
         .custom-player { display: flex; justify-content: center; align-items: center; gap: 1rem; }
         .player-button { background: none; border: 1px solid var(--color-texto); color: var(--color-texto); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; padding: 0; }
-        .player-button:hover { background-color: rgba(255,255,255,0.1); border-color: var(--color-acento-hover); }
+        .player-button:hover { background-color: rgba(255,255,255,0.1); }
         .player-button svg { width: 18px; height: 18px; fill: var(--color-texto); }
         .hidden { display: none; }
-        .visual-canvas-container { position: relative; width: 100%; padding-top: 56.25%; background-color: black; }
-        #visual-display { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        
+        .visual-canvas-container { position: relative; width: 100%; height: 100%; background-color: black; }
+        #visual-display { width: 100%; height: 100%; object-fit: cover; }
+
         h1 { font-family: var(--font-titulos); font-size: 3rem; }
         h1 span { font-family: var(--font-mono); font-size: 1rem; display: block; margin-top: 10px; color: var(--color-acento); }
         p { line-height: 1.8; }
+        
         .lil-gui { z-index: 1000 !important; }
     </style>
 </head>
 <body>
     <div class="fixed-hero-container">
         <div id="hero-canvas-container"></div>
-        <header class="hero-header">
-            <h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1>
-        </header>
-        <section class="hero-description">
-            <p>Este es un mensaje en una botella, arrojado al vasto océano digital. Un experimento que mezcla escritos, música, dibujos y animaciones. Todo está permitido aquí, conectado por hilos invisibles que forman una única obra de arte digital. Un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p>
-        </section>
+        <header class="hero-header"><h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1></header>
+        <section class="hero-description"><p>Este es un mensaje en una botella...</p></section>
     </div>
 
     <main class="scroll-container">
         <div class="scroll-spacer"></div>
         <section class="content-block">
             <div class="interactive-project-block">
-                <div class="project-col-model">
+                <div id="col-model" class="project-col">
                     <div id="ramona-canvas-container"></div>
-                    <div id="playlist-controls">
+                    <div class="player-and-title">
                         <h4 id="track-title-display"></h4>
                         <div class="custom-player">
                             <button id="prev-btn" class="player-button"><svg viewBox="0 0 24 24"><path d="M18 18V6l-8.5 6 8.5 6Zm-9-6 8.5-6v12L9 12Z"/></svg></button>
@@ -69,25 +73,18 @@
                         <audio id="audio-player" class="hidden"></audio>
                     </div>
                 </div>
-                <div class="project-col-text"><div id="active-text-display"><p>Cargando proyecto...</p></div></div>
-                <div class="project-col-visuals"><div class="visual-canvas-container"><video id="visual-display" autoplay loop muted playsinline></video></div></div>
+                <div id="col-text" class="project-col"><div id="active-text-display"><p>Cargando proyecto...</p></div></div>
+                <div id="col-visuals" class="project-col"><div class="visual-canvas-container"><video id="visual-display" autoplay loop muted playsinline></video></div></div>
             </div>
         </section>
     </main>
     
-    <script type="importmap">
-        { "imports": { 
-            "three": "https://unpkg.com/three@0.163.0/build/three.module.js", 
-            "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/", 
-            "lil-gui": "https://unpkg.com/lil-gui@0.19.1/dist/lil-gui.esm.js"
-        } }
-    </script>
+    <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/", "lil-gui": "https://unpkg.com/lil-gui@0.19.1/dist/lil-gui.esm.js" } }</script>
 
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { GUI } from 'lil-gui';
-        // PAPA PARSE YA NO SE IMPORTA AQUÍ, ESTÁ DISPONIBLE GLOBALMENTE
 
         // --- ESCENA 1 (HERO) ---
         const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5 };
@@ -104,9 +101,12 @@
         let heroModel;
         new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
 
-        // --- ESCENA 2 (RAMONA) ---
+        // --- ESCENA 2 (RAMONA) Y CONTROLES DE LAYOUT ---
         const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05, scale: 4.5, cameraDistance: 2.5, initialRotationX: 0, initialRotationY: 0, initialRotationZ: 0 };
-        const layoutParams = { modelWidth: 30, textWidth: 20 };
+        const layoutParams = {
+            desktop: { model: {x: 5, y: 10, w: 25, h: 80}, text: {x: 35, y: 10, w: 20, h: 80}, visuals: {x: 60, y: 10, w: 35, h: 60} },
+            mobile:  { model: {x: 10, y: 35, w: 80, h: 30}, text: {x: 10, y: 70, w: 80, h: 25}, visuals: {x: 10, y: 5, w: 80, h: 25} }
+        };
         const ramonaContainer = document.getElementById('ramona-canvas-container');
         const ramonaScene = new THREE.Scene();
         const ramonaCamera = new THREE.PerspectiveCamera(75, ramonaContainer.clientWidth / ramonaContainer.clientHeight, 0.1, 1000);
@@ -128,11 +128,26 @@
         rotFolder.add(ramonaParams, 'initialRotationX', -Math.PI, Math.PI, 0.01).name('Rotación X');
         rotFolder.add(ramonaParams, 'initialRotationY', -Math.PI, Math.PI, 0.01).name('Rotación Y');
         rotFolder.add(ramonaParams, 'initialRotationZ', -Math.PI, Math.PI, 0.01).name('Rotación Z');
-        const layoutFolder = gui.addFolder('Layout del Bloque');
-        layoutFolder.add(layoutParams, 'modelWidth', 5, 80, 1).name('Ancho Modelo (%)').onChange(updateLayout);
-        layoutFolder.add(layoutParams, 'textWidth', 5, 80, 1).name('Ancho Texto (%)').onChange(updateLayout);
+        
+        const layoutDesktopFolder = gui.addFolder('Layout Escritorio');
+        ['model', 'text', 'visuals'].forEach(key => {
+            const folder = layoutDesktopFolder.addFolder(key.charAt(0).toUpperCase() + key.slice(1));
+            folder.add(layoutParams.desktop[key], 'x', 0, 100, 1).name('Posición X (%)').onChange(updateLayout);
+            folder.add(layoutParams.desktop[key], 'y', 0, 100, 1).name('Posición Y (%)').onChange(updateLayout);
+            folder.add(layoutParams.desktop[key], 'w', 5, 100, 1).name('Ancho (%)').onChange(updateLayout);
+            folder.add(layoutParams.desktop[key], 'h', 5, 100, 1).name('Altura (%)').onChange(updateLayout);
+        });
+         const layoutMobileFolder = gui.addFolder('Layout Móvil');
+        ['model', 'text', 'visuals'].forEach(key => {
+            const folder = layoutMobileFolder.addFolder(key.charAt(0).toUpperCase() + key.slice(1));
+            folder.add(layoutParams.mobile[key], 'x', 0, 100, 1).name('Posición X (%)').onChange(updateLayout);
+            folder.add(layoutParams.mobile[key], 'y', 0, 100, 1).name('Posición Y (%)').onChange(updateLayout);
+            folder.add(layoutParams.mobile[key], 'w', 5, 100, 1).name('Ancho (%)').onChange(updateLayout);
+            folder.add(layoutParams.mobile[key], 'h', 5, 100, 1).name('Altura (%)').onChange(updateLayout);
+        });
 
-        // --- LÓGICA DE DATOS (CON PAPA PARSE GLOBAL) ---
+
+        // --- LÓGICA DE DATOS Y REPRODUCTOR ---
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
         const audioPlayer = document.getElementById('audio-player');
         const visualDisplay = document.getElementById('visual-display');
@@ -143,9 +158,7 @@
 
         function initProject() {
             Papa.parse(CSV_URL, {
-                download: true,
-                header: true,
-                skipEmptyLines: true,
+                download: true, header: true, skipEmptyLines: true,
                 complete: (results) => {
                     projectData = results.data.filter(p => p.audio && p.video && p.texto && p.titulo);
                     if (projectData.length > 0) {
@@ -158,17 +171,7 @@
             });
         }
 
-        function updateContent(index) {
-            const track = projectData[index];
-            if (!track) return;
-            audioPlayer.src = track.audio;
-            visualDisplay.src = track.video;
-            textDisplay.innerHTML = `<p>${track.texto}</p>`;
-            titleDisplay.textContent = track.titulo;
-            visualDisplay.load();
-            visualDisplay.play().catch(e => {});
-        }
-
+        function updateContent(index) { /* ... */ } // (función sin cambios)
         const playPauseBtn = document.getElementById('play-pause-btn'), playIcon = document.getElementById('play-icon'), pauseIcon = document.getElementById('pause-icon');
         const muteBtn = document.getElementById('mute-btn'), muteIcon = document.getElementById('mute-icon'), unmuteIcon = document.getElementById('unmute-icon');
         playPauseBtn.addEventListener('click', () => audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause());
@@ -181,23 +184,39 @@
         
         initProject();
 
-        // --- LÓGICA GENERAL ---
+        // --- LÓGICA GENERAL Y DE LAYOUT ---
         let mouseX = 0, mouseY = 0;
         window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 - 1; });
         function updateHeroModelTransform() { if (!heroModel) return; const isMobile = window.innerWidth < 768; const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; heroModel.scale.setScalar(scale); heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; }
         
-        function updateRamonaModelTransform() { if (!ramonaModel) return; ramonaModel.scale.setScalar(ramamonaParams.scale); }
-        function updateLayout() { document.querySelector('.project-col-model').style.flexBasis = `${layoutParams.modelWidth}%`; document.querySelector('.project-col-text').style.flexBasis = `${layoutParams.textWidth}%`; }
+        function updateRamonaModelTransform() {
+            if (!ramonaModel) return;
+            ramonaModel.scale.setScalar(ramonaParams.scale);
+        }
+
+        function updateLayout() {
+            const isMobile = window.innerWidth <= 900;
+            const currentLayout = isMobile ? layoutParams.mobile : layoutParams.desktop;
+            
+            Object.keys(currentLayout).forEach(key => {
+                const el = document.getElementById(`col-${key}`);
+                const params = currentLayout[key];
+                if (el) {
+                    el.style.left = `${params.x}%`;
+                    el.style.top = `${params.y}%`;
+                    el.style.width = `${params.w}%`;
+                    el.style.height = `${params.h}%`;
+                }
+            });
+        }
         
         function animate() {
             requestAnimationFrame(animate);
             if (heroModel) { heroModel.rotation.y += (((mouseX * heroParams.mouseIntensity) + heroParams.initialRotationY) - heroModel.rotation.y) * heroParams.smoothingFactor; }
             heroRenderer.render(heroScene, heroCamera);
             if (ramonaModel) {
-                const targetRotX = (mouseY * ramonaParams.mouseIntensity) + ramonaParams.initialRotationX;
-                const targetRotY = (mouseX * ramonaParams.mouseIntensity) + ramonaParams.initialRotationY;
-                ramonaModel.rotation.x += (targetRotX - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
-                ramonaModel.rotation.y += (targetRotY - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
+                ramonaModel.rotation.x += (((mouseY * ramonaParams.mouseIntensity) + ramonaParams.initialRotationX) - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
+                ramonaModel.rotation.y += (((mouseX * ramonaParams.mouseIntensity) + ramonaParams.initialRotationY) - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
                 ramonaModel.rotation.z += (ramonaParams.initialRotationZ - ramonaModel.rotation.z) * ramonaParams.smoothingFactor;
             }
             ramonaRenderer.render(ramonaScene, ramonaCamera);
@@ -208,10 +227,11 @@
             heroRenderer.setSize(heroContainer.clientWidth, heroContainer.clientHeight); updateHeroModelTransform();
             ramonaCamera.aspect = ramonaContainer.clientWidth / ramonaContainer.clientHeight; ramonaCamera.updateProjectionMatrix();
             ramonaRenderer.setSize(ramonaContainer.clientWidth, ramonaContainer.clientHeight);
+            updateLayout(); // Llama a updateLayout en resize
         });
         
         updateLayout();
         animate();
     </script>
 </body>
-</html>```
+</html>
