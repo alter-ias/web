@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Que la ternura nos salve</title>
+    <!-- Se elimina la carga de Papa Parse de aquí para usar importmap -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Lora:wght@500&family=Roboto+Mono&family=Work+Sans:wght@300;400&display=swap');
         :root {
@@ -19,19 +20,18 @@
         .hero-header, .hero-description { position: absolute; left: 50%; transform: translateX(-50%); width: 100%; padding: 2rem; text-align: center; pointer-events: none; z-index: 2; }
         .hero-header { top: 25%; transform: translate(-50%, -50%); }
         .hero-description { bottom: 5%; max-width: 700px; }
+
         .scroll-container { position: relative; z-index: 3; }
         .scroll-spacer { height: 100vh; }
         .content-block { padding: 4rem 2rem; max-width: 95%; margin: 0 auto; background-color: var(--color-fondo); }
         
-        /* LAYOUT ESCRITORIO (ABSOLUTO) */
         .interactive-project-block { position: relative; height: 100vh; }
         .project-col { position: absolute; transition: all 0.3s ease; }
         
-        /* LAYOUT MÓVIL (FLEX VERTICAL) - CORREGIDO Y RESTAURADO */
         @media (max-width: 900px) {
             .interactive-project-block {
                 position: static; height: auto;
-                display: flex; flex-direction: column; gap: 2.5rem;
+                display: flex; flex-direction: column; gap: 2rem;
             }
             .project-col {
                 position: static;
@@ -70,7 +70,6 @@
     </style>
 </head>
 <body>
-    <!-- El HTML del body no necesita cambios -->
     <div class="fixed-hero-container">
         <div id="hero-canvas-container"></div>
         <header class="hero-header"><h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1></header>
@@ -93,15 +92,17 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { GUI } from 'lil-gui';
-        import Papa from 'papaparse';
+        import Papa from 'papaparse'; // Papa Parse importado correctamente
 
-        // --- ESCENA 1 (HERO) - PARÁMETROS CORRECTOS RESTAURADOS ---
+        // --- ESCENA 1 (HERO) - PARÁMETROS RESTAURADOS Y CORRECTOS ---
         const heroParams = {
             desktopModelScale: 2.9,
             desktopModelPositionY: 0.2,
             mobileModelScale: 2.0,
             mobileModelPositionY: 0.7,
-            initialRotationY: -1.57, // Rota 90 grados para mirar de frente
+            initialRotationX: 0.05,
+            initialRotationY: -1.57,
+            initialRotationZ: 0,
             mouseIntensity: 0.51,
             smoothingFactor: 0.088,
             cameraDistance: 4.4,
@@ -149,8 +150,18 @@
         const audioPlayer = document.getElementById('audio-player'), visualDisplay = document.getElementById('visual-display'), textDisplay = document.getElementById('active-text-display'), titleDisplay = document.getElementById('track-title-display');
         let projectData = [], currentIndex = 0;
         
-        function initProject() { /* ... */ } // (El resto del código funcional permanece igual)
-        function updateContent(index) { /* ... */ }
+        function initProject() {
+            Papa.parse(CSV_URL, {
+                download: true, header: true, skipEmptyLines: true,
+                complete: (results) => {
+                    projectData = results.data.filter(p => p.audio && p.video && p.texto && p.titulo);
+                    if (projectData.length > 0) updateContent(currentIndex);
+                    else textDisplay.innerHTML = `<p>No se encontraron proyectos completos.</p>`;
+                },
+                error: (error) => console.error("Error al parsear CSV:", error),
+            });
+        }
+        function updateContent(index) { const track = projectData[index]; if (!track) return; audioPlayer.src = track.audio; visualDisplay.src = track.video; textDisplay.innerHTML = `<p>${track.texto}</p>`; titleDisplay.textContent = track.titulo; visualDisplay.load(); visualDisplay.play().catch(e => {}); }
         const playPauseBtn = document.getElementById('play-pause-btn'), playIcon = document.getElementById('play-icon'), pauseIcon = document.getElementById('pause-icon'), muteBtn = document.getElementById('mute-btn'), muteIcon = document.getElementById('mute-icon'), unmuteIcon = document.getElementById('unmute-icon');
         playPauseBtn.addEventListener('click', () => audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause());
         audioPlayer.addEventListener('play', () => { playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden'); });
@@ -163,25 +174,24 @@
         // --- LÓGICA GENERAL ---
         let mouseX = 0, mouseY = 0;
         window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 - 1; });
-        
-        function updateHeroModelTransform() {
-            if (!heroModel) return;
-            const isMobile = window.innerWidth <= 768;
-            const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale;
-            heroModel.scale.setScalar(scale);
-            heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY;
-        }
-        
+        function updateHeroModelTransform() { if (!heroModel) return; const isMobile = window.innerWidth <= 768; const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; heroModel.scale.setScalar(scale); heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; /* La rotación inicial se maneja en animate */ }
         function updateRamonaModelTransform() { if (!ramonaModel) return; ramonaModel.scale.setScalar(ramonaParams.scale); ramonaModel.rotation.set(ramonaParams.initialRotationX, ramonaParams.initialRotationY, ramonaParams.initialRotationZ); }
-        function updateLayout() {
-            const isMobile = window.innerWidth <= 900;
-            if (isMobile) return;
-            const currentLayout = layoutParams.desktop;
-            Object.keys(currentLayout).forEach(key => { const el = document.getElementById(`col-${key}`); const params = currentLayout[key]; if (el) { el.style.left = `${params.x}%`; el.style.top = `${params.y}%`; el.style.width = `${params.w}%`; el.style.height = `${params.h}%`; } });
-        }
+        function updateLayout() { const isMobile = window.innerWidth <= 900; if (isMobile) return; const currentLayout = layoutParams.desktop; Object.keys(currentLayout).forEach(key => { const el = document.getElementById(`col-${key}`); const params = currentLayout[key]; if (el) { el.style.left = `${params.x}%`; el.style.top = `${params.y}%`; el.style.width = `${params.w}%`; el.style.height = `${params.h}%`; } }); }
         
-        function handleResize() { /* ... */ }
-
+        function handleResize() {
+            updateLayout();
+            const heroRect = heroContainer.getBoundingClientRect();
+            heroCamera.aspect = heroRect.width / heroRect.height;
+            heroCamera.updateProjectionMatrix();
+            heroRenderer.setSize(heroRect.width, heroRect.height);
+            updateHeroModelTransform();
+            const ramonaRect = ramonaContainer.getBoundingClientRect();
+            if (ramonaRect.width > 0 && ramonaRect.height > 0) {
+                 ramonaCamera.aspect = ramonaRect.width / ramonaRect.height;
+                 ramonaCamera.updateProjectionMatrix();
+                 ramonaRenderer.setSize(ramonaRect.width, ramonaRect.height);
+            }
+        }
         function animate() {
             requestAnimationFrame(animate);
             if (heroModel) {
