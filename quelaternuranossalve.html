@@ -24,7 +24,7 @@
         .content-block { padding: 4rem 2rem; max-width: 95%; margin: 0 auto; background-color: var(--color-fondo); }
         .interactive-project-block { position: relative; height: 100vh; }
         .project-col { position: absolute; transition: all 0.3s ease; }
-        .project-col-text { white-space: pre-wrap; overflow-y: auto; }
+        .project-col-text { white-space: pre-wrap; overflow-y: auto; padding: 1rem; }
         #ramona-canvas-container, .player-and-title { width: 100%; }
         #ramona-canvas-container { height: 80%; cursor: move; }
         #track-title-display { font-family: var(--font-mono); color: var(--color-acento); margin-bottom: 1rem; height: 1.2em; text-align: center;}
@@ -45,7 +45,7 @@
     <div class="fixed-hero-container">
         <div id="hero-canvas-container"></div>
         <header class="hero-header"><h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1></header>
-        <section class="hero-description"><p>Este es un mensaje en una botella, arrojado al vasto océano digital. Un experimento que mezcla escritos, música, dibujos y animaciones. Todo está permitido aquí, conectado por hilos invisibles que forman una única obra de arte digital. Un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p></section>
+        <section class="hero-description"><p>Este es un mensaje en una botella...</p></section>
     </div>
 
     <main class="scroll-container">
@@ -84,21 +84,26 @@
         // --- ESCENA 2 (RAMONA) Y CONTROLES ---
         const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05, scale: 4.5, cameraDistance: 2.5, initialRotationX: 0, initialRotationY: 0, initialRotationZ: 0 };
         const layoutParams = {
-            desktop: { model: {x: 5, y: 10, w: 25, h: 80}, text: {x: 35, y: 10, w: 20, h: 80}, visuals: {x: 60, y: 10, w: 35, h: 60} },
+            // VALORES FINALES PARA ESCRITORIO
+            desktop: { model: {x: 0, y: 0, w: 34, h: 91}, text: {x: 36, y: 69, w: 63, h: 25}, visuals: {x: 36, y: 3, w: 61, h: 63} },
+            // Valores por defecto para móvil (ajustables)
             mobile:  { model: {x: 10, y: 35, w: 80, h: 30}, text: {x: 10, y: 70, w: 80, h: 25}, visuals: {x: 10, y: 5, w: 80, h: 25} }
         };
         const ramonaContainer = document.getElementById('ramona-canvas-container');
-        const ramonaScene = new THREE.Scene();
-        const ramonaCamera = new THREE.PerspectiveCamera(75, ramonaContainer.clientWidth / ramonaContainer.clientHeight, 0.1, 1000);
-        ramonaCamera.position.z = ramonaParams.cameraDistance;
-        const ramonaRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        ramonaRenderer.setPixelRatio(window.devicePixelRatio); ramonaRenderer.setSize(ramonaContainer.clientWidth, ramonaContainer.clientHeight);
-        ramonaContainer.appendChild(ramonaRenderer.domElement);
-        ramonaScene.add(new THREE.AmbientLight(0xffffff, 4.0));
-        const ramonaDirectionalLight = new THREE.DirectionalLight(0xffffff, 3.0);
-        ramonaDirectionalLight.position.set(2, 5, 3); ramonaScene.add(ramonaDirectionalLight);
-        let ramonaModel;
-        new GLTFLoader().load('./assets/3d/ramona.glb', (gltf) => { ramonaModel = gltf.scene; updateRamonaModelTransform(); ramonaScene.add(ramonaModel); });
+        let ramonaScene, ramonaCamera, ramonaRenderer, ramonaModel;
+
+        function initRamonaScene() {
+            ramonaScene = new THREE.Scene();
+            ramonaCamera = new THREE.PerspectiveCamera(75, ramonaContainer.clientWidth / ramonaContainer.clientHeight, 0.1, 1000);
+            ramonaCamera.position.z = ramonaParams.cameraDistance;
+            ramonaRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            ramonaRenderer.setPixelRatio(window.devicePixelRatio); ramonaRenderer.setSize(ramonaContainer.clientWidth, ramonaContainer.clientHeight);
+            ramonaContainer.appendChild(ramonaRenderer.domElement);
+            ramonaScene.add(new THREE.AmbientLight(0xffffff, 4.0));
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 3.0);
+            directionalLight.position.set(2, 5, 3); ramonaScene.add(directionalLight);
+            new GLTFLoader().load('./assets/3d/ramona.glb', (gltf) => { ramonaModel = gltf.scene; updateRamonaModelTransform(); ramonaScene.add(ramonaModel); });
+        }
 
         const gui = new GUI();
         gui.title("Controles del Bloque").close();
@@ -155,8 +160,6 @@
         muteBtn.addEventListener('click', () => { audioPlayer.muted = !audioPlayer.muted; });
         audioPlayer.addEventListener('volumechange', () => { muteIcon.classList.toggle('hidden', !audioPlayer.muted); unmuteIcon.classList.toggle('hidden', audioPlayer.muted); });
         
-        initProject();
-
         // --- LÓGICA GENERAL ---
         let mouseX = 0, mouseY = 0;
         window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 - 1; });
@@ -176,26 +179,34 @@
         function animate() {
             requestAnimationFrame(animate);
             if (heroModel) {
-                // CORRECCIÓN DEL TYPO CRÍTICO
                 heroModel.rotation.y += (((mouseX * heroParams.mouseIntensity) + heroParams.initialRotationY) - heroModel.rotation.y) * heroParams.smoothingFactor;
             }
-            heroRenderer.render(heroScene, heroCamera);
-            if (ramonaModel) {
+            if(heroRenderer) heroRenderer.render(heroScene, heroCamera);
+            
+            if (ramonaModel && ramonaRenderer) {
                 ramonaModel.rotation.x += (((mouseY * ramonaParams.mouseIntensity) + ramonaParams.initialRotationX) - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
                 ramonaModel.rotation.y += (((mouseX * ramonaParams.mouseIntensity) + ramonaParams.initialRotationY) - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
                 ramonaModel.rotation.z += (ramonaParams.initialRotationZ - ramonaModel.rotation.z) * ramonaParams.smoothingFactor;
+                ramonaRenderer.render(ramonaScene, ramonaCamera);
             }
-            ramonaRenderer.render(ramonaScene, ramonaCamera);
         }
         
         window.addEventListener('resize', () => {
             heroCamera.aspect = heroContainer.clientWidth / heroContainer.clientHeight; heroCamera.updateProjectionMatrix();
             heroRenderer.setSize(heroContainer.clientWidth, heroContainer.clientHeight); updateHeroModelTransform();
-            ramonaCamera.aspect = ramonaContainer.clientWidth / ramonaContainer.clientHeight; ramonaCamera.updateProjectionMatrix();
-            ramonaRenderer.setSize(ramonaContainer.clientWidth, ramonaContainer.clientHeight);
+            if(ramonaCamera && ramonaContainer && ramonaRenderer) {
+                ramonaCamera.aspect = ramonaContainer.clientWidth / ramonaContainer.clientHeight; ramonaCamera.updateProjectionMatrix();
+                ramonaRenderer.setSize(ramonaContainer.clientWidth, ramonaContainer.clientHeight);
+            }
             updateLayout();
         });
         
+        // Carga diferida para optimizar el arranque
+        setTimeout(() => {
+            initRamonaScene();
+            initProject();
+        }, 500); // Espera 500ms antes de cargar los assets del segundo bloque
+
         updateLayout();
         animate();
     </script>
