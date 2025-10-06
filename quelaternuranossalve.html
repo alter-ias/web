@@ -43,13 +43,11 @@
     </style>
 </head>
 <body>
-    <!-- HTML del body sin cambios -->
     <div class="fixed-hero-container">
         <div id="hero-canvas-container"></div>
         <header class="hero-header"><h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1></header>
         <section class="hero-description"><p>Este es un mensaje en una botella, arrojado al vasto océano digital. Un experimento que mezcla escritos, música, dibujos y animaciones. Todo está permitido aquí, conectado por hilos invisibles que forman una única obra de arte digital. Un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p></section>
     </div>
-
     <main class="scroll-container">
         <div class="scroll-spacer"></div>
         <section class="content-block">
@@ -62,14 +60,26 @@
     </main>
     
     <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/", "lil-gui": "https://unpkg.com/lil-gui@0.19.1/dist/lil-gui.esm.js" } }</script>
-
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { GUI } from 'lil-gui';
 
-        // --- ESCENA 1 (HERO) ---
-        const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5 };
+        // --- ESCENA 1 (HERO) - PARÁMETROS RESTAURADOS ---
+        const heroParams = {
+            desktopModelScale: 2.9,
+            desktopModelPositionY: 0.2,
+            mobileModelScale: 2.0,
+            mobileModelPositionY: 0.7,
+            initialRotationX: 0.05,
+            initialRotationY: -1.57,
+            initialRotationZ: 0,
+            mouseIntensity: 0.51,
+            smoothingFactor: 0.088,
+            cameraDistance: 4.4,
+            ambientIntensity: 5.0,
+            directionalIntensity: 4.5,
+        };
         const heroContainer = document.getElementById('hero-canvas-container');
         const heroScene = new THREE.Scene();
         const heroCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
@@ -115,13 +125,13 @@
         const layoutMobileFolder = gui.addFolder('Layout Móvil');
         ['model', 'text', 'visuals'].forEach(key => { const folder = layoutMobileFolder.addFolder(key); folder.add(layoutParams.mobile[key], 'x', 0, 100, 1).onChange(updateLayout); folder.add(layoutParams.mobile[key], 'y', 0, 100, 1).onChange(updateLayout); folder.add(layoutParams.mobile[key], 'w', 5, 100, 1).onChange(updateLayout); folder.add(layoutParams.mobile[key], 'h', 5, 100, 1).onChange(updateLayout); });
 
-        // --- LÓGICA DE DATOS Y REPRODUCTOR RESTAURADA ---
+        // --- LÓGICA DE DATOS Y REPRODUCTOR ---
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
         const audioPlayer = document.getElementById('audio-player'), visualDisplay = document.getElementById('visual-display'), textDisplay = document.getElementById('active-text-display'), titleDisplay = document.getElementById('track-title-display');
         let projectData = [], currentIndex = 0;
-        
+        initProject();
         function initProject() {
-            Papa.parse(CSV_URL, {
+             Papa.parse(CSV_URL, {
                 download: true, header: true, skipEmptyLines: true,
                 complete: (results) => {
                     projectData = results.data.filter(p => p.audio && p.video && p.texto && p.titulo);
@@ -131,18 +141,7 @@
                 error: (error) => console.error("Error al parsear CSV:", error),
             });
         }
-        
-        function updateContent(index) {
-            const track = projectData[index];
-            if (!track) return;
-            audioPlayer.src = track.audio;
-            visualDisplay.src = track.video;
-            textDisplay.innerHTML = `<p>${track.texto}</p>`;
-            titleDisplay.textContent = track.titulo;
-            visualDisplay.load();
-            visualDisplay.play().catch(e => {});
-        }
-
+        function updateContent(index) { const track = projectData[index]; if (!track) return; audioPlayer.src = track.audio; visualDisplay.src = track.video; textDisplay.innerHTML = `<p>${track.texto}</p>`; titleDisplay.textContent = track.titulo; visualDisplay.load(); visualDisplay.play().catch(e => {}); }
         const playPauseBtn = document.getElementById('play-pause-btn'), playIcon = document.getElementById('play-icon'), pauseIcon = document.getElementById('pause-icon'), muteBtn = document.getElementById('mute-btn'), muteIcon = document.getElementById('mute-icon'), unmuteIcon = document.getElementById('unmute-icon');
         playPauseBtn.addEventListener('click', () => audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause());
         audioPlayer.addEventListener('play', () => { playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden'); });
@@ -151,12 +150,11 @@
         document.getElementById('prev-btn').addEventListener('click', () => { currentIndex = (currentIndex - 1 + projectData.length) % projectData.length; updateContent(currentIndex); audioPlayer.play(); });
         muteBtn.addEventListener('click', () => { audioPlayer.muted = !audioPlayer.muted; });
         audioPlayer.addEventListener('volumechange', () => { muteIcon.classList.toggle('hidden', !audioPlayer.muted); unmuteIcon.classList.toggle('hidden', audioPlayer.muted); });
-        
+
         // --- LÓGICA GENERAL ---
         let mouseX = 0, mouseY = 0;
         window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 - 1; });
-        function updateHeroModelTransform() { if (!heroModel) return; const isMobile = window.innerWidth < 768; const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; heroModel.scale.setScalar(scale); heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; }
-        
+        function updateHeroModelTransform() { if (!heroModel) return; const isMobile = window.innerWidth < 768; const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; heroModel.scale.setScalar(scale); heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; heroModel.rotation.set(heroParams.initialRotationX, heroParams.initialRotationY, heroParams.initialRotationZ); }
         function updateRamonaModelTransform() { if (!ramonaModel) return; ramonaModel.scale.setScalar(ramonaParams.scale); ramonaModel.rotation.set(ramonaParams.initialRotationX, ramonaParams.initialRotationY, ramonaParams.initialRotationZ); }
         function updateLayout() { const isMobile = window.innerWidth <= 900; const currentLayout = isMobile ? layoutParams.mobile : layoutParams.desktop; Object.keys(currentLayout).forEach(key => { const el = document.getElementById(`col-${key}`); const params = currentLayout[key]; if (el) { el.style.left = `${params.x}%`; el.style.top = `${params.y}%`; el.style.width = `${params.w}%`; el.style.height = `${params.h}%`; } }); }
         
@@ -177,8 +175,8 @@
         function animate() {
             requestAnimationFrame(animate);
             if (heroModel) {
-                // *** CORRECCIÓN DEL ERROR FATAL ***
-                heroModel.rotation.y += (((mouseX * heroParams.mouseIntensity) + heroParams.initialRotationY) - heroModel.rotation.y) * heroParams.smoothingFactor;
+                const targetHeroRotY = heroParams.initialRotationY + (mouseX * heroParams.mouseIntensity);
+                heroModel.rotation.y += (targetHeroRotY - heroModel.rotation.y) * heroParams.smoothingFactor;
             }
             heroRenderer.render(heroScene, heroCamera);
             if (ramonaModel) {
@@ -186,15 +184,14 @@
                 const targetRotY = ramonaParams.initialRotationY + (mouseX * ramonaParams.mouseIntensity);
                 ramonaModel.rotation.x += (targetRotX - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
                 ramonaModel.rotation.y += (targetRotY - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
-                ramonaModel.rotation.z += (ramonaParams.initialRotationZ - ramonaModel.rotation.z) * ramonaParams.smoothingFactor;
             }
             ramonaRenderer.render(ramonaScene, ramonaCamera);
         }
         
         window.addEventListener('resize', handleResize);
         
+        handleResize();
         initProject();
-        handleResize(); // Llama a la función de redimensionamiento una vez para establecer todo correctamente
         animate();
     </script>
 </body>
