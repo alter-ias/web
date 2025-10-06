@@ -6,7 +6,6 @@
     <title>Que la ternura nos salve</title>
     <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <style>
-        /* ... El CSS permanece sin cambios ... */
         @import url('https://fonts.googleapis.com/css2?family=Lora:wght@500&family=Roboto+Mono&family=Work+Sans:wght@300;400&display=swap');
         :root {
             --color-fondo: rgb(22, 24, 28); --color-texto: rgb(230, 230, 230);
@@ -46,7 +45,10 @@
     <div class="fixed-hero-container">
         <div id="hero-canvas-container"></div>
         <header class="hero-header"><h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1></header>
-        <section class="hero-description"><p>Este es un mensaje en una botella...</p></section>
+        <section class="hero-description">
+            <!-- TEXTO COMPLETO RESTAURADO -->
+            <p>Este es un mensaje en una botella, arrojado al vasto océano digital. Un experimento que mezcla escritos, música, dibujos y animaciones. Todo está permitido aquí, conectado por hilos invisibles que forman una única obra de arte digital. Un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p>
+        </section>
     </div>
 
     <main class="scroll-container">
@@ -82,11 +84,11 @@
         let heroModel;
         new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
 
-        // --- ESCENA 2 (RAMONA) CON PARÁMETROS FINALES ---
-        const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05, scale: 2.7, cameraDistance: 2.5, initialRotationX: 0.84, initialRotationY: -1.63, initialRotationZ: 0 };
+        // --- ESCENA 2 (RAMONA) ---
+        const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05, scale: 4.5, cameraDistance: 2.5, initialRotationX: 0, initialRotationY: 0, initialRotationZ: 0 };
         const layoutParams = {
-            desktop: { model: {x: 0, y: 0, w: 34, h: 91}, text: {x: 36, y: 69, w: 63, h: 25}, visuals: {x: 36, y: 3, w: 61, h: 63} },
-            mobile:  { model: {x: 10, y: 48, w: 80, h: 35}, text: {x: 10, y: 85, w: 80, h: 15}, visuals: {x: 10, y: 2, w: 80, h: 45} }
+            desktop: { model: {x: 5, y: 10, w: 25, h: 80}, text: {x: 35, y: 10, w: 20, h: 80}, visuals: {x: 60, y: 10, w: 35, h: 60} },
+            mobile:  { model: {x: 10, y: 35, w: 80, h: 30}, text: {x: 10, y: 70, w: 80, h: 25}, visuals: {x: 10, y: 5, w: 80, h: 25} }
         };
         const ramonaContainer = document.getElementById('ramona-canvas-container');
         const ramonaScene = new THREE.Scene();
@@ -122,38 +124,67 @@
         const titleDisplay = document.getElementById('track-title-display');
         let projectData = []; let currentIndex = 0;
 
-        function initProject() { /* ... sin cambios ... */ }
-        function updateContent(index) { /* ... sin cambios ... */ }
-        // (Las funciones de datos y reproductor son idénticas a la versión anterior)
+        function initProject() {
+            Papa.parse(CSV_URL, {
+                download: true, header: true, skipEmptyLines: true,
+                complete: (results) => {
+                    projectData = results.data.filter(p => p.audio && p.video && p.texto && p.titulo);
+                    if (projectData.length > 0) updateContent(currentIndex);
+                    else textDisplay.innerHTML = `<p>No se encontraron proyectos completos.</p>`;
+                },
+                error: (error) => console.error("Error al parsear CSV:", error),
+            });
+        }
+
+        function updateContent(index) {
+            const track = projectData[index];
+            if (!track) return;
+            audioPlayer.src = track.audio;
+            visualDisplay.src = track.video;
+            textDisplay.innerHTML = `<p>${track.texto}</p>`;
+            titleDisplay.textContent = track.titulo;
+            visualDisplay.load();
+            visualDisplay.play().catch(e => {});
+        }
+
+        const playPauseBtn = document.getElementById('play-pause-btn'), playIcon = document.getElementById('play-icon'), pauseIcon = document.getElementById('pause-icon');
+        const muteBtn = document.getElementById('mute-btn'), muteIcon = document.getElementById('mute-icon'), unmuteIcon = document.getElementById('unmute-icon');
+        playPauseBtn.addEventListener('click', () => audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause());
+        audioPlayer.addEventListener('play', () => { playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden'); });
+        audioPlayer.addEventListener('pause', () => { playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden'); });
+        document.getElementById('next-btn').addEventListener('click', () => { currentIndex = (currentIndex + 1) % projectData.length; updateContent(currentIndex); audioPlayer.play(); });
+        document.getElementById('prev-btn').addEventListener('click', () => { currentIndex = (currentIndex - 1 + projectData.length) % projectData.length; updateContent(currentIndex); audioPlayer.play(); });
+        muteBtn.addEventListener('click', () => { audioPlayer.muted = !audioPlayer.muted; });
+        audioPlayer.addEventListener('volumechange', () => { muteIcon.classList.toggle('hidden', !audioPlayer.muted); unmuteIcon.classList.toggle('hidden', audioPlayer.muted); });
         
-        // --- LÓGICA GENERAL Y ANIMACIÓN ---
+        initProject();
+
+        // --- LÓGICA GENERAL ---
         let mouseX = 0, mouseY = 0;
         window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 - 1; });
         function updateHeroModelTransform() { if (!heroModel) return; const isMobile = window.innerWidth < 768; const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; heroModel.scale.setScalar(scale); heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; }
         
-        function updateRamonaModelTransform() {
-            if (!ramonaModel) return;
-            ramonaModel.scale.setScalar(ramonaParams.scale);
-            // Aplicamos la rotación inicial directamente al modelo
-            ramonaModel.rotation.set(ramonaParams.initialRotationX, ramonaParams.initialRotationY, ramonaParams.initialRotationZ);
+        function updateRamonaModelTransform() { if (!ramonaModel) return; ramonaModel.scale.setScalar(ramonaParams.scale); }
+        function updateLayout() {
+            const isMobile = window.innerWidth <= 900;
+            const currentLayout = isMobile ? layoutParams.mobile : layoutParams.desktop;
+            Object.keys(currentLayout).forEach(key => {
+                const el = document.getElementById(`col-${key}`);
+                const params = currentLayout[key];
+                if (el) { el.style.left = `${params.x}%`; el.style.top = `${params.y}%`; el.style.width = `${params.w}%`; el.style.height = `${params.h}%`; }
+            });
         }
-
-        function updateLayout() { /* ... sin cambios ... */ }
         
         function animate() {
             requestAnimationFrame(animate);
             if (heroModel) {
-                // CORRECCIÓN FINAL
+                // *** CORRECCIÓN DEL ERROR FATAL ***
                 heroModel.rotation.y += (((mouseX * heroParams.mouseIntensity) + heroParams.initialRotationY) - heroModel.rotation.y) * heroParams.smoothingFactor;
             }
             heroRenderer.render(heroScene, heroCamera);
             if (ramonaModel) {
-                // La animación del ratón se AÑADE a la rotación inicial
-                const targetRotX = ramonaParams.initialRotationX + (mouseY * ramonaParams.mouseIntensity);
-                const targetRotY = ramonaParams.initialRotationY + (mouseX * ramonaParams.mouseIntensity);
-                ramonaModel.rotation.x += (targetRotX - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
-                ramonaModel.rotation.y += (targetRotY - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
-                // La rotación Z se mantiene fija a su valor inicial
+                ramonaModel.rotation.x += (((mouseY * ramonaParams.mouseIntensity) + ramonaParams.initialRotationX) - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
+                ramonaModel.rotation.y += (((mouseX * ramonaParams.mouseIntensity) + ramonaParams.initialRotationY) - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
                 ramonaModel.rotation.z += (ramonaParams.initialRotationZ - ramonaModel.rotation.z) * ramonaParams.smoothingFactor;
             }
             ramonaRenderer.render(ramonaScene, ramonaCamera);
@@ -167,10 +198,8 @@
             updateLayout();
         });
         
-        // El resto del código de inicialización y eventos permanece igual...
-        initProject(); // Inicia la carga de datos
-        updateLayout(); // Establece el layout inicial
-        animate(); // Comienza el bucle de animación
+        updateLayout();
+        animate();
     </script>
 </body>
 </html>
