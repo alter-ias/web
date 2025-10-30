@@ -15,7 +15,6 @@
             --color-pastel-cyan: rgb(190, 225, 218);
             --color-pastel-orange: #ffb347;
             --color-pastel-yellow: #fdfd96;
-            /* CAMBIO GLOBAL DE TIPOGRAFÍA */
             --font-principal: 'Courier New', Courier, monospace;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -29,38 +28,44 @@
         .scroll-spacer { height: 100vh; }
         .content-block { padding: 4rem 2rem; max-width: 95%; margin: 0 auto; background-color: var(--color-fondo); }
         
-        /* --- NUEVO LAYOUT PARA EL BLOQUE INTERACTIVO --- */
+        /* --- NUEVO LAYOUT DINÁMICO --- */
         .interactive-project-block { 
             position: relative;
-            height: 100vh; 
+            /* height: 100vh; -- ELIMINADO: La altura ahora es automática */
             width: 100%;
-            display: flex; /* Usamos Flexbox */
-            gap: 2rem; /* Espacio entre columnas */
-            align-items: center; /* Centramos verticalmente */
+            display: flex;
+            gap: 3rem; /* Más espacio entre columnas */
+            align-items: flex-start; /* Alineamos al inicio, no al centro */
+            padding: 10vh 0; /* Espacio vertical para que no se pegue a los bordes */
         }
         
         .project-col {
-            flex: 1; /* Cada columna toma la mitad del espacio */
-            height: 80vh; /* Altura controlada */
-            display: flex;
-            flex-direction: column;
+            flex: 1;
+            /* height: 80vh; -- ELIMINADO */
         }
 
+        #col-visuals {
+            position: sticky; /* ¡LA CLAVE! Se queda fijo al hacer scroll */
+            top: 10vh; /* Margen superior cuando está fijo */
+            height: 80vh; /* Le damos una altura fija al contenedor del video */
+        }
+        
         #col-text {
-            justify-content: center; /* Centra el texto verticalmente */
-            overflow-y: auto; /* Scroll si el texto es muy largo */
+            min-height: 80vh; /* Aseguramos una altura mínima para textos cortos */
         }
 
         @media (max-width: 900px) {
             .interactive-project-block {
                 position: static;
                 height: auto;
-                flex-direction: column; /* Columnas una debajo de la otra */
+                flex-direction: column;
                 gap: 2rem;
+                padding: 5vh 0;
             }
-            .project-col {
+            #col-visuals {
+                position: static; /* Desactivamos el sticky en móvil */
                 width: 100%;
-                height: auto;
+                height: auto; /* La altura se adaptará al aspect-ratio del video */
             }
             .visual-canvas-container { padding-top: 56.25%; height: 0; }
         }
@@ -82,8 +87,12 @@
              p { font-size: 1rem; }
         }
 
-        .pin-container { position: relative; height: 200vh; width: 100%; }
+        .pin-container { position: relative; height: auto; width: 100%; }
+        /* El pin-container ya no necesita una altura fija, se la dará el contenido */
+
         .pin-container .interactive-project-block { position: sticky; top: 0; left: 0; z-index: 10; }
+        
+        /* El resto de estilos para erasure-block y tipografías permanece igual */
         .erasure-block { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 20; display: flex; justify-content: center; align-items: center; overflow: hidden; background-color: var(--color-fondo); will-change: transform; transform: translateX(100%); }
         .erasure-text { text-align: center; font-size: 6vw; font-weight: bold; text-transform: uppercase; padding: 2rem; }
         .erasure-text span { display: block; line-height: 1.1; margin-bottom: 0.5rem; }
@@ -93,11 +102,9 @@
         .text-cyan { color: var(--color-pastel-cyan); text-shadow: 0 0 15px rgba(190, 225, 218, 0.7); }
         .text-orange { color: var(--color-pastel-orange); text-shadow: 0 0 15px rgba(255, 179, 71, 0.7); }
         .text-yellow { color: var(--color-pastel-yellow); text-shadow: 0 0 15px rgba(253, 253, 150, 0.7); }
-        
         @media (max-width: 768px) {
             .erasure-text { font-size: 10vw; }
             .font-bitcount-alt { font-size: 9vw; }
-            .pin-container { height: 150vh; }
         }
     </style>
 </head>
@@ -110,8 +117,8 @@
     <main class="scroll-container">
         <div class="scroll-spacer"></div>
         <section class="content-block">
+            <!-- El pin-container ahora envuelve todo el bloque dinámico -->
             <div class="pin-container">
-                <!-- ESTRUCTURA SIMPLIFICADA DEL BLOQUE -->
                 <div class="interactive-project-block">
                     <div id="col-visuals" class="project-col">
                         <div class="visual-canvas-container">
@@ -121,10 +128,9 @@
                     <div id="col-text" class="project-col">
                         <div id="active-text-display"><p>Cargando proyecto...</p></div>
                     </div>
-                    <!-- El audio player sigue aquí, pero invisible y sin controles manuales -->
                     <audio id="audio-player" loop class="hidden"></audio>
                 </div>
-                <!-- FIN ESTRUCTURA SIMPLIFICADA -->
+                <!-- El erasure-block sigue funcionando igual, pero ahora se activa al final de este bloque dinámico -->
                 <section class="erasure-block">
                     <div class="erasure-text">
                         <span class="font-rye text-cyan">Las</span>
@@ -177,7 +183,6 @@
                 complete: (results) => {
                     const projectData = results.data.filter(p => p.audio && p.video && p.texto);
                     if (projectData.length > 0) {
-                        // Por ahora, cargamos solo el primer proyecto.
                         const firstProject = projectData[0];
                         audioPlayer.src = firstProject.audio;
                         visualDisplay.src = firstProject.video;
@@ -190,31 +195,40 @@
             });
         }
         
-        // --- LÓGICA DE INTERSECTION OBSERVER PARA REPRODUCCIÓN AUTOMÁTICA ---
+        // --- LÓGICA DE INTERSECTION OBSERVER MEJORADA ---
         const projectBlock = document.querySelector('.interactive-project-block');
 
         const observerOptions = {
-            root: null, // usa el viewport
+            root: null,
             rootMargin: '0px',
-            threshold: 0.5 // Se activa cuando el 50% del elemento es visible
+            threshold: 0.2 // Se activa cuando el 20% del elemento es visible
         };
 
         const observerCallback = (entries, observer) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    // El bloque es visible, reproducimos
-                    visualDisplay.play().catch(e => console.log("Video autoplay blocked"));
-                    audioPlayer.play().catch(e => console.log("Audio autoplay blocked"));
+                    // El bloque es visible, intentamos reproducir
+                    visualDisplay.play(); // El video está muteado, no dará problemas
+                    if (audioPlayer.src && audioPlayer.paused) {
+                        const playPromise = audioPlayer.play();
+                        if (playPromise !== undefined) {
+                            playPromise.catch(error => {
+                                console.error("La reproducción automática de audio falló:", error);
+                                // El usuario podría necesitar hacer clic en algún lugar para iniciar el audio.
+                            });
+                        }
+                    }
                 } else {
-                    // El bloque ya no es visible, pausamos
-                    audioPlayer.pause();
+                    // El bloque ya no es visible, pausamos para ahorrar recursos
+                    if (!audioPlayer.paused) {
+                        audioPlayer.pause();
+                    }
                 }
             });
         };
 
         const observer = new IntersectionObserver(observerCallback, observerOptions);
         observer.observe(projectBlock);
-
 
         // --- FUNCIONES DE UTILIDAD Y ANIMACIÓN ---
         let mouseX = 0, mouseY = 0;
@@ -246,13 +260,12 @@
         }
         
         window.addEventListener('resize', handleResize);
-        
         handleResize();
         initProject();
         animate();
     </script>
 
-    <!-- --- SCRIPT DE ANIMACIÓN DE SCROLL (SIN CAMBIOS) --- -->
+    <!-- El script de animación del erasure-block necesita un ajuste para funcionar con la altura dinámica -->
     <script type="module">
         const pinContainer = document.querySelector('.pin-container');
         const erasureBlock = document.querySelector('.erasure-block');
@@ -260,7 +273,15 @@
 
         function updateAnimation() {
             const rect = pinContainer.getBoundingClientRect();
+            // La distancia scrolleable ahora es la altura total del bloque de texto menos la altura de la ventana.
             const scrollableDistance = pinContainer.offsetHeight - window.innerHeight;
+
+            // Evitamos división por cero si el contenido es más corto que la ventana
+            if (scrollableDistance <= 0) {
+                erasureBlock.style.transform = `translateX(100%)`;
+                erasureBlock.style.visibility = 'hidden';
+                return;
+            }
 
             let progress = -rect.top / scrollableDistance;
             progress = Math.max(0, Math.min(1, progress));
@@ -286,7 +307,10 @@
         
         onScroll();
         window.addEventListener('scroll', onScroll, { passive: true });
-    </script>
+        
+        // También necesitamos re-calcular en el resize, por si cambia el layout
+        window.addEventListener('resize', onScroll);
 
+    </script>
 </body>
 </html>
