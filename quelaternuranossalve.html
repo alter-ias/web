@@ -19,15 +19,27 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: var(--font-principal); background-color: var(--color-fondo); color: var(--color-texto); overflow-x: hidden; }
-        .fixed-hero-container { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 1; }
+        
+        /* --- CAMBIO #1: HERO AHORA ES "STICKY" --- */
+        .hero-section {
+            position: sticky;
+            top: 0;
+            width: 100%;
+            height: 100vh;
+            z-index: 1;
+        }
+
         #hero-canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: move; }
         .hero-header, .hero-description { position: absolute; left: 50%; transform: translateX(-50%); width: 100%; padding: 2rem; text-align: center; pointer-events: none; z-index: 2; }
         .hero-header { top: 25%; transform: translate(-50%, -50%); }
         .hero-description { bottom: 5%; max-width: 700px; }
-        .scroll-container { position: relative; z-index: 3; }
-        .scroll-spacer { height: 100vh; }
         
-        /* Contenedor principal para los bloques generados */
+        .scroll-container { 
+            position: relative; 
+            z-index: 2; /* Para que se renderice sobre el hero al hacer scroll */
+            background-color: var(--color-fondo); /* Fondo sólido para el contenido */
+        }
+        
         .content-container { padding: 0 2rem; max-width: 95%; margin: 0 auto; }
 
         .interactive-project-block { 
@@ -37,35 +49,29 @@
             gap: 3rem;
             align-items: flex-start;
             padding: 10vh 0;
-            min-height: 100vh; /* Asegura que cada bloque tenga espacio */
+            min-height: 100vh;
         }
         
         .project-col { flex: 1; }
-
-        .project-col-visuals {
-            position: sticky;
-            top: 10vh;
-            height: 80vh;
-        }
-        
+        .project-col-visuals { position: sticky; top: 10vh; height: 80vh; }
         .project-col-text { min-height: 80vh; }
 
         @media (max-width: 900px) {
-            .interactive-project-block {
-                flex-direction: column;
-                padding: 5vh 0;
-            }
-            .project-col-visuals {
-                position: static;
-                width: 100%;
-                height: auto;
-            }
+            .interactive-project-block { flex-direction: column; padding: 5vh 0; }
+            .project-col-visuals { position: static; width: 100%; height: auto; }
             .visual-canvas-container { padding-top: 56.25%; height: 0; }
         }
         
         .active-text-display p { white-space: pre-wrap; }
         .hidden { display: none; }
-        .visual-canvas-container { position: relative; width: 100%; height: 100%; background-color: black; }
+        
+        /* --- CAMBIO #2: FONDO DEL VIDEO TRANSPARENTE --- */
+        .visual-canvas-container { 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
+            /* background-color: black; -- ¡ELIMINADO! */
+        }
         .visual-display { position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: cover; }
         
         h1 { font-family: var(--font-principal); font-size: 2.5rem; text-transform: uppercase; }
@@ -95,17 +101,49 @@
             .font-bitcount-alt { font-size: 9vw; }
             .erasure-pin-container { height: 150vh; }
         }
+
+        /* --- CAMBIO #3: ESTILOS PARA EL BOTÓN DE DESBLOQUEO DE AUDIO --- */
+        #audio-unlock-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        #audio-unlock-btn {
+            background-color: transparent;
+            border: 2px solid var(--color-acento);
+            color: var(--color-acento);
+            font-family: var(--font-principal);
+            font-size: 1.5rem;
+            padding: 1rem 2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #audio-unlock-btn:hover {
+            background-color: var(--color-acento);
+            color: var(--color-fondo);
+        }
     </style>
 </head>
 <body>
-    <div class="fixed-hero-container">
+    <!-- Overlay para desbloquear el audio -->
+    <div id="audio-unlock-overlay">
+        <button id="audio-unlock-btn">ENTRAR</button>
+    </div>
+
+    <div class="hero-section">
         <div id="hero-canvas-container"></div>
         <header class="hero-header"><h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1></header>
         <section class="hero-description"><p>Este es un mensaje en una botella, arrojado al vasto océano digital. Un experimento que mezcla escritos, música, dibujos y animaciones. Todo está permitido aquí, conectado por hilos invisibles que forman una única obra de arte digital. Un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p></section>
     </div>
+
     <main class="scroll-container">
-        <div class="scroll-spacer"></div>
-        <!-- Este contenedor se llenará dinámicamente -->
+        <!-- Ya no hay spacer, el contenido empieza aquí -->
         <div class="content-container"></div>
     </main>
     
@@ -130,42 +168,31 @@
         let heroModel;
         new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
 
-        // --- LÓGICA DE PROYECTO DINÁMICO Y AUDIO FADE ---
+        // --- LÓGICA DE PROYECTO DINÁMICO Y AUDIO FADE (CON DESBLOQUEO) ---
 
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
         const contentContainer = document.querySelector('.content-container');
-        let activeFadeInterval = null;
 
-        // FUNCIÓN PARA EL FADE DE AUDIO
         function fadeAudio(audio, direction, duration) {
-            clearInterval(audio.fadeInterval); // Limpiamos cualquier fade anterior
+            clearInterval(audio.fadeInterval);
             const targetVolume = (direction === 'in') ? 1 : 0;
             const steps = 50;
             const stepTime = duration / steps;
             const volStep = 1 / steps;
             
             if (direction === 'in' && audio.paused) {
-                 const playPromise = audio.play();
-                 if (playPromise !== undefined) {
-                     playPromise.catch(e => console.error("Error al iniciar audio:", e));
-                 }
+                 audio.volume = 0; // Asegurarse de empezar desde 0
+                 audio.play().catch(e => console.error("Error al iniciar audio:", e));
             }
 
             audio.fadeInterval = setInterval(() => {
                 let currentVolume = audio.volume;
                 if (direction === 'in') {
-                    if (currentVolume < targetVolume) {
-                        audio.volume = Math.min(1, currentVolume + volStep);
-                    } else {
-                        clearInterval(audio.fadeInterval);
-                    }
-                } else { // fade out
-                    if (currentVolume > targetVolume) {
-                        audio.volume = Math.max(0, currentVolume - volStep);
-                    } else {
-                        clearInterval(audio.fadeInterval);
-                        audio.pause(); // Pausar al final del fade out
-                    }
+                    if (currentVolume < targetVolume - volStep) { audio.volume += volStep; } 
+                    else { audio.volume = 1; clearInterval(audio.fadeInterval); }
+                } else {
+                    if (currentVolume > targetVolume + volStep) { audio.volume -= volStep; } 
+                    else { audio.volume = 0; clearInterval(audio.fadeInterval); audio.pause(); }
                 }
             }, stepTime);
         }
@@ -174,20 +201,12 @@
             entries.forEach(entry => {
                 const audio = entry.target.querySelector('.project-audio-player');
                 if (!audio) return;
-                
-                if (entry.isIntersecting) {
-                    fadeAudio(audio, 'in', 1500);
-                } else {
-                    fadeAudio(audio, 'out', 1500);
-                }
+                fadeAudio(audio, entry.isIntersecting ? 'in' : 'out', 1500);
             });
-        }, { 
-            root: null, 
-            threshold: [0.2, 0.8] // Umbrales para entrar y salir
-        });
+        }, { root: null, threshold: [0.2, 0.8] });
 
         function buildProjectBlocks(data) {
-            contentContainer.innerHTML = ''; // Limpiamos el contenedor
+            contentContainer.innerHTML = '';
             
             data.forEach(project => {
                 const projectBlock = document.createElement('div');
@@ -204,12 +223,10 @@
                     <audio class="project-audio-player hidden" loop src="${project.audio}"></audio>
                 `;
                 contentContainer.appendChild(projectBlock);
-                observer.observe(projectBlock); // Observamos el nuevo bloque
-                // Autoplay del video (muteado)
+                observer.observe(projectBlock);
                 projectBlock.querySelector('.visual-display').play().catch(()=>{});
             });
 
-            // Añadir el bloque "erasure" al final
             const erasureContainer = document.createElement('div');
             erasureContainer.className = 'erasure-pin-container';
             erasureContainer.innerHTML = `
@@ -224,11 +241,26 @@
                             <span class="font-bitcount-alt text-yellow">Exterminando</span>
                         </div>
                     </section>
-                </div>
-            `;
+                </div>`;
             contentContainer.appendChild(erasureContainer);
-            // Iniciar el script de animación para este bloque específico
             initErasureAnimation(erasureContainer);
+            
+            // --- LÓGICA PARA DESBLOQUEAR EL AUDIO ---
+            const overlay = document.getElementById('audio-unlock-overlay');
+            const unlockBtn = document.getElementById('audio-unlock-btn');
+            unlockBtn.addEventListener('click', () => {
+                const players = document.querySelectorAll('.project-audio-player');
+                let unlockPromise = players[0]?.play(); // Intentar reproducir el primero
+                if (unlockPromise !== undefined) {
+                    unlockPromise.then(() => {
+                        players[0].pause(); // Pausarlo de inmediato
+                        console.log("Audio context desbloqueado.");
+                    }).catch(error => {
+                        console.error("Desbloqueo de audio falló:", error);
+                    });
+                }
+                overlay.style.display = 'none';
+            }, { once: true }); // El evento solo se dispara una vez
         }
 
         function initProject() {
@@ -250,41 +282,32 @@
         let mouseX = 0, mouseY = 0;
         window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 - 1; });
         function updateHeroModelTransform() { if (!heroModel) return; const isMobile = window.innerWidth <= 768; const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; heroModel.scale.setScalar(scale); heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; }
-        function handleResize() { const heroRect = heroContainer.getBoundingClientRect(); heroCamera.aspect = heroRect.width / heroRect.height; heroCamera.updateProjectionMatrix(); heroRenderer.setSize(heroRect.width, heroRect.height); updateHeroModelTransform(); }
+        function handleResize() { const heroRect = document.querySelector('.hero-section').getBoundingClientRect(); heroCamera.aspect = heroRect.width / heroRect.height; heroCamera.updateProjectionMatrix(); heroRenderer.setSize(heroRect.width, heroRect.height); updateHeroModelTransform(); }
         function animate() { requestAnimationFrame(animate); if (heroModel) { const targetHeroRotY = heroParams.initialRotationY + (mouseX * heroParams.mouseIntensity); heroModel.rotation.y += (targetHeroRotY - heroModel.rotation.y) * heroParams.smoothingFactor; } heroRenderer.render(heroScene, heroCamera); }
         window.addEventListener('resize', handleResize);
         handleResize();
         initProject();
         animate();
 
-        // --- SCRIPT DE ANIMACIÓN DE SCROLL (MODIFICADO PARA FUNCIONAR CON EL NUEVO CONTENEDOR) ---
+        // --- SCRIPT DE ANIMACIÓN DE SCROLL (SIN CAMBIOS) ---
         function initErasureAnimation(container) {
             const erasureBlock = container.querySelector('.erasure-block');
             let isTicking = false;
-
             function updateAnimation() {
                 const rect = container.getBoundingClientRect();
                 const scrollableDistance = container.offsetHeight - window.innerHeight;
                 if (scrollableDistance <= 0) return;
-                
                 let progress = -rect.top / scrollableDistance;
                 progress = Math.max(0, Math.min(1, progress));
                 const transformX = 100 - (progress * 100);
-                
-                if (rect.top > 0) {
-                    erasureBlock.style.visibility = 'hidden';
-                } else {
-                    erasureBlock.style.visibility = 'visible';
-                    erasureBlock.style.transform = `translateX(${transformX}%)`;
-                }
+                if (rect.top > 0) { erasureBlock.style.visibility = 'hidden'; } 
+                else { erasureBlock.style.visibility = 'visible'; erasureBlock.style.transform = `translateX(${transformX}%)`; }
                 isTicking = false;
             }
-
             function onScroll() { if (!isTicking) { window.requestAnimationFrame(updateAnimation); isTicking = true; } }
-            
             window.addEventListener('scroll', onScroll, { passive: true });
             window.addEventListener('resize', onScroll);
-            onScroll(); // Llamada inicial
+            onScroll();
         }
     </script>
 
