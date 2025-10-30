@@ -4,22 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Que la ternura nos salve</title>
-    <!-- LA CARGA CORRECTA DE PAPA PARSE, AQUÍ EN EL HEAD -->
     <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Lora:wght@500&family=Roboto+Mono&family=Work+Sans:wght@300;400&display=swap');
         @import url('https://fonts.googleapis.com/css2?family=Limelight&family=Rye&display=swap');
 
         :root {
-            --color-fondo: rgb(22, 24, 28); --color-texto: rgb(230, 230, 230);
-            --color-acento: rgb(190, 225, 218); --color-acento-hover: white;
+            --color-fondo: rgb(22, 24, 28);
+            --color-texto: rgb(230, 230, 230);
+            --color-acento: rgb(190, 225, 218);
             --color-pastel-cyan: rgb(190, 225, 218);
             --color-pastel-orange: #ffb347;
             --color-pastel-yellow: #fdfd96;
-            --font-titulos: 'Lora', serif; --font-cuerpo: 'Work Sans', sans-serif; --font-mono: 'Roboto Mono', monospace;
+            /* CAMBIO GLOBAL DE TIPOGRAFÍA */
+            --font-principal: 'Courier New', Courier, monospace;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: var(--font-cuerpo); background-color: var(--color-fondo); color: var(--color-texto); overflow-x: hidden; }
+        body { font-family: var(--font-principal); background-color: var(--color-fondo); color: var(--color-texto); overflow-x: hidden; }
         .fixed-hero-container { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 1; }
         #hero-canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: move; }
         .hero-header, .hero-description { position: absolute; left: 50%; transform: translateX(-50%); width: 100%; padding: 2rem; text-align: center; pointer-events: none; z-index: 2; }
@@ -29,110 +29,76 @@
         .scroll-spacer { height: 100vh; }
         .content-block { padding: 4rem 2rem; max-width: 95%; margin: 0 auto; background-color: var(--color-fondo); }
         
+        /* --- NUEVO LAYOUT PARA EL BLOQUE INTERACTIVO --- */
         .interactive-project-block { 
             position: relative;
             height: 100vh; 
             width: 100%;
+            display: flex; /* Usamos Flexbox */
+            gap: 2rem; /* Espacio entre columnas */
+            align-items: center; /* Centramos verticalmente */
         }
         
-        .project-col { position: absolute; transition: all 0.3s ease; }
-        @media (max-width: 900px) {
-            .interactive-project-block { position: static; height: auto; display: flex; flex-direction: column; gap: 2rem; }
-            .project-col { position: static; width: 100% !important; height: auto !important; left: auto !important; top: auto !important; }
-            #col-model { order: 1; } #col-visuals { order: 2; } #col-text { order: 3; }
-            .visual-canvas-container { padding-top: 56.25%; height: 0; }
-            #ramona-canvas-container { height: 60vh; }
+        .project-col {
+            flex: 1; /* Cada columna toma la mitad del espacio */
+            height: 80vh; /* Altura controlada */
+            display: flex;
+            flex-direction: column;
         }
-        .project-col-text { white-space: pre-wrap; overflow-y: auto; }
-        #ramona-canvas-container, .player-and-title { width: 100%; }
-        #ramona-canvas-container { height: 80%; cursor: move; }
-        #track-title-display { font-family: var(--font-mono); color: var(--color-acento); margin-bottom: 1rem; height: 1.2em; text-align: center;}
-        .custom-player { display: flex; justify-content: center; align-items: center; gap: 1rem; }
-        .player-button { background: none; border: 1px solid var(--color-texto); border-radius: 50%; width: 40px; height: 40px; cursor: pointer; transition: all 0.2s; display: flex; justify-content: center; align-items: center; padding: 0; }
-        .player-button:hover { background-color: rgba(255,255,255,0.1); }
-        .player-button svg { width: 18px; height: 18px; fill: var(--color-texto); }
+
+        #col-text {
+            justify-content: center; /* Centra el texto verticalmente */
+            overflow-y: auto; /* Scroll si el texto es muy largo */
+        }
+
+        @media (max-width: 900px) {
+            .interactive-project-block {
+                position: static;
+                height: auto;
+                flex-direction: column; /* Columnas una debajo de la otra */
+                gap: 2rem;
+            }
+            .project-col {
+                width: 100%;
+                height: auto;
+            }
+            .visual-canvas-container { padding-top: 56.25%; height: 0; }
+        }
+        
+        #active-text-display p { white-space: pre-wrap; }
+        
         .hidden { display: none; }
         .visual-canvas-container { position: relative; width: 100%; height: 100%; background-color: black; }
         #visual-display { position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: cover; }
-        h1 { font-family: var(--font-titulos); font-size: 3rem; }
-        h1 span { font-family: var(--font-mono); font-size: 1rem; display: block; margin-top: 10px; color: var(--color-acento); }
-        p { line-height: 1.8; }
+        
+        h1 { font-family: var(--font-principal); font-size: 2.5rem; text-transform: uppercase; }
+        h1 span { font-size: 1rem; display: block; margin-top: 10px; color: var(--color-acento); text-transform: none; }
+        p { line-height: 1.6; font-size: 1.1rem; }
+        
         @media (max-width: 768px) {
-             h1 { font-size: 2.2rem; }
+             h1 { font-size: 1.8rem; }
              .hero-header { top: 18%; }
              .hero-description { bottom: 2%; font-size: 0.9rem; max-width: 90%; }
+             p { font-size: 1rem; }
         }
 
-        .pin-container {
-            position: relative;
-            height: 200vh;
-            width: 100%;
-        }
-
-        .pin-container .interactive-project-block {
-            position: sticky;
-            top: 0;
-            left: 0;
-            z-index: 10;
-        }
-
-        .erasure-block {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100vh;
-            z-index: 20;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            background-color: var(--color-fondo);
-            will-change: transform;
-            transform: translateX(100%);
-        }
-
-        .erasure-text {
-            text-align: center;
-            font-size: 6vw;
-            font-weight: bold;
-            text-transform: uppercase;
-            padding: 2rem;
-        }
-
-        .erasure-text span {
-            display: block;
-            line-height: 1.1;
-            margin-bottom: 0.5rem;
-        }
-
+        .pin-container { position: relative; height: 200vh; width: 100%; }
+        .pin-container .interactive-project-block { position: sticky; top: 0; left: 0; z-index: 10; }
+        .erasure-block { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 20; display: flex; justify-content: center; align-items: center; overflow: hidden; background-color: var(--color-fondo); will-change: transform; transform: translateX(100%); }
+        .erasure-text { text-align: center; font-size: 6vw; font-weight: bold; text-transform: uppercase; padding: 2rem; }
+        .erasure-text span { display: block; line-height: 1.1; margin-bottom: 0.5rem; }
         .font-rye { font-family: 'Rye', cursive; }
         .font-limelight { font-family: 'Limelight', cursive; }
-        .font-bitcount-alt { 
-            font-family: var(--font-mono); 
-            font-size: 5.5vw;
-            letter-spacing: -2px;
-        }
-        
-        .text-cyan { 
-            color: var(--color-pastel-cyan); 
-            text-shadow: 0 0 15px rgba(190, 225, 218, 0.7);
-        }
-        .text-orange { 
-            color: var(--color-pastel-orange); 
-            text-shadow: 0 0 15px rgba(255, 179, 71, 0.7);
-        }
-        .text-yellow { 
-            color: var(--color-pastel-yellow); 
-            text-shadow: 0 0 15px rgba(253, 253, 150, 0.7);
-        }
+        .font-bitcount-alt { font-family: var(--font-principal); font-size: 5.5vw; letter-spacing: -2px; }
+        .text-cyan { color: var(--color-pastel-cyan); text-shadow: 0 0 15px rgba(190, 225, 218, 0.7); }
+        .text-orange { color: var(--color-pastel-orange); text-shadow: 0 0 15px rgba(255, 179, 71, 0.7); }
+        .text-yellow { color: var(--color-pastel-yellow); text-shadow: 0 0 15px rgba(253, 253, 150, 0.7); }
         
         @media (max-width: 768px) {
             .erasure-text { font-size: 10vw; }
             .font-bitcount-alt { font-size: 9vw; }
             .pin-container { height: 150vh; }
         }
-
     </style>
 </head>
 <body>
@@ -145,17 +111,20 @@
         <div class="scroll-spacer"></div>
         <section class="content-block">
             <div class="pin-container">
+                <!-- ESTRUCTURA SIMPLIFICADA DEL BLOQUE -->
                 <div class="interactive-project-block">
-                    <div id="col-model" class="project-col"><div id="ramona-canvas-container"></div><div class="player-and-title"><h4 id="track-title-display"></h4><div class="custom-player">
-                        <!-- INICIO DE CAMBIO DE ICONOS -->
-                        <button id="prev-btn" class="player-button"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6zm3.5 6L18 6v12l-8.5-6z"/></svg></button>
-                        <button id="play-pause-btn" class="player-button"><svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg id="pause-icon" class="hidden" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></button>
-                        <button id="next-btn" class="player-button"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2V6zm-8.5 6L6 6v12l8.5-6z"/></svg></button>
-                        <!-- FIN DE CAMBIO DE ICONOS -->
-                        <button id="mute-btn" class="player-button"><svg id="unmute-icon" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg><svg id="mute-icon" class="hidden" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg></button></div><audio id="audio-player" class="hidden"></audio></div></div>
-                    <div id="col-text" class="project-col"><div id="active-text-display"><p>Cargando proyecto...</p></div></div>
-                    <div id="col-visuals" class="project-col"><div class="visual-canvas-container"><video id="visual-display" autoplay loop muted playsinline></video></div></div>
+                    <div id="col-visuals" class="project-col">
+                        <div class="visual-canvas-container">
+                            <video id="visual-display" autoplay loop muted playsinline></video>
+                        </div>
+                    </div>
+                    <div id="col-text" class="project-col">
+                        <div id="active-text-display"><p>Cargando proyecto...</p></div>
+                    </div>
+                    <!-- El audio player sigue aquí, pero invisible y sin controles manuales -->
+                    <audio id="audio-player" loop class="hidden"></audio>
                 </div>
+                <!-- FIN ESTRUCTURA SIMPLIFICADA -->
                 <section class="erasure-block">
                     <div class="erasure-text">
                         <span class="font-rye text-cyan">Las</span>
@@ -176,6 +145,7 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         
+        // --- CÓDIGO DEL HERO (MODELO MÁQUINA) PERMANECE IGUAL ---
         const heroParams = {
             desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7,
             initialRotationX: 0.05, initialRotationY: -1.57, initialRotationZ: 0,
@@ -195,49 +165,58 @@
         let heroModel;
         new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
 
-        const ramonaParams = { mouseIntensity: 0.4, smoothingFactor: 0.05, scale: 2.7, cameraDistance: 2.5, initialRotationX: 0.84, initialRotationY: -1.63, initialRotationZ: 0 };
-        const layoutParams = {
-            desktop: { model: {x: 0, y: 0, w: 34, h: 91}, text: {x: 36, y: 69, w: 63, h: 25}, visuals: {x: 36, y: 3, w: 61, h: 63} },
-            mobile:  { model: {x: 10, y: 48, w: 80, h: 35}, text: {x: 10, y: 85, w: 80, h: 15}, visuals: {x: 10, y: 2, w: 80, h: 45} }
-        };
-        const ramonaContainer = document.getElementById('ramona-canvas-container');
-        const ramonaScene = new THREE.Scene();
-        const ramonaCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-        ramonaCamera.position.z = ramonaParams.cameraDistance;
-        const ramonaRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        ramonaRenderer.setPixelRatio(window.devicePixelRatio);
-        ramonaContainer.appendChild(ramonaRenderer.domElement);
-        ramonaScene.add(new THREE.AmbientLight(0xffffff, 4.0));
-        const ramonaDirectionalLight = new THREE.DirectionalLight(0xffffff, 3.0);
-        ramonaDirectionalLight.position.set(2, 5, 3); ramonaScene.add(ramonaDirectionalLight);
-        let ramonaModel;
-        new GLTFLoader().load('./assets/3d/ramona.glb', (gltf) => { ramonaModel = gltf.scene; updateRamonaModelTransform(); ramonaScene.add(ramonaModel); });
-
+        // --- CÓDIGO DEL BLOQUE INTERACTIVO (SIMPLIFICADO) ---
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
-        const audioPlayer = document.getElementById('audio-player'), visualDisplay = document.getElementById('visual-display'), textDisplay = document.getElementById('active-text-display'), titleDisplay = document.getElementById('track-title-display');
-        let projectData = [], currentIndex = 0;
+        const audioPlayer = document.getElementById('audio-player');
+        const visualDisplay = document.getElementById('visual-display');
+        const textDisplay = document.getElementById('active-text-display');
         
         function initProject() {
              Papa.parse(CSV_URL, {
                 download: true, header: true, skipEmptyLines: true,
                 complete: (results) => {
-                    projectData = results.data.filter(p => p.audio && p.video && p.texto && p.titulo);
-                    if (projectData.length > 0) updateContent(currentIndex);
-                    else textDisplay.innerHTML = `<p>No se encontraron proyectos completos.</p>`;
+                    const projectData = results.data.filter(p => p.audio && p.video && p.texto);
+                    if (projectData.length > 0) {
+                        // Por ahora, cargamos solo el primer proyecto.
+                        const firstProject = projectData[0];
+                        audioPlayer.src = firstProject.audio;
+                        visualDisplay.src = firstProject.video;
+                        textDisplay.innerHTML = `<p>${firstProject.texto}</p>`;
+                    } else {
+                        textDisplay.innerHTML = `<p>No se encontraron proyectos.</p>`;
+                    }
                 },
                 error: (error) => console.error("Error al parsear CSV:", error),
             });
         }
-        function updateContent(index) { const track = projectData[index]; if (!track) return; audioPlayer.src = track.audio; visualDisplay.src = track.video; textDisplay.innerHTML = `<p>${track.texto}</p>`; titleDisplay.textContent = track.titulo; visualDisplay.load(); visualDisplay.play().catch(e => {}); }
-        const playPauseBtn = document.getElementById('play-pause-btn'), playIcon = document.getElementById('play-icon'), pauseIcon = document.getElementById('pause-icon'), muteBtn = document.getElementById('mute-btn'), muteIcon = document.getElementById('mute-icon'), unmuteIcon = document.getElementById('unmute-icon');
-        playPauseBtn.addEventListener('click', () => audioPlayer.paused ? audioPlayer.play() : audioPlayer.pause());
-        audioPlayer.addEventListener('play', () => { playIcon.classList.add('hidden'); pauseIcon.classList.remove('hidden'); });
-        audioPlayer.addEventListener('pause', () => { playIcon.classList.remove('hidden'); pauseIcon.classList.add('hidden'); });
-        document.getElementById('next-btn').addEventListener('click', () => { currentIndex = (currentIndex + 1) % projectData.length; updateContent(currentIndex); audioPlayer.play(); });
-        document.getElementById('prev-btn').addEventListener('click', () => { currentIndex = (currentIndex - 1 + projectData.length) % projectData.length; updateContent(currentIndex); audioPlayer.play(); });
-        muteBtn.addEventListener('click', () => { audioPlayer.muted = !audioPlayer.muted; });
-        audioPlayer.addEventListener('volumechange', () => { muteIcon.classList.toggle('hidden', !audioPlayer.muted); unmuteIcon.classList.toggle('hidden', audioPlayer.muted); });
+        
+        // --- LÓGICA DE INTERSECTION OBSERVER PARA REPRODUCCIÓN AUTOMÁTICA ---
+        const projectBlock = document.querySelector('.interactive-project-block');
 
+        const observerOptions = {
+            root: null, // usa el viewport
+            rootMargin: '0px',
+            threshold: 0.5 // Se activa cuando el 50% del elemento es visible
+        };
+
+        const observerCallback = (entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // El bloque es visible, reproducimos
+                    visualDisplay.play().catch(e => console.log("Video autoplay blocked"));
+                    audioPlayer.play().catch(e => console.log("Audio autoplay blocked"));
+                } else {
+                    // El bloque ya no es visible, pausamos
+                    audioPlayer.pause();
+                }
+            });
+        };
+
+        const observer = new IntersectionObserver(observerCallback, observerOptions);
+        observer.observe(projectBlock);
+
+
+        // --- FUNCIONES DE UTILIDAD Y ANIMACIÓN ---
         let mouseX = 0, mouseY = 0;
         window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 - 1; });
         
@@ -249,28 +228,14 @@
             heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY;
         }
 
-        function updateRamonaModelTransform() { if (!ramonaModel) return; ramonaModel.scale.setScalar(ramonaParams.scale); ramonaModel.rotation.set(ramonaParams.initialRotationX, ramonaParams.initialRotationY, ramonaParams.initialRotationZ); }
-        function updateLayout() {
-            const isMobile = window.innerWidth <= 900;
-            if (isMobile) return;
-            const currentLayout = layoutParams.desktop;
-            Object.keys(currentLayout).forEach(key => { const el = document.getElementById(`col-${key}`); const params = currentLayout[key]; if (el) { el.style.left = `${params.x}%`; el.style.top = `${params.y}%`; el.style.width = `${params.w}%`; el.style.height = `${params.h}%`; } });
-        }
-        
         function handleResize() {
-            updateLayout();
             const heroRect = heroContainer.getBoundingClientRect();
             heroCamera.aspect = heroRect.width / heroRect.height;
             heroCamera.updateProjectionMatrix();
             heroRenderer.setSize(heroRect.width, heroRect.height);
             updateHeroModelTransform();
-            const ramonaRect = ramonaContainer.getBoundingClientRect();
-            if (ramonaRect.width > 0 && ramonaRect.height > 0) {
-                 ramonaCamera.aspect = ramonaRect.width / ramonaRect.height;
-                 ramonaCamera.updateProjectionMatrix();
-                 ramonaRenderer.setSize(ramonaRect.width, ramonaRect.height);
-            }
         }
+
         function animate() {
             requestAnimationFrame(animate);
             if (heroModel) {
@@ -278,13 +243,6 @@
                 heroModel.rotation.y += (targetHeroRotY - heroModel.rotation.y) * heroParams.smoothingFactor;
             }
             heroRenderer.render(heroScene, heroCamera);
-            if (ramonaModel) {
-                const targetRotX = ramonaParams.initialRotationX + (mouseY * ramonaParams.mouseIntensity);
-                const targetRotY = ramonaParams.initialRotationY + (mouseX * ramonaParams.mouseIntensity);
-                ramonaModel.rotation.x += (targetRotX - ramonaModel.rotation.x) * ramonaParams.smoothingFactor;
-                ramonaModel.rotation.y += (targetRotY - ramonaModel.rotation.y) * ramonaParams.smoothingFactor;
-            }
-            ramonaRenderer.render(ramonaScene, ramonaCamera);
         }
         
         window.addEventListener('resize', handleResize);
@@ -294,7 +252,7 @@
         animate();
     </script>
 
-    <!-- --- SCRIPT DE ANIMACIÓN DE SCROLL --- -->
+    <!-- --- SCRIPT DE ANIMACIÓN DE SCROLL (SIN CAMBIOS) --- -->
     <script type="module">
         const pinContainer = document.querySelector('.pin-container');
         const erasureBlock = document.querySelector('.erasure-block');
