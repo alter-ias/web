@@ -20,7 +20,6 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: var(--font-principal); background-color: var(--color-fondo); color: var(--color-texto); overflow-x: hidden; }
         
-        /* --- CAMBIO #1: HERO AHORA ES "STICKY" --- */
         .hero-section {
             position: sticky;
             top: 0;
@@ -36,8 +35,8 @@
         
         .scroll-container { 
             position: relative; 
-            z-index: 2; /* Para que se renderice sobre el hero al hacer scroll */
-            background-color: var(--color-fondo); /* Fondo sólido para el contenido */
+            z-index: 2;
+            background-color: var(--color-fondo);
         }
         
         .content-container { padding: 0 2rem; max-width: 95%; margin: 0 auto; }
@@ -51,13 +50,21 @@
             padding: 10vh 0;
             min-height: 100vh;
         }
+
+        /* --- CAMBIO CLAVE: Clase para invertir el layout --- */
+        .layout-reversed {
+            flex-direction: row-reverse;
+        }
         
         .project-col { flex: 1; }
         .project-col-visuals { position: sticky; top: 10vh; height: 80vh; }
         .project-col-text { min-height: 80vh; }
 
         @media (max-width: 900px) {
-            .interactive-project-block { flex-direction: column; padding: 5vh 0; }
+            .interactive-project-block, .layout-reversed {
+                flex-direction: column; /* En móvil, todos son columnas, se anula el reverse */
+                padding: 5vh 0;
+            }
             .project-col-visuals { position: static; width: 100%; height: auto; }
             .visual-canvas-container { padding-top: 56.25%; height: 0; }
         }
@@ -65,12 +72,10 @@
         .active-text-display p { white-space: pre-wrap; }
         .hidden { display: none; }
         
-        /* --- CAMBIO #2: FONDO DEL VIDEO TRANSPARENTE --- */
         .visual-canvas-container { 
             position: relative; 
             width: 100%; 
             height: 100%; 
-            /* background-color: black; -- ¡ELIMINADO! */
         }
         .visual-display { position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: cover; }
         
@@ -102,36 +107,20 @@
             .erasure-pin-container { height: 150vh; }
         }
 
-        /* --- CAMBIO #3: ESTILOS PARA EL BOTÓN DE DESBLOQUEO DE AUDIO --- */
         #audio-unlock-overlay {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            z-index: 9999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.9); z-index: 9999;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
         }
         #audio-unlock-btn {
-            background-color: transparent;
-            border: 2px solid var(--color-acento);
-            color: var(--color-acento);
-            font-family: var(--font-principal);
-            font-size: 1.5rem;
-            padding: 1rem 2rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
+            background-color: transparent; border: 2px solid var(--color-acento); color: var(--color-acento);
+            font-family: var(--font-principal); font-size: 1.5rem; padding: 1rem 2rem;
+            cursor: pointer; transition: all 0.3s ease;
         }
-        #audio-unlock-btn:hover {
-            background-color: var(--color-acento);
-            color: var(--color-fondo);
-        }
+        #audio-unlock-btn:hover { background-color: var(--color-acento); color: var(--color-fondo); }
     </style>
 </head>
 <body>
-    <!-- Overlay para desbloquear el audio -->
     <div id="audio-unlock-overlay">
         <button id="audio-unlock-btn">ENTRAR</button>
     </div>
@@ -143,7 +132,6 @@
     </div>
 
     <main class="scroll-container">
-        <!-- Ya no hay spacer, el contenido empieza aquí -->
         <div class="content-container"></div>
     </main>
     
@@ -168,7 +156,7 @@
         let heroModel;
         new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
 
-        // --- LÓGICA DE PROYECTO DINÁMICO Y AUDIO FADE (CON DESBLOQUEO) ---
+        // --- LÓGICA DE PROYECTO DINÁMICO Y AUDIO FADE ---
 
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
         const contentContainer = document.querySelector('.content-container');
@@ -181,7 +169,7 @@
             const volStep = 1 / steps;
             
             if (direction === 'in' && audio.paused) {
-                 audio.volume = 0; // Asegurarse de empezar desde 0
+                 audio.volume = 0;
                  audio.play().catch(e => console.error("Error al iniciar audio:", e));
             }
 
@@ -208,9 +196,14 @@
         function buildProjectBlocks(data) {
             contentContainer.innerHTML = '';
             
-            data.forEach(project => {
+            /* --- CAMBIO CLAVE: Se añade "index" para saber la posición del bloque --- */
+            data.forEach((project, index) => {
                 const projectBlock = document.createElement('div');
-                projectBlock.className = 'interactive-project-block';
+
+                // Si el índice es impar (1, 3, 5...), se añade la clase. Array es base 0.
+                const isReversed = index % 2 !== 0;
+                projectBlock.className = `interactive-project-block ${isReversed ? 'layout-reversed' : ''}`;
+                
                 projectBlock.innerHTML = `
                     <div class="project-col project-col-visuals">
                         <div class="visual-canvas-container">
@@ -245,22 +238,16 @@
             contentContainer.appendChild(erasureContainer);
             initErasureAnimation(erasureContainer);
             
-            // --- LÓGICA PARA DESBLOQUEAR EL AUDIO ---
             const overlay = document.getElementById('audio-unlock-overlay');
             const unlockBtn = document.getElementById('audio-unlock-btn');
             unlockBtn.addEventListener('click', () => {
                 const players = document.querySelectorAll('.project-audio-player');
-                let unlockPromise = players[0]?.play(); // Intentar reproducir el primero
+                let unlockPromise = players[0]?.play();
                 if (unlockPromise !== undefined) {
-                    unlockPromise.then(() => {
-                        players[0].pause(); // Pausarlo de inmediato
-                        console.log("Audio context desbloqueado.");
-                    }).catch(error => {
-                        console.error("Desbloqueo de audio falló:", error);
-                    });
+                    unlockPromise.then(() => { players[0].pause(); }).catch(error => {});
                 }
                 overlay.style.display = 'none';
-            }, { once: true }); // El evento solo se dispara una vez
+            }, { once: true });
         }
 
         function initProject() {
@@ -289,7 +276,6 @@
         initProject();
         animate();
 
-        // --- SCRIPT DE ANIMACIÓN DE SCROLL (SIN CAMBIOS) ---
         function initErasureAnimation(container) {
             const erasureBlock = container.querySelector('.erasure-block');
             let isTicking = false;
@@ -310,6 +296,5 @@
             onScroll();
         }
     </script>
-
 </body>
 </html>
