@@ -27,6 +27,7 @@
         .scroll-container { position: relative; z-index: 3; }
         .scroll-spacer { height: 100vh; }
         
+        /* Contenedor principal para los bloques generados */
         .content-container { padding: 0 2rem; max-width: 95%; margin: 0 auto; }
 
         .interactive-project-block { 
@@ -36,16 +37,29 @@
             gap: 3rem;
             align-items: flex-start;
             padding: 10vh 0;
-            min-height: 100vh;
+            min-height: 100vh; /* Asegura que cada bloque tenga espacio */
         }
         
         .project-col { flex: 1; }
-        .project-col-visuals { position: sticky; top: 10vh; height: 80vh; }
+
+        .project-col-visuals {
+            position: sticky;
+            top: 10vh;
+            height: 80vh;
+        }
+        
         .project-col-text { min-height: 80vh; }
 
         @media (max-width: 900px) {
-            .interactive-project-block { flex-direction: column; padding: 5vh 0; }
-            .project-col-visuals { position: static; width: 100%; height: auto; }
+            .interactive-project-block {
+                flex-direction: column;
+                padding: 5vh 0;
+            }
+            .project-col-visuals {
+                position: static;
+                width: 100%;
+                height: auto;
+            }
             .visual-canvas-container { padding-top: 56.25%; height: 0; }
         }
         
@@ -84,14 +98,11 @@
     </style>
 </head>
 <body>
-    <!-- ===== BLOQUE 1 (SIN CAMBIOS) ===== -->
     <div class="fixed-hero-container">
         <div id="hero-canvas-container"></div>
         <header class="hero-header"><h1>Que la ternura nos salve<span>Un manifiesto que florece entre el artificio y el oficio</span></h1></header>
         <section class="hero-description"><p>Este es un mensaje en una botella, arrojado al vasto océano digital. Un experimento que mezcla escritos, música, dibujos y animaciones. Todo está permitido aquí, conectado por hilos invisibles que forman una única obra de arte digital. Un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p></section>
     </div>
-    <!-- ===== FIN DEL BLOQUE 1 ===== -->
-    
     <main class="scroll-container">
         <div class="scroll-spacer"></div>
         <!-- Este contenedor se llenará dinámicamente -->
@@ -104,7 +115,7 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         
-        // --- SCRIPT DEL BLOQUE 1 (SIN CAMBIOS) ---
+        // --- CÓDIGO DEL HERO (SIN CAMBIOS) ---
         const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5, };
         const heroContainer = document.getElementById('hero-canvas-container');
         const heroScene = new THREE.Scene();
@@ -118,14 +129,16 @@
         heroDirectionalLight.position.set(5, 10, 7.5); heroScene.add(heroDirectionalLight);
         let heroModel;
         new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
-        // --- FIN DEL SCRIPT DEL BLOQUE 1 ---
 
         // --- LÓGICA DE PROYECTO DINÁMICO Y AUDIO FADE ---
-        const CSV_URL = './assets/data/proyectos.csv';
-        const contentContainer = document.querySelector('.content-container');
 
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ7mEJYUb9ErUmolsxLzhTxuimxOolr0bTp-uQjgJ6RDAw61ryHkqt0X5OF2V002Vq1NMnc9hyHhoU6/pub?gid=0&single=true&output=csv';
+        const contentContainer = document.querySelector('.content-container');
+        let activeFadeInterval = null;
+
+        // FUNCIÓN PARA EL FADE DE AUDIO
         function fadeAudio(audio, direction, duration) {
-            clearInterval(audio.fadeInterval);
+            clearInterval(audio.fadeInterval); // Limpiamos cualquier fade anterior
             const targetVolume = (direction === 'in') ? 1 : 0;
             const steps = 50;
             const stepTime = duration / steps;
@@ -146,12 +159,12 @@
                     } else {
                         clearInterval(audio.fadeInterval);
                     }
-                } else {
+                } else { // fade out
                     if (currentVolume > targetVolume) {
                         audio.volume = Math.max(0, currentVolume - volStep);
                     } else {
                         clearInterval(audio.fadeInterval);
-                        audio.pause();
+                        audio.pause(); // Pausar al final del fade out
                     }
                 }
             }, stepTime);
@@ -170,11 +183,11 @@
             });
         }, { 
             root: null, 
-            threshold: [0.2, 0.8] 
+            threshold: [0.2, 0.8] // Umbrales para entrar y salir
         });
 
         function buildProjectBlocks(data) {
-            contentContainer.innerHTML = ''; 
+            contentContainer.innerHTML = ''; // Limpiamos el contenedor
             
             data.forEach(project => {
                 const projectBlock = document.createElement('div');
@@ -188,13 +201,15 @@
                     <div class="project-col project-col-text">
                         <div class="active-text-display"><p>${project.texto}</p></div>
                     </div>
-                    <audio class="project-audio-player hidden" loop src="${project.audio}" preload="auto"></audio>
+                    <audio class="project-audio-player hidden" loop src="${project.audio}"></audio>
                 `;
                 contentContainer.appendChild(projectBlock);
-                observer.observe(projectBlock);
+                observer.observe(projectBlock); // Observamos el nuevo bloque
+                // Autoplay del video (muteado)
                 projectBlock.querySelector('.visual-display').play().catch(()=>{});
             });
 
+            // Añadir el bloque "erasure" al final
             const erasureContainer = document.createElement('div');
             erasureContainer.className = 'erasure-pin-container';
             erasureContainer.innerHTML = `
@@ -212,6 +227,7 @@
                 </div>
             `;
             contentContainer.appendChild(erasureContainer);
+            // Iniciar el script de animación para este bloque específico
             initErasureAnimation(erasureContainer);
         }
 
@@ -223,13 +239,10 @@
                     if (projectData.length > 0) {
                         buildProjectBlocks(projectData);
                     } else {
-                        contentContainer.innerHTML = `<p>Error: No se pudieron cargar los proyectos desde el archivo CSV. Revisa la ruta y el formato del archivo.</p>`;
+                        contentContainer.innerHTML = `<p>No se encontraron proyectos.</p>`;
                     }
                 },
-                error: (error) => {
-                    console.error("Error al parsear CSV:", error);
-                    contentContainer.innerHTML = `<p>Error al cargar el archivo de datos (proyectos.csv). Revisa que el archivo exista en la ruta correcta ('assets/data/') y que el servidor web se esté ejecutando.</p>`;
-                },
+                error: (error) => console.error("Error al parsear CSV:", error),
             });
         }
         
@@ -244,26 +257,36 @@
         initProject();
         animate();
 
-        // --- SCRIPT DE ANIMACIÓN DE SCROLL ---
+        // --- SCRIPT DE ANIMACIÓN DE SCROLL (MODIFICADO PARA FUNCIONAR CON EL NUEVO CONTENEDOR) ---
         function initErasureAnimation(container) {
             const erasureBlock = container.querySelector('.erasure-block');
             let isTicking = false;
+
             function updateAnimation() {
                 const rect = container.getBoundingClientRect();
                 const scrollableDistance = container.offsetHeight - window.innerHeight;
                 if (scrollableDistance <= 0) return;
+                
                 let progress = -rect.top / scrollableDistance;
                 progress = Math.max(0, Math.min(1, progress));
                 const transformX = 100 - (progress * 100);
-                if (rect.top > 0) { erasureBlock.style.visibility = 'hidden'; } 
-                else { erasureBlock.style.visibility = 'visible'; erasureBlock.style.transform = `translateX(${transformX}%)`; }
+                
+                if (rect.top > 0) {
+                    erasureBlock.style.visibility = 'hidden';
+                } else {
+                    erasureBlock.style.visibility = 'visible';
+                    erasureBlock.style.transform = `translateX(${transformX}%)`;
+                }
                 isTicking = false;
             }
+
             function onScroll() { if (!isTicking) { window.requestAnimationFrame(updateAnimation); isTicking = true; } }
+            
             window.addEventListener('scroll', onScroll, { passive: true });
             window.addEventListener('resize', onScroll);
-            onScroll();
+            onScroll(); // Llamada inicial
         }
     </script>
+
 </body>
 </html>
