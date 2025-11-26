@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Co-Laboratorio - Alter.Lab</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Librería Three.js para el efecto 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <style>
+        :root {
+            --background-color: #0F121B;
+            --text-color: #FFFFFF;
+            --secondary-text-color: #d1d1d1;
+            --accent-color: #00E5FF; /* Un cian eléctrico para diferenciar esta sección tech */
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { color: var(--text-color); font-family: 'Montserrat', sans-serif; overflow-x: hidden; background-color: var(--background-color); }
+
+        /* Video de fondo original (mantenido pero oscurecido) */
+        #background-video { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: -2; object-fit: cover; filter: brightness(0.2) blur(3px); 
+        }
+
+        /* Contenedor para el Canvas 3D */
+        #canvas-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; pointer-events: none; /* Deja pasar los clicks */
+        }
+        
+        .container { width: 90%; max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; }
+
+        /* Header (Igual que en portafolio) */
+        .main-header { display: flex; justify-content: center; align-items: center; padding: 30px 0; text-align: center; }
+        .header-content { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .logo a { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-direction: column; }
+        .logo img { height: 40px; width: auto; }
+        .logo .logo-text { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: var(--text-color); }
+        
+        /* Navegación */
+        .main-nav { margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 15px; }
+        .nav-button { background: transparent; border: none; color: var(--secondary-text-color); cursor: pointer; text-decoration: none; padding: 5px 10px; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; transition: color 0.3s ease; }
+        .nav-button:hover { color: var(--accent-color); }
+        
+        /* Hero Section del Co-Lab */
+        .hero-section {
+            min-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        .hero-title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #fff, var(--secondary-text-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+        }
+
+        .hero-subtitle {
+            font-size: 1.2rem;
+            color: var(--secondary-text-color);
+            max-width: 700px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        /* Grid de Áreas */
+        .areas-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        @media (min-width: 768px) {
+            .areas-grid { grid-template-columns: repeat(3, 1fr); }
+            .hero-title { font-size: 4rem; }
+        }
+
+        .area-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .area-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--accent-color);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-icon { font-size: 2.5rem; margin-bottom: 20px; display: block; }
+        .card-title { font-size: 1.3rem; margin-bottom: 15px; color: var(--accent-color); font-weight: 700; }
+        .card-desc { font-size: 0.95rem; color: var(--secondary-text-color); line-height: 1.5; }
+
+        /* Sección de Llamada a la Acción */
+        .join-section {
+            background: linear-gradient(180deg, rgba(15, 18, 27, 0) 0%, rgba(0, 229, 255, 0.05) 100%);
+            border-top: 1px solid var(--card-border);
+            padding: 80px 0;
+            text-align: center;
+            border-radius: 20px 20px 0 0;
+        }
+
+        .cta-button-glitch {
+            display: inline-block;
+            background: transparent;
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .cta-button-glitch:hover {
+            background: var(--accent-color);
+            color: var(--background-color);
+            box-shadow: 0 0 20px var(--accent-color);
+        }
+
+        .step-list {
+            list-style: none;
+            max-width: 600px;
+            margin: 0 auto 40px auto;
+            text-align: left;
+        }
+        .step-list li {
+            margin-bottom: 15px;
+            padding-left: 20px;
+            border-left: 2px solid var(--accent-color);
+            color: var(--secondary-text-color);
+        }
+
+    </style>
+</head>
+<body>
+    <!-- Video de fondo sutil (mismo asset) -->
+    <video autoplay muted loop playsinline id="background-video">
+        <source src="assets/videos/web05.webm" type="video/webm">
+        <source src="assets/videos/web05.mp4" type="video/mp4">
+    </video>
+
+    <!-- Canvas para animación 3D -->
+    <div id="canvas-container"></div>
+
+    <header class="main-header container">
+        <div class="header-content">
+            <div class="logo">
+                <a href="index.html"><img src="assets/img/logo03.png" alt="Alter.Lab Logo"><span class="logo-text">ALTER.LAB</span></a>
+            </div>
+            <div class="main-nav">
+                <a href="index.html" class="nav-button">Home</a>
+                <a href="portafolio.html" class="nav-button">Portafolio</a>
+                <span class="nav-button" style="color: var(--accent-color); cursor: default; font-weight: 700;">CO-LABORATORIO</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        
+        <section class="hero-section">
+            <h1 class="hero-title">CONSTRUYAMOS EL FUTURO</h1>
+            <p class="hero-subtitle">
+                El <strong>Co-Laboratorio</strong> es un espacio open-source para desarrolladores, artistas visuales y creadores sonoros. 
+                Unimos fuerzas para crear proyectos que desafían los límites de la web y el arte generativo.
+            </p>
+        </section>
+
+        <section class="areas-grid">
+            <!-- Card 1 -->
+            <div class="area-card">
+                <span class="card-icon">🌐</span>
+                <h3 class="card-title">Desarrollo Web & Apps</h3>
+                <p class="card-desc">
+                    Creamos ecosistemas digitales, aplicaciones progresivas y experiencias inmersivas utilizando las últimas tecnologías (React, Three.js, WebGL).
+                </p>
+            </div>
+            
+            <!-- Card 2 -->
+            <div class="area-card">
+                <span class="card-icon">🎬</span>
+                <h3 class="card-title">Producción Audiovisual</h3>
+                <p class="card-desc">
+                    Desde videos musicales hasta cortos experimentales. Colabora en la post-producción, VFX y narrativa visual.
+                </p>
+            </div>
+            
+            <!-- Card 3 -->
+            <div class="area-card">
+                <span class="card-icon">⚡</span>
+                <h3 class="card-title">Arte Generativo</h3>
+                <p class="card-desc">
+                    Experimentación pura con código. Algoritmos visuales, música generativa y proyecciones interactivas.
+                </p>
+            </div>
+        </section>
+
+        <section class="join-section">
+            <h2 style="font-size: 2rem; margin-bottom: 30px;">¿TIENES UNA IDEA?</h2>
+            <ul class="step-list">
+                <li><strong>1. Propuesta:</strong> Tienes un concepto, pero necesitas equipo técnico o artístico.</li>
+                <li><strong>2. Colaboración:</strong> Nosotros ponemos la infraestructura y el talento de la red Alter.Lab.</li>
+                <li><strong>3. Desarrollo:</strong> Trabajamos bajo metodologías ágiles y código abierto.</li>
+            </ul>
+            <a href="index.html#contact-section" class="cta-button-glitch">ENVÍA TU PROPUESTA</a>
+        </section>
+
+    </main>
+
+    <!-- Script de Three.js para la Red Neuronal de fondo -->
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Crear partículas
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 700; // Cantidad de nodos
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            // Posicionamiento aleatorio en un espacio 3D
+            posArray[i] = (Math.random() - 0.5) * 15;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+        // Material de las partículas
+        const material = new THREE.PointsMaterial({
+            size: 0.02,
+            color: 0x00E5FF, // Color Cian
+            transparent: true,
+            opacity: 0.8
+        });
+
+        // Crear la malla de puntos
+        const particlesMesh = new THREE.Points(particlesGeometry, material);
+        scene.add(particlesMesh);
+
+        // Añadir líneas conectando partículas cercanas (Efecto Plexus simple)
+        // Nota: Para optimización, usaremos un objeto wireframe simple rotando alrededor
+        const geometryWire = new THREE.IcosahedronGeometry(4, 1);
+        const materialWire = new THREE.MeshBasicMaterial({ 
+            color: 0x00E5FF, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.1 
+        });
+        const sphere = new THREE.Mesh(geometryWire, materialWire);
+        scene.add(sphere);
+
+        camera.position.z = 5;
+
+        // Interacción con el mouse
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX);
+            mouseY = (event.clientY - windowHalfY);
+        });
+
+        // Loop de animación
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            targetX = mouseX * 0.001;
+            targetY = mouseY * 0.001;
+
+            // Rotación suave de la esfera wireframe
+            sphere.rotation.y += 0.002;
+            sphere.rotation.x += 0.001;
+
+            // Rotación de las partículas basada en el mouse
+            particlesMesh.rotation.y += 0.05 * (targetX - particlesMesh.rotation.y);
+            particlesMesh.rotation.x += 0.05 * (targetY - particlesMesh.rotation.x);
+
+            // Efecto de "respiración" o onda
+            particlesMesh.rotation.z = elapsedTime * 0.05;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Responsive: Ajustar al cambiar tamaño de ventana
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
