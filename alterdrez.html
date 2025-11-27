@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 
     <style>
-        /* --- ESTILOS v4.0 (Visualmente idéntico, funcionalmente mejorado) --- */
+        /* --- ESTILOS VISUALES (v3.3/v4.0 Preservados) --- */
         :root {
             --bg: #0b0e14;
             --panel: #151922;
@@ -29,7 +29,7 @@
             background-color: var(--bg); color: var(--text);
             font-family: 'Montserrat', sans-serif;
             margin: 0; padding: 0; 
-            height: 100vh; width: 100vw; overflow: hidden;
+            height: 100vh; width: 100vw; overflow: hidden; /* Fijo total */
             display: flex; flex-direction: column;
             background-image: radial-gradient(circle at 50% 0%, #1a2733 0%, #0b0e14 70%);
         }
@@ -52,12 +52,74 @@
         .nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
         .btn-help { background: transparent; border: 1px solid var(--accent); color: var(--accent); width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
-        .main-container { display: flex; flex: 1; height: calc(100vh - 60px); width: 100%; overflow: hidden; }
+        /* --- LAYOUT FIX (SOLUCIÓN SCROLL MÓVIL) --- */
+        .main-container {
+            display: flex; flex: 1; 
+            height: calc(100vh - 60px); width: 100%;
+            overflow: hidden; /* El contenedor principal NO hace scroll */
+        }
 
-        /* TABLERO */
-        .board-section { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; position: relative; min-height: 0; }
-        .board-wrapper { width: 100%; max-width: 600px; display: flex; flex-direction: column; max-height: 100%; }
-        
+        /* SECCIÓN TABLERO */
+        .board-section {
+            flex: 1; /* En PC ocupa el espacio sobrante */
+            display: flex; flex-direction: column; 
+            justify-content: center; align-items: center;
+            padding: 10px; position: relative;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .board-wrapper {
+            width: 100%; max-width: 600px; 
+            display: flex; flex-direction: column;
+            /* En PC el tablero puede ser grande */
+            max-height: 90vh;
+        }
+
+        /* SECCIÓN SIDEBAR (MENÚ) */
+        .sidebar {
+            width: 400px; min-width: 350px;
+            background: #0f1218; border-left: 1px solid #222;
+            display: flex; flex-direction: column;
+            /* CRÍTICO: Scroll independiente */
+            overflow-y: auto; 
+            padding: 15px; gap: 10px;
+        }
+
+        /* --- MEDIA QUERY MÓVIL OPTIMIZADA --- */
+        @media (max-width: 900px) {
+            .main-container { 
+                flex-direction: column; /* Apilar verticalmente */
+            }
+            
+            .board-section {
+                flex: 0 0 auto; /* El tablero NO crece, se ajusta a su contenido */
+                padding: 10px 0;
+                background: #000; /* Fondo oscuro para resaltar */
+                z-index: 10;
+            }
+
+            .board-wrapper {
+                /* Limitamos la altura del tablero en móvil para dejar espacio al menú */
+                max-width: 100%;
+                height: 45vh; /* Ocupa el 45% de la pantalla aprox */
+                justify-content: center;
+            }
+            
+            /* Ajuste del tablero JS para que no se corte */
+            .board-container { width: auto !important; height: 100% !important; aspect-ratio: 1/1; margin: 0 auto; }
+
+            .sidebar {
+                width: 100%;
+                flex: 1; /* Ocupa TODO el espacio restante abajo */
+                overflow-y: auto; /* Scroll aquí */
+                border-left: none; border-top: 1px solid #333;
+                padding-bottom: 50px; /* Espacio extra para scroll cómodo */
+            }
+
+            .nav-menu { display: none; }
+        }
+
+        /* RESTO DE COMPONENTES */
         .eval-bar-wrapper { height: 15px; background: #263238; border-radius: 4px 4px 0 0; overflow: hidden; display: flex; width: 100%; border: 1px solid #444; }
         .eval-fill { height: 100%; width: 50%; background: #fff; transition: width 0.3s ease; }
         .board-container { width: 100%; aspect-ratio: 1/1; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
@@ -67,18 +129,6 @@
         .control-btn:hover { background: var(--accent); color: #000; }
         .control-btn:last-child { border-right: none; }
 
-        /* SIDEBAR */
-        .sidebar { width: 400px; min-width: 350px; background: #0f1218; border-left: 1px solid #333; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
-
-        @media (max-width: 900px) {
-            .main-container { flex-direction: column; }
-            .board-section { flex: 0 0 auto; padding-bottom: 5px; }
-            .board-wrapper { max-width: 90vw; }
-            .sidebar { width: 100%; flex: 1 1 auto; border-left: none; border-top: 1px solid #333; }
-            .nav-menu { display: none; }
-        }
-
-        /* UI ELEMENTS */
         .accordion-item { background: var(--panel); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; }
         .accordion-header { padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); font-weight: 600; font-size: 0.9rem; color: #eceff1; }
         .accordion-header:hover { background: rgba(255,255,255,0.05); color: var(--accent); }
@@ -92,12 +142,15 @@
         .lesson-feedback.error { border-color: var(--error); color: var(--error); }
         .lesson-feedback.success { border-color: var(--success); color: var(--success); }
 
-        .coach-msg { font-size: 0.9rem; color: #fff; margin-bottom: 10px; line-height: 1.4; }
-        .coach-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; }
-        .tag { font-size: 0.7rem; padding: 3px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
-        .tag.good { background: rgba(0,230,118,0.2); color: var(--success); border: 1px solid var(--success); }
-        .tag.bad { background: rgba(255,23,68,0.2); color: var(--error); border: 1px solid var(--error); }
-        .tag.warn { background: rgba(255,234,0,0.2); color: var(--warn); border: 1px solid var(--warn); }
+        /* COACH TAGS SOLAMENTE */
+        .coach-tags { display: flex; justify-content: center; gap: 10px; width: 100%; }
+        .tag { font-size: 0.9rem; padding: 8px 15px; border-radius: 6px; font-weight: 700; text-transform: uppercase; width: 100%; text-align: center; }
+        .tag.book { background: #4b89bc; color: #fff; border: 1px solid #4b89bc; }
+        .tag.best { background: #00e676; color: #000; box-shadow: 0 0 10px #00e676; }
+        .tag.good { background: #81b64c; color: #fff; }
+        .tag.inaccuracy { background: #ffea00; color: #000; }
+        .tag.mistake { background: #ffa400; color: #000; }
+        .tag.blunder { background: #ff1744; color: #fff; box-shadow: 0 0 10px #ff1744; }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: 0.3s; }
         .modal-overlay.active { opacity: 1; visibility: visible; }
@@ -116,7 +169,7 @@
 
 <header>
     <a href="index.html" class="logo-link">
-        <h1>AlterDrez</h1> <span style="font-size:0.7rem; color:#888;">PRO v4.2</span>
+        <h1>AlterDrez</h1> <span style="font-size:0.7rem; color:#888;">PRO v4.3</span>
     </a>
     <div class="nav-menu">
         <button class="nav-btn" onclick="openModal('facts')">Secretos</button>
@@ -128,17 +181,16 @@
 
 <div id="toast" style="visibility:hidden; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:10px 20px; border-radius:4px; z-index:3000; border:1px solid var(--accent);">Notificación</div>
 
-<!-- MODAL CONFIGURACIÓN -->
 <div id="modal-welcome" class="modal-overlay active">
     <div class="modal-content">
         <div class="modal-header"><h2>Configuración</h2><button onclick="closeAllModals()" style="background:none;border:none;color:#fff;width:auto;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button></div>
         <div class="modal-body">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
                 <div>
-                    <h4>1. Ampliar Bases de Datos</h4>
-                    <p style="font-size:0.85rem;">Si subes un archivo, <b>se sumará</b> a los ejercicios actuales y se guardará en memoria.</p>
+                    <h4>1. Bases de Datos</h4>
+                    <p style="font-size:0.85rem;">Si subes un archivo, se sumará a los ejercicios actuales.</p>
                     <a href="https://drive.google.com/file/d/1p1_YbMN57ET5-YMbJhHuzpltCXHgN3Gq/view?usp=sharing" target="_blank" style="display:block; text-align:center; background:var(--accent); color:#000; padding:10px; text-decoration:none; border-radius:4px; font-weight:bold;">Descargar Pack</a>
-                    <button onclick="StorageManager.clearDB()" style="margin-top:10px; background:#333; border:1px solid #555; color:#aaa;">Borrar Datos Guardados</button>
+                    <button onclick="StorageManager.clearDB()" style="margin-top:10px; background:#333; border:1px solid #555; color:#aaa;">Resetear a valores de fábrica</button>
                 </div>
                 <div>
                     <h4>2. Tutorial</h4>
@@ -155,6 +207,7 @@
 <div id="modal-news" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Crónicas del Tablero</h2><button onclick="closeAllModals()" style="background:none;border:none;width:auto;color:#fff;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button></div><div class="modal-body"><a href="https://es.chessbase.com/" target="_blank" class="info-card" style="display:block; text-decoration:none; color:#ddd;"><h4>ChessBase</h4></a></div></div></div>
 
 <div class="main-container">
+    <!-- TABLERO (FIJO ARRIBA EN MÓVIL) -->
     <div class="board-section">
         <div class="board-wrapper">
             <div class="eval-bar-wrapper"><div id="evalFill" class="eval-fill"></div></div>
@@ -176,21 +229,21 @@
         </div>
     </div>
 
+    <!-- SIDEBAR (SCROLL ABAJO EN MÓVIL) -->
     <div class="sidebar">
-        <!-- JUGAR -->
+        <!-- 1. JUGAR -->
         <div class="accordion-item active" id="panel-play">
             <div class="accordion-header" onclick="toggleAccordion('panel-play')">
-                <span><i class="bi bi-joystick"></i> Jugar vs Stockfish</span> <i class="bi bi-chevron-down"></i>
+                <span><i class="bi bi-joystick"></i> Jugar</span> <i class="bi bi-chevron-down"></i>
             </div>
             <div class="accordion-content">
                 <div style="display:flex; gap:10px;">
                     <select id="playerColor" style="flex:1;"><option value="w">Blancas</option><option value="b">Negras</option></select>
                     <select id="skillLevel" style="flex:1;">
-                        <option value="0">Principiante</option>
-                        <option value="5">Intermedio</option>
-                        <option value="10" selected>Club</option>
-                        <option value="15">Maestro</option>
-                        <option value="20">GM</option>
+                        <option value="0">Novato (800)</option>
+                        <option value="5">Club (1500)</option>
+                        <option value="10" selected>Maestro (2200)</option>
+                        <option value="20">GM (3000+)</option>
                     </select>
                 </div>
                 <select id="gameMode">
@@ -201,31 +254,32 @@
             </div>
         </div>
 
-        <!-- ENTRENADOR -->
+        <!-- 2. ENTRENADOR SIMPLIFICADO -->
         <div class="accordion-item active" id="panel-coach">
             <div class="accordion-header" onclick="toggleAccordion('panel-coach')">
-                <span><i class="bi bi-robot"></i> Entrenador</span> <i class="bi bi-chevron-down"></i>
+                <span><i class="bi bi-activity"></i> Análisis</span> <i class="bi bi-chevron-down"></i>
             </div>
-            <div class="accordion-content">
-                <div class="coach-tags" id="coachTags"></div>
-                <div class="coach-msg" id="coachMsg">Esperando movimiento...</div>
+            <div class="accordion-content" style="padding:10px;">
+                <div class="coach-tags" id="coachTags">
+                    <span class="tag book">Libro / Inicio</span>
+                </div>
             </div>
         </div>
 
-        <!-- APERTURAS -->
+        <!-- 3. APERTURAS (CON ENGINE) -->
         <div class="accordion-item acc-opening" id="panel-opening">
             <div class="accordion-header" onclick="toggleAccordion('panel-opening')">
                 <span><i class="bi bi-book-half"></i> Aperturas</span> <i class="bi bi-chevron-down"></i>
             </div>
             <div class="accordion-content">
                 <div style="display:flex; justify-content:space-between;">
-                    <span style="font-size:0.7rem; color:var(--success);">Total: <span id="openingsTotal">5</span></span>
+                    <span style="font-size:0.7rem; color:var(--success);">Total: <span id="openingsTotal"></span></span>
                     <span style="font-size:0.7rem; color:#aaa;" id="openingDbBadge">Base</span>
                 </div>
                 <input type="text" id="openingSearch" placeholder="🔍 Buscar...">
                 <select id="openingSelect"><option value="">-- Seleccionar --</option></select>
                 <input type="file" id="openingDbInput" accept=".csv,.tsv,.txt" style="display:none">
-                <button onclick="document.getElementById('openingDbInput').click()" style="background:#222; border:1px dashed #555; color:#999;">Cargar Más (.tsv)</button>
+                <button onclick="document.getElementById('openingDbInput').click()" style="background:#222; border:1px dashed #555; color:#999;">Cargar DB (.tsv)</button>
                 <div id="lessonActiveUI" class="hidden" style="margin-top:10px; border-top:1px dashed #444; padding-top:10px;">
                     <div style="color:var(--success); font-weight:bold;" id="lessonInstruction"></div>
                     <div style="font-size:0.8rem; color:#aaa;" id="lessonDescription"></div>
@@ -234,19 +288,19 @@
             </div>
         </div>
 
-        <!-- TÁCTICA -->
+        <!-- 4. TÁCTICA -->
         <div class="accordion-item acc-tactics" id="panel-tactics">
             <div class="accordion-header" onclick="toggleAccordion('panel-tactics')">
                 <span><i class="bi bi-lightning-fill"></i> Táctica</span> <i class="bi bi-chevron-down"></i>
             </div>
             <div class="accordion-content">
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                     <label>Nivel</label> <span id="dbCountBadge" style="font-size:0.6rem; color:var(--tactics);">Total: 15</span>
+                     <label>Nivel</label> <span id="dbCountBadge" style="font-size:0.6rem; color:var(--tactics);"></span>
                 </div>
                 <select id="tacticsEloSelect"><option value="">-- Elo --</option><option value="800">800</option><option value="1600">1600</option><option value="2400">2400</option></select>
                 <select id="tacticsPuzzleSelect" disabled><option value="">-- Puzzle --</option></select>
                 <input type="file" id="dbInput" accept=".csv" style="display:none">
-                <button onclick="document.getElementById('dbInput').click()" style="background:#222; border:1px dashed #555; color:#999;">Cargar Más (.csv)</button>
+                <button onclick="document.getElementById('dbInput').click()" style="background:#222; border:1px dashed #555; color:#999;">Cargar DB (.csv)</button>
                 <div id="tacticsActiveUI" class="hidden" style="margin-top:10px; border-top:1px dashed #444; padding-top:10px;">
                     <div style="color:var(--tactics); font-weight:bold;" id="tacticsTurnIndicator"></div>
                     <div style="font-size:0.8rem; color:#aaa;" id="tacticsDesc"></div>
@@ -272,44 +326,66 @@
     let lessonState = { active: false, moves: [], index: 0, currentOpening: null };
     let tacticsState = { active: false, puzzle: null, index: 0 };
 
-    // --- DATOS INICIALES (HARDCODED) ---
-    // Aperturas base
+    // --- DATOS DUROS EXTENDIDOS ---
     let defaultOpenings = [
-        { eco: "C50", name: "Italian Game", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bc4" },
-        { eco: "C60", name: "Ruy Lopez", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bb5" },
-        { eco: "B20", name: "Sicilian Defense", pgn: "1. e4 c5" },
-        { eco: "D00", name: "Queen's Pawn", pgn: "1. d4 d5" },
-        { eco: "C00", name: "French Defense", pgn: "1. e4 e6" }
+        {eco:"C50", name:"Italiana", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4"},
+        {eco:"C60", name:"Ruy Lopez", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bb5"},
+        {eco:"B20", name:"Siciliana", pgn:"1. e4 c5"},
+        {eco:"B01", name:"Escandinava", pgn:"1. e4 d5"},
+        {eco:"C00", name:"Francesa", pgn:"1. e4 e6"},
+        {eco:"B10", name:"Caro-Kann", pgn:"1. e4 c6"},
+        {eco:"D00", name:"Peón Dama", pgn:"1. d4 d5"},
+        {eco:"D06", name:"Gambito Dama", pgn:"1. d4 d5 2. c4"},
+        {eco:"A45", name:"Trompowsky", pgn:"1. d4 Nf6 2. Bg5"},
+        {eco:"E60", name:"India de Rey", pgn:"1. d4 Nf6 2. c4 g6"},
+        {eco:"A02", name:"Bird", pgn:"1. f4"},
+        {eco:"A00", name:"Orangután", pgn:"1. b4"},
+        {eco:"C42", name:"Petrov", pgn:"1. e4 e5 2. Nf3 Nf6"},
+        {eco:"C41", name:"Philidor", pgn:"1. e4 e5 2. Nf3 d6"},
+        {eco:"C20", name:"Apertura de Rey", pgn:"1. e4 e5"},
+        {eco:"B00", name:"Defensa Nimzowitsch", pgn:"1. e4 Nc6"},
+        {eco:"A04", name:"Apertura Reti", pgn:"1. Nf3"},
+        {eco:"A10", name:"Inglesa", pgn:"1. c4"},
+        {eco:"C45", name:"Escocesa", pgn:"1. e4 e5 2. Nf3 Nc6 3. d4"},
+        {eco:"C55", name:"Dos Caballos", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6"}
     ];
     let openingsList = JSON.parse(JSON.stringify(defaultOpenings));
 
-    // Táctica base (5 por nivel para empezar)
     let defaultTactics = {
         "800": [
-            { id: "1", name: "Mate Pasillo", fen: "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", moves: ["Rd8#"], desc: "Mate en 1." },
-            { id: "2", name: "Pastor", fen: "r1bqkb1r/pppp1ppp/2n5/4P3/2B1n3/5Q2/PPP2PPP/RNB1K1NR w KQkq - 0 6", moves: ["Qxf7#"], desc: "Mate f7" },
-            { id: "3", name: "Dama Colgada", fen: "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3", moves: ["hxg3", "Qxh1"], desc: "Come Dama" },
-            { id: "4", name: "Mate 1", fen: "8/8/8/8/8/5k2/8/6QK w - - 0 1", moves: ["Qg2#"], desc: "Mate con Dama" },
-            { id: "5", name: "Torre", fen: "4k3/8/8/8/8/8/4N3/2K3r1 w - - 0 1", moves: ["Nxg1"], desc: "Come Torre" }
+            {id:"1", fen:"6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", moves:["Rd8#"], desc:"Mate en 1"},
+            {id:"2", fen:"r1bqkb1r/pppp1ppp/2n5/4P3/2B1n3/5Q2/PPP2PPP/RNB1K1NR w KQkq - 0 6", moves:["Qxf7#"], desc:"Pastor"},
+            {id:"3", fen:"8/8/8/8/8/5k2/8/6QK w - - 0 1", moves:["Qg2#"], desc:"Mate Dama"},
+            {id:"4", fen:"4k3/8/8/8/8/8/4N3/2K3r1 w - - 0 1", moves:["Nxg1"], desc:"Come Torre"},
+            {id:"5", fen:"rnbqkbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3", moves:["hxg3","Qxh1"], desc:"Error f3"},
+            {id:"6", fen:"k7/8/K7/8/8/8/1R6/7R w - - 0 1", moves:["Rh8#"], desc:"Escalera"},
+            {id:"7", fen:"7k/5N2/8/8/8/8/8/6RK w - - 0 1", moves:["Rh6#"], desc:"Árabe"},
+            {id:"8", fen:"rnbqkbnr/pppp1ppp/2n5/4p3/3P4/5N2/PPP1PPPP/RNBQKB1R w KQkq - 0 1", moves:["dxe5"], desc:"Peón gratis"},
+            {id:"9", fen:"rnbqkbnr/pppp1ppp/8/8/4p3/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1", moves:["Nxe4"], desc:"Caballo"},
+            {id:"10", fen:"k7/P7/K7/8/8/8/8/8 w - - 0 1", moves:["Kb6"], desc:"Ahogado"}
         ],
         "1600": [
-            { id: "6", name: "Horquilla", fen: "4k3/8/8/3N4/8/8/8/4K3 w - - 0 1", moves: ["Nc7+", "Kd8", "Nxa8"], desc: "Doble" },
-            { id: "7", name: "Desviación", fen: "rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2", moves: ["e5"], desc: "Ataca" },
-            { id: "8", name: "Clavada", fen: "r1b1k1nr/ppppqppp/2n5/2b5/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 4 5", moves: ["O-O"], desc: "Enroque" },
-            { id: "9", name: "Rayos X", fen: "3r4/8/8/3R4/3K4/8/8/8 w - - 0 1", moves: ["Rxd8"], desc: "Cambio" },
-            { id: "10", name: "Jaque", fen: "rnbqkbnr/pppp1ppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1", moves: ["e5"], desc: "Centro" }
+            {id:"11", fen:"4k3/8/8/3N4/8/8/8/4K3 w - - 0 1", moves:["Nc7+","Kd8","Nxa8"], desc:"Horquilla"},
+            {id:"12", fen:"rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2", moves:["e5"], desc:"Ataque"},
+            {id:"13", fen:"3r4/8/8/3R4/3K4/8/8/8 w - - 0 1", moves:["Rxd8"], desc:"Rayos X"},
+            {id:"14", fen:"r1b1k1nr/ppppqppp/2n5/2b5/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 4 5", moves:["O-O"], desc:"Clavada"},
+            {id:"15", fen:"rnbqkbnr/pppp1ppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1", moves:["e5"], desc:"Control"},
+            {id:"16", fen:"rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2", moves:["Nc6"], desc:"Siciliana"},
+            {id:"17", fen:"2r3k1/1p3ppp/p3p3/3pP3/P2P1P2/1Pq5/2r3PP/1R1Q1RK1 b - - 0 1", moves:["Rd2"], desc:"Invasión"},
+            {id:"18", fen:"r5rk/5p1p/1p1p1P2/p2P1R2/7Q/8/P5PP/4q1BK w - - 0 1", moves:["Qxh7+","Kxh7","Rh5#"], desc:"Mate 3"},
+            {id:"19", fen:"7k/6p1/8/8/8/8/6R1/6BK w - - 0 1", moves:["Bd4"], desc:"Molino"},
+            {id:"20", fen:"r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 2 3", moves:["Qxf7#"], desc:"Pastor 2"}
         ],
         "2400": [
-            { id: "11", name: "Zugzwang", fen: "8/8/8/8/p7/P7/2k5/7K w - - 0 1", moves: ["Kg1"], desc: "Espera" },
-            { id: "12", name: "Ahogado", fen: "7k/8/7K/8/8/8/8/Q7 w - - 0 1", moves: ["Qa8#"], desc: "Mate" },
-            { id: "13", name: "Sacrificio", fen: "r5rk/5p1p/1p1p1P2/p2P1R2/7Q/8/P5PP/4q1BK w - - 0 1", moves: ["Qxh7+", "Kxh7", "Rh5#"], desc: "Mate 3" },
-            { id: "14", name: "Final", fen: "8/8/8/8/8/8/4K3/4k3 w - - 0 1", moves: ["Ke3"], desc: "Opo" },
-            { id: "15", name: "Tablas", fen: "8/8/8/5Q2/8/8/5K2/6qk w - - 0 1", moves: ["Qh3+"], desc: "Tablas" }
+            {id:"21", fen:"8/8/8/8/p7/P7/2k5/7K w - - 0 1", moves:["Kg1"], desc:"Zugzwang"},
+            {id:"22", fen:"8/8/8/8/8/8/4K3/4k3 w - - 0 1", moves:["Ke3"], desc:"Oposición"},
+            {id:"23", fen:"7k/8/7K/8/8/8/8/Q7 w - - 0 1", moves:["Qa8#"], desc:"Mate Dama"},
+            {id:"24", fen:"8/8/8/5Q2/8/8/5K2/6qk w - - 0 1", moves:["Qh3+"], desc:"Tablas"},
+            {id:"25", fen:"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", moves:["e4"], desc:"Best Move"}
         ]
     };
     let tacticsDB = JSON.parse(JSON.stringify(defaultTactics));
 
-    // --- STORAGE (SUMA, NO REEMPLAZA) ---
     const StorageManager = {
         dbName: "AlterDrezDB", dbVersion: 1,
         init: function() {
@@ -322,21 +398,20 @@
         },
         saveData: function(store, key, data) { const tx=this.db.transaction(store,"readwrite"); tx.objectStore(store).put(data,key); },
         loadData: function() {
-            const txOp = this.db.transaction("openings","readonly"); 
+            const txOp=this.db.transaction("openings","readonly"); 
             txOp.objectStore("openings").get("main").onsuccess=(e)=>{ 
-                if(e.target.result) { 
-                    openingsList = e.target.result; 
-                    $('#openingDbBadge').text("Cargado Memoria").css('color','lime');
+                if(e.target.result && e.target.result.length > 0) { 
+                    openingsList=e.target.result; 
+                    $('#openingDbBadge').text("Memoria Local").css('color','lime');
                 }
                 populateOpeningsGUI(''); 
             };
-            const txTac = this.db.transaction("tactics","readonly"); 
+            const txTac=this.db.transaction("tactics","readonly"); 
             txTac.objectStore("tactics").get("main").onsuccess=(e)=>{ 
-                if(e.target.result) { 
-                    tacticsDB = e.target.result; 
+                if(e.target.result && Object.keys(e.target.result).length > 0) { 
+                    tacticsDB=e.target.result; 
                     $('#dbCountBadge').text(`Total: ${countTactics()}`).css('color','lime');
                 }
-                // Si no hay datos (primera vez o borrado), usa los default
             };
         },
         clearDB: function() { indexedDB.deleteDatabase(this.dbName).onsuccess=()=>{ location.reload(); }; }
@@ -344,84 +419,28 @@
 
     function countTactics() { let c=0; Object.keys(tacticsDB).forEach(k=>c+=tacticsDB[k].length); return c; }
 
-    // --- PARSERS CON LÓGICA DE SUMA (MERGE) ---
-    const OpeningManager = {
-        importFile: function(f) { const r=new FileReader(); r.onload=e=>this.parse(e.target.result); r.readAsText(f); },
-        parse: function(t) {
-            const l=t.split('\n'); let added=0;
-            for(let x of l) { 
-                let p=x.split(x.includes('\t')?'\t':','); 
-                if(p.length>=3 && p[p.length-1].length>2) {
-                    openingsList.push({eco:p[0],name:p[1],pgn:p[p.length-1].trim()});
-                    added++;
-                }
-            }
-            if(added>0){ 
-                StorageManager.saveData("openings","main",openingsList); 
-                populateOpeningsGUI(''); 
-                showToast(`Se agregaron ${added} aperturas`);
-                $('#openingDbBadge').text("Actualizado").css('color','cyan');
-            } else alert("No se encontraron aperturas válidas.");
-        },
-        pgnToArray: function(p) {
-            const t=new Chess(); const c=p.replace(/\*/g,'').replace(/1-0|0-1|1\/2-1\/2/g,'');
-            const tk=c.replace(/\d+\./g,'').split(/\s+/);
-            for(let k of tk) if(k) t.move(k,{sloppy:true});
-            return t.history();
-        }
-    };
-    
-    const TacticsManager = {
-        importCSV: function(f) { const r=new FileReader(); r.onload=e=>this.parse(e.target.result); r.readAsText(f); },
-        parse: function(t) {
-            const l=t.split('\n'); let added=0;
-            // Detectar formato
-            const isComma = t.indexOf(',') > -1;
-            
-            for(let i=0; i<l.length && added<10000; i++){ // Límite de seguridad
-                if(!l[i]) continue;
-                const c = l[i].split(isComma ? ',' : '\t'); 
-                if(c.length<4) continue; // Necesitamos al menos ID, FEN, Moves, Rating
-                
-                const r=parseInt(c[3]); 
-                if(isNaN(r)) continue; // Header row
-
-                let k="800";
-                if(r>=2200)k="2400";else if(r>=1400)k="1600";
-                
-                tacticsDB[k].push({id:c[0], fen:c[1], moves:c[2].split(' '), desc:"Encuentra la mejor línea"});
-                added++;
-            }
-            if(added>0) {
-                StorageManager.saveData("tactics","main",tacticsDB);
-                showToast(`Agregados ${added} puzzles`);
-                $('#dbCountBadge').text(`Total: ${countTactics()}`).css('color','cyan');
-                updateTacticsList();
-            } else alert("No se encontraron puzzles válidos.");
-        }
-    };
-
-    // --- RESTO DE LÓGICA (ENGINE, BOARD, ETC - IGUAL A v4.0) ---
+    // --- OBSERVER (ENTRENADOR SIMPLE) ---
     const Observer = {
         eval: function(g, score, playerColor) {
-            if(currentMode !== 'pvc' && currentMode !== 'analysis') return;
+            // Solo muestra tag, no texto largo
             let delta = score - lastEval;
             let turn = g.turn(); 
-            let mover = turn === 'w' ? 'Negras' : 'Blancas';
+            let mover = turn === 'w' ? 'Negras' : 'Blancas'; // Quien acaba de mover
             let relDelta = (mover === 'Blancas') ? delta : -delta;
-            let tags = [], msg = "";
-            if(relDelta < -150) tags.push({text:"Error Grave", type:"bad"});
-            else if(relDelta < -50) tags.push({text:"Imprecisión", type:"warn"});
-            else if(relDelta > 20) tags.push({text:"Buena", type:"good"});
-            if(g.history().length < 10) msg = "Apertura: Desarrolla piezas.";
-            else if(Math.abs(score) > 600) msg = "Ventaja decisiva.";
-            else if(Math.abs(relDelta) > 100) msg = "Cambio brusco.";
-            else msg = "Posición estable.";
-            $('#coachMsg').text(msg); $('#coachTags').empty(); tags.forEach(t => $('#coachTags').append(`<span class="tag ${t.type}">${t.text}</span>`));
+
+            let tagHtml = "";
+            if(relDelta < -200) tagHtml = "<span class='tag blunder'>Error Grave</span>";
+            else if(relDelta < -80) tagHtml = "<span class='tag mistake'>Error</span>";
+            else if(relDelta < -30) tagHtml = "<span class='tag inaccuracy'>Imprecisión</span>";
+            else if(relDelta > 20) tagHtml = "<span class='tag best'>Buena</span>";
+            else tagHtml = "<span class='tag book'>Normal</span>";
+
+            $('#coachTags').html(tagHtml);
             lastEval = score;
         }
     };
 
+    // --- ENGINE ---
     function initEngine() {
         fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js').then(r=>r.blob()).then(blob=>{
             engine = new Worker(URL.createObjectURL(blob));
@@ -429,8 +448,10 @@
             engine.onmessage = function(e) {
                 const msg = e.data;
                 if(msg.startsWith('bestmove') && isEnginePlaying) {
-                    game.move(msg.split(' ')[1], {sloppy:true}); board.position(game.fen());
-                    isEnginePlaying = false; $('#thinkingIndicator').hide(); analyze();
+                    game.move(msg.split(' ')[1], {sloppy:true});
+                    board.position(game.fen());
+                    isEnginePlaying = false; $('#thinkingIndicator').hide();
+                    analyze();
                 }
                 if(msg.includes('score cp')) {
                     const m = msg.match(/score cp (-?\d+)/);
@@ -438,7 +459,8 @@
                         let score = parseInt(m[1]); 
                         let p = 50 + (Math.max(-400,Math.min(400,score))/8);
                         if(game.turn()==='b') score = -score;
-                        $('#evalFill').css('width', p+'%'); Observer.eval(game, score, $('#playerColor').val());
+                        $('#evalFill').css('width', p+'%');
+                        Observer.eval(game, score, $('#playerColor').val());
                     }
                 }
             };
@@ -454,7 +476,8 @@
     }
 
     function analyze() {
-        if(currentMode==='lesson'||currentMode==='tactics') return;
+        // Analiza SIEMPRE, incluso en aperturas, para mover la barra
+        if(currentMode==='tactics') return; // En táctica no damos pistas
         engine.postMessage('stop'); engine.postMessage('setoption name Skill Level value 20'); engine.postMessage('position fen '+game.fen()); engine.postMessage('go depth 10');
     }
 
@@ -477,31 +500,94 @@
         if(currentMode==='lesson' && !lessonState.active) return false;
     }
 
-    function undo() { if(isEnginePlaying) return; if(currentMode === 'lesson') { LessonSystem.prev(); return; } let m = game.undo(); if(m) { redoStack.push(m); board.position(game.fen()); analyze(); } }
-    function redo() { if(isEnginePlaying) return; if(currentMode === 'lesson') { LessonSystem.next(); return; } if(redoStack.length > 0) { let m = redoStack.pop(); game.move(m); board.position(game.fen()); analyze(); } }
+    function undo() { 
+        if(isEnginePlaying) return; 
+        if(currentMode === 'lesson') { LessonSystem.prev(); return; } 
+        let m = game.undo(); 
+        if(m) { redoStack.push(m); board.position(game.fen()); analyze(); } 
+    }
+    function redo() { 
+        if(isEnginePlaying) return; 
+        if(currentMode === 'lesson') { LessonSystem.next(); return; } 
+        if(redoStack.length > 0) { let m = redoStack.pop(); game.move(m); board.position(game.fen()); analyze(); } 
+    }
     function goToStart() { if(currentMode==='lesson') return; while(game.undo()) { redoStack.push(game.undo()); } game.reset(); board.position('start'); redoStack = []; }
     function goToEnd() { while(redoStack.length > 0) redo(); }
+
+    // --- PARSERS ACUMULATIVOS ---
+    const OpeningManager = {
+        importFile: function(f) { const r=new FileReader(); r.onload=e=>this.parse(e.target.result); r.readAsText(f); },
+        parse: function(t) {
+            const l=t.split('\n'); let added=0;
+            for(let x of l) { 
+                let p=x.split(x.includes('\t')?'\t':','); 
+                if(p.length>=3 && p[p.length-1].length>2) {
+                    openingsList.push({eco:p[0],name:p[1],pgn:p[p.length-1].trim()}); added++;
+                }
+            }
+            if(added>0){ 
+                StorageManager.saveData("openings","main",openingsList); populateOpeningsGUI(''); 
+                showToast(`+${added} aperturas`);
+            } else alert("Error archivo");
+        },
+        pgnToArray: function(p) {
+            const t=new Chess(); const c=p.replace(/\*/g,'').replace(/1-0|0-1|1\/2-1\/2/g,'');
+            const tk=c.replace(/\d+\./g,'').split(/\s+/);
+            for(let k of tk) if(k) t.move(k,{sloppy:true});
+            return t.history();
+        }
+    };
+    
+    const TacticsManager = {
+        importCSV: function(f) { const r=new FileReader(); r.onload=e=>this.parse(e.target.result); r.readAsText(f); },
+        parse: function(t) {
+            const l=t.split('\n'); let added=0; const isComma = t.indexOf(',') > -1;
+            for(let i=0; i<l.length && added<10000; i++){
+                if(!l[i]) continue; const c = l[i].split(isComma ? ',' : '\t'); 
+                if(c.length<4) continue; const r=parseInt(c[3]); if(isNaN(r)) continue;
+                let k="800"; if(r>=2200)k="2400";else if(r>=1400)k="1600";
+                tacticsDB[k].push({id:c[0], fen:c[1], moves:c[2].split(' '), desc:"Encuentra la mejor línea"}); added++;
+            }
+            if(added>0) {
+                StorageManager.saveData("tactics","main",tacticsDB); showToast(`+${added} puzzles`); updateTacticsList();
+                $('#dbCountBadge').text(`Total: ${countTactics()}`).css('color','cyan');
+            } else alert("Error archivo");
+        }
+    };
 
     function populateOpeningsGUI(f) { 
         const s=$('#openingSelect').empty().append('<option>--</option>'); const t=f.toLowerCase(); 
         $('#openingsTotal').text(openingsList.length);
         openingsList.forEach((o,i)=>{ if(o.name.toLowerCase().includes(t)) s.append(new Option(o.name,i)); }); 
     }
-    function updateTacticsList() { const e=$('#tacticsEloSelect').val(); const s=$('#tacticsPuzzleSelect').empty(); if(e&&tacticsDB[e]) tacticsDB[e].slice(0,100).forEach((p,i)=>s.append(new Option(`Puzzle ${i+1}`,i))); s.prop('disabled',!e); }
+    function updateTacticsList() { 
+        const e=$('#tacticsEloSelect').val(); const s=$('#tacticsPuzzleSelect').empty(); 
+        if(e&&tacticsDB[e]) tacticsDB[e].slice(0,100).forEach((p,i)=>s.append(new Option(`Puzzle ${i+1}`,i))); s.prop('disabled',!e); 
+    }
 
+    // --- LESSON SYSTEM (AHORA CON ANÁLISIS) ---
     const LessonSystem = {
         start: function(idx) {
             const op = openingsList[idx]; if(!op) return;
             lessonState = { active: true, moves: OpeningManager.pgnToArray(op.pgn), index: 0, currentOpening: op };
             currentMode = 'lesson'; $('#lessonActiveUI').removeClass('hidden'); $('#lessonDescription').text(op.name);
-            game.reset(); board.position('start'); board.orientation('white'); this.prompt();
+            game.reset(); board.position('start'); board.orientation('white'); this.prompt(); analyze(); // Analizar inicio
         },
         prompt: function() {
             if(lessonState.index >= lessonState.moves.length) { $('#lessonInstruction').text("¡Completado!"); return; }
             $('#lessonInstruction').html(`Juega <b>${lessonState.moves[lessonState.index]}</b>`);
         },
-        next: function() { if(lessonState.index < lessonState.moves.length) { game.move(lessonState.moves[lessonState.index]); board.position(game.fen()); lessonState.index++; this.prompt(); } },
-        prev: function() { game.undo(); board.position(game.fen()); if(lessonState.index > 0) lessonState.index--; this.prompt(); },
+        next: function() { 
+            if(lessonState.index < lessonState.moves.length) { 
+                game.move(lessonState.moves[lessonState.index]); board.position(game.fen()); 
+                lessonState.index++; this.prompt(); analyze(); // Analizar al avanzar
+            } 
+        },
+        prev: function() { 
+            game.undo(); board.position(game.fen()); 
+            if(lessonState.index > 0) lessonState.index--; 
+            this.prompt(); analyze(); // Analizar al retroceder
+        },
         stop: function() { lessonState.active=false; $('#lessonActiveUI').addClass('hidden'); currentMode='analysis'; }
     };
 
@@ -527,7 +613,8 @@
         $(window).resize(board.resize);
         initEngine();
         await StorageManager.init(); StorageManager.loadData();
-        populateOpeningsGUI(''); updateTacticsList(); // Carga inicial
+        populateOpeningsGUI(''); updateTacticsList();
+        $('#dbCountBadge').text(`Total: ${countTactics()}`);
 
         $('#openingDbInput').change(function(){if(this.files.length)OpeningManager.importFile(this.files[0])});
         $('#dbInput').change(function(){if(this.files.length)TacticsManager.importCSV(this.files[0])});
