@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 
     <style>
-        /* --- ESTILOS VISUALES GENERALES --- */
+        /* --- ESTILOS VISUALES (INTACTOS v4.6) --- */
         :root {
             --bg: #0b0e14;
             --panel: #151922;
@@ -156,7 +156,7 @@
 
 <header>
     <a href="index.html" class="logo-link">
-        <h1>AlterDrez</h1> <span style="font-size:0.7rem; color:#888;">PRO v4.6</span>
+        <h1>AlterDrez</h1> <span style="font-size:0.7rem; color:#888;">PRO v4.7</span>
     </a>
     <div class="nav-menu">
         <button class="nav-btn" onclick="openModal('facts')">Secretos de Caissa</button>
@@ -170,7 +170,11 @@
 
 <div id="modal-welcome" class="modal-overlay active">
     <div class="modal-content">
-        <div class="modal-header"><h2><i class="bi bi-sliders"></i> Configuración</h2><button onclick="closeAllModals()" style="background:none;border:none;color:#fff;width:auto;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button></div>
+        <!-- BOTÓN DE CERRAR EN EL HEADER CON LÓGICA DIRECTA -->
+        <div class="modal-header">
+            <h2><i class="bi bi-sliders"></i> Configuración</h2>
+            <button onclick="document.getElementById('modal-welcome').classList.remove('active')" style="background:none;border:none;color:#fff;width:auto;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button>
+        </div>
         <div class="modal-body">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
                 <div>
@@ -184,7 +188,8 @@
                     <video controls style="width:100%; border-radius:4px;"><source src="assets/alterdrez/tutorial.mp4" type="video/mp4"></video>
                 </div>
             </div>
-            <button onclick="closeAllModals()" style="width:100%; margin-top:20px; background:#333; padding:15px;">Aceptar</button>
+            <!-- BOTÓN JUGAR CON LÓGICA DIRECTA DE CIERRE (FAIL-SAFE) -->
+            <button onclick="document.getElementById('modal-welcome').classList.remove('active')" style="width:100%; margin-top:20px; background:var(--success); color:#fff; font-size:1.1rem; padding:15px; border:none; border-radius:6px; cursor:pointer;">¡A JUGAR!</button>
         </div>
     </div>
 </div>
@@ -383,39 +388,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.js"></script>
 
 <script>
+    // --- GESTIÓN UI SEGURA (FUNCTIONS FIRST) ---
     function closeAllModals() { document.querySelectorAll('.modal-overlay').forEach(el => el.classList.remove('active')); }
     function openModal(id) { closeAllModals(); document.getElementById('modal-' + id).classList.add('active'); }
     function toggleAccordion(id) { document.getElementById(id).classList.toggle('active'); }
     function showToast(msg) { const x = document.getElementById("toast"); x.style.visibility="visible"; x.innerText = msg; setTimeout(()=>x.style.visibility="hidden", 3000); }
 
+    // --- VARIABLES ---
     const game = new Chess();
     let board = null, engine = null, redoStack = [], currentMode = 'pvc', isEnginePlaying = false, lastEval = 0;
     let lessonState = { active: false, moves: [], index: 0, currentOpening: null };
     let tacticsState = { active: false, puzzle: null, index: 0 };
 
-    // --- DATOS DUROS EXTENDIDOS (RESTAURADOS) ---
-    let defaultOpenings = [
-        {eco:"C50", name:"Italiana", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4"},
-        {eco:"C60", name:"Ruy Lopez", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bb5"},
-        {eco:"B20", name:"Siciliana", pgn:"1. e4 c5"},
-        {eco:"B01", name:"Escandinava", pgn:"1. e4 d5"},
-        {eco:"C00", name:"Francesa", pgn:"1. e4 e6"},
-        {eco:"B10", name:"Caro-Kann", pgn:"1. e4 c6"},
-        {eco:"D00", name:"Peón Dama", pgn:"1. d4 d5"},
-        {eco:"D06", name:"Gambito Dama", pgn:"1. d4 d5 2. c4"},
-        {eco:"A45", name:"Trompowsky", pgn:"1. d4 Nf6 2. Bg5"},
-        {eco:"E60", name:"India de Rey", pgn:"1. d4 Nf6 2. c4 g6"},
-        {eco:"A02", name:"Bird", pgn:"1. f4"},
-        {eco:"A00", name:"Orangután", pgn:"1. b4"},
-        {eco:"C42", name:"Petrov", pgn:"1. e4 e5 2. Nf3 Nf6"},
-        {eco:"C41", name:"Philidor", pgn:"1. e4 e5 2. Nf3 d6"},
-        {eco:"C20", name:"Apertura de Rey", pgn:"1. e4 e5"},
-        {eco:"B00", name:"Defensa Nimzowitsch", pgn:"1. e4 Nc6"},
-        {eco:"A04", name:"Apertura Reti", pgn:"1. Nf3"},
-        {eco:"A10", name:"Inglesa", pgn:"1. c4"},
-        {eco:"C45", name:"Escocesa", pgn:"1. e4 e5 2. Nf3 Nc6 3. d4"},
-        {eco:"C55", name:"Dos Caballos", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6"}
-    ];
+    let defaultOpenings = [{eco:"C50", name:"Italiana", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4"}, {eco:"C60", name:"Ruy Lopez", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bb5"}, {eco:"B20", name:"Siciliana", pgn:"1. e4 c5"}, {eco:"B01", name:"Escandinava", pgn:"1. e4 d5"}, {eco:"C00", name:"Francesa", pgn:"1. e4 e6"}, {eco:"B10", name:"Caro-Kann", pgn:"1. e4 c6"}, {eco:"D00", name:"Peón Dama", pgn:"1. d4 d5"}, {eco:"D06", name:"Gambito Dama", pgn:"1. d4 d5 2. c4"}, {eco:"A45", name:"Trompowsky", pgn:"1. d4 Nf6 2. Bg5"}, {eco:"E60", name:"India de Rey", pgn:"1. d4 Nf6 2. c4 g6"}, {eco:"A02", name:"Bird", pgn:"1. f4"}, {eco:"A00", name:"Orangután", pgn:"1. b4"}, {eco:"C42", name:"Petrov", pgn:"1. e4 e5 2. Nf3 Nf6"}, {eco:"C41", name:"Philidor", pgn:"1. e4 e5 2. Nf3 d6"}, {eco:"C20", name:"Apertura de Rey", pgn:"1. e4 e5"}, {eco:"B00", name:"Defensa Nimzowitsch", pgn:"1. e4 Nc6"}, {eco:"A04", name:"Apertura Reti", pgn:"1. Nf3"}, {eco:"A10", name:"Inglesa", pgn:"1. c4"}, {eco:"C45", name:"Escocesa", pgn:"1. e4 e5 2. Nf3 Nc6 3. d4"}, {eco:"C55", name:"Dos Caballos", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6"}];
     let openingsList = JSON.parse(JSON.stringify(defaultOpenings));
 
     let defaultTactics = {
@@ -518,4 +503,193 @@
         isEnginePlaying = true; $('#thinkingIndicator').show();
         let lvl = parseInt($('#skillLevel').val());
         let depth = 10; if(lvl < 5) depth = 2; else if(lvl < 10) depth = 6; else if(lvl < 15) depth = 10; else depth = 14;
-        engine.postMessage(`setoption name Skill Level value ${lvl}`); engine.postMessage('position fen '+game.fen()); engine.postMessage(`go de
+        engine.postMessage(`setoption name Skill Level value ${lvl}`); engine.postMessage('position fen '+game.fen()); engine.postMessage(`go depth ${depth}`);
+    }
+
+    function analyze() {
+        if(currentMode==='tactics') return; 
+        engine.postMessage('stop'); engine.postMessage('setoption name Skill Level value 20'); engine.postMessage('position fen '+game.fen()); engine.postMessage('go depth 10');
+    }
+
+    function onDrop(s, t) {
+        if(currentMode === 'lesson') return 'snapback';
+        if(currentMode === 'tactics') {
+            const temp = new Chess(game.fen());
+            const m = temp.move({from:s, to:t, promotion:'q'}); 
+            if(m) {
+                if(TacticsSystem.check(m)) {
+                    game.move({from:s, to:t, promotion:'q'}); 
+                    board.position(game.fen()); 
+                    return; 
+                }
+            } 
+            return 'snapback';
+        }
+        
+        if(redoStack.length > 0) redoStack = [];
+        const m = game.move({from:s, to:t, promotion:'q'}); 
+        if(!m) return 'snapback';
+        
+        board.position(game.fen());
+        if(currentMode==='pvc' && game.turn()!==$('#playerColor').val()) setTimeout(moveAI, 100); else analyze();
+    }
+
+    function onDragStart(s, p) {
+        if(game.game_over()) return false;
+        
+        if(currentMode === 'tactics') {
+            if((game.turn() === 'w' && p.search(/^b/) !== -1) || (game.turn() === 'b' && p.search(/^w/) !== -1)) return false;
+            return true;
+        }
+
+        if(currentMode==='pvc' && isEnginePlaying) return false;
+        if(currentMode==='pvc' && (($('#playerColor').val()==='w' && p.startsWith('b')) || ($('#playerColor').val()==='b' && p.startsWith('w')))) return false;
+        
+        if(currentMode==='lesson') return false; 
+        return true;
+    }
+
+    function undo() { 
+        if(isEnginePlaying) return; 
+        if(currentMode === 'lesson') { LessonSystem.prev(); return; } 
+        let m = game.undo(); 
+        if(m) { redoStack.push(m); board.position(game.fen()); analyze(); } 
+    }
+    function redo() { 
+        if(isEnginePlaying) return; 
+        if(currentMode === 'lesson') { LessonSystem.next(); return; } 
+        if(redoStack.length > 0) { let m = redoStack.pop(); game.move(m); board.position(game.fen()); analyze(); } 
+    }
+    function goToStart() { if(currentMode==='lesson') return; while(game.undo()) { redoStack.push(game.undo()); } game.reset(); board.position('start'); redoStack = []; }
+    function goToEnd() { while(redoStack.length > 0) redo(); }
+
+    const OpeningManager = {
+        importFile: function(f) { const r=new FileReader(); r.onload=e=>this.parse(e.target.result); r.readAsText(f); },
+        parse: function(t) {
+            const l=t.split('\n'); let added=0;
+            for(let x of l) { 
+                let p=x.split(x.includes('\t')?'\t':','); 
+                if(p.length>=3 && p[p.length-1].length>2) {
+                    openingsList.push({eco:p[0],name:p[1],pgn:p[p.length-1].trim()}); added++;
+                }
+            }
+            if(added>0){ 
+                StorageManager.saveData("openings","main",openingsList); populateOpeningsGUI(''); 
+                showToast(`+${added} aperturas`);
+            } else alert("Error archivo");
+        },
+        pgnToArray: function(p) {
+            const t=new Chess(); const c=p.replace(/\*/g,'').replace(/1-0|0-1|1\/2-1\/2/g,'');
+            const tk=c.replace(/\d+\./g,'').split(/\s+/);
+            for(let k of tk) if(k) t.move(k,{sloppy:true});
+            return t.history();
+        }
+    };
+    
+    const TacticsManager = {
+        importCSV: function(f) { const r=new FileReader(); r.onload=e=>this.parse(e.target.result); r.readAsText(f); },
+        parse: function(t) {
+            const l=t.split('\n'); let added=0; const isComma = t.indexOf(',') > -1;
+            for(let i=0; i<l.length && added<10000; i++){
+                if(!l[i]) continue; const c = l[i].split(isComma ? ',' : '\t'); 
+                if(c.length<4) continue; const r=parseInt(c[3]); if(isNaN(r)) continue;
+                let k="800"; if(r>=2200)k="2400";else if(r>=1400)k="1600";
+                tacticsDB[k].push({id:c[0], fen:c[1], moves:c[2].split(' '), desc:"Encuentra la mejor línea"}); added++;
+            }
+            if(added>0) {
+                StorageManager.saveData("tactics","main",tacticsDB); showToast(`+${added} puzzles`); updateTacticsList();
+                $('#dbCountBadge').text(`Total: ${countTactics()}`).css('color','cyan');
+            } else alert("Error archivo");
+        }
+    };
+
+    function populateOpeningsGUI(f) { 
+        const s=$('#openingSelect').empty().append('<option>--</option>'); const t=f.toLowerCase(); 
+        $('#openingsTotal').text(openingsList.length);
+        openingsList.forEach((o,i)=>{ if(o.name.toLowerCase().includes(t)) s.append(new Option(o.name,i)); }); 
+    }
+    function updateTacticsList() { 
+        const e=$('#tacticsEloSelect').val(); const s=$('#tacticsPuzzleSelect').empty(); 
+        if(e&&tacticsDB[e]) tacticsDB[e].slice(0,100).forEach((p,i)=>s.append(new Option(`Puzzle ${i+1}`,i))); s.prop('disabled',!e); 
+    }
+
+    const LessonSystem = {
+        start: function(idx) {
+            const op = openingsList[idx]; if(!op) return;
+            lessonState = { active: true, moves: OpeningManager.pgnToArray(op.pgn), index: 0, currentOpening: op };
+            currentMode = 'lesson'; $('#lessonActiveUI').removeClass('hidden'); $('#lessonDescription').text(op.name);
+            game.reset(); board.position('start'); board.orientation('white'); this.prompt(); analyze();
+        },
+        prompt: function() {
+            if(lessonState.index >= lessonState.moves.length) { $('#lessonInstruction').text("¡Completado!"); return; }
+            $('#lessonInstruction').html(`Juega <b>${lessonState.moves[lessonState.index]}</b>`);
+        },
+        next: function() { 
+            if(lessonState.index < lessonState.moves.length) { 
+                game.move(lessonState.moves[lessonState.index]); board.position(game.fen()); 
+                lessonState.index++; this.prompt(); analyze(); 
+            } 
+        },
+        prev: function() { 
+            game.undo(); board.position(game.fen()); 
+            if(lessonState.index > 0) lessonState.index--; 
+            this.prompt(); analyze();
+        },
+        stop: function() { lessonState.active=false; $('#lessonActiveUI').addClass('hidden'); currentMode='analysis'; }
+    };
+
+    const TacticsSystem = {
+        start: function(elo, idx) {
+            const p = tacticsDB[elo][idx]; if(!p) return;
+            tacticsState = { active:true, puzzle:p, index:0 }; currentMode = 'tactics';
+            $('#tacticsActiveUI').removeClass('hidden'); $('#tacticsDesc').text(p.desc);
+            game.load(p.fen); board.position(p.fen); board.orientation(game.turn()==='w'?'white':'black');
+        },
+        check: function(m) {
+            const exp = tacticsState.puzzle.moves[tacticsState.index];
+            if(m.san===exp || (m.from+m.to+(m.promotion||'')===exp)) { 
+                tacticsState.index++; setTimeout(()=>this.resp(), 500); return true; 
+            } return false;
+        },
+        resp: function() {
+            if(tacticsState.index < tacticsState.puzzle.moves.length) { 
+                game.move(tacticsState.puzzle.moves[tacticsState.index], {sloppy:true}); 
+                board.position(game.fen()); tacticsState.index++; 
+            } else $('#tacticsTurnIndicator').text("¡Correcto!");
+        },
+        stop: function() { tacticsState.active=false; $('#tacticsActiveUI').addClass('hidden'); currentMode='analysis'; }
+    };
+
+    $(document).ready(async () => {
+        board = Chessboard('board', { draggable:true, position:'start', onDragStart:onDragStart, onDrop:onDrop, pieceTheme:'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png' });
+        $(window).resize(board.resize);
+        initEngine();
+        await StorageManager.init(); StorageManager.loadData();
+        populateOpeningsGUI(''); updateTacticsList();
+        $('#dbCountBadge').text(`Total: ${countTactics()}`);
+
+        $('#openingDbInput').change(function(){if(this.files.length)OpeningManager.importFile(this.files[0])});
+        $('#dbInput').change(function(){if(this.files.length)TacticsManager.importCSV(this.files[0])});
+        $('#openingSearch').on('input', function(){populateOpeningsGUI($(this).val())});
+        $('#openingSelect').change(function(){if($(this).val())LessonSystem.start($(this).val())});
+        $('#tacticsEloSelect').change(updateTacticsList);
+        $('#tacticsPuzzleSelect').change(function(){if($(this).val())TacticsSystem.start($('#tacticsEloSelect').val(), $(this).val())});
+        
+        $('#btnQuitLesson').click(()=>LessonSystem.stop());
+        $('#btnQuitTactics').click(()=>TacticsSystem.stop());
+        $('#btnNewGame').click(()=>{ 
+            game.reset(); board.start(); $('#statusText').text("Nueva Partida"); 
+            currentMode = $('#gameMode').val();
+            if(currentMode === 'pvc' && $('#playerColor').val()==='b') moveAI(); 
+        });
+
+        // ESCAPE Key Listener
+        document.addEventListener('keydown', function(e) {
+            if (e.key === "ArrowLeft") { undo(); e.preventDefault(); }
+            if (e.key === "ArrowRight") { redo(); e.preventDefault(); }
+            if (e.key === "Escape") closeAllModals();
+        });
+    });
+</script>
+</body>
+</html>
