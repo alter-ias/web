@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 
     <style>
-        /* --- ESTILOS VISUALES (MISMOS QUE v4.3) --- */
+        /* --- ESTILOS INTACTOS v4.4 --- */
         :root {
             --bg: #0b0e14;
             --panel: #151922;
@@ -85,7 +85,8 @@
         }
 
         .eval-bar-wrapper { height: 15px; background: #263238; border-radius: 4px 4px 0 0; overflow: hidden; display: flex; width: 100%; border: 1px solid #444; }
-        .eval-fill { height: 100%; width: 50%; background: #fff; transition: width 0.3s ease; }
+        /* Transición suavizada para análisis */
+        .eval-fill { height: 100%; width: 50%; background: #fff; transition: width 0.6s cubic-bezier(0.25, 1, 0.5, 1); } 
         .board-container { width: 100%; aspect-ratio: 1/1; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
 
         .game-controls { display: flex; width: 100%; background: #1c212c; border-radius: 0 0 4px 4px; overflow: hidden; height: 45px; border: 1px solid #333; border-top: none; }
@@ -132,7 +133,7 @@
 
 <header>
     <a href="index.html" class="logo-link">
-        <h1>AlterDrez</h1> <span style="font-size:0.7rem; color:#888;">PRO v4.4</span>
+        <h1>AlterDrez</h1> <span style="font-size:0.7rem; color:#888;">PRO v4.5</span>
     </a>
     <div class="nav-menu">
         <button class="nav-btn" onclick="openModal('facts')">Secretos</button>
@@ -287,67 +288,16 @@
     let lessonState = { active: false, moves: [], index: 0, currentOpening: null };
     let tacticsState = { active: false, puzzle: null, index: 0 };
 
-    // --- DATOS DUROS EXTENDIDOS (RESTAURADOS) ---
-    let defaultOpenings = [
-        {eco:"C50", name:"Italiana", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4"},
-        {eco:"C60", name:"Ruy Lopez", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bb5"},
-        {eco:"B20", name:"Siciliana", pgn:"1. e4 c5"},
-        {eco:"B01", name:"Escandinava", pgn:"1. e4 d5"},
-        {eco:"C00", name:"Francesa", pgn:"1. e4 e6"},
-        {eco:"B10", name:"Caro-Kann", pgn:"1. e4 c6"},
-        {eco:"D00", name:"Peón Dama", pgn:"1. d4 d5"},
-        {eco:"D06", name:"Gambito Dama", pgn:"1. d4 d5 2. c4"},
-        {eco:"A45", name:"Trompowsky", pgn:"1. d4 Nf6 2. Bg5"},
-        {eco:"E60", name:"India de Rey", pgn:"1. d4 Nf6 2. c4 g6"},
-        {eco:"A02", name:"Bird", pgn:"1. f4"},
-        {eco:"A00", name:"Orangután", pgn:"1. b4"},
-        {eco:"C42", name:"Petrov", pgn:"1. e4 e5 2. Nf3 Nf6"},
-        {eco:"C41", name:"Philidor", pgn:"1. e4 e5 2. Nf3 d6"},
-        {eco:"C20", name:"Apertura de Rey", pgn:"1. e4 e5"},
-        {eco:"B00", name:"Defensa Nimzowitsch", pgn:"1. e4 Nc6"},
-        {eco:"A04", name:"Apertura Reti", pgn:"1. Nf3"},
-        {eco:"A10", name:"Inglesa", pgn:"1. c4"},
-        {eco:"C45", name:"Escocesa", pgn:"1. e4 e5 2. Nf3 Nc6 3. d4"},
-        {eco:"C55", name:"Dos Caballos", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6"}
-    ];
+    let defaultOpenings = [{eco:"C50", name:"Italiana", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4"}, {eco:"C60", name:"Ruy Lopez", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bb5"}, {eco:"B20", name:"Siciliana", pgn:"1. e4 c5"}, {eco:"B01", name:"Escandinava", pgn:"1. e4 d5"}, {eco:"C00", name:"Francesa", pgn:"1. e4 e6"}, {eco:"B10", name:"Caro-Kann", pgn:"1. e4 c6"}, {eco:"D00", name:"Peón Dama", pgn:"1. d4 d5"}, {eco:"D06", name:"Gambito Dama", pgn:"1. d4 d5 2. c4"}, {eco:"A45", name:"Trompowsky", pgn:"1. d4 Nf6 2. Bg5"}, {eco:"E60", name:"India de Rey", pgn:"1. d4 Nf6 2. c4 g6"}, {eco:"A02", name:"Bird", pgn:"1. f4"}, {eco:"A00", name:"Orangután", pgn:"1. b4"}, {eco:"C42", name:"Petrov", pgn:"1. e4 e5 2. Nf3 Nf6"}, {eco:"C41", name:"Philidor", pgn:"1. e4 e5 2. Nf3 d6"}, {eco:"C20", name:"Apertura de Rey", pgn:"1. e4 e5"}, {eco:"B00", name:"Defensa Nimzowitsch", pgn:"1. e4 Nc6"}, {eco:"A04", name:"Apertura Reti", pgn:"1. Nf3"}, {eco:"A10", name:"Inglesa", pgn:"1. c4"}, {eco:"C45", name:"Escocesa", pgn:"1. e4 e5 2. Nf3 Nc6 3. d4"}, {eco:"C55", name:"Dos Caballos", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6"}];
     let openingsList = JSON.parse(JSON.stringify(defaultOpenings));
 
     let defaultTactics = {
-        "800": [
-            {id:"1", fen:"6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", moves:["Rd8#"], desc:"Mate en 1"},
-            {id:"2", fen:"r1bqkb1r/pppp1ppp/2n5/4P3/2B1n3/5Q2/PPP2PPP/RNB1K1NR w KQkq - 0 6", moves:["Qxf7#"], desc:"Pastor"},
-            {id:"3", fen:"8/8/8/8/8/5k2/8/6QK w - - 0 1", moves:["Qg2#"], desc:"Mate Dama"},
-            {id:"4", fen:"4k3/8/8/8/8/8/4N3/2K3r1 w - - 0 1", moves:["Nxg1"], desc:"Come Torre"},
-            {id:"5", fen:"rnbqkbnr/pppp1ppp/8/4p3/6P4/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2", moves:["Qh4#"], desc:"Mate Loco"},
-            {id:"6", fen:"k7/8/K7/8/8/8/1R6/7R w - - 0 1", moves:["Rh8#"], desc:"Escalera"},
-            {id:"7", fen:"7k/5N2/8/8/8/8/8/6RK w - - 0 1", moves:["Rh6#"], desc:"Árabe"},
-            {id:"8", fen:"rnbqkbnr/pppp1ppp/2n5/4p3/3P4/5N2/PPP1PPPP/RNBQKB1R w KQkq - 0 1", moves:["dxe5"], desc:"Peón gratis"},
-            {id:"9", fen:"rnbqkbnr/pppp1ppp/8/8/4p3/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1", moves:["Nxe4"], desc:"Caballo"},
-            {id:"10", fen:"k7/P7/K7/8/8/8/8/8 w - - 0 1", moves:["Kb6"], desc:"Ahogado"}
-        ],
-        "1600": [
-            {id:"11", fen:"4k3/8/8/3N4/8/8/8/4K3 w - - 0 1", moves:["Nc7+","Kd8","Nxa8"], desc:"Horquilla"},
-            {id:"12", fen:"rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2", moves:["e5"], desc:"Ataque"},
-            {id:"13", fen:"3r4/8/8/3R4/3K4/8/8/8 w - - 0 1", moves:["Rxd8"], desc:"Rayos X"},
-            {id:"14", fen:"r1b1k1nr/ppppqppp/2n5/2b5/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 4 5", moves:["O-O"], desc:"Clavada"},
-            {id:"15", fen:"rnbqkbnr/pppp1ppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1", moves:["e5"], desc:"Control"},
-            {id:"16", fen:"rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2", moves:["Nc6"], desc:"Siciliana"},
-            {id:"17", fen:"2r3k1/1p3ppp/p3p3/3pP3/P2P1P2/1Pq5/2r3PP/1R1Q1RK1 b - - 0 1", moves:["Rd2"], desc:"Invasión"},
-            {id:"18", fen:"r5rk/5p1p/1p1p1P2/p2P1R2/7Q/8/P5PP/4q1BK w - - 0 1", moves:["Qxh7+","Kxh7","Rh5#"], desc:"Mate 3"},
-            {id:"19", fen:"7k/6p1/8/8/8/8/6R1/6BK w - - 0 1", moves:["Bd4"], desc:"Molino"},
-            {id:"20", fen:"r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 2 3", moves:["Qxf7#"], desc:"Pastor 2"}
-        ],
-        "2400": [
-            {id:"21", fen:"8/8/8/8/p7/P7/2k5/7K w - - 0 1", moves:["Kg1"], desc:"Zugzwang"},
-            {id:"22", fen:"8/8/8/8/8/8/4K3/4k3 w - - 0 1", moves:["Ke3"], desc:"Oposición"},
-            {id:"23", fen:"7k/8/7K/8/8/8/8/Q7 w - - 0 1", moves:["Qa8#"], desc:"Mate Dama"},
-            {id:"24", fen:"8/8/8/5Q2/8/8/5K2/6qk w - - 0 1", moves:["Qh3+"], desc:"Tablas"},
-            {id:"25", fen:"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", moves:["e4"], desc:"Best Move"}
-        ]
+        "800": [{id:"1", fen:"6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", moves:["Rd8#"], desc:"Mate en 1"}, {id:"2", fen:"r1bqkb1r/pppp1ppp/2n5/4P3/2B1n3/5Q2/PPP2PPP/RNB1K1NR w KQkq - 0 6", moves:["Qxf7#"], desc:"Pastor"}, {id:"3", fen:"8/8/8/8/8/5k2/8/6QK w - - 0 1", moves:["Qg2#"], desc:"Mate Dama"}, {id:"4", fen:"4k3/8/8/8/8/8/4N3/2K3r1 w - - 0 1", moves:["Nxg1"], desc:"Come Torre"}, {id:"5", fen:"rnbqkbnr/pppp1ppp/8/4p3/6P4/5P2/PPPPP2P/RNBQKBNR b KQkq - 0 2", moves:["Qh4#"], desc:"Mate Loco"}, {id:"6", fen:"k7/8/K7/8/8/8/1R6/7R w - - 0 1", moves:["Rh8#"], desc:"Escalera"}, {id:"7", fen:"7k/5N2/8/8/8/8/8/6RK w - - 0 1", moves:["Rh6#"], desc:"Árabe"}, {id:"8", fen:"rnbqkbnr/pppp1ppp/2n5/4p3/3P4/5N2/PPP1PPPP/RNBQKB1R w KQkq - 0 1", moves:["dxe5"], desc:"Peón gratis"}, {id:"9", fen:"rnbqkbnr/pppp1ppp/8/8/4p3/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1", moves:["Nxe4"], desc:"Caballo"}, {id:"10", fen:"k7/P7/K7/8/8/8/8/8 w - - 0 1", moves:["Kb6"], desc:"Ahogado"}],
+        "1600": [{id:"11", fen:"4k3/8/8/3N4/8/8/8/4K3 w - - 0 1", moves:["Nc7+","Kd8","Nxa8"], desc:"Horquilla"}, {id:"12", fen:"rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2", moves:["e5"], desc:"Ataque"}, {id:"13", fen:"3r4/8/8/3R4/3K4/8/8/8 w - - 0 1", moves:["Rxd8"], desc:"Rayos X"}, {id:"14", fen:"r1b1k1nr/ppppqppp/2n5/2b5/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 4 5", moves:["O-O"], desc:"Clavada"}, {id:"15", fen:"rnbqkbnr/pppp1ppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1", moves:["e5"], desc:"Control"}, {id:"16", fen:"rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2", moves:["Nc6"], desc:"Siciliana"}, {id:"17", fen:"2r3k1/1p3ppp/p3p3/3pP3/P2P1P2/1Pq5/2r3PP/1R1Q1RK1 b - - 0 1", moves:["Rd2"], desc:"Invasión"}, {id:"18", fen:"r5rk/5p1p/1p1p1P2/p2P1R2/7Q/8/P5PP/4q1BK w - - 0 1", moves:["Qxh7+","Kxh7","Rh5#"], desc:"Mate 3"}, {id:"19", fen:"7k/6p1/8/8/8/8/6R1/6BK w - - 0 1", moves:["Bd4"], desc:"Molino"}, {id:"20", fen:"r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 2 3", moves:["Qxf7#"], desc:"Pastor 2"}],
+        "2400": [{id:"21", fen:"8/8/8/8/p7/P7/2k5/7K w - - 0 1", moves:["Kg1"], desc:"Zugzwang"}, {id:"22", fen:"8/8/8/8/8/8/4K3/4k3 w - - 0 1", moves:["Ke3"], desc:"Oposición"}, {id:"23", fen:"7k/8/7K/8/8/8/8/Q7 w - - 0 1", moves:["Qa8#"], desc:"Mate Dama"}, {id:"24", fen:"8/8/8/5Q2/8/8/5K2/6qk w - - 0 1", moves:["Qh3+"], desc:"Tablas"}, {id:"25", fen:"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", moves:["e4"], desc:"Best Move"}]
     };
     let tacticsDB = JSON.parse(JSON.stringify(defaultTactics));
 
-    // --- STORAGE (SUMA) ---
     const StorageManager = {
         dbName: "AlterDrezDB", dbVersion: 1,
         init: function() {
@@ -381,7 +331,6 @@
 
     function countTactics() { let c=0; Object.keys(tacticsDB).forEach(k=>c+=tacticsDB[k].length); return c; }
 
-    // --- OBSERVER (ENTRENADOR ESTABLE) ---
     const Observer = {
         eval: function(g, score, playerColor) {
             let delta = score - lastEval;
@@ -401,7 +350,6 @@
         }
     };
 
-    // --- ENGINE ---
     function initEngine() {
         fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js').then(r=>r.blob()).then(blob=>{
             engine = new Worker(URL.createObjectURL(blob));
@@ -414,14 +362,30 @@
                     isEnginePlaying = false; $('#thinkingIndicator').hide();
                     analyze();
                 }
-                if(msg.includes('score cp') && msg.includes('depth 10')) { // Estabilidad: Solo lee al depth 10
+                // Analisis matemático mejorado (Sigmoide)
+                if(msg.includes('score cp')) {
                     const m = msg.match(/score cp (-?\d+)/);
                     if(m) {
-                        let score = parseInt(m[1]); 
-                        let p = 50 + (Math.max(-400,Math.min(400,score))/8);
-                        if(game.turn()==='b') score = -score;
-                        $('#evalFill').css('width', p+'%');
+                        let score = parseInt(m[1]);
+                        if(game.turn() === 'b') score = -score; // Score relativo a Blanco
+                        
+                        // Sigmoide para suavizar la barra: 1 / (1 + e^-k*x)
+                        // Ajuste k=0.004 para que +200 cp sea aprox 70%
+                        let evalPerc = 100 / (1 + Math.exp(-0.004 * score));
+                        // Clampear 5% - 95%
+                        evalPerc = Math.max(5, Math.min(95, evalPerc));
+                        
+                        $('#evalFill').css('width', evalPerc + '%');
                         Observer.eval(game, score, $('#playerColor').val());
+                    }
+                }
+                if(msg.includes('score mate')) {
+                    const m = msg.match(/score mate (-?\d+)/);
+                    if(m) {
+                        let mate = parseInt(m[1]);
+                        if(game.turn() === 'b') mate = -mate;
+                        let evalPerc = mate > 0 ? 100 : 0;
+                        $('#evalFill').css('width', evalPerc + '%');
                     }
                 }
             };
@@ -441,17 +405,13 @@
         engine.postMessage('stop'); engine.postMessage('setoption name Skill Level value 20'); engine.postMessage('position fen '+game.fen()); engine.postMessage('go depth 10');
     }
 
-    // --- CORE INTERACTION FIXED ---
     function onDrop(s, t) {
-        if(currentMode === 'lesson') return 'snapback'; // Aperturas: Solo navegación
-        
-        // TÁCTICA
+        if(currentMode === 'lesson') return 'snapback';
         if(currentMode === 'tactics') {
             const temp = new Chess(game.fen());
-            // Validar legalidad
+            // Move validation
             const m = temp.move({from:s, to:t, promotion:'q'}); 
             if(m) {
-                // Checar si es la solución
                 if(TacticsSystem.check(m)) {
                     game.move({from:s, to:t, promotion:'q'}); 
                     board.position(game.fen()); 
@@ -461,8 +421,7 @@
             return 'snapback';
         }
         
-        // PVC / ANÁLISIS
-        if(redoStack.length > 0) redoStack = []; // Borrar futuro si se mueve
+        if(redoStack.length > 0) redoStack = [];
         const m = game.move({from:s, to:t, promotion:'q'}); 
         if(!m) return 'snapback';
         
@@ -473,9 +432,7 @@
     function onDragStart(s, p) {
         if(game.game_over()) return false;
         
-        // Lógica permisiva para Táctica
         if(currentMode === 'tactics') {
-            // Permitir mover solo si es el turno correcto en el puzzle
             if((game.turn() === 'w' && p.search(/^b/) !== -1) || (game.turn() === 'b' && p.search(/^w/) !== -1)) return false;
             return true;
         }
@@ -483,7 +440,7 @@
         if(currentMode==='pvc' && isEnginePlaying) return false;
         if(currentMode==='pvc' && (($('#playerColor').val()==='w' && p.startsWith('b')) || ($('#playerColor').val()==='b' && p.startsWith('w')))) return false;
         
-        if(currentMode==='lesson') return false; // Aperturas: No mover
+        if(currentMode==='lesson') return false; 
         return true;
     }
 
@@ -501,7 +458,6 @@
     function goToStart() { if(currentMode==='lesson') return; while(game.undo()) { redoStack.push(game.undo()); } game.reset(); board.position('start'); redoStack = []; }
     function goToEnd() { while(redoStack.length > 0) redo(); }
 
-    // --- PARSERS ACUMULATIVOS ---
     const OpeningManager = {
         importFile: function(f) { const r=new FileReader(); r.onload=e=>this.parse(e.target.result); r.readAsText(f); },
         parse: function(t) {
@@ -586,7 +542,6 @@
         },
         check: function(m) {
             const exp = tacticsState.puzzle.moves[tacticsState.index];
-            // Comparar movimiento en SAN o UCI (from+to)
             if(m.san===exp || (m.from+m.to+(m.promotion||'')===exp)) { 
                 tacticsState.index++; setTimeout(()=>this.resp(), 500); return true; 
             } return false;
@@ -619,7 +574,6 @@
         $('#btnQuitTactics').click(()=>TacticsSystem.stop());
         $('#btnNewGame').click(()=>{ 
             game.reset(); board.start(); $('#statusText').text("Nueva Partida"); 
-            // Reiniciar modo a lo que esté seleccionado
             currentMode = $('#gameMode').val();
             if(currentMode === 'pvc' && $('#playerColor').val()==='b') moveAI(); 
         });
