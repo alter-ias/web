@@ -10,17 +10,17 @@
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 
     <style>
-        /* --- CORE LAYOUT --- */
+        /* --- ESTÉTICA v3.3 (RESTAURADA) --- */
         :root {
-            --bg: #161512; /* Tono Chess.com dark */
-            --panel: #262421;
-            --accent: #81b64c; /* Verde Ajedrez */
-            --text: #eeeeee;
-            --text-muted: #bababa;
-            --success: #81b64c;
-            --error: #fa412d;
-            --warn: #ffa400;
-            --tactics: #a06ceb;
+            --bg: #0b0e14;
+            --panel: #151922;
+            --accent: #00bcd4; /* Cyan */
+            --text: #eceff1;
+            --text-muted: #90a4ae;
+            --success: #00e676;
+            --error: #ff1744;
+            --warn: #ffea00;
+            --tactics: #d500f9;
         }
 
         * { box-sizing: border-box; }
@@ -29,252 +29,243 @@
             background-color: var(--bg); color: var(--text);
             font-family: 'Montserrat', sans-serif;
             margin: 0; padding: 0; 
-            /* PC por defecto: App fija */
-            height: 100vh; overflow: hidden;
+            height: 100vh; width: 100vw;
+            overflow: hidden; /* CRÍTICO: Evita que la página baile al mover piezas */
             display: flex; flex-direction: column;
+            background-image: radial-gradient(circle at 50% 0%, #1a2733 0%, #0b0e14 70%);
         }
 
         /* HEADER */
         header { 
             height: 60px; padding: 0 20px; width: 100%; flex-shrink: 0;
-            background: #211f1c; border-bottom: 1px solid #383531;
+            background: rgba(11, 14, 20, 0.95); backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.05); 
             display: flex; justify-content: space-between; align-items: center; z-index: 100;
         }
-        .logo-link { text-decoration: none; display: flex; align-items: center; gap: 8px; }
-        .logo-link h1 { margin: 0; font-size: 1.3rem; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
-        .logo-span { font-size: 0.65rem; background: #383531; padding: 2px 5px; border-radius: 3px; color: #999; }
+
+        .logo-link { text-decoration: none; display: flex; align-items: center; gap: 10px; }
+        .logo-link h1 { margin: 0; font-size: 1.3rem; font-weight: 800; color: var(--accent); text-shadow: 0 0 15px rgba(0, 188, 212, 0.3); }
 
         .nav-menu { display: flex; gap: 10px; align-items: center; }
         .nav-btn {
-            background: transparent; border: none; color: #aaa; font-size: 0.85rem; font-weight: 600; 
-            cursor: pointer; padding: 8px 12px; transition: 0.2s;
+            background: transparent; border: none; color: #b0bec5; font-size: 0.8rem; font-weight: 600; 
+            cursor: pointer; padding: 6px 10px; border-radius: 20px; transition: all 0.3s; text-transform: uppercase;
         }
-        .nav-btn:hover { color: #fff; background: rgba(255,255,255,0.05); border-radius: 4px; }
-        
+        .nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
         .btn-help {
-            background: #383531; color: #ccc; border: none; width: 32px; height: 32px; 
-            border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            background: transparent; border: 1px solid var(--accent); color: var(--accent);
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;
         }
-        .btn-help:hover { background: #4d4d4d; color: #fff; }
 
-        /* MAIN CONTAINER */
+        /* --- LAYOUT INTELIGENTE (SOLUCIÓN SCROLL) --- */
         .main-container {
-            display: flex; flex: 1; height: calc(100vh - 60px); width: 100%;
-            overflow: hidden; /* Fijo en PC */
+            display: flex; 
+            flex: 1; /* Ocupa el espacio restante */
+            height: calc(100vh - 60px); 
+            width: 100%;
+            overflow: hidden; /* Contenedor principal fijo */
         }
 
-        /* --- ZONA TABLERO --- */
+        /* ZONA TABLERO */
         .board-section {
-            flex: 1; display: flex; flex-direction: column; 
+            flex: 1; /* Ocupa lo que pueda */
+            display: flex; flex-direction: column; 
             justify-content: center; align-items: center;
-            padding: 10px; background: #161512; position: relative;
+            padding: 10px; 
+            position: relative;
+            min-height: 0; /* Permite encogerse si es necesario */
         }
 
         .board-wrapper {
-            width: 100%; max-width: 600px; /* Tamaño controlado */
-            display: flex; flex-direction: column; gap: 0;
+            width: 100%; max-width: 600px; 
+            display: flex; flex-direction: column;
+            /* Máximo tamaño del tablero para que no se salga */
+            max-height: 100%; 
         }
 
-        /* BARRA DE ANÁLISIS (FIX PC) */
+        /* BARRA ANÁLISIS */
         .eval-bar-wrapper { 
-            height: 20px; /* Altura fija visible */
-            width: 100%;
-            background: #403d39; 
-            border-radius: 3px 3px 0 0; 
-            overflow: hidden; 
-            display: flex; 
-            margin-bottom: 0;
-            border: 1px solid #222;
+            height: 15px; background: #263238; border-radius: 4px 4px 0 0; 
+            overflow: hidden; display: flex; width: 100%; border: 1px solid #444; 
         }
-        .eval-fill { 
-            height: 100%; width: 50%; 
-            background: #fff; 
-            transition: width 0.4s ease;
-        }
+        .eval-fill { height: 100%; width: 50%; background: #fff; transition: width 0.3s ease; }
 
         .board-container {
-            width: 100%; aspect-ratio: 1/1;
-            position: relative;
-            /* Sin bordes extraños, limpio como chess.com */
-        }
-
-        /* CONTROLES DE NAVEGACIÓN (ESTILO CHESS.COM) */
-        .game-controls {
-            display: flex; width: 100%; background: #262421; 
-            border-radius: 0 0 4px 4px; overflow: hidden; height: 45px;
-            margin-top: -2px; z-index: 5;
-        }
-        .control-btn {
-            flex: 1; background: #262421; border: none; color: #999; font-size: 1.2rem;
-            cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center;
-            border-right: 1px solid #383531;
-        }
-        .control-btn:last-child { border-right: none; }
-        .control-btn:hover { background: #302e2c; color: #fff; }
-        .control-btn:active { background: #1f1d1b; }
-        .control-btn i { pointer-events: none; }
-
-        /* SIDEBAR */
-        .sidebar {
-            width: 400px; min-width: 350px;
-            background: #211f1c; border-left: 1px solid #383531;
-            overflow-y: auto; padding: 15px;
-            display: flex; flex-direction: column; gap: 12px;
-        }
-
-        /* --- MEDIA QUERY: MÓVIL (SCROLL HABILITADO) --- */
-        @media (max-width: 900px) {
-            body { height: auto; overflow: auto; display: block; }
-            .main-container { height: auto; overflow: visible; flex-direction: column; display: block; }
-            .board-section { min-height: auto; padding: 10px 0; }
-            .board-wrapper { max-width: 95vw; margin: 0 auto; }
-            .sidebar { width: 100%; overflow: visible; height: auto; border-left: none; }
-            header { padding: 0 10px; }
-            .nav-menu { display: none; } /* Ocultar menú en móvil */
-            .logo-link h1 { font-size: 1.1rem; }
-        }
-
-        /* --- UI ELEMENTS --- */
-        .lesson-feedback {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9); color: #fff; padding: 15px 25px; border-radius: 8px;
-            text-align: center; font-weight: 700; pointer-events: none; opacity: 0; transition: opacity 0.3s;
-            z-index: 20; border: 2px solid var(--accent); font-size: 1.2rem;
+            width: 100%; aspect-ratio: 1/1; position: relative;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
-        .lesson-feedback.show { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+
+        /* CONTROLES ESTILO CHESS.COM */
+        .game-controls {
+            display: flex; width: 100%; background: #1c212c; 
+            border-radius: 0 0 4px 4px; overflow: hidden; height: 45px;
+            border: 1px solid #333; border-top: none;
+        }
+        .control-btn {
+            flex: 1; background: transparent; border: none; color: #90a4ae; font-size: 1.2rem;
+            cursor: pointer; transition: 0.2s; border-right: 1px solid #333;
+        }
+        .control-btn:hover { background: var(--accent); color: #000; }
+        .control-btn:last-child { border-right: none; }
+
+        /* ZONA SIDEBAR (SCROLLABLE) */
+        .sidebar {
+            width: 400px; min-width: 350px;
+            background: #0f1218; border-left: 1px solid #333;
+            /* AQUÍ ESTÁ LA MAGIA DEL SCROLL */
+            overflow-y: auto; 
+            padding: 15px;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+
+        /* --- MEDIA QUERY MÓVIL --- */
+        @media (max-width: 900px) {
+            .main-container { flex-direction: column; }
+            
+            /* Tablero fijo arriba, sin scroll */
+            .board-section { 
+                flex: 0 0 auto; /* No crece, tamaño fijo según contenido */
+                padding-bottom: 5px;
+            }
+            .board-wrapper { max-width: 90vw; } /* Un poco más pequeño en móvil para dar espacio */
+
+            /* Sidebar abajo, ocupa el resto y TIENE SCROLL */
+            .sidebar { 
+                width: 100%; 
+                flex: 1 1 auto; /* Crece para ocupar el resto */
+                border-left: none; 
+                border-top: 1px solid #333;
+            }
+            .nav-menu { display: none; }
+        }
+
+        /* --- UI ELEMENTS (ESTÉTICA v3.3) --- */
+        .accordion-item { background: var(--panel); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; }
+        .accordion-header { padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); font-weight: 600; font-size: 0.9rem; color: #eceff1; }
+        .accordion-header:hover { background: rgba(255,255,255,0.05); color: var(--accent); }
+        .accordion-content { display: none; padding: 15px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .accordion-item.active .accordion-content { display: block; }
+        .acc-opening.active { border-left: 3px solid var(--success); }
+        .acc-tactics.active { border-left: 3px solid var(--tactics); }
+
+        .lesson-feedback {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95); color: #fff; padding: 20px 30px; border-radius: 12px;
+            text-align: center; font-weight: 800; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+            z-index: 20; border: 2px solid var(--accent); font-size: 1.5rem; text-transform: uppercase;
+        }
+        .lesson-feedback.show { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
         .lesson-feedback.error { border-color: var(--error); color: var(--error); }
         .lesson-feedback.success { border-color: var(--success); color: var(--success); }
 
-        /* Coach Tags */
-        .coach-msg { font-size: 0.9rem; color: #ccc; margin-bottom: 8px; line-height: 1.4; min-height: 38px; }
-        .coach-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 5px; }
-        .tag { font-size: 0.75rem; padding: 3px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase; display: inline-flex; align-items: center; gap: 5px; }
-        .tag.best { background: #81b64c; color: #fff; }
-        .tag.good { background: #96bc4b; color: #fff; }
-        .tag.mistake { background: #ffa400; color: #fff; }
-        .tag.blunder { background: #fa412d; color: #fff; }
-        .tag.info { background: #4b89bc; color: #fff; }
+        .coach-msg { font-size: 0.9rem; color: #fff; margin-bottom: 10px; line-height: 1.4; }
+        .coach-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; }
+        .tag { font-size: 0.7rem; padding: 3px 8px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
+        .tag.good { background: rgba(0,230,118,0.2); color: var(--success); border: 1px solid var(--success); }
+        .tag.bad { background: rgba(255,23,68,0.2); color: var(--error); border: 1px solid var(--error); }
+        .tag.warn { background: rgba(255,234,0,0.2); color: var(--warn); border: 1px solid var(--warn); }
 
-        /* Inputs & Buttons */
-        label { display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; font-weight: 600; text-transform: uppercase; }
-        select, button, input[type="text"] {
-            width: 100%; padding: 10px; background: #2b2926; border: 1px solid #3f3d3a; color: #eee;
-            border-radius: 4px; font-family: inherit; margin-bottom: 10px; cursor: pointer; font-size: 0.9rem; outline: none;
-        }
-        select:focus, input:focus { border-color: var(--accent); }
-        button:hover { background: #3f3d3a; color: #fff; }
-        
-        .primary-btn { background: var(--success); color: #fff; border: none; font-weight: 700; }
-        .primary-btn:hover { background: #71a340; }
-        
-        .btn-row { display: flex; gap: 10px; }
-        .hidden { display: none; }
-
-        /* Acordeones */
-        .accordion-item { background: #262421; border-radius: 6px; overflow: hidden; margin-bottom: 5px; }
-        .accordion-header { padding: 12px 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.9rem; color: #ccc; border-bottom: 1px solid #302e2c; }
-        .accordion-header:hover { background: #302e2c; color: #fff; }
-        .accordion-content { display: none; padding: 15px; background: #211f1c; }
-        .accordion-item.active .accordion-content { display: block; }
-        .accordion-item.active .accordion-header { color: var(--accent); border-bottom-color: transparent; }
-
-        /* Modales */
+        /* MODALES */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 2000;
+            background: rgba(0,0,0,0.9); z-index: 2000;
             display: flex; justify-content: center; align-items: center;
-            opacity: 0; visibility: hidden; transition: 0.2s; backdrop-filter: blur(5px);
+            opacity: 0; visibility: hidden; transition: 0.3s;
         }
         .modal-overlay.active { opacity: 1; visibility: visible; }
         .modal-content {
-            background: #262421; width: 95%; max-width: 800px; max-height: 90vh;
-            border-radius: 8px; border: 1px solid #444; overflow-y: auto;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.8); display: flex; flex-direction: column;
+            background: #151922; width: 90%; max-width: 800px; max-height: 90vh;
+            border-radius: 12px; border: 1px solid #333; overflow-y: auto;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8); display: flex; flex-direction: column;
         }
-        .modal-header { padding: 20px; border-bottom: 1px solid #333; display:flex; justify-content:space-between; align-items:center; }
-        .modal-body { padding: 20px; color: #ccc; line-height: 1.6; }
-        .tutorial-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media(max-width:700px){ .tutorial-grid{grid-template-columns:1fr;} }
+        .modal-header { padding: 20px; background: #1c2331; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; }
+        .modal-body { padding: 30px; line-height: 1.6; color: #cfd8dc; }
+        .info-card { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid var(--accent); }
+        .info-card h4 { margin: 0 0 5px 0; color: #fff; }
+
+        /* INPUTS */
+        select, button, input[type="text"] {
+            width: 100%; padding: 10px; background: #0b0e14; border: 1px solid #37474f; color: #eceff1;
+            border-radius: 5px; margin-bottom: 10px; font-size: 0.85rem; outline: none;
+        }
+        button:hover { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <header>
     <a href="index.html" class="logo-link">
-        <h1>AlterDrez</h1> <span class="logo-span">PRO v3.4</span>
+        <h1>AlterDrez</h1> <span style="font-size:0.7rem; color:#888;">PRO v4.0</span>
     </a>
     <div class="nav-menu">
-        <button class="nav-btn" onclick="openModal('facts')">🧩 Curiosidades</button>
-        <button class="nav-btn" onclick="openModal('benefits')">🧠 Beneficios</button>
-        <button class="nav-btn" onclick="openModal('news')">📰 Noticias</button>
+        <button class="nav-btn" onclick="openModal('facts')">Secretos</button>
+        <button class="nav-btn" onclick="openModal('benefits')">Neuro-Estrategia</button>
+        <button class="nav-btn" onclick="openModal('news')">Noticias</button>
     </div>
-    <button class="btn-help" onclick="openModal('welcome')" title="Configuración"><i class="bi bi-gear-fill"></i></button>
+    <button class="btn-help" onclick="openModal('welcome')"><i class="bi bi-gear-fill"></i></button>
 </header>
 
-<div id="toast" style="visibility:hidden; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:10px 20px; border-radius:4px; z-index:3000;">Notificación</div>
+<div id="toast" style="visibility:hidden; position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:10px 20px; border-radius:4px; z-index:3000; border:1px solid var(--accent);">Notificación</div>
 
 <!-- MODAL BIENVENIDA -->
 <div id="modal-welcome" class="modal-overlay active">
     <div class="modal-content">
-        <div class="modal-header">
-            <h2 style="margin:0; color:#fff;">Configuración</h2>
-            <button onclick="closeAllModals()" style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer;"><i class="bi bi-x-lg"></i></button>
-        </div>
+        <div class="modal-header"><h2>Configuración</h2><button onclick="closeAllModals()" style="background:none;border:none;color:#fff;width:auto;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button></div>
         <div class="modal-body">
-            <div class="tutorial-grid">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
                 <div>
-                    <h4>1. Descargas (Persistentes)</h4>
-                    <p style="font-size:0.9rem;">Carga las bases de datos una sola vez. Se guardarán en tu navegador.</p>
-                    <a href="https://drive.google.com/file/d/1p1_YbMN57ET5-YMbJhHuzpltCXHgN3Gq/view?usp=sharing" target="_blank" style="display:block; text-align:center; background:#333; padding:10px; color:#fff; text-decoration:none; border-radius:4px;">
-                        <i class="bi bi-cloud-download"></i> Descargar Pack
-                    </a>
-                    <button onclick="StorageManager.clearDB()" style="margin-top:10px; background:#442222; border:1px solid #fa412d; width:100%;">Borrar Datos Guardados</button>
+                    <h4>1. Bases de Datos</h4>
+                    <p style="font-size:0.85rem;">Descarga el pack y cárgalo. Se guardará en memoria.</p>
+                    <a href="https://drive.google.com/file/d/1p1_YbMN57ET5-YMbJhHuzpltCXHgN3Gq/view?usp=sharing" target="_blank" style="display:block; text-align:center; background:var(--accent); color:#000; padding:10px; text-decoration:none; border-radius:4px; font-weight:bold;">Descargar Pack</a>
+                    <button onclick="StorageManager.clearDB()" style="margin-top:10px; background:#333; border:1px solid #555; color:#aaa;">Borrar Datos</button>
                 </div>
                 <div>
                     <h4>2. Tutorial</h4>
-                    <video controls style="width:100%; border-radius:4px;">
-                        <source src="assets/alterdrez/tutorial.mp4" type="video/mp4">
-                    </video>
+                    <video controls style="width:100%; border-radius:4px;"><source src="assets/alterdrez/tutorial.mp4" type="video/mp4"></video>
                 </div>
             </div>
-            <button onclick="closeAllModals()" class="primary-btn" style="width:100%; margin-top:20px; padding:15px;">¡A Jugar!</button>
+            <button onclick="closeAllModals()" style="width:100%; margin-top:20px; background:#333; padding:15px;">Entendido</button>
         </div>
     </div>
 </div>
 
-<!-- MODALES EXTRA (Iguales a v3.3 pero con el nuevo estilo) -->
-<div id="modal-facts" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Curiosidades</h2><button onclick="closeAllModals()" style="background:none;border:none;color:#fff;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button></div><div class="modal-body"><p>El número de Shannon (10^120) supera a los átomos del universo.</p></div></div></div>
-<div id="modal-benefits" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Beneficios</h2><button onclick="closeAllModals()" style="background:none;border:none;color:#fff;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button></div><div class="modal-body"><p>Mejora la plasticidad cerebral y previene el Alzheimer.</p></div></div></div>
-<div id="modal-news" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Noticias</h2><button onclick="closeAllModals()" style="background:none;border:none;color:#fff;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button></div><div class="modal-body"><p>Enlaces a Chess.com, Lichess y FIDE.</p></div></div></div>
+<!-- MODALES CONTENIDO (RESTAURADOS) -->
+<div id="modal-facts" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Secretos de Caissa</h2><button onclick="closeAllModals()" style="background:none;border:none;width:auto;color:#fff;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button></div><div class="modal-body">
+    <div class="info-card"><h4>Número de Shannon</h4><p>Existen más partidas posibles de ajedrez (10^120) que átomos en el universo (10^80).</p></div>
+    <div class="info-card" style="border-color:var(--tactics);"><h4>La Partida Eterna</h4><p>La partida más larga posible teóricamente tendría 5,949 movimientos.</p></div>
+</div></div></div>
+
+<div id="modal-benefits" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Neuro-Estrategia</h2><button onclick="closeAllModals()" style="background:none;border:none;width:auto;color:#fff;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button></div><div class="modal-body">
+    <div class="info-card" style="border-color:var(--success);"><h4>Plasticidad</h4><p>El ajedrez estimula el crecimiento de dendritas, mejorando la velocidad neuronal.</p></div>
+    <div class="info-card" style="border-color:var(--warn);"><h4>Patrones</h4><p>Ayuda a reconocer patrones abstractos, útil para matemáticas y programación.</p></div>
+</div></div></div>
+
+<div id="modal-news" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Crónicas del Tablero</h2><button onclick="closeAllModals()" style="background:none;border:none;width:auto;color:#fff;font-size:1.5rem;"><i class="bi bi-x-lg"></i></button></div><div class="modal-body">
+    <a href="https://es.chessbase.com/" target="_blank" class="info-card" style="display:block; text-decoration:none; color:#ddd;"><h4>ChessBase</h4><p>Noticias de torneos internacionales.</p></a>
+    <a href="https://www.chess.com/es/news" target="_blank" class="info-card" style="display:block; text-decoration:none; color:#ddd; border-color:var(--success);"><h4>Chess.com</h4><p>Actualidad y artículos de GMs.</p></a>
+</div></div></div>
 
 
 <!-- LAYOUT PRINCIPAL -->
 <div class="main-container">
     <div class="board-section">
         <div class="board-wrapper">
-            <!-- Barra Análisis -->
-            <div class="eval-bar-wrapper">
-                <div id="evalFill" class="eval-fill"></div>
-            </div>
-            
-            <!-- Tablero -->
+            <div class="eval-bar-wrapper"><div id="evalFill" class="eval-fill"></div></div>
             <div class="board-container">
                 <div id="board"></div>
                 <div id="lessonFeedback" class="lesson-feedback"></div>
             </div>
-
-            <!-- Controles de Navegación (Estilo Chess.com) -->
+            <!-- CONTROLES NAVEGACIÓN -->
             <div class="game-controls">
-                <button class="control-btn" onclick="goToStart()" title="Inicio"><i class="bi bi-skip-start-fill"></i></button>
-                <button class="control-btn" onclick="undo()" title="Atrás"><i class="bi bi-caret-left-fill"></i></button>
-                <button class="control-btn" onclick="redo()" title="Adelante"><i class="bi bi-caret-right-fill"></i></button>
-                <button class="control-btn" onclick="goToEnd()" title="Final"><i class="bi bi-skip-end-fill"></i></button>
-                <button class="control-btn" onclick="board.flip()" title="Rotar"><i class="bi bi-arrow-repeat"></i></button>
+                <button class="control-btn" onclick="goToStart()"><i class="bi bi-skip-start-fill"></i></button>
+                <button class="control-btn" onclick="undo()"><i class="bi bi-caret-left-fill"></i></button>
+                <button class="control-btn" onclick="redo()"><i class="bi bi-caret-right-fill"></i></button>
+                <button class="control-btn" onclick="goToEnd()"><i class="bi bi-skip-end-fill"></i></button>
+                <button class="control-btn" onclick="board.flip()"><i class="bi bi-arrow-repeat"></i></button>
             </div>
-
             <div style="display:flex; justify-content:space-between; margin-top:5px; width:100%; font-size:0.8rem; color:#777;">
-                <span id="statusText">Motor Listo</span>
+                <span id="statusText">Listo</span>
                 <span id="thinkingIndicator" style="display:none; color:var(--accent);">Pensando...</span>
             </div>
         </div>
@@ -288,31 +279,25 @@
                 <i class="bi bi-chevron-down"></i>
             </div>
             <div class="accordion-content">
-                <div class="btn-row">
-                    <div style="width: 50%;">
-                        <label>Color</label>
-                        <select id="playerColor"><option value="w">Blancas</option><option value="b">Negras</option></select>
-                    </div>
-                    <div style="width: 50%;">
-                        <label>Nivel</label>
-                        <select id="skillLevel">
-                            <option value="0">Novato (800)</option>
-                            <option value="5">Intermedio (1300)</option>
-                            <option value="10" selected>Club (1600)</option>
-                            <option value="15">Maestro (2200)</option>
-                            <option value="20">GM (3000)</option>
-                        </select>
-                    </div>
+                <div style="display:flex; gap:10px;">
+                    <select id="playerColor" style="flex:1;"><option value="w">Blancas</option><option value="b">Negras</option></select>
+                    <select id="skillLevel" style="flex:1;">
+                        <option value="0">Principiante</option>
+                        <option value="5">Intermedio</option>
+                        <option value="10" selected>Club</option>
+                        <option value="15">Maestro</option>
+                        <option value="20">GM</option>
+                    </select>
                 </div>
                 <select id="gameMode">
                     <option value="pvc">Modo Competitivo</option>
                     <option value="analysis">Modo Análisis</option>
                 </select>
-                <button id="btnNewGame" class="primary-btn"><i class="bi bi-plus-circle"></i> Nueva Partida</button>
+                <button id="btnNewGame" style="background:var(--success); color:#fff; border:none;">Nueva Partida</button>
             </div>
         </div>
 
-        <!-- 2. ENTRENADOR (Restaurado) -->
+        <!-- 2. ENTRENADOR -->
         <div class="accordion-item active" id="panel-coach">
             <div class="accordion-header" onclick="toggleAccordion('panel-coach')">
                 <span><i class="bi bi-robot"></i> Entrenador</span>
@@ -320,14 +305,14 @@
             </div>
             <div class="accordion-content">
                 <div class="coach-tags" id="coachTags"></div>
-                <div class="coach-msg" id="coachMsg">Haz tu primer movimiento...</div>
+                <div class="coach-msg" id="coachMsg">Esperando movimiento...</div>
             </div>
         </div>
 
         <!-- 3. APERTURAS -->
-        <div class="accordion-item" id="panel-opening">
+        <div class="accordion-item acc-opening" id="panel-opening">
             <div class="accordion-header" onclick="toggleAccordion('panel-opening')">
-                <span><i class="bi bi-book"></i> Aperturas</span>
+                <span><i class="bi bi-book-half"></i> Aperturas</span>
                 <i class="bi bi-chevron-down"></i>
             </div>
             <div class="accordion-content">
@@ -335,8 +320,8 @@
                 <input type="text" id="openingSearch" placeholder="🔍 Buscar...">
                 <select id="openingSelect"><option value="">-- Seleccionar --</option></select>
                 <input type="file" id="openingDbInput" accept=".csv,.tsv,.txt" style="display:none">
-                <button onclick="document.getElementById('openingDbInput').click()" style="font-size:0.8rem; background:#222; border:1px dashed #555; color:#999;">Cargar DB (.tsv)</button>
-                <div id="lessonActiveUI" class="hidden" style="margin-top:10px; border-top:1px solid #333; padding-top:10px;">
+                <button onclick="document.getElementById('openingDbInput').click()" style="background:#222; border:1px dashed #555; color:#999;">Cargar DB (.tsv)</button>
+                <div id="lessonActiveUI" class="hidden" style="margin-top:10px; border-top:1px dashed #444; padding-top:10px;">
                     <div style="color:var(--success); font-weight:bold;" id="lessonInstruction"></div>
                     <div style="font-size:0.8rem; color:#aaa;" id="lessonDescription"></div>
                     <button id="btnQuitLesson" style="margin-top:5px; background:#333;">Salir</button>
@@ -345,29 +330,20 @@
         </div>
 
         <!-- 4. TÁCTICA -->
-        <div class="accordion-item" id="panel-tactics">
+        <div class="accordion-item acc-tactics" id="panel-tactics">
             <div class="accordion-header" onclick="toggleAccordion('panel-tactics')">
                 <span><i class="bi bi-lightning-fill"></i> Táctica</span>
                 <i class="bi bi-chevron-down"></i>
             </div>
             <div class="accordion-content">
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                     <label>Nivel</label>
-                     <span id="dbCountBadge" style="font-size:0.6rem; color:var(--tactics);">Base Inicial</span>
+                     <label>Nivel</label> <span id="dbCountBadge" style="font-size:0.6rem; color:var(--tactics);">Base Inicial</span>
                 </div>
-                <select id="tacticsEloSelect">
-                    <option value="">-- Elo --</option>
-                    <option value="800">800</option>
-                    <option value="1000">1000</option>
-                    <option value="1300">1300</option>
-                    <option value="1600">1600</option>
-                    <option value="2000">2000</option>
-                    <option value="2400">2400</option>
-                </select>
+                <select id="tacticsEloSelect"><option value="">-- Elo --</option><option value="800">800</option><option value="1600">1600</option><option value="2400">2400</option></select>
                 <select id="tacticsPuzzleSelect" disabled><option value="">-- Puzzle --</option></select>
                 <input type="file" id="dbInput" accept=".csv" style="display:none">
-                <button onclick="document.getElementById('dbInput').click()" style="font-size:0.8rem; background:#222; border:1px dashed #555; color:#999;">Cargar DB (.csv)</button>
-                <div id="tacticsActiveUI" class="hidden" style="margin-top:10px; border-top:1px solid #333; padding-top:10px;">
+                <button onclick="document.getElementById('dbInput').click()" style="background:#222; border:1px dashed #555; color:#999;">Cargar DB (.csv)</button>
+                <div id="tacticsActiveUI" class="hidden" style="margin-top:10px; border-top:1px dashed #444; padding-top:10px;">
                     <div style="color:var(--tactics); font-weight:bold;" id="tacticsTurnIndicator"></div>
                     <div style="font-size:0.8rem; color:#aaa;" id="tacticsDesc"></div>
                     <button id="btnQuitTactics" style="margin-top:5px; background:#333;">Salir</button>
@@ -390,13 +366,15 @@
 
     // --- VARIABLES GLOBALES ---
     const game = new Chess();
-    let board = null, engine = null, redoStack = [];
+    let board = null, engine = null;
+    let redoStack = []; // Pila para rehacer movimientos si solo estamos mirando
     let currentMode = 'pvc', isEnginePlaying = false;
     let lessonState = { active: false, moves: [], index: 0, currentOpening: null };
     let tacticsState = { active: false, puzzle: null, index: 0 };
+    let lastEval = 0; // Para el entrenador
 
     let openingsList = [{ eco: "C50", name: "Italian Game", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bc4" }];
-    let tacticsDB = { "800": [{ id: "1", name: "Mate Pasillo", fen: "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", moves: ["Rd8#"], desc: "Mate en 1." }], "1000": [], "1300": [], "1600": [], "2000": [], "2400": [] };
+    let tacticsDB = { "800": [{ id: "1", name: "Mate Pasillo", fen: "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", moves: ["Rd8#"], desc: "Mate en 1." }], "1600": [], "2400": [] };
 
     // --- STORAGE MANAGER ---
     const StorageManager = {
@@ -416,50 +394,41 @@
         clearDB: function() { indexedDB.deleteDatabase(this.dbName).onsuccess=()=>{ location.reload(); }; }
     };
 
-    // --- COACH LOGIC (RESTAURADA) ---
+    // --- COACH LOGIC (DELTA CALCULADA) ---
     const Observer = {
-        lastScore: 0,
-        eval: function(game, score, playerColor) {
+        eval: function(g, score, playerColor) {
             if(currentMode !== 'pvc' && currentMode !== 'analysis') return;
             
-            // Calcular Delta desde la perspectiva del jugador que acaba de mover
-            // Stockfish da score relativo a las blancas usualmente, o relativo al turno.
-            // Asumiremos score absoluto (Positivo = Blancas ganando).
+            // Calculamos el cambio de puntaje desde el último análisis
+            // Score positivo = Ventaja blanca.
+            let delta = score - lastEval;
             
-            let turn = game.turn(); // Turno del que va a mover AHORA. El que movió fue el opuesto.
-            let mover = turn === 'w' ? 'b' : 'w'; 
+            // Si le toca a las blancas, acaban de mover las negras. El delta debe evaluarse respecto al que movió.
+            // Si el score bajó, es que las negras jugaron bien (para ellas).
+            // Para simplificar: Analizamos si la posición mejoró para quien tiene ventaja o si cambió drásticamente.
             
-            // Delta desde perspectiva de Blancas
-            let deltaRaw = score - this.lastScore;
-            
-            // Delta relativo al que movió
-            let moveQualityDelta = (mover === 'w') ? deltaRaw : -deltaRaw;
-
             let tags = [], msg = "";
-            const absScore = Math.abs(score);
+            let turn = g.turn(); // 'w' or 'b' (Turno siguiente)
+            let mover = turn === 'w' ? 'Negras' : 'Blancas';
+            
+            // Ajustamos el delta para que siempre sea "positivo = bueno para el que movió"
+            let relDelta = (mover === 'Blancas') ? delta : -delta;
 
-            // 1. Tags de Estado
-            if(absScore < 50) tags.push({text:"Igualdad", type:"info"});
-            else if((playerColor === 'w' && score > 100) || (playerColor === 'b' && score < -100)) tags.push({text:"Ventaja", type:"good"});
-            else tags.push({text:"Desventaja", type:"warn"});
+            if(relDelta < -150) tags.push({text:"Error Grave", type:"bad"});
+            else if(relDelta < -50) tags.push({text:"Imprecisión", type:"warn"});
+            else if(relDelta > 20) tags.push({text:"Buena", type:"good"});
 
-            // 2. Tags de Calidad de Movimiento (Basado en Delta)
-            if(moveQualityDelta > -30) tags.push({text:"<i class='bi bi-check'></i> Bueno", type:"good"});
-            else if(moveQualityDelta > -90) tags.push({text:"<i class='bi bi-exclamation'></i> Imprecisión", type:"mistake"});
-            else tags.push({text:"<i class='bi bi-x-circle'></i> Error Grave", type:"blunder"});
-
-            // 3. Mensaje Contextual
-            const moveCount = game.history().length;
-            if(moveCount < 10) msg = "Fase de Apertura: Controla el centro y desarrolla los caballos y alfiles.";
-            else if(Math.abs(score) > 800) msg = "Final ganado. Simplifica y busca coronar.";
-            else if(moveQualityDelta < -200) msg = "¡Cuidado! Has dejado una pieza colgada o permitiste una táctica.";
-            else msg = "Busca planes a largo plazo y mejora la posición de tus piezas.";
+            // Contexto
+            if(g.history().length < 10) msg = "Apertura: Desarrolla piezas.";
+            else if(Math.abs(score) > 600) msg = "Ventaja decisiva. Simplifica.";
+            else if(Math.abs(relDelta) > 100) msg = "Hubo un cambio brusco en la evaluación.";
+            else msg = "Posición estable.";
 
             $('#coachMsg').text(msg);
             $('#coachTags').empty();
             tags.forEach(t => $('#coachTags').append(`<span class="tag ${t.type}">${t.text}</span>`));
             
-            this.lastScore = score;
+            lastEval = score;
         }
     };
 
@@ -480,10 +449,9 @@
                     const m = msg.match(/score cp (-?\d+)/);
                     if(m) {
                         let score = parseInt(m[1]); 
-                        // Ajuste CP a porcentaje visual
-                        let p = 50 + (Math.max(-400,Math.min(400,score))/8);
-                        if(game.turn()==='b') score = -score; // Normalizar score para lógica interna si SF lo invierte
-                        
+                        let p = 50 + (Math.max(-500,Math.min(500,score))/10);
+                        // SF da score relativo al turno. Invertimos si negras para hacerlo absoluto (blancas perspectiva)
+                        if(game.turn()==='b') score = -score;
                         $('#evalFill').css('width', p+'%');
                         Observer.eval(game, score, $('#playerColor').val());
                     }
@@ -495,50 +463,104 @@
     function moveAI() {
         if(currentMode!=='pvc' || game.game_over()) return;
         isEnginePlaying = true; $('#thinkingIndicator').show();
-        let lvl = $('#skillLevel').val();
+        let lvl = parseInt($('#skillLevel').val());
+        let depth = 10; 
+        if(lvl < 5) depth = 1; else if(lvl < 10) depth = 5; else if(lvl < 15) depth = 10; else depth = 15;
+        
         engine.postMessage(`setoption name Skill Level value ${lvl}`);
         engine.postMessage('position fen '+game.fen());
-        engine.postMessage(`go depth 15`);
+        engine.postMessage(`go depth ${depth}`); // Menor profundidad = más rápido
     }
 
     function analyze() {
         if(currentMode==='lesson'||currentMode==='tactics') return;
         engine.postMessage('stop'); engine.postMessage('setoption name Skill Level value 20');
-        engine.postMessage('position fen '+game.fen()); engine.postMessage('go depth 10');
+        engine.postMessage('position fen '+game.fen()); engine.postMessage('go depth 10'); // Análisis rápido
     }
 
     // --- BOARD INTERACTION ---
     function onDrop(s, t) {
+        // LECCIÓN
         if(currentMode === 'lesson') {
             const temp = new Chess(game.fen());
             if(temp.move({from:s, to:t, promotion:'q'}) && LessonSystem.check({san: temp.history().pop()})) {
                 game.move({from:s, to:t, promotion:'q'}); board.position(game.fen());
             } return 'snapback';
         }
+        // TÁCTICA
         if(currentMode === 'tactics') {
             const temp = new Chess(game.fen()); const m = temp.move({from:s, to:t, promotion:'q'});
             if(m && TacticsSystem.check(m)) {
                 game.move({from:s, to:t, promotion:'q'}); board.position(game.fen()); return;
             } return 'snapback';
         }
+        
+        // JUEGO / ANALISIS
+        // Si hay movimientos en redoStack, y hacemos uno nuevo, el futuro alternativo se borra
+        if(redoStack.length > 0) redoStack = [];
+
         const m = game.move({from:s, to:t, promotion:'q'});
         if(!m) return 'snapback';
-        board.position(game.fen()); redoStack = [];
-        if(currentMode==='pvc' && game.turn()!==$('#playerColor').val()) setTimeout(moveAI, 250);
-        else analyze();
+        
+        board.position(game.fen());
+        
+        // Solo responde IA si es el ÚLTIMO movimiento (no estamos viendo el pasado)
+        if(currentMode==='pvc' && game.turn()!==$('#playerColor').val()) {
+            setTimeout(moveAI, 250);
+        } else {
+            analyze();
+        }
     }
 
     function onDragStart(s, p) {
-        if(game.game_over() || isEnginePlaying) return false;
+        if(game.game_over()) return false;
+        // Permitir mover solo si es el turno correcto o analisis
+        if(currentMode==='pvc' && isEnginePlaying) return false;
         if(currentMode==='pvc' && (($('#playerColor').val()==='w' && p.startsWith('b')) || ($('#playerColor').val()==='b' && p.startsWith('w')))) return false;
         if(currentMode==='lesson' && !lessonState.active) return false;
     }
 
-    // --- CONTROLS ---
-    function undo() { if(!isEnginePlaying && currentMode.includes('analysis') || currentMode === 'pvc') { game.undo(); if(currentMode==='pvc') game.undo(); board.position(game.fen()); analyze(); } }
-    function redo() { if(!isEnginePlaying && redoStack.length) { /* Implementación simple requeriría historial complejo */ } } // Redo simplificado
-    function goToStart() { if(!isEnginePlaying) { game.reset(); board.position('start'); analyze(); } } // Reset visual
-    function goToEnd() { /* Requiere historial completo */ }
+    // --- CONTROLS REWORK (HISTORY) ---
+    function undo() {
+        if(isEnginePlaying) return;
+        // Modo Juego: "Deshacer" real para el usuario
+        // Modo Navegación: Simplemente ir atrás en la historia
+        
+        if(currentMode === 'lesson') { LessonSystem.prev(); return; }
+
+        let m = game.undo();
+        if(m) {
+            redoStack.push(m); // Guardar para redo
+            board.position(game.fen());
+            analyze();
+        }
+    }
+
+    function redo() {
+        if(isEnginePlaying) return;
+        if(currentMode === 'lesson') { LessonSystem.next(); return; }
+
+        if(redoStack.length > 0) {
+            let m = redoStack.pop();
+            game.move(m);
+            board.position(game.fen());
+            analyze();
+        }
+    }
+
+    function goToStart() {
+        if(currentMode==='lesson') return;
+        while(game.undo()) { redoStack.push(game.undo()); } // Vaciar history a redo
+        // Nota: Chess.js undo es destructivo, para "Start" real en replay necesitaríamos historial completo array.
+        // Simplificación: Reset board visual, pero mantenemos estado interno si es posible.
+        // En esta versión simple: Reset total.
+        game.reset(); board.position('start'); redoStack = [];
+    }
+    
+    function goToEnd() {
+        // En esta implementación simple sin PGN parser completo, redo hasta el final
+        while(redoStack.length > 0) redo();
+    }
 
     // --- MODULES ---
     const LessonSystem = {
@@ -550,18 +572,29 @@
         },
         prompt: function() {
             if(lessonState.index >= lessonState.moves.length) { $('#lessonInstruction').text("¡Completado!"); return; }
-            $('#lessonInstruction').html(`${game.turn()==='w'?'Blancas':'Negras'}: Juega <b>${lessonState.moves[lessonState.index]}</b>`);
+            $('#lessonInstruction').html(`Juega <b>${lessonState.moves[lessonState.index]}</b>`);
         },
         check: function(m) {
             if(m.san === lessonState.moves[lessonState.index]) {
-                lessonState.index++; setTimeout(()=>this.auto(), 500); return true;
+                lessonState.index++; setTimeout(()=>this.auto(), 300); return true;
             } return false;
         },
-        auto: function() {
+        auto: function() { // Turno del rival (automático en lección)
             if(lessonState.index < lessonState.moves.length) {
                 game.move(lessonState.moves[lessonState.index]); board.position(game.fen());
                 lessonState.index++; this.prompt();
             } else $('#lessonInstruction').text("¡Completado!");
+        },
+        next: function() {
+             if(lessonState.index < lessonState.moves.length) {
+                 game.move(lessonState.moves[lessonState.index]); board.position(game.fen());
+                 lessonState.index++; this.prompt();
+             }
+        },
+        prev: function() {
+            game.undo(); board.position(game.fen());
+            if(lessonState.index > 0) lessonState.index--;
+            this.prompt();
         },
         stop: function() { lessonState.active=false; $('#lessonActiveUI').addClass('hidden'); currentMode='analysis'; }
     };
@@ -641,7 +674,7 @@
         
         document.addEventListener('keydown', function(e) {
             if (e.key === "ArrowLeft") { undo(); e.preventDefault(); }
-            // Redo simple no implementado sin historial completo PGN
+            if (e.key === "ArrowRight") { redo(); e.preventDefault(); }
         });
     });
 </script>
