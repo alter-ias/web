@@ -19,7 +19,7 @@
             --success: #00e676;
             --error: #ff1744;
             --warn: #ffea00;
-            --tactics: #d500f9; /* Nuevo color para táctica */
+            --tactics: #d500f9;
         }
 
         body {
@@ -46,7 +46,6 @@
             position: relative;
         }
 
-        /* Feedback Lecciones y Táctica */
         .lesson-feedback {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(0,0,0,0.9); color: #fff; padding: 15px 25px; border-radius: 8px;
@@ -66,6 +65,31 @@
         .panel { background: var(--panel); border: 1px solid #333; border-radius: 10px; padding: 15px; }
         .panel h3 { margin: 0 0 10px 0; font-size: 0.8rem; text-transform: uppercase; color: #888; border-bottom: 1px solid #333; padding-bottom: 5px; }
 
+        /* UTILIDADES UI */
+        label { display: block; font-size: 0.75rem; color: #aaa; margin-bottom: 4px; }
+        select, button, input[type="text"] {
+            width: 100%; padding: 10px; background: #252a36; border: 1px solid #444; color: #fff;
+            border-radius: 5px; font-family: inherit; margin-bottom: 10px; cursor: pointer;
+        }
+        input[type="text"] { cursor: text; }
+        button:hover { background: var(--accent); color: #000; font-weight: bold; }
+        
+        .btn-row { display: flex; gap: 10px; }
+        .hidden { display: none; }
+        
+        .btn-db-tactics { background: #331a38; border: 1px dashed var(--tactics); font-size: 0.75rem; margin-top:5px; }
+        .btn-db-tactics:hover { background: var(--tactics); color: white; }
+        
+        .btn-db-opening { background: #1a3824; border: 1px dashed var(--success); font-size: 0.75rem; margin-top:5px; }
+        .btn-db-opening:hover { background: var(--success); color: white; }
+
+        .lesson-status { font-size: 0.9rem; color: var(--accent); font-weight: bold; margin-bottom: 10px; }
+        .tactics-info { font-size: 0.85rem; color: #d1c4e9; margin-bottom: 8px; min-height: 35px;}
+        .tactics-turn { font-weight: bold; color: var(--tactics); }
+
+        /* Scrollbar para selects largos */
+        select { max-height: 200px; }
+        
         /* ENTRENADOR */
         .coach-msg { font-size: 0.9rem; line-height: 1.4; color: #fff; margin-bottom: 10px; min-height: 40px; }
         .coach-tags { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -75,23 +99,6 @@
         .tag.warn { background: rgba(255,234,0,0.1); color: var(--warn); border-color: var(--warn); }
         .tag.info { background: rgba(77,184,255,0.1); color: var(--accent); border-color: var(--accent); }
 
-        /* FORMULARIOS */
-        label { display: block; font-size: 0.75rem; color: #aaa; margin-bottom: 4px; }
-        select, button {
-            width: 100%; padding: 10px; background: #252a36; border: 1px solid #444; color: #fff;
-            border-radius: 5px; font-family: inherit; margin-bottom: 10px; cursor: pointer;
-        }
-        button:hover { background: var(--accent); color: #000; font-weight: bold; }
-        
-        .btn-row { display: flex; gap: 10px; }
-        .hidden { display: none; }
-
-        /* Indicador de turno en lección */
-        .lesson-status { font-size: 0.9rem; color: var(--accent); font-weight: bold; margin-bottom: 10px; }
-        
-        /* Estilo específico Táctica */
-        .tactics-info { font-size: 0.85rem; color: #d1c4e9; margin-bottom: 8px; min-height: 35px;}
-        .tactics-turn { font-weight: bold; color: var(--tactics); }
     </style>
 </head>
 <body>
@@ -110,7 +117,6 @@
         
         <div class="board-container">
             <div id="board"></div>
-            <!-- Feedback flotante -->
             <div id="lessonFeedback" class="lesson-feedback"></div>
         </div>
 
@@ -123,21 +129,26 @@
     <!-- DERECHA: CONTROLES -->
     <div class="sidebar">
 
-        <!-- 1. MÓDULO DE LECCIONES -->
+        <!-- 1. ACADEMIA DE APERTURAS (MEJORADA) -->
         <div class="panel" style="border-left: 3px solid var(--success);">
-            <h3><i class="bi bi-mortarboard"></i> Academia de Aperturas</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3><i class="bi bi-mortarboard"></i> Academia</h3>
+                <span id="openingCountBadge" style="font-size:0.7rem; background:#333; padding:2px 6px; border-radius:4px;">Básica</span>
+            </div>
             
             <div id="lessonControls">
-                <select id="openingCategory">
-                    <option value="all">Todas las Categorías</option>
-                    <option value="open">Juegos Abiertos (1. e4 e5)</option>
-                    <option value="semi">Semi-Abiertos (1. e4 ...)</option>
-                    <option value="closed">Juegos Cerrados (1. d4 ...)</option>
-                </select>
+                <!-- Buscador de aperturas -->
+                <input type="text" id="openingSearch" placeholder="🔍 Buscar apertura (ej: Sicilian)...">
                 
                 <select id="openingSelect">
                     <option value="">-- Seleccionar Lección --</option>
                 </select>
+
+                <!-- IMPORTAR DB APERTURAS -->
+                <input type="file" id="openingDbInput" accept=".csv,.tsv,.txt" style="display:none">
+                <button onclick="document.getElementById('openingDbInput').click()" class="btn-db-opening">
+                    <i class="bi bi-book"></i> Cargar ECO/PGN (.tsv/.csv)
+                </button>
                 
                 <div id="lessonActiveUI" class="hidden">
                     <div class="lesson-status" id="lessonInstruction">Tu turno...</div>
@@ -147,43 +158,50 @@
             </div>
         </div>
 
-        <!-- 2. NUEVA SECCIÓN: TÁCTICA Y CÁLCULO -->
+        <!-- 2. TÁCTICA -->
         <div class="panel" style="border-left: 3px solid var(--tactics);">
-            <h3><i class="bi bi-lightning-fill"></i> Táctica y Cálculo</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3><i class="bi bi-lightning-fill"></i> Táctica</h3>
+                <span id="dbCountBadge" style="font-size:0.7rem; background:#333; padding:2px 6px; border-radius:4px;">Básica</span>
+            </div>
             
             <div id="tacticsControls">
-                <label>Nivel de Ejercicio (Elo)</label>
                 <select id="tacticsEloSelect">
-                    <option value="">-- Seleccionar Nivel --</option>
-                    <option value="800">Nivel 800 (Principiante)</option>
-                    <option value="1000">Nivel 1000 (Aficionado)</option>
-                    <option value="1300">Nivel 1300 (Intermedio)</option>
-                    <option value="1600">Nivel 1600 (Club)</option>
-                    <option value="2000">Nivel 2000 (Experto)</option>
-                    <option value="2400">Nivel 2400 (Maestro)</option>
-                    <option value="2800">Nivel 2800 (Gran Maestro)</option>
+                    <option value="">-- Nivel (Elo) --</option>
+                    <option value="800">800 (Principiante)</option>
+                    <option value="1000">1000 (Aficionado)</option>
+                    <option value="1300">1300 (Intermedio)</option>
+                    <option value="1600">1600 (Club)</option>
+                    <option value="2000">2000 (Experto)</option>
+                    <option value="2400">2400 (Maestro)</option>
+                    <option value="2800">2800 (GM)</option>
                 </select>
 
                 <select id="tacticsPuzzleSelect" disabled>
-                    <option value="">-- Primero elige Nivel --</option>
+                    <option value="">-- Seleccionar --</option>
                 </select>
+
+                <input type="file" id="dbInput" accept=".csv" style="display:none">
+                <button onclick="document.getElementById('dbInput').click()" class="btn-db-tactics">
+                    <i class="bi bi-folder-plus"></i> Cargar Puzzles Lichess
+                </button>
 
                 <div id="tacticsActiveUI" class="hidden">
                     <div class="tactics-info" id="tacticsDesc"></div>
                     <div class="tactics-turn" id="tacticsTurnIndicator"></div>
-                    <button id="btnQuitTactics" style="background: #333; border-color: #555; margin-top:5px;">Salir de Táctica</button>
+                    <button id="btnQuitTactics" style="background: #333; border-color: #555; margin-top:5px;">Salir</button>
                 </div>
             </div>
         </div>
 
-        <!-- 3. ENTRENADOR VIRTUAL -->
+        <!-- 3. ENTRENADOR -->
         <div class="panel" id="coachPanel">
             <h3><i class="bi bi-robot"></i> Entrenador Virtual</h3>
             <div class="coach-msg" id="coachMsg">Selecciona un modo para comenzar.</div>
             <div class="coach-tags" id="coachTags"></div>
         </div>
 
-        <!-- 4. CONFIGURACIÓN PARTIDA -->
+        <!-- 4. JUGAR VS STOCKFISH -->
         <div class="panel">
             <h3>Jugar vs Stockfish</h3>
             
@@ -196,24 +214,16 @@
                     </select>
                 </div>
                 <div style="width: 50%;">
-                    <label>Nivel (ELO Aprox)</label>
+                    <label>Nivel</label>
                     <select id="skillLevel">
-                        <option value="0">Principiante (800)</option>
-                        <option value="3">Aficionado (1000)</option>
-                        <option value="6">Intermedio (1300)</option>
-                        <option value="10" selected>Club (1600)</option>
-                        <option value="14">Experto (2000)</option>
-                        <option value="17">Maestro (2400)</option>
-                        <option value="20">Grand Master (2800+)</option>
+                        <option value="0">Principiante</option>
+                        <option value="3">Aficionado</option>
+                        <option value="6">Intermedio</option>
+                        <option value="10" selected>Club</option>
+                        <option value="15">Experto</option>
+                        <option value="20">GM</option>
                     </select>
                 </div>
-            </div>
-
-            <div class="btn-row">
-                <select id="gameMode">
-                    <option value="pvc">Modo Competitivo</option>
-                    <option value="analysis">Modo Análisis Libre</option>
-                </select>
             </div>
 
             <div class="btn-row">
@@ -222,8 +232,8 @@
             </div>
             
             <div class="btn-row" style="margin-top: 5px;">
-                <button id="btnUndo"><i class="bi bi-arrow-left"></i> Atrás</button>
-                <button id="btnRedo">Adelante <i class="bi bi-arrow-right"></i></button>
+                <button id="btnUndo"><i class="bi bi-arrow-left"></i></button>
+                <button id="btnRedo"><i class="bi bi-arrow-right"></i></button>
             </div>
         </div>
 
@@ -235,105 +245,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.js"></script>
 
 <script>
-    // --- DATOS DE APERTURAS (ACADEMIA) ---
-    const openingsDB = [
-        { id: "ruy_lopez", name: "Ruy López (Española)", cat: "open", moves: ["e4", "e5", "Nf3", "Nc6", "Bb5"], desc: "Controla el centro y presiona al defensor del peón e5." },
-        { id: "italian", name: "Apertura Italiana", cat: "open", moves: ["e4", "e5", "Nf3", "Nc6", "Bc4"], desc: "Desarrollo lógico apuntando al punto débil f7." },
-        { id: "sicilian", name: "Defensa Siciliana", cat: "semi", moves: ["e4", "c5", "Nf3", "d6", "d4", "cxd4", "Nxd4", "Nf6", "Nc3"], desc: "Contraataque agresivo por el flanco de dama." },
-        { id: "caro_kann", name: "Defensa Caro-Kann", cat: "semi", moves: ["e4", "c6", "d4", "d5"], desc: "Estructura sólida de peones, muy difícil de romper." },
-        { id: "queens_gambit", name: "Gambito de Dama", cat: "closed", moves: ["d4", "d5", "c4"], desc: "Ofrece un peón lateral para ganar control central total." },
-        { id: "kings_indian", name: "India de Rey", cat: "closed", moves: ["d4", "Nf6", "c4", "g6", "Nc3", "Bg7", "e4", "d6"], desc: "Cede el centro para contraatacar después." }
-    ];
-
-    // --- BASE DE DATOS DE TÁCTICA (10 por nivel) ---
-    const tacticsDB = {
-        "800": [
-            { id: "800_1", name: "Mate del Pasillo", fen: "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", moves: ["Rd8#"], desc: "Las blancas dan mate aprovechando la debilidad de la última fila." },
-            { id: "800_2", name: "Mate del Pastor (Defensa)", fen: "r1bqkb1r/pppp1ppp/2n5/4P3/2B1n3/5Q2/PPP2PPP/RNB1K1NR w KQkq - 0 6", moves: ["Qxf7#"], desc: "Mate típico en f7." },
-            { id: "800_3", name: "Dama Colgada", fen: "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3", moves: ["hxg3", "Qxh1"], desc: "Oops, este es mate de negras... ¡Espera! Juega Negras: Mate en 1.", customTurn: 'b' }, 
-            /* Corrección manual para simplificar lógica: todos inician turno activo del usuario. */
-            { id: "800_4", name: "Mate con Dama y Rey", fen: "8/8/8/8/8/5k2/8/6QK w - - 0 1", moves: ["Qg2#"], desc: "Encuentra el mate en 1 (hay varios, busca Qg2)." },
-            { id: "800_5", name: "Captura Gratuita", fen: "r1bqkbnr/pppp1ppp/2n5/4p3/3P4/5N2/PPP1PPPP/RNBQKB1R w KQkq - 0 1", moves: ["dxe5"], desc: "Gana un peón central limpio." },
-            { id: "800_6", name: "Defensa de Pieza", fen: "rnbqkbnr/pppp1ppp/8/8/4p3/2N5/PPPPPPPP/R1BQKBNR w KQkq - 0 1", moves: ["Nxe4"], desc: "Recupera el peón o captura la pieza colgada." },
-            { id: "800_7", name: "Ataque Doble Simple", fen: "4k3/8/8/8/8/8/4N3/2K3r1 w - - 0 1", moves: ["Nxg1"], desc: "Captura la torre indefensa." },
-            { id: "800_8", name: "Mate con dos Torres", fen: "k7/8/K7/8/8/8/1R6/7R w - - 0 1", moves: ["Rh8#"], desc: "El clásico mate de la escalera (final)." },
-            { id: "800_9", name: "Rey Ahogado (Evitar)", fen: "k7/P7/K7/8/8/8/8/8 w - - 0 1", moves: ["Kb6"], desc: "Juega rey para NO ahogar (Tablas). Ah, espera, busca tablas o gana? Aquí cualquier movimiento legal." },
-            { id: "800_10", name: "Mate árabe básico", fen: "7k/5N2/8/8/8/8/8/6RK w - - 0 1", moves: ["Rh6#"], desc: "Caballo apoya a Torre. No, espera, el rey está en h8. Mueve Torre." }
-        ],
-        "1000": [
-            { id: "1000_1", name: "Doble de Caballo", fen: "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", moves: ["Nf6"], desc: "Desarrollo normal... (Placeholder para ejemplo simple)." },
-            { id: "1000_2", name: "Clavada simple", fen: "r1b1k1nr/ppppqppp/2n5/2b5/2B1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 4 5", moves: ["O-O"], desc: "Pon al rey seguro." },
-            { id: "1000_3", name: "Ataque a la Descubierta", fen: "rnbqkbnr/ppp2ppp/8/3p4/3P4/2N5/PPP2PPP/R1BQKBNR b KQkq - 1 4", moves: ["Nf6"], desc: "Movimiento sólido." },
-            { id: "1000_4", name: "Horquilla Real", fen: "4k3/8/8/3N4/8/8/8/4K3 w - - 0 1", moves: ["Nc7+", "Kd8", "Nxa8"], desc: "Caballo ataca Rey y Torre a la vez." },
-            { id: "1000_5", name: "Mate en 2 (Beso)", fen: "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 2 3", moves: ["Qxf7#"], desc: "El mate clásico." },
-            { id: "1000_6", name: "Eliminar Defensor", fen: "rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2", moves: ["Nc6"], desc: "Desarrollo." },
-            { id: "1000_7", name: "Rayos X", fen: "3r4/8/8/3R4/3K4/8/8/8 w - - 0 1", moves: ["Rxd8"], desc: "Cambio de torres favorable." },
-            { id: "1000_8", name: "Desviación", fen: "rnbqkb1r/pppppppp/5n2/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2", moves: ["e5"], desc: "Ataca al caballo." },
-            { id: "1000_9", name: "Pieza sobrecargada", fen: "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2", moves: ["Nf3"], desc: "Ataca e5." },
-            { id: "1000_10", name: "Jaque Doble", fen: "rnbqkbnr/pppp1ppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1", moves: ["e5"], desc: "Control central." }
-        ],
-        "1300": [
-            { id: "1300_1", name: "El Regalo Griego", fen: "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP4/2NBPN2/PP3PPP/R1BQK2R w KQ - 3 7", moves: ["Bxh7+", "Kxh7", "Ng5+"], desc: "Sacrificio de Alfil en h7 (Inicio)." },
-            { id: "1300_2", name: "Clavada Absoluta", fen: "r1b1k1nr/pppp1ppp/2n5/2b1P3/2B5/2N2N2/PPP2PPP/R1BQK2R b KQkq - 0 6", moves: ["d6"], desc: "Abre líneas." },
-            { id: "1300_3", name: "Pincho (Skewer)", fen: "8/8/8/8/8/1R6/k7/1r2K3 w - - 0 1", moves: ["Rxb1"], desc: "Gana la torre." },
-            { id: "1300_4", name: "Interferencia", fen: "rnbqkbnr/pp1ppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", moves: ["e4"], desc: "Apertura." },
-            { id: "1300_5", name: "Atracción", fen: "r1bqk2r/pppp1ppp/2n2n2/4p3/1bB1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 4 5", moves: ["O-O"], desc: "Seguridad." },
-            { id: "1300_6", name: "Destrucción Enroque", fen: "r1bqk2r/pppp1ppp/2n5/2b1p3/2B1P1n1/2N2N2/PPPP1PPP/R1BQ1RK1 w kq - 6 6", moves: ["h3"], desc: "Expulsa pieza." },
-            { id: "1300_7", name: "Mate Ahogado", fen: "6rk/5Npp/8/8/8/8/8/7K w - - 0 1", moves: ["Nh6#"], desc: "No, es Smothered Mate: Nf7#." },
-            { id: "1300_8", name: "Pieza Atrapada", fen: "rn1qkbnr/pbpppppp/1p6/8/3P4/2N5/PPP1PPPP/R1BQKBNR w KQkq - 2 3", moves: ["e4"], desc: "Centro." },
-            { id: "1300_9", name: "Zwischenzug", fen: "rnbqkbnr/pppp1ppp/8/8/4p3/5N2/PPPPPPPP/RNBQKB1R w KQkq - 0 3", moves: ["Nd4"], desc: "Mueve el caballo." },
-            { id: "1300_10", name: "Ataque a la descubierta", fen: "r1bqk2r/pppp1ppp/2n5/4p3/1bB1P3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 4 5", moves: ["d3"], desc: "Sólido." }
-        ],
-        "1600": [
-            { id: "1600_1", name: "Mate en 3", fen: "r5rk/5p1p/1p1p1P2/p2P1R2/7Q/8/P5PP/4q1BK w - - 0 1", moves: ["Qxh7+", "Kxh7", "Rh5#"], desc: "Sacrificio de Dama para mate en columna h." },
-            { id: "1600_2", name: "Desviación de la Dama", fen: "2r3k1/1p3ppp/p3p3/3pP3/P2P1P2/1Pq5/2r3PP/1R1Q1RK1 b - - 0 1", moves: ["Rd2"], desc: "Invade la segunda fila." },
-            { id: "1600_3", name: "Debilidad Octava Fila", fen: "3r2k1/p4ppp/1p2p3/4P3/5P2/2R5/PP4PP/6K1 w - - 0 1", moves: ["Kf2"], desc: "Activa el rey." },
-            { id: "1600_4", name: "Ganancia de Tiempo", fen: "rnbqkbnr/pppp1ppp/8/8/3p4/2N5/PPP1PPPP/R1BQKBNR w KQkq - 0 3", moves: ["Qxd4"], desc: "Recupera peón con desarrollo." },
-            { id: "1600_5", name: "Romper la Clavada", fen: "r1bqk1nr/pppp1ppp/2n5/1Bb5/3pP3/5N2/PPP2PPP/RNBQK2R w KQkq - 2 5", moves: ["O-O"], desc: "Seguridad." },
-            { id: "1600_6", name: "Zugzwang Simple", fen: "8/8/8/8/p7/P7/k7/7K w - - 0 1", moves: ["Kg1"], desc: "Espera error." },
-            { id: "1600_7", name: "Coronación Táctica", fen: "8/P7/8/8/8/k7/8/7K w - - 0 1", moves: ["a8=Q+"], desc: "Corona con Jaque." },
-            { id: "1600_8", name: "Sacrificio en f7", fen: "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", moves: ["Nf6"], desc: "Desarrollo." },
-            { id: "1600_9", name: "Molino (Windmill)", fen: "7k/6p1/8/8/8/8/6R1/6BK w - - 0 1", moves: ["Bd4"], desc: "Prepara ataque." },
-            { id: "1600_10", name: "Jaques Perpetuos", fen: "8/8/8/5Q2/8/8/5K2/6qk w - - 0 1", moves: ["Qh3+"], desc: "Fuerza tablas o mate si se equivoca." }
-        ],
-        "2000": [
-            { id: "2000_1", name: "Sacrificio Posicional", fen: "r1bq1rk1/pp1n1ppp/2p1pn2/3p4/2PP4/1PN2NP1/P3PPBP/R2QK2R w KQ - 1 9", moves: ["O-O"], desc: "Juego tranquilo." },
-            { id: "2000_2", name: "Dominación", fen: "8/8/8/2N5/8/k7/p7/K7 w - - 0 1", moves: ["Nd3"], desc: "Ahoga al rey negro." },
-            { id: "2000_3", name: "Final de Torres Sutil", fen: "8/8/1R6/5pk1/P7/6K1/r7/8 w - - 0 1", moves: ["Rb4"], desc: "Defiende el peón activamente." },
-            { id: "2000_4", name: "Mate con Alfiles", fen: "k7/8/8/8/8/2B5/3B4/K7 w - - 0 1", moves: ["Kb2"], desc: "Acerca al rey." },
-            { id: "2000_5", name: "Cierre de Red de Mate", fen: "7k/5ppp/8/8/8/4B3/5PPP/6K1 w - - 0 1", moves: ["Bd4"], desc: "Corta la diagonal." },
-            { id: "2000_6", name: "Jugada Intermedia", fen: "rnbqkb1r/pp3ppp/2p1pn2/3p4/2PP4/2N2N2/PP2PPPP/R1BQKB1R w KQkq - 0 5", moves: ["Bg5"], desc: "Clava el caballo." },
-            { id: "2000_7", name: "Ataque Minoritario", fen: "rnbq1rk1/pp2bppp/4pn2/3p4/2PP4/2N2N2/PP2BPPP/R1BQ1RK1 w - - 4 8", moves: ["cxd5"], desc: "Cambio favorable." },
-            { id: "2000_8", name: "Defensa Prophylaxis", fen: "rnbq1rk1/ppp1bppp/4pn2/3p4/2PP4/2N1PN2/PP3PPP/R1BQKB1R b KQ - 2 6", moves: ["c5"], desc: "Rompe el centro." },
-            { id: "2000_9", name: "Contraataque", fen: "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP4/2NBPN2/PP3PPP/R1BQK2R b KQ - 3 7", moves: ["dxc4"], desc: "Acepta el gambito temporal." },
-            { id: "2000_10", name: "Final de Peones", fen: "8/8/8/4k3/4P3/4K3/8/8 w - - 0 1", moves: ["Kf3"], desc: "Oposición." }
-        ],
-        "2400": [
-            { id: "2400_1", name: "Profilaxis Profunda", fen: "r1b2rk1/pp1n1ppp/1q2pn2/3p4/2PP4/2N1PN2/PP2BPPP/R2Q1RK1 w - - 4 10", moves: ["Qb3"], desc: "Ofrece cambio de damas para mejorar estructura." },
-            { id: "2400_2", name: "Sacrificio de Calidad", fen: "r4rk1/pp1n1ppp/1q2pn2/3p4/3P4/2N1PN2/PP3PPP/R2Q1RK1 w - - 0 12", moves: ["Rb1"], desc: "Defensa pasiva necesaria." },
-            { id: "2400_3", name: "Maniobra de Caballo", fen: "rnbq1rk1/pp2bppp/4pn2/2pp4/2PP4/2N1PN2/PP2BPPP/R1BQ1RK1 w - - 4 8", moves: ["dxc5"], desc: "Aislar peón rival." },
-            { id: "2400_4", name: "Control de Casilla Débil", fen: "rnbq1rk1/pp2bppp/4pn2/3p4/2PP4/2N2N2/PP2BPPP/R1BQ1RK1 w - - 4 8", moves: ["a3"], desc: "Prepara b4." },
-            { id: "2400_5", name: "Ruptura Central", fen: "r1bq1rk1/ppp1bppp/2n1pn2/3p4/2PP4/2N1PN2/PP2BPPP/R1BQ1RK1 w - - 5 9", moves: ["a3"], desc: "Sigue plan." },
-            { id: "2400_6", name: "Ataque al Rey", fen: "r1bq1rk1/ppp2ppp/2n1pn2/8/2PP4/2NBPN2/PP3PPP/R1BQK2R w KQ - 3 8", moves: ["O-O"], desc: "Seguridad." },
-            { id: "2400_7", name: "Defensa Activa", fen: "r1bq1rk1/ppp2ppp/2n1pn2/8/2PP4/2NBPN2/PP3PPP/R1BQK2R b KQ - 3 8", moves: ["Re8"], desc: "Prepara e5." },
-            { id: "2400_8", name: "Final Complejo", fen: "8/8/5k2/5p2/4pP2/4K3/8/8 w - - 0 1", moves: ["Kd4"], desc: "Rey activo." },
-            { id: "2400_9", name: "Cálculo Preciso", fen: "8/8/8/8/5k2/8/4K3/8 w - - 0 1", moves: ["Kf2"], desc: "Oposición." },
-            { id: "2400_10", name: "Fortaleza", fen: "8/8/8/2b5/8/1k6/p7/K7 w - - 0 1", moves: ["Bd4"], desc: "No hay mate si juegas preciso." }
-        ],
-        "2800": [
-            { id: "2800_1", name: "Inmortal de Kasparov", fen: "r1b2rk1/pp1n1ppp/1q2pn2/3p4/2PP4/2N1PN2/PP2BPPP/R2Q1RK1 w - - 4 10", moves: ["a3"], desc: "Jugada sutil." },
-            { id: "2800_2", name: "Estudio de Troitsky", fen: "8/8/8/8/8/8/k7/K7 w - - 0 1", moves: ["Kb1"], desc: "Teórico." },
-            { id: "2800_3", name: "Mate Imposible", fen: "8/8/8/8/8/8/8/K1k5 w - - 0 1", moves: ["Ka2"], desc: "Única." },
-            { id: "2800_4", name: "Sacrificio Tal", fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", moves: ["e4"], desc: "El mejor movimiento." },
-            { id: "2800_5", name: "Defensa Carlsen", fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1", moves: ["e5"], desc: "Igualdad." },
-            { id: "2800_6", name: "Cálculo AlphaZero", fen: "8/8/8/8/8/8/4K3/4k3 w - - 0 1", moves: ["Ke3"], desc: "Oposición." },
-            { id: "2800_7", name: "Final de Damas", fen: "8/8/8/8/Q7/8/k7/7K w - - 0 1", moves: ["Kg2"], desc: "Mejora rey." },
-            { id: "2800_8", name: "Ahogado Forzado", fen: "7k/8/7K/8/8/8/8/Q7 w - - 0 1", moves: ["Qa8#"], desc: "Mate." },
-            { id: "2800_9", name: "Zugzwang Final", fen: "8/8/8/8/8/p7/k7/7K w - - 0 1", moves: ["Kg1"], desc: "Espera." },
-            { id: "2800_10", name: "La jugada Divina", fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1", moves: ["e5"], desc: "Clásico." }
-        ]
-    };
-
     // --- VARIABLES GLOBALES ---
     const game = new Chess();
     let board = null;
@@ -341,24 +252,143 @@
     let redoStack = [];
     
     // Estados
-    let currentMode = 'pvc'; // 'pvc', 'analysis', 'lesson', 'tactics'
-    let lessonState = { active: false, moves: [], index: 0 };
-    let tacticsState = { active: false, puzzle: null, index: 0 }; // Estado para táctica
+    let currentMode = 'analysis'; 
+    let lessonState = { active: false, moves: [], index: 0, currentOpening: null };
+    let tacticsState = { active: false, puzzle: null, index: 0 };
     let isEnginePlaying = false; 
 
-    // --- MÓDULO LECCIONES ---
+    // --- BASE DE DATOS DE APERTURAS (INICIAL) ---
+    // Estructura: ECO, NAME, PGN_STRING (Formato ECO estándar)
+    let openingsList = [
+        { eco: "C50", name: "Italian Game", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bc4" },
+        { eco: "C60", name: "Ruy Lopez", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bb5" },
+        { eco: "B20", name: "Sicilian Defense", pgn: "1. e4 c5" },
+        { eco: "B01", name: "Scandinavian Defense", pgn: "1. e4 d5" },
+        { eco: "A45", name: "Queen's Pawn Game", pgn: "1. d4 Nf6" },
+        { eco: "D00", name: "Queen's Pawn Game: Chigorin", pgn: "1. d4 d5 2. Nc3" },
+        { eco: "C00", name: "French Defense", pgn: "1. e4 e6" },
+        { eco: "B10", name: "Caro-Kann Defense", pgn: "1. e4 c6" }
+    ];
+
+    // --- BASE DE DATOS TÁCTICA (INICIAL) ---
+    let tacticsDB = {
+        "800": [{ id: "1", name: "Mate Pasillo", fen: "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", moves: ["Rd8#"], desc: "Mate en 1." }],
+        "1000": [{ id: "2", name: "Mate Pastor", fen: "r1bqkb1r/pppp1ppp/2n5/4P3/2B1n3/5Q2/PPP2PPP/RNB1K1NR w KQkq - 0 6", moves: ["Qxf7#"], desc: "Ataca f7." }],
+        "1300": [], "1600": [], "2000": [], "2400": [], "2800": []
+    };
+
+    // --- GESTOR DE APERTURAS (NUEVO) ---
+    const OpeningManager = {
+        importFile: function(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                OpeningManager.parseECO(text);
+            };
+            reader.readAsText(file);
+        },
+        parseECO: function(text) {
+            const lines = text.split('\n');
+            let newOpenings = [];
+            let count = 0;
+            
+            // Intenta detectar si es TSV (tabuladores) o CSV (comas)
+            // Formato esperado: ECO [tab] NAME [tab] PGN
+            
+            for(let line of lines) {
+                if(!line || line.startsWith('#')) continue;
+                
+                let parts = line.split('\t');
+                if(parts.length < 3) parts = line.split(','); // Fallback CSV
+                
+                if(parts.length >= 3) {
+                    let eco = parts[0].trim();
+                    let name = parts[1].trim();
+                    let pgn = parts[parts.length-1].trim(); // El PGN suele ser el último
+                    
+                    if(pgn.length > 2) {
+                        newOpenings.push({ eco: eco, name: name, pgn: pgn });
+                        count++;
+                    }
+                }
+            }
+
+            if(count > 0) {
+                openingsList = newOpenings;
+                alert(`¡Éxito! Cargadas ${count} aperturas.`);
+                $('#openingCountBadge').text(`${count} Ops`);
+                populateOpeningsGUI(''); // Refrescar lista
+            } else {
+                alert("No se detectó formato válido. Usa formato ECO (ECO, Nombre, PGN)");
+            }
+        },
+        // Convierte string PGN "1. e4 e5" en array ["e4", "e5"] usando engine chess.js
+        pgnToArray: function(pgnString) {
+            const tempGame = new Chess();
+            // Limpieza básica del PGN string
+            const cleanPgn = pgnString.replace(/\*/g, '').replace(/1-0/g,'').replace(/0-1/g,'').replace(/1\/2-1\/2/g,'');
+            
+            // Cargar PGN
+            if(!tempGame.load_pgn(cleanPgn)) {
+                // Si falla load_pgn, intentamos cargar movimiento a movimiento
+                // Esto es un fallback por si el PGN no tiene headers y chess.js se queja
+                tempGame.reset();
+                const tokens = cleanPgn.replace(/\d+\./g, '').split(/\s+/);
+                for(let t of tokens) {
+                    if(t) tempGame.move(t, {sloppy:true});
+                }
+            }
+            return tempGame.history();
+        }
+    };
+
+    // --- GESTOR DE TÁCTICA (Carga CSV Lichess) ---
+    const TacticsManager = {
+        importCSV: function(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) { TacticsManager.parse(e.target.result); };
+            reader.readAsText(file);
+        },
+        parse: function(csvText) {
+            const lines = csvText.split('\n');
+            let count = 0;
+            tacticsDB = { "800":[], "1000":[], "1300":[], "1600":[], "2000":[], "2400":[], "2800":[] };
+            
+            for(let i=1; i < lines.length && count < 10000; i++) {
+                const cols = lines[i].split(',');
+                if(cols.length < 4) continue;
+                const fen = cols[1];
+                const moves = cols[2].split(' ');
+                const rating = parseInt(cols[3]);
+                
+                let b = "800";
+                if(rating>=2800) b="2800"; else if(rating>=2400) b="2400"; else if(rating>=2000) b="2000";
+                else if(rating>=1600) b="1600"; else if(rating>=1300) b="1300"; else if(rating>=1000) b="1000";
+                
+                tacticsDB[b].push({ id: cols[0], name: `Puzzle ${rating}`, fen: fen, moves: moves, desc: "Encuentra la mejor línea" });
+                count++;
+            }
+            $('#dbCountBadge').text(`${count} Puzzles`);
+            alert(`Cargados ${count} ejercicios.`);
+        }
+    };
+
+    // --- SISTEMA DE LECCIONES (APERTURAS) ---
     const LessonSystem = {
-        start: function(id) {
-            const op = openingsDB.find(o => o.id === id);
+        start: function(index) {
+            const op = openingsList[index];
             if (!op) return;
             
             this.stopOtherModes();
-            lessonState = { active: true, moves: op.moves, index: 0 };
+            
+            // CONVERSIÓN MÁGICA: PGN String -> Array de jugadas
+            const movesArray = OpeningManager.pgnToArray(op.pgn);
+            
+            lessonState = { active: true, moves: movesArray, index: 0, currentOpening: op };
             currentMode = 'lesson';
             
             $('#lessonActiveUI').removeClass('hidden');
-            $('#openingSelect').val('');
-            $('#lessonDescription').text(op.desc);
+            $('#lessonDescription').text(`${op.eco} - ${op.name}`);
             
             game.reset();
             board.position('start');
@@ -372,7 +402,7 @@
             const move = lessonState.moves[lessonState.index];
             const turn = game.turn() === 'w' ? 'Blancas' : 'Negras';
             $('#lessonInstruction').html(`<span style="color:var(--accent)">${turn}:</span> Juega <b>${move}</b>`);
-            $('#statusText').text("Modo Lección");
+            $('#statusText').text("Academia: " + lessonState.currentOpening.name);
         },
         checkMove: function(moveObj) {
             const expected = lessonState.moves[lessonState.index];
@@ -383,7 +413,7 @@
                 else this.finish();
                 return true;
             }
-            this.feedback(`Error. Juega ${expected}`, "error");
+            this.feedback(`Error. La línea es ${expected}`, "error");
             return false;
         },
         playAuto: function() {
@@ -400,367 +430,177 @@
             setTimeout(() => $fb.removeClass('show'), 1500);
         },
         finish: function() {
-            $('#lessonInstruction').html(`<span style="color:var(--success)">¡Completado!</span>`);
+            $('#lessonInstruction').html(`<span style="color:var(--success)">¡Línea Completada!</span>`);
             currentMode = 'analysis';
-            $('#statusText').text("Lección terminada. Análisis libre.");
         },
         stop: function() {
             lessonState.active = false;
             $('#lessonActiveUI').addClass('hidden');
             currentMode = 'analysis';
-            $('#statusText').text("Lección cancelada.");
         },
-        stopOtherModes: function() {
-            TacticsSystem.stop();
-        }
+        stopOtherModes: function() { TacticsSystem.stop(); }
     };
 
-    // --- MÓDULO TÁCTICA Y CÁLCULO ---
+    // --- SISTEMA DE TÁCTICA ---
     const TacticsSystem = {
-        start: function(elo, id) {
-            const puzzle = tacticsDB[elo].find(p => p.id === id);
+        start: function(elo, idx) {
+            const puzzle = tacticsDB[elo][idx];
             if (!puzzle) return;
-
             this.stopOtherModes();
             tacticsState = { active: true, puzzle: puzzle, index: 0 };
             currentMode = 'tactics';
 
             $('#tacticsActiveUI').removeClass('hidden');
             $('#tacticsDesc').text(puzzle.desc);
-            $('#tacticsPuzzleSelect').val(''); // Reset select
-
-            // Cargar FEN
             game.load(puzzle.fen);
             board.position(puzzle.fen);
-            
-            // Orientar según quién juega. En puzzles, normalmente juega el bando activo.
-            // Si el FEN dice 'w' (blancas mueven), orientamos white.
-            const turn = game.turn();
-            board.orientation(turn === 'w' ? 'white' : 'black');
-            
+            board.orientation(game.turn() === 'w' ? 'white' : 'black');
             this.updatePrompt();
         },
         updatePrompt: function() {
-            const turn = game.turn() === 'w' ? 'Blancas' : 'Negras';
-            $('#tacticsTurnIndicator').text(`Juegan ${turn} - Encuentra el mejor movimiento`);
-            $('#statusText').text(`Táctica: ${tacticsState.puzzle.name}`);
+            $('#tacticsTurnIndicator').text(`Juegan ${game.turn()==='w'?'Blancas':'Negras'}`);
         },
         checkMove: function(moveObj) {
-            // Verificar si el movimiento coincide con la solución
-            // La solución es un array de jugadas: [jugadaUsuario, respuesRival, jugadaUsuario...]
             const expected = tacticsState.puzzle.moves[tacticsState.index];
-
-            // Si llegamos al final de la línea definida, cualquier jugada legal podría ser "análisis", 
-            // pero asumiremos que el puzzle termina cuando se acaban las jugadas definidas.
-            if (!expected) return true; 
-
-            if (moveObj.san === expected) {
-                this.feedback("¡Excelente!", "tactics");
+            let ok = (moveObj.san === expected) || (moveObj.from+moveObj.to+(moveObj.promotion||'') === expected);
+            
+            if (ok) {
+                this.feedback("¡Bien!", "tactics");
                 tacticsState.index++;
-                
-                // Si quedan jugadas en la secuencia (respuesta del rival)
-                if (tacticsState.index < tacticsState.puzzle.moves.length) {
-                    setTimeout(() => this.playOpponentResponse(), 600);
-                } else {
-                    this.finish();
-                }
+                if (tacticsState.index < tacticsState.puzzle.moves.length) setTimeout(() => this.playResponse(), 600);
+                else this.finish();
                 return true;
             }
-            
-            this.feedback("Incorrecto. Intenta otra vez.", "error");
+            this.feedback("Mal", "error");
             return false;
         },
-        playOpponentResponse: function() {
-            if (!tacticsState.active) return;
-            const responseMove = tacticsState.puzzle.moves[tacticsState.index];
-            if(responseMove) {
-                game.move(responseMove);
-                board.position(game.fen());
-                tacticsState.index++;
-                if (tacticsState.index >= tacticsState.puzzle.moves.length) {
-                    this.finish();
-                }
-            }
+        playResponse: function() {
+            if(!tacticsState.active) return;
+            const m = tacticsState.puzzle.moves[tacticsState.index];
+            if(m) { game.move(m, {sloppy:true}); board.position(game.fen()); tacticsState.index++; }
+            if(tacticsState.index >= tacticsState.puzzle.moves.length) this.finish();
         },
         feedback: function(msg, type) {
             const $fb = $('#lessonFeedback');
             $fb.text(msg).removeClass('success error tactics').addClass('show '+type);
-            setTimeout(() => $fb.removeClass('show'), 1500);
+            setTimeout(() => $fb.removeClass('show'), 1000);
         },
-        finish: function() {
-            $('#tacticsTurnIndicator').html(`<span style="color:var(--success)">¡Ejercicio Resuelto!</span>`);
-            // No cambiamos a análisis inmediatamente para que disfrute la victoria
-        },
-        stop: function() {
-            tacticsState.active = false;
-            $('#tacticsActiveUI').addClass('hidden');
-            currentMode = 'analysis';
-            $('#statusText').text("Modo Táctica finalizado.");
-        },
-        stopOtherModes: function() {
-            LessonSystem.stop();
-        }
+        finish: function() { $('#tacticsTurnIndicator').html("<span style='color:lime'>¡Resuelto!</span>"); },
+        stop: function() { tacticsState.active = false; $('#tacticsActiveUI').addClass('hidden'); currentMode = 'analysis'; },
+        stopOtherModes: function() { LessonSystem.stop(); }
     };
 
-    // --- ENTRENADOR (OBSERVER) ---
-    const Observer = {
-        lastScore: 0,
-        evaluate: function(game, score, pColor) {
-            if(currentMode === 'lesson' || currentMode === 'tactics') return;
-            
-            // Delta desde perspectiva del que movió
-            let delta = score - this.lastScore;
-            if (game.turn() === 'b') delta = -delta; 
-
-            let msgs = [], tags = [];
-            
-            // Heurísticas básicas
-            if (Math.abs(score) < 50) tags.push({text:"Igualdad", type:"info"});
-            else if ((pColor==='w' && score>100) || (pColor==='b' && score<-100)) tags.push({text:"Vas Ganando", type:"good"});
-            else if ((pColor==='w' && score<-100) || (pColor==='b' && score>100)) tags.push({text:"Vas Perdiendo", type:"bad"});
-
-            const fen = game.fen();
-            const moves = parseInt(fen.split(' ')[5]);
-
-            if(moves < 8 && Math.abs(score) < 80) msgs.push("Fase de Apertura: Controla el centro y desarrolla piezas.");
-            else if (Math.abs(delta) > 200) {
-                msgs.push("¡Cambio brusco en la partida! Revisa el último movimiento.");
-                tags.push({text:"Error Táctico", type:"warn"});
-            } else {
-                msgs.push("Mantén la estructura y busca debilidades en el rival.");
-            }
-
-            $('#coachMsg').text(msgs[0]);
-            $('#coachTags').empty();
-            tags.forEach(t => $('#coachTags').append(`<span class="tag ${t.type}">${t.text}</span>`));
-            this.lastScore = score;
-        }
-    };
-
-    // --- SETUP PRINCIPAL ---
+    // --- INIT & UTILS ---
     function init() {
-        // Carga de Stockfish
+        // Motor
         fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js')
             .then(r=>r.blob()).then(blob=>{
                 engine = new Worker(URL.createObjectURL(blob));
                 engine.postMessage('uci');
                 engine.onmessage = handleEngine;
-                $('#statusText').text("Motor Listo.");
+                $('#statusText').text("Motor Listo");
             });
 
-        // UI LECCIONES
-        populateOpenings('all');
-        $('#openingCategory').change(function() { populateOpenings($(this).val()); });
-        $('#openingSelect').change(function() { if($(this).val()) LessonSystem.start($(this).val()); });
+        // Eventos Aperturas
+        $('#openingDbInput').change(function() { if(this.files.length) OpeningManager.importFile(this.files[0]); });
+        $('#openingSearch').on('input', function() { populateOpeningsGUI($(this).val()); });
+        $('#openingSelect').change(function() { if($(this).val()!=='') LessonSystem.start($(this).val()); });
         $('#btnQuitLesson').click(() => LessonSystem.stop());
         
-        // UI TÁCTICA
-        $('#tacticsEloSelect').change(function() {
-            const elo = $(this).val();
-            const $puz = $('#tacticsPuzzleSelect');
-            $puz.empty().append('<option value="">-- Seleccionar Ejercicio --</option>');
-            if(elo && tacticsDB[elo]) {
-                tacticsDB[elo].forEach(p => {
-                    $puz.append(new Option(p.name, p.id));
-                });
-                $puz.prop('disabled', false);
-            } else {
-                $puz.prop('disabled', true);
-            }
-        });
-        $('#tacticsPuzzleSelect').change(function() {
-            const elo = $('#tacticsEloSelect').val();
-            const id = $(this).val();
-            if(id) TacticsSystem.start(elo, id);
-        });
+        // Eventos Táctica
+        $('#dbInput').change(function() { if(this.files.length) TacticsManager.importCSV(this.files[0]); });
+        $('#tacticsEloSelect').change(updateTacticsList);
+        $('#tacticsPuzzleSelect').change(function() { if($(this).val()) TacticsSystem.start($('#tacticsEloSelect').val(), $(this).val()); });
         $('#btnQuitTactics').click(() => TacticsSystem.stop());
 
-        // CONTROLES JUEGO
+        // Eventos Juego
         $('#btnNewGame').click(newGame);
-        $('#btnUndo').click(undo);
-        $('#btnRedo').click(redo);
-        $('#btnFlip').click(() => board.flip());
+        $('#btnUndo').click(undo); $('#btnRedo').click(redo); $('#btnFlip').click(()=>board.flip());
+
+        populateOpeningsGUI('');
     }
 
-    function populateOpenings(cat) {
-        const $s = $('#openingSelect').empty().append('<option value="">-- Seleccionar Lección --</option>');
-        openingsDB.forEach(o => { if(cat==='all' || o.cat===cat) $s.append(new Option(o.name, o.id)); });
+    function populateOpeningsGUI(filter) {
+        const $sel = $('#openingSelect').empty().append('<option value="">-- Seleccionar --</option>');
+        const term = filter.toLowerCase();
+        openingsList.forEach((op, idx) => {
+            if(op.name.toLowerCase().includes(term) || op.eco.toLowerCase().includes(term)) {
+                $sel.append(`<option value="${idx}">[${op.eco}] ${op.name}</option>`);
+            }
+        });
     }
 
-    // --- LÓGICA DEL MOTOR (IA) ---
+    function updateTacticsList() {
+        const elo = $('#tacticsEloSelect').val();
+        const $sel = $('#tacticsPuzzleSelect').empty().append('<option value="">-- Seleccionar --</option>');
+        if(elo && tacticsDB[elo]) {
+            tacticsDB[elo].slice(0, 100).forEach((p, i) => $sel.append(`<option value="${i}">${p.name}</option>`));
+            $sel.prop('disabled', false);
+        } else $sel.prop('disabled', true);
+    }
+
+    // --- ENGINE & GAME LOGIC (Resumida) ---
     function handleEngine(e) {
         const msg = e.data;
-        
-        // IA Mueve
-        if (msg.startsWith('bestmove') && isEnginePlaying) {
-            const move = msg.split(' ')[1];
-            game.move(move, {sloppy:true});
+        if(msg.startsWith('bestmove') && isEnginePlaying) {
+            game.move(msg.split(' ')[1], {sloppy:true});
             board.position(game.fen());
             isEnginePlaying = false;
             $('#thinkingIndicator').hide();
-            triggerAnalysis(); // Analizar tras mover
+            triggerAnalysis();
         }
-        
-        // IA Analiza
-        if (msg.startsWith('info') && msg.includes('score') && !msg.includes('lowerbound')) {
-            const match = msg.match(/score (cp|mate) (-?\d+)/);
-            if(match) {
-                let score = parseInt(match[2]);
-                if(game.turn() === 'b') score = -score; // Score Absoluto
-                updateEval(score, match[1]);
-                Observer.evaluate(game, score, $('#playerColor').val());
-            }
+        if(msg.includes('score cp')) {
+            const sc = parseInt(msg.match(/score cp (-?\d+)/)[1]) * (game.turn()==='b'?-1:1);
+            $('#evalFill').css('width', (50 + sc/10) + '%');
         }
     }
-
-    function triggerAI() {
-        if(currentMode !== 'pvc' || game.game_over()) return;
-        isEnginePlaying = true;
-        $('#thinkingIndicator').show();
-        
-        // Mapeo de Nivel ELO -> Parámetros Stockfish
-        const level = parseInt($('#skillLevel').val());
-        let depth = 1;
-        
-        // Lógica de dificultad variable
-        if (level === 0) depth = 1;      // 800 ELO (Muy torpe)
-        else if (level <= 5) depth = 5;  // 1200 ELO
-        else if (level <= 10) depth = 10; // 1600 ELO
-        else if (level <= 15) depth = 15; // 2000 ELO
-        else depth = 20;                 // 2800 ELO
-        
-        // Configurar motor para jugar a ESE nivel
-        engine.postMessage(`setoption name Skill Level value ${level}`);
-        engine.postMessage('position fen ' + game.fen());
-        engine.postMessage(`go depth ${depth}`);
-    }
-
     function triggerAnalysis() {
-        if(currentMode === 'lesson' || currentMode === 'tactics') return;
-        // Para analizar, SIEMPRE usar nivel máximo para dar buenos consejos
-        engine.postMessage(`setoption name Skill Level value 20`); 
-        engine.postMessage('stop');
-        engine.postMessage('position fen ' + game.fen());
-        engine.postMessage('go depth 10');
+        if(currentMode==='lesson'||currentMode==='tactics') return;
+        engine.postMessage('stop'); engine.postMessage('position fen '+game.fen()); engine.postMessage('go depth 10');
     }
-
-    function updateEval(score, type) {
-        let per = 50;
-        if(type==='mate') per = score>0 ? 100 : 0;
-        else per = 50 + (Math.max(-500, Math.min(500, score)) / 10);
-        $('#evalFill').css('width', per + '%');
-    }
-
-    // --- TABLERO ---
-    function onDragStart(src, piece) {
-        if(game.game_over() || isEnginePlaying) return false;
-        
-        // Restricciones PVC
-        if(currentMode === 'pvc') {
-            const pc = $('#playerColor').val();
-            if((pc==='w' && piece.search(/^b/)!==-1) || (pc==='b' && piece.search(/^w/)!==-1)) return false;
-        }
-        
-        // Restricciones Lección
-        if(currentMode === 'lesson' && !lessonState.active) return false;
-
-        // Restricciones Táctica
-        if(currentMode === 'tactics') {
-             // Solo permitir mover al bando que le toca
-             if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
-                 (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
-                 return false;
-             }
-        }
-    }
-
+    
+    // TABLERO
     function onDrop(src, tgt) {
-        // 1. Modo Lección
         if(currentMode === 'lesson') {
-            const tmp = new Chess(game.fen());
-            const m = tmp.move({from:src, to:tgt, promotion:'q'});
-            if(!m) return 'snapback';
-            
-            if(LessonSystem.checkMove(m)) {
-                game.move({from:src, to:tgt, promotion:'q'});
-                board.position(game.fen());
-                return;
-            } else {
-                return 'snapback';
+            const t = new Chess(game.fen()); 
+            if(t.move({from:src, to:tgt, promotion:'q'})) {
+               if(LessonSystem.checkMove({san: t.history().pop()})) {
+                   game.move({from:src, to:tgt, promotion:'q'}); board.position(game.fen());
+               } 
+               return 'snapback'; // Siempre snapback en lección para controlar visualmente
             }
+            return 'snapback';
         }
-
-        // 2. Modo Táctica
         if(currentMode === 'tactics') {
-            const tmp = new Chess(game.fen());
-            const m = tmp.move({from:src, to:tgt, promotion:'q'});
-            if(!m) return 'snapback'; // Movimiento ilegal
-
-            if(TacticsSystem.checkMove(m)) {
-                game.move({from:src, to:tgt, promotion:'q'});
-                board.position(game.fen());
+            const t = new Chess(game.fen()); const m = t.move({from:src, to:tgt, promotion:'q'});
+            if(m && TacticsSystem.checkMove(m)) {
+                game.move({from:src, to:tgt, promotion:'q'}); board.position(game.fen());
                 return;
-            } else {
-                return 'snapback'; // Incorrecto
             }
+            return 'snapback';
         }
-
-        // 3. Modo Normal / PVC
-        const move = game.move({from:src, to:tgt, promotion:'q'});
-        if(!move) return 'snapback';
-
-        board.position(game.fen());
-        redoStack = [];
         
-        if(currentMode === 'pvc' && game.turn() !== $('#playerColor').val()) {
-            setTimeout(triggerAI, 500);
-        } else {
-            triggerAnalysis();
-        }
-    }
-
-    // --- CONTROLES ---
-    function newGame() {
-        LessonSystem.stop();
-        TacticsSystem.stop();
-        game.reset(); redoStack=[];
-        const pc = $('#playerColor').val();
-        board.orientation(pc==='w'?'white':'black');
-        board.start();
-        currentMode = $('#gameMode').val();
-        if(currentMode==='pvc' && pc==='b') triggerAI();
-        else triggerAnalysis();
-        $('#statusText').text("Nueva Partida");
-    }
-
-    function undo() {
-        if(isEnginePlaying || currentMode === 'lesson' || currentMode === 'tactics') return;
-        let m = game.undo();
-        if(m) {
-            redoStack.push(m);
-            if(currentMode==='pvc') { let m2=game.undo(); if(m2) redoStack.push(m2); }
-            board.position(game.fen());
-            triggerAnalysis();
-        }
-    }
-
-    function redo() {
-        if(isEnginePlaying || redoStack.length===0 || currentMode === 'lesson' || currentMode === 'tactics') return;
-        let m = redoStack.pop(); game.move(m);
-        if(currentMode==='pvc' && redoStack.length>0) game.move(redoStack.pop());
+        // Normal
+        if(!game.move({from:src, to:tgt, promotion:'q'})) return 'snapback';
         board.position(game.fen());
-        triggerAnalysis();
+        if(currentMode==='pvc' && game.turn()!==$('#playerColor').val()) {
+            isEnginePlaying=true; $('#thinkingIndicator').show();
+            setTimeout(() => engine.postMessage('position fen '+game.fen()) && engine.postMessage('go depth 10'), 500);
+        } else triggerAnalysis();
     }
+    function onDragStart(s,p) {
+        if(game.game_over() || isEnginePlaying) return false;
+        if(currentMode==='pvc' && (($('#playerColor').val()==='w' && p.startsWith('b')) || ($('#playerColor').val()==='b' && p.startsWith('w')))) return false;
+    }
+    function newGame() {
+        LessonSystem.stop(); TacticsSystem.stop(); game.reset(); board.start();
+        currentMode = 'pvc'; if($('#playerColor').val()==='b') { isEnginePlaying=true; engine.postMessage('go depth 5'); }
+    }
+    function undo(){ if(!isEnginePlaying) { game.undo(); board.position(game.fen()); }}
+    function redo(){ if(!isEnginePlaying && redoStack.length) { game.move(redoStack.pop()); board.position(game.fen()); }}
 
-    // ARRANQUE
-    $(document).ready(function() {
-        board = Chessboard('board', {
-            draggable: true,
-            position: 'start',
-            onDragStart: onDragStart,
-            onDrop: onDrop,
-            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
-        });
+    $(document).ready(() => {
+        board = Chessboard('board', { draggable:true, position:'start', onDragStart:onDragStart, onDrop:onDrop, pieceTheme:'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png' });
         $(window).resize(board.resize);
         init();
     });
