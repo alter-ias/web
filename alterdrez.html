@@ -3,61 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Alter.Drez - Jugable</title>
+    <title>Alter.Drez - Suite Completa</title>
 
+    <!-- FUENTES Y LIBRERÍAS -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 
     <style>
         :root {
-            --bg-dark: #121212;
-            --panel-bg: #1e1e1e;
-            --accent: #4dabf7;
-            --text: #e9ecef;
+            --bg-color: #0F121B;
+            --panel-bg: rgba(20, 24, 35, 0.85);
+            --text-color: #e0e0e0;
+            --accent-color: #5ab4ff; /* Azul neón suave */
+            --secondary-accent: #ff4d4d; /* Rojo para errores/negativo */
+            --border-color: rgba(255, 255, 255, 0.1);
         }
 
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            background-color: var(--bg-dark);
-            color: var(--text);
+            background-color: var(--bg-color);
+            color: var(--text-color);
             font-family: 'Montserrat', sans-serif;
-            margin: 0;
+            min-height: 100vh;
+            background: radial-gradient(circle at top center, #1F2533 0%, #050608 100%);
+            overflow-x: hidden;
+        }
+
+        /* --- LAYOUT --- */
+        .container {
+            width: 95%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px 0;
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
-            overflow-x: hidden; 
         }
 
-        h1 { margin: 20px 0 10px; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
 
-        /* --- CONTENEDOR CENTRAL --- */
-        .game-area {
+        .logo-text {
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: 4px;
+            background: linear-gradient(45deg, #fff, var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .main-content {
             display: flex;
-            flex-wrap: wrap;
             justify-content: center;
-            gap: 20px;
+            align-items: flex-start;
+            gap: 40px;
             width: 100%;
-            max-width: 1000px;
-            padding: 10px;
+            flex-wrap: wrap;
         }
 
         /* --- TABLERO --- */
-        .board-wrapper {
-            width: 100%;
-            max-width: 500px;
-            /* CRÍTICO PARA MÓVIL: Evita el scroll al tocar el tablero */
-            touch-action: none; 
-        }
-        
-        #board {
-            width: 100%;
+        .board-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
         }
 
-        /* --- PANELES --- */
+        .board-container {
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .board {
+            width: 85vw;
+            max-width: 600px;
+            /* CRÍTICO PARA MÓVIL */
+            touch-action: none; 
+            user-select: none;
+        }
+
+        /* --- PANELES DE CONTROL --- */
         .sidebar {
-            flex: 1;
-            min-width: 300px;
+            width: 100%;
+            max-width: 400px;
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -65,321 +100,494 @@
 
         .panel {
             background: var(--panel-bg);
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #333;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            transition: transform 0.2s;
         }
 
-        .status-box { font-weight: bold; margin-bottom: 5px; }
-        .thinking-text { color: var(--accent); font-style: italic; font-size: 0.9em; min-height: 1.2em; }
+        .panel h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            color: var(--accent-color);
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* --- ELEMENTOS UI --- */
+        .status-display {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .thinking-indicator {
+            font-style: italic;
+            font-size: 0.9rem;
+            color: var(--accent-color);
+            height: 20px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .thinking-indicator.active { opacity: 1; }
 
         /* Barra de Evaluación */
-        .eval-wrapper {
-            height: 10px;
+        .eval-container {
+            height: 12px;
             background: #333;
-            border-radius: 5px;
+            border-radius: 6px;
             overflow: hidden;
-            margin: 10px 0;
-            display: flex;
+            margin-bottom: 10px;
+            position: relative;
         }
         .eval-bar {
             height: 100%;
             width: 50%;
-            background: #aaa;
-            transition: width 0.5s ease, background 0.3s;
+            background: #fff;
+            transition: width 1s ease, background-color 0.5s;
         }
+        .eval-text { font-size: 0.9rem; color: #bbb; line-height: 1.4; }
 
-        /* Botones */
-        button {
-            background: #333; border: 1px solid var(--accent); color: white;
-            padding: 12px; width: 100%; border-radius: 5px; font-weight: bold;
-            cursor: pointer; margin-top: 5px; transition: 0.2s;
+        /* Botones y Inputs */
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 0.8rem; color: #888; margin-bottom: 5px; }
+
+        select, button {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: #fff;
+            font-family: 'Montserrat', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
         }
+        
+        button { font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.8rem; }
+        button:hover { background: var(--accent-color); color: #000; border-color: var(--accent-color); }
         button:active { transform: scale(0.98); }
-        select {
-            width: 100%; padding: 10px; background: #222; color: white; 
-            border: 1px solid #444; border-radius: 5px; margin-bottom: 10px;
+
+        .btn-group { display: flex; gap: 10px; }
+
+        /* Historial PGN */
+        #pgn {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #aaa;
+            max-height: 120px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.4);
+            padding: 10px;
+            border-radius: 6px;
+            white-space: pre-wrap;
         }
 
-        /* Resaltado de casillas */
-        .highlight-current { box-shadow: inset 0 0 3px 3px yellow; }
-        .highlight-move { box-shadow: inset 0 0 3px 3px #4dabf7; }
+        /* Resaltados */
+        .highlight-selected { box-shadow: inset 0 0 3px 3px rgba(90, 180, 255, 0.7) !important; }
+        .highlight-move { box-shadow: inset 0 0 3px 3px rgba(100, 255, 100, 0.4) !important; }
 
+        @media (max-width: 900px) {
+            .main-content { flex-direction: column; align-items: center; }
+            .board { width: 92vw; height: 92vw; }
+            .sidebar { width: 92vw; }
+        }
     </style>
 </head>
 <body>
 
-    <h1>Alter.Drez</h1>
+    <div class="container">
+        <header>
+            <div class="logo-text">ALTER.DREZ</div>
+        </header>
 
-    <div class="game-area">
-        <!-- Tablero -->
-        <div class="board-wrapper">
-            <div id="board"></div>
-        </div>
-
-        <!-- Controles -->
-        <div class="sidebar">
-            <div class="panel">
-                <div class="status-box" id="status">Cargando...</div>
-                <div class="thinking-text" id="thinking"></div>
-                
-                <div class="eval-wrapper">
-                    <div id="evalBar" class="eval-bar"></div>
+        <div class="main-content">
+            <!-- SECCIÓN TABLERO -->
+            <div class="board-section">
+                <div class="board-container">
+                    <div id="chessBoard" class="board"></div>
                 </div>
-                <div id="evalText" style="font-size: 0.8em; text-align: center; color: #888;">Evaluación</div>
+                <!-- Barra de evaluación pegada al tablero -->
+                <div style="width: 100%; max-width: 600px;">
+                    <div class="eval-container"><div id="evalBar" class="eval-bar"></div></div>
+                    <div id="evalText" class="eval-text" style="text-align: center;">Evaluación: Igualdad</div>
+                </div>
             </div>
 
-            <div class="panel">
-                <label>Nivel de IA</label>
-                <select id="skillLevel">
-                    <option value="1">Nivel 1 (Muy Fácil)</option>
-                    <option value="5">Nivel 5 (Fácil)</option>
-                    <option value="10" selected>Nivel 10 (Normal)</option>
-                    <option value="15">Nivel 15 (Difícil)</option>
-                    <option value="20">Nivel 20 (Experto)</option>
-                </select>
-                <button id="resetBtn">Nueva Partida</button>
-                <button id="undoBtn">Deshacer</button>
-            </div>
-            
-            <div class="panel">
-                <div id="pgn" style="font-family: monospace; font-size: 0.8em; color: #aaa; max-height: 100px; overflow-y: auto;"></div>
+            <!-- SECCIÓN CONTROLES -->
+            <div class="sidebar">
+                
+                <!-- Panel 1: Estado -->
+                <div class="panel">
+                    <h3>Estado <i class="bi bi-activity"></i></h3>
+                    <div id="status" class="status-display">Bienvenido</div>
+                    <div id="thinking" class="thinking-indicator">Stockfish está pensando...</div>
+                </div>
+
+                <!-- Panel 2: Configuración de Juego -->
+                <div class="panel">
+                    <h3>Nueva Partida <i class="bi bi-controller"></i></h3>
+                    
+                    <div class="form-group">
+                        <label>Modo</label>
+                        <select id="gameMode">
+                            <option value="pvc">Jugar vs Stockfish</option>
+                            <option value="analysis">Modo Análisis / Estudio (2 Jugadores)</option>
+                        </select>
+                    </div>
+
+                    <div class="btn-group" style="margin-bottom: 15px;">
+                        <div style="width: 50%;">
+                            <label style="font-size:0.8rem; color:#888;">Tu Color</label>
+                            <select id="playerColor">
+                                <option value="w">Blancas</option>
+                                <option value="b">Negras</option>
+                            </select>
+                        </div>
+                        <div style="width: 50%;">
+                            <label style="font-size:0.8rem; color:#888;">Dificultad</label>
+                            <select id="skillLevel">
+                                <option value="1">Nivel 1 (Principiante)</option>
+                                <option value="5">Nivel 5 (Intermedio)</option>
+                                <option value="10" selected>Nivel 10 (Club)</option>
+                                <option value="15">Nivel 15 (Maestro)</option>
+                                <option value="20">Nivel 20 (Stockfish Puro)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button id="startBtn">Comenzar Partida</button>
+                    <div class="btn-group" style="margin-top: 10px;">
+                        <button id="undoBtn"><i class="bi bi-arrow-counterclockwise"></i> Deshacer (←)</button>
+                        <button id="flipBtn"><i class="bi bi-arrow-down-up"></i> Girar</button>
+                    </div>
+                </div>
+
+                <!-- Panel 3: Biblioteca de Aperturas -->
+                <div class="panel">
+                    <h3>Estudio de Aperturas <i class="bi bi-book"></i></h3>
+                    <select id="openingSelect">
+                        <option value="">-- Seleccionar Apertura --</option>
+                    </select>
+                    <div id="openingDesc" style="margin-top: 10px; font-size: 0.9rem; color: #aaa; min-height: 40px;">
+                        Selecciona una apertura para cargarla en el tablero y analizarla.
+                    </div>
+                </div>
+
+                <!-- Panel 4: PGN -->
+                <div class="panel">
+                    <h3>Movimientos (PGN)</h3>
+                    <div id="pgn"></div>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- SCRIPTS -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.js"></script>
 
     <script>
-        // --- CONFIGURACIÓN ---
-        const game = new Chess();
-        let board = null;
-        let engine = null;
-        
-        // ESTADOS DEL MOTOR: 'IDLE' (Inactivo), 'PLAYING' (Calculando jugada), 'ANALYZING' (Calculando barra)
-        let engineStatus = 'IDLE'; 
-        
-        let selectedSquare = null; // Para clic en móviles
-
-        // --- INICIALIZACIÓN ---
-        $(document).ready(function() {
-            initStockfish();
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- VARIABLES DE ESTADO ---
+            const game = new Chess();
+            let board = null;
+            let engine = null;
             
-            // Config del tablero
-            const config = {
+            // Estados del juego
+            let gameMode = 'pvc'; // 'pvc' (vs IA) o 'analysis' (Libre)
+            let playerColor = 'w'; // Color del humano
+            let engineStatus = 'IDLE'; // 'IDLE', 'THINKING' (Jugando), 'ANALYZING' (Solo mirando)
+            let selectedSquare = null; // Para control táctil
+
+            // --- DATA DE APERTURAS ---
+            const openings = [
+                { name: "Apertura Italiana", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bc4", desc: "Desarrollo clásico apuntando a f7." },
+                { name: "Defensa Siciliana", pgn: "1. e4 c5", desc: "La respuesta más combativa contra e4." },
+                { name: "Gambito de Dama", pgn: "1. d4 d5 2. c4", desc: "Lucha por el centro sacrificando un peón lateral." },
+                { name: "Ruy Lopez (Española)", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bb5", desc: "Una de las aperturas más antiguas y complejas." },
+                { name: "Defensa India de Rey", pgn: "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7", desc: "Hipermoderna, cede el centro para contraatacar." }
+            ];
+
+            // --- INICIALIZACIÓN ---
+            function init() {
+                // Cargar Stockfish
+                fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js')
+                    .then(r => r.blob())
+                    .then(blob => {
+                        engine = new Worker(URL.createObjectURL(blob));
+                        engine.onmessage = handleEngineMessage;
+                        engine.postMessage('uci');
+                        $('#status').text("Motor Listo. Configura tu partida.");
+                    });
+
+                // Cargar Aperturas en el Select
+                openings.forEach((op, i) => {
+                    $('#openingSelect').append(new Option(op.name, i));
+                });
+            }
+
+            // --- LÓGICA DEL MOTOR ---
+            function handleEngineMessage(e) {
+                const msg = e.data;
+
+                // 1. IA JUGANDO
+                if (msg.startsWith('bestmove')) {
+                    if (engineStatus === 'THINKING') {
+                        const move = msg.split(' ')[1];
+                        game.move(move, { sloppy: true });
+                        board.position(game.fen());
+                        updateStatus();
+                        engineStatus = 'IDLE';
+                        $('#thinking').removeClass('active');
+                        
+                        // Una vez movió, pedimos análisis pasivo de la nueva posición
+                        triggerAnalysis();
+                    }
+                }
+
+                // 2. IA ANALIZANDO (Evaluación)
+                if (msg.startsWith('info') && msg.includes('score')) {
+                    const scoreMatch = msg.match(/score (cp|mate) (-?\d+)/);
+                    if (scoreMatch) {
+                        let score = parseInt(scoreMatch[2]);
+                        const type = scoreMatch[1];
+                        
+                        // Normalizar score para que positivo siempre sea ventaja blanca
+                        // Stockfish da score relativo al turno.
+                        if (game.turn() === 'b') score = -score;
+                        
+                        updateEvalDisplay(type, score);
+                    }
+                }
+            }
+
+            function triggerAIMove() {
+                if (game.game_over() || gameMode !== 'pvc') return;
+                
+                engineStatus = 'THINKING';
+                $('#thinking').addClass('active');
+                $('#status').text("Turno de la IA...");
+
+                const skill = $('#skillLevel').val();
+                let depth = skill < 5 ? 5 : (skill < 15 ? 10 : 16);
+
+                engine.postMessage(`setoption name Skill Level value ${skill}`);
+                engine.postMessage(`position fen ${game.fen()}`);
+                engine.postMessage(`go depth ${depth}`);
+            }
+
+            function triggerAnalysis() {
+                // Solo evalúa, no mueve
+                engineStatus = 'ANALYZING'; 
+                engine.postMessage(`position fen ${game.fen()}`);
+                engine.postMessage('go depth 10'); 
+            }
+
+            // --- UI & TABLERO ---
+            
+            function onDragStart(source, piece) {
+                if (game.game_over() || engineStatus === 'THINKING') return false;
+                
+                // En modo PVC, solo puedes mover tus piezas
+                if (gameMode === 'pvc') {
+                    if ((playerColor === 'w' && piece.search(/^b/) !== -1) ||
+                        (playerColor === 'b' && piece.search(/^w/) !== -1)) {
+                        return false;
+                    }
+                }
+                
+                highlightSquare(source);
+                selectedSquare = source;
+            }
+
+            function onDrop(source, target) {
+                removeHighlights();
+                const move = game.move({ from: source, to: target, promotion: 'q' });
+                selectedSquare = null;
+
+                if (move === null) return 'snapback';
+
+                updateStatus();
+                
+                // Si es modo PVC, la IA responde si es su turno
+                if (gameMode === 'pvc') {
+                    triggerAIMove();
+                } else {
+                    // Si es Análisis, solo actualizamos barra
+                    triggerAnalysis();
+                }
+            }
+
+            // Manejo de clicks (Tap to move)
+            $('#chessBoard').on('click', '.square-55d63', function() {
+                if (game.game_over() || engineStatus === 'THINKING') return;
+
+                const square = $(this).attr('data-square');
+                const piece = game.get(square);
+
+                if (selectedSquare) {
+                    const move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
+                    if (move) {
+                        board.position(game.fen());
+                        removeHighlights();
+                        selectedSquare = null;
+                        updateStatus();
+                        if (gameMode === 'pvc') triggerAIMove();
+                        else triggerAnalysis();
+                    } else {
+                        // Cambio de selección
+                        if (piece && canSelect(piece)) {
+                            removeHighlights();
+                            selectedSquare = square;
+                            highlightSquare(square);
+                        } else {
+                            removeHighlights();
+                            selectedSquare = null;
+                        }
+                    }
+                } else {
+                    if (piece && canSelect(piece)) {
+                        selectedSquare = square;
+                        highlightSquare(square);
+                    }
+                }
+            });
+
+            function canSelect(piece) {
+                if (gameMode === 'analysis') return true;
+                return piece.color === playerColor;
+            }
+
+            // --- CONTROLES BOTONES ---
+
+            $('#startBtn').click(function() {
+                gameMode = $('#gameMode').val();
+                playerColor = $('#playerColor').val();
+                
+                game.reset();
+                board.orientation(playerColor === 'w' ? 'white' : 'black');
+                board.start();
+                
+                updateStatus();
+                $('#thinking').removeClass('active');
+                $('#evalBar').css('width', '50%'); // Reset barra
+                
+                // Si juegas con negras, la IA mueve primero
+                if (gameMode === 'pvc' && playerColor === 'b') {
+                    triggerAIMove();
+                }
+            });
+
+            $('#openingSelect').change(function() {
+                const idx = $(this).val();
+                if (idx === "") return;
+
+                const op = openings[idx];
+                game.load_pgn(op.pgn);
+                board.position(game.fen());
+                
+                // Cambiar a modo análisis automáticamente
+                $('#gameMode').val('analysis');
+                gameMode = 'analysis';
+                $('#status').text("Apertura cargada. Modo Análisis activo.");
+                $('#openingDesc').text(op.desc);
+                updateStatus();
+                triggerAnalysis();
+            });
+
+            // --- TECLADO Y DESHACER ---
+            
+            function undoMove() {
+                if (engineStatus === 'THINKING') return;
+                
+                if (gameMode === 'pvc') {
+                    // Deshacer 2 movimientos (IA y Humano)
+                    game.undo(); game.undo();
+                } else {
+                    // Análisis: deshacer 1 a 1
+                    game.undo();
+                }
+                
+                board.position(game.fen());
+                updateStatus();
+                triggerAnalysis();
+            }
+
+            $('#undoBtn').click(undoMove);
+            $('#flipBtn').click(board.flip);
+
+            // Escuchar teclas
+            document.addEventListener('keydown', function(e) {
+                if (e.key === "ArrowLeft") undoMove();
+            });
+
+
+            // --- UTILS UI ---
+
+            function updateStatus() {
+                let status = '';
+                const turn = game.turn() === 'w' ? 'Blancas' : 'Negras';
+                
+                if (game.in_checkmate()) status = `Jaque Mate. Ganan ${game.turn()==='w'?'Negras':'Blancas'}`;
+                else if (game.in_draw()) status = 'Tablas';
+                else {
+                    status = `Turno: ${turn}`;
+                    if (game.in_check()) status += ' (JAQUE)';
+                }
+                
+                $('#status').text(status);
+                $('#pgn').text(game.pgn());
+            }
+
+            function updateEvalDisplay(type, score) {
+                let percent = 50;
+                let text = "Igualdad";
+                let color = "#fff";
+
+                if (type === 'mate') {
+                    percent = score > 0 ? 100 : 0;
+                    text = `Mate en ${Math.abs(score)}`;
+                    color = score > 0 ? "#5ab4ff" : "#ff4d4d";
+                } else {
+                    const clamped = Math.max(-500, Math.min(500, score));
+                    percent = 50 + (clamped / 10);
+                    const num = (score / 100).toFixed(2);
+                    text = (score > 0 ? "+" : "") + num;
+                    
+                    if (score > 50) { text += " (Ventaja Blanca)"; color = "#fff"; }
+                    else if (score < -50) { text += " (Ventaja Negra)"; color = "#555"; }
+                }
+
+                $('#evalBar').css('width', percent + '%');
+                $('#evalBar').css('background', color);
+                $('#evalText').text(text);
+            }
+
+            function highlightSquare(sq) {
+                $('.square-' + sq).addClass('highlight-selected');
+            }
+            function removeHighlights() {
+                $('.square-55d63').removeClass('highlight-selected');
+            }
+
+            // --- ARRANQUE ---
+            board = Chessboard('chessBoard', {
                 draggable: true,
                 position: 'start',
                 onDragStart: onDragStart,
                 onDrop: onDrop,
                 onSnapEnd: () => board.position(game.fen()),
                 pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
-            };
-            board = Chessboard('board', config);
+            });
             $(window).resize(board.resize);
-
-            // Click Handlers para móviles (Tap to move)
-            $('#board').on('click', '.square-55d63', handleSquareClick);
+            init();
         });
-
-        // --- LÓGICA STOCKFISH ---
-        function initStockfish() {
-            // Cargar Stockfish vía Blob para evitar errores de archivo local
-            fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js')
-                .then(r => r.blob())
-                .then(blob => {
-                    const url = URL.createObjectURL(blob);
-                    engine = new Worker(url);
-                    
-                    engine.onmessage = (e) => {
-                        const msg = e.data;
-                        
-                        // 1. SI LA IA DECIDE MOVER
-                        if (msg.startsWith('bestmove')) {
-                            // SOLO movemos si el estado es PLAYING
-                            if (engineStatus === 'PLAYING') {
-                                const move = msg.split(' ')[1];
-                                game.move(move, { sloppy: true });
-                                board.position(game.fen());
-                                updateStatus();
-                                
-                                engineStatus = 'IDLE';
-                                $('#thinking').text('');
-                                
-                                // Después de mover, analizamos la posición final (sin jugar)
-                                startAnalysis();
-                            }
-                            // Si el estado era ANALYZING, ignoramos el 'bestmove' (no lo jugamos)
-                        }
-                        
-                        // 2. LECTURA DE EVALUACIÓN (SCORE)
-                        if (msg.startsWith('info') && msg.includes('score')) {
-                            const scoreMatch = msg.match(/score (cp|mate) (-?\d+)/);
-                            if(scoreMatch) {
-                                let score = parseInt(scoreMatch[2]);
-                                const type = scoreMatch[1];
-                                
-                                // Ajustar perspectiva (Stockfish da score para quien mueve)
-                                if (game.turn() === 'b') score = -score;
-                                
-                                updateEvalBar(type, score);
-                            }
-                        }
-                    };
-
-                    engine.postMessage('uci');
-                    updateStatus();
-                });
-        }
-
-        // --- CONTROL DEL JUEGO ---
-
-        function makeEngineMove() {
-            if(game.game_over()) return;
-
-            engineStatus = 'PLAYING'; // <--- IMPORTANTE: Marcamos que va a jugar
-            $('#thinking').text('La IA está pensando...');
-            
-            const skill = $('#skillLevel').val();
-            // Profundidad según nivel
-            let depth = 10;
-            if(skill < 5) depth = 5;
-            else if(skill > 15) depth = 16;
-
-            engine.postMessage(`setoption name Skill Level value ${skill}`);
-            engine.postMessage(`position fen ${game.fen()}`);
-            engine.postMessage(`go depth ${depth}`);
-        }
-
-        function startAnalysis() {
-            // Pedimos análisis, pero marcamos estado ANALYZING para no mover piezas
-            engineStatus = 'ANALYZING'; 
-            engine.postMessage(`position fen ${game.fen()}`);
-            engine.postMessage('go depth 10'); 
-        }
-
-        // --- ARRASTRAR Y SOLTAR (PC) ---
-        function onDragStart(source, piece) {
-            if (game.game_over() || engineStatus === 'PLAYING') return false;
-            if (piece.search(/^b/) !== -1) return false; // Solo blancas
-            
-            removeHighlights();
-            selectedSquare = source;
-            highlightSquare(source, 'highlight-current');
-        }
-
-        function onDrop(source, target) {
-            const move = game.move({ from: source, to: target, promotion: 'q' });
-            removeHighlights();
-            selectedSquare = null;
-
-            if (move === null) return 'snapback';
-
-            updateStatus();
-            // Turno IA
-            makeEngineMove();
-        }
-
-        // --- CLIC EN MÓVILES (TAP TO MOVE) ---
-        function handleSquareClick() {
-            if (game.game_over() || engineStatus === 'PLAYING') return;
-
-            const square = $(this).attr('data-square');
-            const piece = game.get(square);
-
-            // 1. Si ya seleccioné origen, intento mover destino
-            if (selectedSquare) {
-                const move = game.move({ from: selectedSquare, to: square, promotion: 'q' });
-
-                if (move !== null) {
-                    // Movimiento válido
-                    board.position(game.fen());
-                    removeHighlights();
-                    selectedSquare = null;
-                    updateStatus();
-                    makeEngineMove();
-                } else {
-                    // Movimiento inválido
-                    removeHighlights();
-                    // Si toqué otra pieza mía, cambio selección
-                    if (piece && piece.color === 'w') {
-                        selectedSquare = square;
-                        highlightSquare(square, 'highlight-current');
-                    } else {
-                        selectedSquare = null;
-                    }
-                }
-            } 
-            // 2. Primera selección
-            else {
-                if (piece && piece.color === 'w') {
-                    selectedSquare = square;
-                    highlightSquare(square, 'highlight-current');
-                }
-            }
-        }
-
-        // --- UI UTILS ---
-        function updateStatus() {
-            let status = '';
-            if (game.in_checkmate()) status = 'Jaque Mate. Fin.';
-            else if (game.in_draw()) status = 'Tablas.';
-            else {
-                status = (game.turn() === 'w') ? 'Tu turno' : 'Turno IA';
-                if (game.in_check()) status += ' (JAQUE)';
-            }
-            $('#status').text(status);
-            $('#pgn').text(game.pgn());
-        }
-
-        function updateEvalBar(type, score) {
-            let percent = 50;
-            let text = "Igualdad";
-            
-            if (type === 'mate') {
-                percent = score > 0 ? 100 : 0;
-                text = `Mate en ${Math.abs(score)}`;
-            } else {
-                // Limitamos visualmente entre -500 y 500
-                const val = Math.max(-500, Math.min(500, score));
-                percent = 50 + (val / 10);
-                
-                const p = (score/100).toFixed(2);
-                text = (score > 0 ? "+" : "") + p;
-            }
-
-            $('#evalBar').css('width', percent + '%');
-            // Color de barra: Blanco si gana blanco, oscuro si gana negro
-            $('#evalBar').css('background', percent > 50 ? '#fff' : '#444');
-            $('#evalText').text(text);
-        }
-
-        function highlightSquare(sq, cls) {
-            $('#board .square-' + sq).addClass(cls);
-        }
-        function removeHighlights() {
-            $('#board .square-55d63').removeClass('highlight-current');
-        }
-
-        // Botones
-        $('#resetBtn').on('click', function() {
-            game.reset();
-            board.start();
-            engineStatus = 'IDLE';
-            updateStatus();
-            $('#thinking').text('');
-            $('#evalBar').css('width', '50%');
-        });
-
-        $('#undoBtn').on('click', function() {
-            if(engineStatus === 'PLAYING') return;
-            game.undo(); game.undo();
-            board.position(game.fen());
-            updateStatus();
-            startAnalysis();
-        });
-
     </script>
 </body>
 </html>
