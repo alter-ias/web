@@ -1,267 +1,467 @@
-<script>
-    // --- VARIABLES GLOBALES ---
-    const game = new Chess();
-    let board = null;
-    let engine = null;
-    let redoStack = []; 
-    let isEnginePlaying = false; // Bandera para saber si la IA está moviendo
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Alter.Drez - Plataforma de Aprendizaje</title>
+
+    <!-- FUENTES Y LIBRERÍAS CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+
+    <style>
+        /* --- ESTILOS GENERALES --- */
+        :root {
+            --bg-dark: #0F121B;
+            --panel-bg: #1A1E29;
+            --accent: #4db8ff;       /* Azul Alter.Drez */
+            --text-main: #e0e0e0;
+            --good: #00e676;         /* Verde Éxito */
+            --bad: #ff1744;          /* Rojo Error */
+            --warn: #ffea00;         /* Amarillo Alerta */
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Montserrat', sans-serif;
+            margin: 0; padding: 0;
+            min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* HEADER */
+        header { width: 100%; padding: 15px; background: rgba(0,0,0,0.3); text-align: center; border-bottom: 1px solid #333; }
+        h1 { margin: 0; font-size: 1.8rem; letter-spacing: 3px; font-weight: 800; color: var(--accent); text-transform: uppercase; }
+
+        /* LAYOUT PRINCIPAL */
+        .main-container {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 25px;
+            width: 100%; max-width: 1300px; padding: 20px;
+        }
+
+        /* --- ZONA IZQUIERDA: TABLERO --- */
+        .board-section { flex: 1; min-width: 300px; max-width: 600px; display: flex; flex-direction: column; gap: 10px; }
+        
+        /* Barra de Evaluación */
+        .eval-bar-wrapper {
+            height: 12px; background: #333; border-radius: 6px; overflow: hidden; position: relative; display: flex;
+        }
+        .eval-fill {
+            height: 100%; width: 50%; background: #fff; transition: width 0.8s ease, background 0.3s;
+        }
+        .eval-score {
+            position: absolute; width: 100%; text-align: center; top: -1px; left: 0;
+            font-size: 0.65rem; font-weight: bold; line-height: 14px; color: #000; mix-blend-mode: difference;
+        }
+
+        /* Contenedor Tablero */
+        .board-container {
+            width: 100%;
+            /* Fix para móviles: evita scroll al tocar el tablero */
+            touch-action: none; 
+            border: 5px solid #222; border-radius: 4px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .status-row { display: flex; justify-content: space-between; font-size: 0.9rem; color: #888; padding: 0 5px; }
+        #thinkingIndicator { color: var(--accent); font-style: italic; display: none; }
+
+        /* --- ZONA DERECHA: PANELES --- */
+        .sidebar { flex: 1; min-width: 300px; max-width: 420px; display: flex; flex-direction: column; gap: 20px; }
+
+        .panel {
+            background: var(--panel-bg); border: 1px solid #333; border-radius: 12px; padding: 20px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .panel h3 { margin: 0 0 15px 0; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; color: #aaa; border-bottom: 1px solid #333; padding-bottom: 8px; }
+
+        /* ENTRENADOR (COACH) */
+        .coach-content { min-height: 60px; }
+        .coach-msg { font-size: 0.95rem; line-height: 1.5; color: #fff; margin-bottom: 12px; }
+        .coach-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+        
+        .tag { font-size: 0.7rem; padding: 4px 10px; border-radius: 15px; font-weight: bold; text-transform: uppercase; border: 1px solid transparent; }
+        .tag.good { background: rgba(0, 230, 118, 0.1); color: var(--good); border-color: var(--good); }
+        .tag.bad { background: rgba(255, 23, 68, 0.1); color: var(--bad); border-color: var(--bad); }
+        .tag.warn { background: rgba(255, 234, 0, 0.1); color: var(--warn); border-color: var(--warn); }
+        .tag.info { background: rgba(77, 184, 255, 0.1); color: var(--accent); border-color: var(--accent); }
+
+        /* INPUTS Y BOTONES */
+        .form-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .form-group { flex: 1; }
+        label { display: block; font-size: 0.75rem; color: #888; margin-bottom: 5px; }
+        
+        select, button {
+            width: 100%; padding: 12px; background: #252a36; border: 1px solid #444; color: #fff;
+            border-radius: 6px; font-family: inherit; font-size: 0.9rem; cursor: pointer; transition: 0.2s;
+        }
+        button:hover { background: var(--accent); color: #000; border-color: var(--accent); font-weight: 600; }
+        button:active { transform: scale(0.98); }
+
+        .btn-nav { display: flex; gap: 10px; margin-bottom: 10px; }
+        
+        /* ESTILOS DE MOVIMIENTO */
+        .highlight-move { box-shadow: inset 0 0 3px 3px rgba(77, 184, 255, 0.5); }
+        .highlight-check { box-shadow: inset 0 0 15px 5px rgba(255, 23, 68, 0.5); }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Alter.Drez <i class="bi bi-cpu"></i></h1>
+</header>
+
+<div class="main-container">
     
-    // --- 1. EL "OBSERVADOR" (Lógica Lingüística Real) ---
-    // Este objeto traduce la posición del tablero a palabras humanas
+    <!-- LADO IZQUIERDO -->
+    <div class="board-section">
+        <!-- Barra de evaluación -->
+        <div class="eval-bar-wrapper">
+            <div id="evalFill" class="eval-fill"></div>
+            <div id="evalScore" class="eval-score">0.0</div>
+        </div>
+
+        <!-- Tablero -->
+        <div class="board-container">
+            <div id="board"></div>
+        </div>
+
+        <!-- Estatus -->
+        <div class="status-row">
+            <span id="statusText">Bienvenido</span>
+            <span id="thinkingIndicator"><i class="bi bi-gear-wide-connected bi-spin"></i> Calculando...</span>
+        </div>
+    </div>
+
+    <!-- LADO DERECHO -->
+    <div class="sidebar">
+        
+        <!-- 1. ENTRENADOR HEURÍSTICO -->
+        <div class="panel" style="border-left: 3px solid var(--accent);">
+            <h3><i class="bi bi-robot"></i> Entrenador Virtual</h3>
+            <div class="coach-content">
+                <div id="coachMsg" class="coach-msg">
+                    Haz tu primer movimiento. Analizaré tu estrategia, estructura y táctica en tiempo real.
+                </div>
+                <div id="coachTags" class="coach-tags">
+                    <span class="tag info">Listo</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. CONFIGURACIÓN -->
+        <div class="panel">
+            <h3>Configuración</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Modo</label>
+                    <select id="gameMode">
+                        <option value="pvc">Jugar vs IA</option>
+                        <option value="analysis">Análisis Libre</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tu Color</label>
+                    <select id="playerColor">
+                        <option value="w">Blancas</option>
+                        <option value="b">Negras</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Dificultad IA</label>
+                    <select id="skillLevel">
+                        <option value="0">0 (Novato)</option>
+                        <option value="5">5 (Casual)</option>
+                        <option value="10" selected>10 (Club)</option>
+                        <option value="15">15 (Maestro)</option>
+                        <option value="20">20 (Stockfish)</option>
+                    </select>
+                </div>
+            </div>
+            <button id="btnNewGame" style="background: var(--accent); color: #000; font-weight:bold;">Nueva Partida</button>
+        </div>
+
+        <!-- 3. ACCIONES -->
+        <div class="panel">
+            <h3>Navegación</h3>
+            <div class="btn-nav">
+                <button id="btnUndo"><i class="bi bi-arrow-left"></i> Atrás</button>
+                <button id="btnRedo">Adelante <i class="bi bi-arrow-right"></i></button>
+            </div>
+            <button id="btnFlip"><i class="bi bi-arrow-down-up"></i> Girar Tablero</button>
+            
+            <div style="margin-top: 15px;">
+                <label>Lecciones / Aperturas</label>
+                <select id="openingSelect">
+                    <option value="">-- Cargar Lección --</option>
+                </select>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- LIBRERÍAS JS -->
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.js"></script>
+
+<script>
+    // --- 1. EL "OBSERVADOR" (MOTOR LINGÜÍSTICO) ---
+    // Este objeto convierte los datos fríos de la partida en lenguaje natural.
     const Observer = {
-        lastScore: 0,
+        lastScore: 0, // Para detectar errores graves (Blunders)
 
-        evaluate: function(gameInstance, engineScore, playerColor) {
-            const fen = gameInstance.fen();
-            const turn = gameInstance.turn();
-            const history = gameInstance.history({verbose: true});
-            const lastMove = history.length > 0 ? history[history.length - 1] : null;
+        evaluate: function(game, engineScore, playerColor) {
+            // engineScore: Siempre positivo para Blancas, negativo para Negras (Absoluto)
+            // Necesitamos convertirlo a perspectiva del Jugador para saber si va ganando o perdiendo.
+            
+            const turn = game.turn();
+            const fen = game.fen();
+            
+            // Score relativo al jugador humano
+            let playerScore = (playerColor === 'w') ? engineScore : -engineScore;
+            
+            // Delta: Cambio de puntuación desde el último turno.
+            // Si soy blancas, quiero que el score suba. Si baja, cometí error.
+            let delta = 0;
+            if (playerColor === 'w') delta = engineScore - this.lastScore;
+            else delta = this.lastScore - engineScore; // Inverso para negras
 
-            let comments = [];
+            let msgs = [];
             let tags = [];
 
-            // A. ANÁLISIS DEL MOVIMIENTO RECIENTE (Blunders/Errores)
-            // Calculamos el cambio de suerte (Delta)
-            // Nota: engineScore siempre lo normalizamos a: Positivo = Ventaja para el Jugador Humano
-            let delta = engineScore - this.lastScore;
-            
-            // Si acabas de mover y la puntuación bajó drásticamente...
+            // A. DETECCIÓN DE ERRORES (BLUNDERS)
+            // Solo analizamos blunders si el último movimiento fue del jugador
+            const history = game.history({verbose:true});
+            const lastMove = history[history.length - 1];
+
             if (lastMove && lastMove.color === playerColor) {
-                if (delta < -200) { 
+                if (delta < -250) {
                     tags.push({text: "Error Grave", type: "bad"});
-                    comments.push("¡Ay! Ese movimiento ha regalado una gran ventaja. Has dejado una pieza colgada o ignorado una amenaza.");
+                    msgs.push("¡Cuidado! Has perdido una ventaja significativa. Revisa si dejaste una pieza colgada.");
                 } else if (delta < -80) {
                     tags.push({text: "Imprecisión", type: "warn"});
-                    comments.push("Esa jugada es pasiva. Había opciones más activas.");
-                } else if (delta > 50 && engineScore > 50) {
+                    msgs.push("Esa jugada es pasiva. Había mejores opciones para presionar.");
+                } else if (delta > 50 && Math.abs(playerScore) > 50) {
                     tags.push({text: "Buena Jugada", type: "good"});
-                    comments.push("¡Bien visto! Aprovechas la posición.");
+                    msgs.push("¡Bien visto! Has mejorado tu posición.");
                 }
             }
-            this.lastScore = engineScore; // Guardar para el siguiente turno
+            this.lastScore = engineScore; // Guardar para siguiente turno
 
-            // B. ANÁLISIS POSICIONAL (Heurísticas Humanas)
+            // B. ANÁLISIS ESTRUCTURAL (HEURÍSTICAS)
             
-            // 1. Control del Centro (e4, d4, e5, d5)
-            const centerControl = this.checkCenter(gameInstance, playerColor);
-            if (centerControl > 1) {
-                // Solo lo mencionamos si no hay errores graves
-                if (comments.length === 0) comments.push("Tienes un excelente control del centro del tablero.");
+            // 1. Control del Centro
+            const center = this.checkCenter(game, playerColor);
+            if (center > 1) {
+                if(msgs.length === 0) msgs.push("Excelente control del centro.");
                 tags.push({text: "Centro Fuerte", type: "good"});
-            } else if (centerControl < -1) {
-                if (comments.length === 0) comments.push("Tu oponente domina el centro. Intenta romper con peones.");
-                tags.push({text: "Centro Débil", type: "warn"});
             }
 
-            // 2. Seguridad del Rey
-            const kingSafety = this.checkKingSafety(gameInstance, playerColor);
-            if (!kingSafety.castled && gameInstance.moveNumber() > 10) {
+            // 2. Seguridad del Rey (Falta de enroque)
+            const moveNum = parseInt(fen.split(' ')[5]);
+            const kingSafety = this.checkKingSafety(game, playerColor);
+            if (!kingSafety && moveNum > 10) {
                 tags.push({text: "Rey Expuesto", type: "bad"});
-                comments.push("Es peligroso mantener al rey en el centro tantas jugadas. ¡Enrócate pronto!");
+                msgs.push("Es la jugada 10 y tu rey sigue en el centro. ¡Enrócate pronto!");
             }
 
-            // 3. Desarrollo (Piezas en primera fila)
-            const dev = this.checkDevelopment(gameInstance, playerColor);
-            if (dev.undeveloped > 2 && gameInstance.moveNumber() > 8) {
+            // 3. Desarrollo
+            const dev = this.checkDevelopment(game, playerColor);
+            if (dev < 2 && moveNum > 8) { // Menos de 2 piezas menores sacadas
                 tags.push({text: "Desarrollo Lento", type: "warn"});
-                if (comments.length === 0) comments.push("Saca tus caballos y alfiles antes de mover la misma pieza dos veces.");
+                if(msgs.length === 0) msgs.push("Saca tus caballos y alfiles antes de mover la Dama.");
             }
 
-            // C. RESUMEN GENERAL (Si no hay nada específico que decir)
-            if (comments.length === 0) {
-                if (Math.abs(engineScore) < 50) comments.push("La posición está igualada. Busca debilidades menores.");
-                else if (engineScore > 150) comments.push("Vas ganando. Simplifica la posición (cambia piezas) para asegurar la victoria.");
-                else if (engineScore < -150) comments.push("Posición difícil. Busca complicaciones tácticas para confundir al rival.");
+            // C. ESTADO GENERAL
+            if (msgs.length === 0) {
+                if (playerScore > 300) msgs.push("Ventaja decisiva. Simplifica y gana.");
+                else if (playerScore > 100) msgs.push("Vas ganando terreno. Mantén la presión.");
+                else if (playerScore < -300) msgs.push("Posición perdida. Busca complicaciones.");
+                else if (playerScore < -100) msgs.push("Estás bajo presión. Defiéndete con cuidado.");
+                else msgs.push("Posición igualada. Busca debilidades estratégicas.");
             }
 
-            // Renderizar en el DOM
-            this.render(comments, tags);
+            this.render(msgs, tags);
         },
 
-        // Cuenta piezas propias en e4,d4,e5,d5
         checkCenter: function(game, color) {
-            const centerSquares = ['d4', 'e4', 'd5', 'e5'];
-            let score = 0;
-            centerSquares.forEach(sq => {
-                const piece = game.get(sq);
-                if (piece) {
-                    if (piece.color === color) score++;
-                    else score--;
-                }
-            });
-            return score;
-        },
-
-        // Revisa si se ha enrocado
-        checkKingSafety: function(game, color) {
-            // Revisamos el historial para ver si hubo enroque
-            const history = game.history({verbose: true});
-            const castled = history.some(m => m.color === color && m.san.includes("O-O"));
-            return { castled: castled };
-        },
-
-        // Cuenta piezas mayores/menores en la fila trasera
-        checkDevelopment: function(game, color) {
-            const rank = color === 'w' ? '1' : '8';
-            const pieces = ['b'+rank, 'c'+rank, 'f'+rank, 'g'+rank]; // Caballos y Alfiles
+            const sqs = ['d4','e4','d5','e5'];
             let count = 0;
-            pieces.forEach(sq => {
-                const piece = game.get(sq);
-                if (piece && piece.color === color) count++; // Siguen en casa
+            sqs.forEach(s => {
+                const p = game.get(s);
+                if(p && p.color === color) count++;
             });
-            return { undeveloped: count };
+            return count;
+        },
+
+        checkKingSafety: function(game, color) {
+            const history = game.history({verbose:true});
+            // Busca si hubo enroque
+            return history.some(m => m.color === color && m.san.includes("O-O"));
+        },
+
+        checkDevelopment: function(game, color) {
+            // Contar cuantas piezas menores salieron de su fila original
+            const rank = color === 'w' ? '1' : '8';
+            let developed = 0;
+            // Verificar casillas originales de Caballos y Alfiles
+            ['b','c','f','g'].forEach(file => {
+                const p = game.get(file + rank);
+                // Si la casilla está vacía o tiene algo que no es la pieza original, se desarrolló
+                if (!p) developed++;
+            });
+            return developed;
         },
 
         render: function(msgs, tags) {
-            // Mostrar máximo 2 mensajes para no saturar
             $('#coachMsg').html(msgs.slice(0, 2).join("<br><br>"));
             $('#coachTags').empty();
-            tags.forEach(t => {
-                $('#coachTags').append(`<span class="tag ${t.type}">${t.text}</span>`);
-            });
+            tags.forEach(t => $('#coachTags').append(`<span class="tag ${t.type}">${t.text}</span>`));
         }
     };
 
-    // --- 2. CONFIGURACIÓN DEL MOTOR ---
-    function initStockfish() {
-        // Carga mediante Blob para evitar problemas de rutas locales
+    // --- 2. LÓGICA DEL JUEGO ---
+    
+    // Variables de Estado
+    const game = new Chess();
+    let board = null;
+    let engine = null;
+    let redoStack = [];
+    let isEnginePlaying = false; // Diferencia si Stockfish piensa para mover o para analizar
+
+    // Inicializar Motor
+    function initEngine() {
         fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js')
             .then(r => r.blob())
             .then(blob => {
                 engine = new Worker(URL.createObjectURL(blob));
                 engine.postMessage('uci');
-                
-                engine.onmessage = function(event) {
-                    const msg = event.data;
-                    
-                    // A. LA IA DECIDE MOVER
-                    if (msg.startsWith('bestmove')) {
-                        // Solo movemos si la IA estaba pensando para JUGAR, no para analizar
-                        if (isEnginePlaying) {
-                            const bestMove = msg.split(' ')[1];
-                            game.move(bestMove, {sloppy: true});
-                            board.position(game.fen());
-                            redoStack = []; // Romper historial futuro
-                            
-                            isEnginePlaying = false;
-                            $('#thinkingIndicator').hide();
-                            updateStatus();
-                            
-                            // Inmediatamente después de mover, pedimos ANÁLISIS (Coach)
-                            triggerAnalysis();
-                        }
-                    }
-
-                    // B. ANÁLISIS DE EVALUACIÓN (SCORE)
-                    if (msg.startsWith('info') && msg.includes('score')) {
-                        // Filtramos profundidad baja para evitar parpadeos numéricos
-                        if (msg.includes('depth 10') || msg.includes('mate')) {
-                            const match = msg.match(/score (cp|mate) (-?\d+)/);
-                            if (match) {
-                                let score = parseInt(match[2]);
-                                let type = match[1];
-
-                                // AJUSTE VITAL: Stockfish da el score relativo al que mueve.
-                                // Para el Coach, necesitamos score relativo al JUGADOR HUMANO.
-                                const turn = game.turn(); // Turno actual (del que va a mover)
-                                const playerColor = $('#playerColor').val();
-
-                                // Convertir a absoluto (Perspectiva Blancas)
-                                let absoluteScore = (turn === 'w') ? score : -score;
-
-                                // Convertir a perspectiva Jugador
-                                let playerScore = (playerColor === 'w') ? absoluteScore : -absoluteScore;
-
-                                updateEvalBar(type, absoluteScore); // La barra siempre muestra Blancas vs Negras
-                                Observer.evaluate(game, playerScore, playerColor);
-                            }
-                        }
-                    }
-                };
-                updateStatus();
+                engine.onmessage = handleEngineMessage;
+                $('#statusText').text("Sistema Listo.");
             });
     }
 
-    // --- 3. LÓGICA DEL JUEGO ---
-    
-    // Función para que la IA mueva (Nivel Configurado)
+    function handleEngineMessage(e) {
+        const msg = e.data;
+        
+        // A. IA JUGANDO (BESTMOVE)
+        if (msg.startsWith('bestmove')) {
+            if (isEnginePlaying) {
+                const move = msg.split(' ')[1];
+                game.move(move, {sloppy: true});
+                board.position(game.fen());
+                redoStack = []; 
+                isEnginePlaying = false;
+                $('#thinkingIndicator').hide();
+                updateStatus();
+                
+                // Inmediatamente pedir análisis
+                triggerAnalysis();
+            }
+        }
+
+        // B. IA ANALIZANDO (SCORE)
+        if (msg.startsWith('info') && msg.includes('score')) {
+            // Filtro para evitar ruido de profundidad baja
+            if (msg.includes('depth 12') || msg.includes('mate')) {
+                const match = msg.match(/score (cp|mate) (-?\d+)/);
+                if (match) {
+                    let val = parseInt(match[2]);
+                    const type = match[1];
+
+                    // Stockfish score es relativo al turno. 
+                    // Lo convertimos a absoluto (Blancas positivo)
+                    if (game.turn() === 'b') val = -val;
+
+                    updateEvalBar(type, val);
+                    
+                    // Llamar al Coach con score absoluto y color del jugador
+                    Observer.evaluate(game, val, $('#playerColor').val());
+                }
+            }
+        }
+    }
+
+    // --- 3. FUNCIONES DE JUEGO ---
+
     function triggerAI() {
         if (game.game_over()) return;
         
         isEnginePlaying = true;
-        $('#thinkingIndicator').show().text("La IA está pensando...");
+        $('#thinkingIndicator').show();
         
-        const skill = $('#skillLevel').val(); 
-        
-        // 1. Configuramos el nivel ELEGIDO por el usuario
+        // Nivel de Juego (Dificultad Variable)
+        const skill = $('#skillLevel').val();
         engine.postMessage(`setoption name Skill Level value ${skill}`);
         
-        // 2. Tiempo/Profundidad acorde al nivel
-        // Nivel bajo = piensa poco. Nivel alto = piensa más.
+        // Profundidad según dificultad
         let depth = skill < 5 ? 5 : (skill < 15 ? 10 : 15);
         
         engine.postMessage(`position fen ${game.fen()}`);
         engine.postMessage(`go depth ${depth}`);
     }
 
-    // Función para solo Analizar (Siempre Máxima Potencia)
     function triggerAnalysis() {
-        // 1. Para analizar, usamos SIEMPRE el máximo nivel para que el consejo sea bueno
+        // Nivel de Análisis (Siempre Máximo para buenos consejos)
         engine.postMessage(`setoption name Skill Level value 20`);
-        
-        // 2. Pedimos análisis pero NO pedimos que mueva (no activamos isEnginePlaying)
         engine.postMessage(`position fen ${game.fen()}`);
-        engine.postMessage('go depth 12'); // Profundidad media para análisis rápido
+        engine.postMessage(`go depth 12`); // Profundidad media para respuesta rápida
     }
 
     function onDrop(source, target) {
-        // Intentar mover
         const move = game.move({ from: source, to: target, promotion: 'q' });
         if (move === null) return 'snapback';
 
-        redoStack = []; // Nuevo movimiento borra el "Adelante"
+        redoStack = []; // Borrar futuro
         board.position(game.fen());
         updateStatus();
 
-        // Flujo de turnos
         const mode = $('#gameMode').val();
-        const playerColor = $('#playerColor').val();
+        const pColor = $('#playerColor').val();
 
+        // Lógica de Turnos
         if (mode === 'pvc') {
-            // Si juego vs IA, y ahora no es mi turno, le toca a ella
-            if (game.turn() !== playerColor) {
-                // Primero analizamos tu jugada (Coach)
+            // Si le toca a la IA
+            if (game.turn() !== pColor) {
+                // Primero analizamos tu jugada
                 triggerAnalysis();
-                // Luego de un pequeño delay, la IA juega
-                setTimeout(triggerAI, 500);
+                // Luego de delay, IA juega
+                setTimeout(triggerAI, 600);
             }
         } else {
-            // Si es modo análisis (Jugador vs Jugador), solo analizamos
+            // Modo análisis: solo evaluar
             triggerAnalysis();
         }
     }
 
     function onDragStart(source, piece) {
         if (game.game_over() || isEnginePlaying) return false;
-        
         const mode = $('#gameMode').val();
-        const playerColor = $('#playerColor').val();
-
-        // En modo Vs IA, no dejo que muevas las piezas del rival
+        const pColor = $('#playerColor').val();
+        
+        // En PvC solo muevo mis piezas
         if (mode === 'pvc') {
-            if ((playerColor === 'w' && piece.search(/^b/) !== -1) ||
-                (playerColor === 'b' && piece.search(/^w/) !== -1)) {
+            if ((pColor === 'w' && piece.search(/^b/) !== -1) ||
+                (pColor === 'b' && piece.search(/^w/) !== -1)) {
                 return false;
             }
         }
     }
 
-    // --- 4. CONTROLES Y NAVEGACIÓN ---
+    // --- 4. CONTROLES Y TECLADO ---
 
+    // Nuevo Juego
     $('#btnNewGame').click(() => {
         game.reset();
         redoStack = [];
-        Observer.lastScore = 0; // Reiniciar coach
+        Observer.lastScore = 0;
         
         const pColor = $('#playerColor').val();
         board.orientation(pColor === 'w' ? 'white' : 'black');
@@ -280,107 +480,102 @@
     });
 
     // Undo / Redo
-    function handleUndo() {
+    function undoMove() {
         if (isEnginePlaying) return;
         
-        // Retroceder
-        let move = game.undo();
-        if (move) redoStack.push(move);
-
-        // Si es Vs IA, retroceder otro más (el de la IA) para que sea mi turno
-        if ($('#gameMode').val() === 'pvc') {
-            let move2 = game.undo();
-            if (move2) redoStack.push(move2);
+        let m = game.undo();
+        if (m) {
+            redoStack.push(m);
+            // Si es PvC, deshacer también la de la IA para volver a mi turno
+            if ($('#gameMode').val() === 'pvc') {
+                let m2 = game.undo();
+                if (m2) redoStack.push(m2);
+            }
+            board.position(game.fen());
+            updateStatus();
+            triggerAnalysis();
         }
-
-        board.position(game.fen());
-        updateStatus();
-        triggerAnalysis(); // Re-analizar la posición anterior
     }
 
-    function handleRedo() {
+    function redoMove() {
         if (isEnginePlaying || redoStack.length === 0) return;
-
-        let move = redoStack.pop();
-        game.move(move);
-
-        // Si es Vs IA, rehacer también la respuesta de la IA
+        
+        let m = redoStack.pop();
+        game.move(m);
+        // Si es PvC, rehacer también la de la IA
         if ($('#gameMode').val() === 'pvc' && redoStack.length > 0) {
-            let move2 = redoStack.pop();
-            game.move(move2);
+            let m2 = redoStack.pop();
+            game.move(m2);
         }
-
         board.position(game.fen());
         updateStatus();
         triggerAnalysis();
     }
 
-    $('#btnUndo').click(handleUndo);
-    $('#btnRedo').click(handleRedo);
+    $('#btnUndo').click(undoMove);
+    $('#btnRedo').click(redoMove);
     $('#btnFlip').click(() => board.flip());
 
-    // Teclas
+    // Flechas del Teclado
     document.addEventListener('keydown', (e) => {
-        if (e.key === "ArrowLeft") handleUndo();
-        if (e.key === "ArrowRight") handleRedo();
+        if (e.key === "ArrowLeft") undoMove();
+        if (e.key === "ArrowRight") redoMove();
     });
 
-    // Carga de Aperturas
-    const lessons = [
+    // Cargar Aperturas
+    const openings = [
         {name: "Apertura Italiana", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bc4"},
         {name: "Defensa Siciliana", pgn: "1. e4 c5 2. Nf3 d6 3. d4 cxd4"},
         {name: "Gambito de Dama", pgn: "1. d4 d5 2. c4 dxc4"}
     ];
-    lessons.forEach((l, i) => $('#openingSelect').append(new Option(l.name, i)));
+    openings.forEach((op, i) => $('#openingSelect').append(new Option(op.name, i)));
 
     $('#openingSelect').change(function() {
         const idx = $(this).val();
         if (idx !== "") {
-            game.load_pgn(lessons[idx].pgn);
+            game.load_pgn(openings[idx].pgn);
             board.position(game.fen());
             redoStack = [];
-            // Al cargar lección, cambiamos a modo análisis para que la IA no juegue sola
-            $('#gameMode').val('analysis'); 
+            $('#gameMode').val('analysis'); // Cambiar a análisis para estudiar
             triggerAnalysis();
         }
     });
 
-    // --- 5. UI UTILS ---
+    // UI Utils
     function updateStatus() {
-        let status = '';
-        if (game.in_checkmate()) status = "Jaque Mate";
-        else if (game.in_draw()) status = "Tablas";
-        else status = (game.turn() === 'w' ? "Turno Blancas" : "Turno Negras");
-        
-        if (game.in_check()) status += " (JAQUE)";
-        $('#status').text(status);
+        let s = '';
+        if (game.in_checkmate()) s = "Jaque Mate";
+        else if (game.in_draw()) s = "Tablas";
+        else s = (game.turn() === 'w' ? "Turno Blancas" : "Turno Negras");
+        if (game.in_check()) s += " (JAQUE)";
+        $('#statusText').text(s);
     }
 
-    function updateEvalBar(type, score) {
-        // La barra es absoluta (Blancas vs Negras)
+    function updateEvalBar(type, val) {
+        // val es absoluto (blanco positivo)
         let percent = 50;
-        let text = "0.0";
+        let txt = "0.0";
         
         if (type === 'mate') {
-            percent = score > 0 ? 100 : 0;
-            text = "M" + Math.abs(score);
+            percent = val > 0 ? 100 : 0;
+            txt = "M" + Math.abs(val);
         } else {
-            let val = Math.max(-500, Math.min(500, score));
-            percent = 50 + (val / 10);
-            text = (score / 100).toFixed(1);
-            if (score > 0) text = "+" + text;
+            let clamped = Math.max(-500, Math.min(500, val));
+            percent = 50 + (clamped / 10);
+            txt = (val / 100).toFixed(1);
+            if (val > 0) txt = "+" + txt;
         }
         
         $('#evalFill').css('width', percent + '%');
-        $('#evalText').text(text);
+        $('#evalScore').text(txt);
         
-        // Colores de la barra
-        if (percent > 55) $('#evalFill').css('background', '#fff');
-        else if (percent < 45) $('#evalFill').css('background', '#444');
+        // Color Barra
+        if (percent > 55) $('#evalFill').css('background', '#fff'); // Blanco gana
+        else if (percent < 45) $('#evalFill').css('background', '#444'); // Negro gana
         else $('#evalFill').css('background', '#888');
     }
 
-    // --- INICIALIZACIÓN ---
+    // --- INIT ---
     $(document).ready(function() {
         board = Chessboard('board', {
             draggable: true,
@@ -390,7 +585,9 @@
             pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
         });
         $(window).resize(board.resize);
-        
-        initStockfish();
+        initEngine();
     });
+
 </script>
+</body>
+</html>
