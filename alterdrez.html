@@ -129,7 +129,7 @@
     <!-- DERECHA: CONTROLES -->
     <div class="sidebar">
 
-        <!-- 1. ACADEMIA DE APERTURAS (MEJORADA) -->
+        <!-- 1. ACADEMIA DE APERTURAS -->
         <div class="panel" style="border-left: 3px solid var(--success);">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h3><i class="bi bi-mortarboard"></i> Academia</h3>
@@ -214,16 +214,24 @@
                     </select>
                 </div>
                 <div style="width: 50%;">
-                    <label>Nivel</label>
+                    <label>Nivel de Juego</label>
                     <select id="skillLevel">
-                        <option value="0">Principiante</option>
-                        <option value="3">Aficionado</option>
-                        <option value="6">Intermedio</option>
-                        <option value="10" selected>Club</option>
-                        <option value="15">Experto</option>
-                        <option value="20">GM</option>
+                        <option value="0">Principiante (800)</option>
+                        <option value="3">Aficionado (1000)</option>
+                        <option value="6">Intermedio (1300)</option>
+                        <option value="10" selected>Club (1600)</option>
+                        <option value="14">Experto (2000)</option>
+                        <option value="17">Maestro (2400)</option>
+                        <option value="20">Grand Master (2800+)</option>
                     </select>
                 </div>
+            </div>
+
+            <div class="btn-row">
+                <select id="gameMode">
+                    <option value="pvc">Modo Competitivo</option>
+                    <option value="analysis">Modo Análisis Libre</option>
+                </select>
             </div>
 
             <div class="btn-row">
@@ -252,13 +260,12 @@
     let redoStack = [];
     
     // Estados
-    let currentMode = 'analysis'; 
+    let currentMode = 'pvc'; 
     let lessonState = { active: false, moves: [], index: 0, currentOpening: null };
     let tacticsState = { active: false, puzzle: null, index: 0 };
     let isEnginePlaying = false; 
 
     // --- BASE DE DATOS DE APERTURAS (INICIAL) ---
-    // Estructura: ECO, NAME, PGN_STRING (Formato ECO estándar)
     let openingsList = [
         { eco: "C50", name: "Italian Game", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bc4" },
         { eco: "C60", name: "Ruy Lopez", pgn: "1. e4 e5 2. Nf3 Nc6 3. Bb5" },
@@ -277,72 +284,48 @@
         "1300": [], "1600": [], "2000": [], "2400": [], "2800": []
     };
 
-    // --- GESTOR DE APERTURAS (NUEVO) ---
+    // --- GESTOR DE APERTURAS ---
     const OpeningManager = {
         importFile: function(file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
-                const text = e.target.result;
-                OpeningManager.parseECO(text);
-            };
+            reader.onload = function(e) { OpeningManager.parseECO(e.target.result); };
             reader.readAsText(file);
         },
         parseECO: function(text) {
             const lines = text.split('\n');
             let newOpenings = [];
             let count = 0;
-            
-            // Intenta detectar si es TSV (tabuladores) o CSV (comas)
-            // Formato esperado: ECO [tab] NAME [tab] PGN
-            
             for(let line of lines) {
                 if(!line || line.startsWith('#')) continue;
-                
                 let parts = line.split('\t');
-                if(parts.length < 3) parts = line.split(','); // Fallback CSV
-                
+                if(parts.length < 3) parts = line.split(','); 
                 if(parts.length >= 3) {
                     let eco = parts[0].trim();
                     let name = parts[1].trim();
-                    let pgn = parts[parts.length-1].trim(); // El PGN suele ser el último
-                    
-                    if(pgn.length > 2) {
-                        newOpenings.push({ eco: eco, name: name, pgn: pgn });
-                        count++;
-                    }
+                    let pgn = parts[parts.length-1].trim();
+                    if(pgn.length > 2) { newOpenings.push({ eco: eco, name: name, pgn: pgn }); count++; }
                 }
             }
-
             if(count > 0) {
                 openingsList = newOpenings;
                 alert(`¡Éxito! Cargadas ${count} aperturas.`);
                 $('#openingCountBadge').text(`${count} Ops`);
-                populateOpeningsGUI(''); // Refrescar lista
-            } else {
-                alert("No se detectó formato válido. Usa formato ECO (ECO, Nombre, PGN)");
-            }
+                populateOpeningsGUI('');
+            } else alert("No se detectó formato válido.");
         },
-        // Convierte string PGN "1. e4 e5" en array ["e4", "e5"] usando engine chess.js
         pgnToArray: function(pgnString) {
             const tempGame = new Chess();
-            // Limpieza básica del PGN string
             const cleanPgn = pgnString.replace(/\*/g, '').replace(/1-0/g,'').replace(/0-1/g,'').replace(/1\/2-1\/2/g,'');
-            
-            // Cargar PGN
             if(!tempGame.load_pgn(cleanPgn)) {
-                // Si falla load_pgn, intentamos cargar movimiento a movimiento
-                // Esto es un fallback por si el PGN no tiene headers y chess.js se queja
                 tempGame.reset();
                 const tokens = cleanPgn.replace(/\d+\./g, '').split(/\s+/);
-                for(let t of tokens) {
-                    if(t) tempGame.move(t, {sloppy:true});
-                }
+                for(let t of tokens) { if(t) tempGame.move(t, {sloppy:true}); }
             }
             return tempGame.history();
         }
     };
 
-    // --- GESTOR DE TÁCTICA (Carga CSV Lichess) ---
+    // --- GESTOR DE TÁCTICA ---
     const TacticsManager = {
         importCSV: function(file) {
             const reader = new FileReader();
@@ -353,18 +336,15 @@
             const lines = csvText.split('\n');
             let count = 0;
             tacticsDB = { "800":[], "1000":[], "1300":[], "1600":[], "2000":[], "2400":[], "2800":[] };
-            
             for(let i=1; i < lines.length && count < 10000; i++) {
                 const cols = lines[i].split(',');
                 if(cols.length < 4) continue;
                 const fen = cols[1];
                 const moves = cols[2].split(' ');
                 const rating = parseInt(cols[3]);
-                
                 let b = "800";
                 if(rating>=2800) b="2800"; else if(rating>=2400) b="2400"; else if(rating>=2000) b="2000";
                 else if(rating>=1600) b="1600"; else if(rating>=1300) b="1300"; else if(rating>=1000) b="1000";
-                
                 tacticsDB[b].push({ id: cols[0], name: `Puzzle ${rating}`, fen: fen, moves: moves, desc: "Encuentra la mejor línea" });
                 count++;
             }
@@ -373,32 +353,22 @@
         }
     };
 
-    // --- SISTEMA DE LECCIONES (APERTURAS) ---
+    // --- LECCIONES ---
     const LessonSystem = {
         start: function(index) {
             const op = openingsList[index];
             if (!op) return;
-            
             this.stopOtherModes();
-            
-            // CONVERSIÓN MÁGICA: PGN String -> Array de jugadas
             const movesArray = OpeningManager.pgnToArray(op.pgn);
-            
             lessonState = { active: true, moves: movesArray, index: 0, currentOpening: op };
             currentMode = 'lesson';
-            
             $('#lessonActiveUI').removeClass('hidden');
             $('#lessonDescription').text(`${op.eco} - ${op.name}`);
-            
-            game.reset();
-            board.position('start');
-            board.orientation('white');
+            game.reset(); board.position('start'); board.orientation('white');
             this.updatePrompt();
         },
         updatePrompt: function() {
-            if(lessonState.index >= lessonState.moves.length) {
-                this.finish(); return;
-            }
+            if(lessonState.index >= lessonState.moves.length) { this.finish(); return; }
             const move = lessonState.moves[lessonState.index];
             const turn = game.turn() === 'w' ? 'Blancas' : 'Negras';
             $('#lessonInstruction').html(`<span style="color:var(--accent)">${turn}:</span> Juega <b>${move}</b>`);
@@ -418,8 +388,7 @@
         },
         playAuto: function() {
             if(!lessonState.active) return;
-            const m = lessonState.moves[lessonState.index];
-            game.move(m);
+            game.move(lessonState.moves[lessonState.index]);
             board.position(game.fen());
             lessonState.index++;
             this.updatePrompt();
@@ -429,19 +398,12 @@
             $fb.text(msg).removeClass('success error tactics').addClass('show '+type);
             setTimeout(() => $fb.removeClass('show'), 1500);
         },
-        finish: function() {
-            $('#lessonInstruction').html(`<span style="color:var(--success)">¡Línea Completada!</span>`);
-            currentMode = 'analysis';
-        },
-        stop: function() {
-            lessonState.active = false;
-            $('#lessonActiveUI').addClass('hidden');
-            currentMode = 'analysis';
-        },
+        finish: function() { $('#lessonInstruction').html(`<span style="color:var(--success)">¡Completado!</span>`); currentMode = 'analysis'; },
+        stop: function() { lessonState.active = false; $('#lessonActiveUI').addClass('hidden'); currentMode = 'analysis'; },
         stopOtherModes: function() { TacticsSystem.stop(); }
     };
 
-    // --- SISTEMA DE TÁCTICA ---
+    // --- TÁCTICA ---
     const TacticsSystem = {
         start: function(elo, idx) {
             const puzzle = tacticsDB[elo][idx];
@@ -449,7 +411,6 @@
             this.stopOtherModes();
             tacticsState = { active: true, puzzle: puzzle, index: 0 };
             currentMode = 'tactics';
-
             $('#tacticsActiveUI').removeClass('hidden');
             $('#tacticsDesc').text(puzzle.desc);
             game.load(puzzle.fen);
@@ -457,13 +418,10 @@
             board.orientation(game.turn() === 'w' ? 'white' : 'black');
             this.updatePrompt();
         },
-        updatePrompt: function() {
-            $('#tacticsTurnIndicator').text(`Juegan ${game.turn()==='w'?'Blancas':'Negras'}`);
-        },
+        updatePrompt: function() { $('#tacticsTurnIndicator').text(`Juegan ${game.turn()==='w'?'Blancas':'Negras'}`); },
         checkMove: function(moveObj) {
             const expected = tacticsState.puzzle.moves[tacticsState.index];
             let ok = (moveObj.san === expected) || (moveObj.from+moveObj.to+(moveObj.promotion||'') === expected);
-            
             if (ok) {
                 this.feedback("¡Bien!", "tactics");
                 tacticsState.index++;
@@ -490,9 +448,43 @@
         stopOtherModes: function() { LessonSystem.stop(); }
     };
 
+    // --- ENTRENADOR (OBSERVER) - RESTAURADO ---
+    const Observer = {
+        lastScore: 0,
+        evaluate: function(game, score, pColor) {
+            if(currentMode === 'lesson' || currentMode === 'tactics') return;
+            
+            let delta = score - this.lastScore;
+            // Si juegan negras, el score negativo es bueno para ellas, invertimos para lógica humana
+            // Pero Stockfish cp score suele ser relativo al que mueve. 
+            // Simplificamos: Asumimos score centipawns absoluto (Positivo=Blancas mejor)
+            
+            let msgs = [], tags = [];
+            
+            if (Math.abs(score) < 50) tags.push({text:"Igualdad", type:"info"});
+            else if ((pColor==='w' && score>100) || (pColor==='b' && score<-100)) tags.push({text:"Vas Ganando", type:"good"});
+            else if ((pColor==='w' && score<-100) || (pColor==='b' && score>100)) tags.push({text:"Vas Perdiendo", type:"bad"});
+
+            const fen = game.fen();
+            const moves = parseInt(fen.split(' ')[5]);
+
+            if(moves < 8 && Math.abs(score) < 80) msgs.push("Apertura: Desarrolla piezas y controla el centro.");
+            else if (Math.abs(delta) > 200) {
+                msgs.push("¡Cambio drástico! Revisa el último movimiento.");
+                tags.push({text:"Ojo Táctico", type:"warn"});
+            } else {
+                msgs.push("Busca mejorar tu posición poco a poco.");
+            }
+
+            $('#coachMsg').text(msgs[0]);
+            $('#coachTags').empty();
+            tags.forEach(t => $('#coachTags').append(`<span class="tag ${t.type}">${t.text}</span>`));
+            this.lastScore = score;
+        }
+    };
+
     // --- INIT & UTILS ---
     function init() {
-        // Motor
         fetch('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js')
             .then(r=>r.blob()).then(blob=>{
                 engine = new Worker(URL.createObjectURL(blob));
@@ -501,19 +493,17 @@
                 $('#statusText').text("Motor Listo");
             });
 
-        // Eventos Aperturas
+        // UI Events
         $('#openingDbInput').change(function() { if(this.files.length) OpeningManager.importFile(this.files[0]); });
         $('#openingSearch').on('input', function() { populateOpeningsGUI($(this).val()); });
         $('#openingSelect').change(function() { if($(this).val()!=='') LessonSystem.start($(this).val()); });
         $('#btnQuitLesson').click(() => LessonSystem.stop());
         
-        // Eventos Táctica
         $('#dbInput').change(function() { if(this.files.length) TacticsManager.importCSV(this.files[0]); });
         $('#tacticsEloSelect').change(updateTacticsList);
         $('#tacticsPuzzleSelect').change(function() { if($(this).val()) TacticsSystem.start($('#tacticsEloSelect').val(), $(this).val()); });
         $('#btnQuitTactics').click(() => TacticsSystem.stop());
 
-        // Eventos Juego
         $('#btnNewGame').click(newGame);
         $('#btnUndo').click(undo); $('#btnRedo').click(redo); $('#btnFlip').click(()=>board.flip());
 
@@ -539,38 +529,86 @@
         } else $sel.prop('disabled', true);
     }
 
-    // --- ENGINE & GAME LOGIC (Resumida) ---
+    // --- LÓGICA DE JUEGO & ENGINE (ARREGLADA) ---
     function handleEngine(e) {
         const msg = e.data;
+        
+        // 1. Si la IA debe mover
         if(msg.startsWith('bestmove') && isEnginePlaying) {
-            game.move(msg.split(' ')[1], {sloppy:true});
+            const move = msg.split(' ')[1];
+            game.move(move, {sloppy:true});
             board.position(game.fen());
             isEnginePlaying = false;
             $('#thinkingIndicator').hide();
-            triggerAnalysis();
+            triggerAnalysis(); // Analizar después del movimiento de la IA
         }
-        if(msg.includes('score cp')) {
-            const sc = parseInt(msg.match(/score cp (-?\d+)/)[1]) * (game.turn()==='b'?-1:1);
-            $('#evalFill').css('width', (50 + sc/10) + '%');
+        
+        // 2. Análisis (Evaluación y Coach)
+        if(msg.startsWith('info') && msg.includes('score') && !msg.includes('lowerbound') && !msg.includes('upperbound')) {
+            const match = msg.match(/score (cp|mate) (-?\d+)/);
+            if(match) {
+                let score = parseInt(match[2]);
+                // Ajuste de perspectiva: Stockfish da score relativo, queremos absoluto a veces
+                // Para simplificar, pasamos el score tal cual al Observer y él decide
+                if(game.turn() === 'b') score = -score; // Invertir si es turno de negras para normalizar a White perspective
+                
+                updateEvalBar(score, match[1]);
+                Observer.evaluate(game, score, $('#playerColor').val());
+            }
         }
     }
+
+    function triggerAI() {
+        if(currentMode !== 'pvc' || game.game_over()) return;
+        isEnginePlaying = true;
+        $('#thinkingIndicator').show();
+        
+        const level = parseInt($('#skillLevel').val());
+        // Mapeo de dificultad
+        let depth = 1;
+        if (level < 5) depth = 1;
+        else if (level < 10) depth = 5;
+        else if (level < 15) depth = 10;
+        else depth = 18;
+
+        engine.postMessage(`setoption name Skill Level value ${level}`);
+        engine.postMessage('position fen ' + game.fen());
+        engine.postMessage(`go depth ${depth}`);
+    }
+
     function triggerAnalysis() {
         if(currentMode==='lesson'||currentMode==='tactics') return;
-        engine.postMessage('stop'); engine.postMessage('position fen '+game.fen()); engine.postMessage('go depth 10');
+        // Análisis siempre a máxima potencia
+        engine.postMessage('stop');
+        engine.postMessage(`setoption name Skill Level value 20`);
+        engine.postMessage('position fen '+game.fen());
+        engine.postMessage('go depth 10');
+    }
+
+    function updateEvalBar(score, type) {
+        let per = 50;
+        if(type==='mate') per = score > 0 ? 100 : 0;
+        else {
+            // Clampear entre -500 y 500 cp para la barra
+            let sc = Math.max(-500, Math.min(500, score));
+            per = 50 + (sc / 10);
+        }
+        $('#evalFill').css('width', per + '%');
     }
     
     // TABLERO
     function onDrop(src, tgt) {
+        // LECCIÓN
         if(currentMode === 'lesson') {
             const t = new Chess(game.fen()); 
             if(t.move({from:src, to:tgt, promotion:'q'})) {
                if(LessonSystem.checkMove({san: t.history().pop()})) {
                    game.move({from:src, to:tgt, promotion:'q'}); board.position(game.fen());
                } 
-               return 'snapback'; // Siempre snapback en lección para controlar visualmente
             }
             return 'snapback';
         }
+        // TÁCTICA
         if(currentMode === 'tactics') {
             const t = new Chess(game.fen()); const m = t.move({from:src, to:tgt, promotion:'q'});
             if(m && TacticsSystem.checkMove(m)) {
@@ -580,24 +618,42 @@
             return 'snapback';
         }
         
-        // Normal
-        if(!game.move({from:src, to:tgt, promotion:'q'})) return 'snapback';
+        // MODO JUEGO / ANÁLISIS
+        const move = game.move({from:src, to:tgt, promotion:'q'});
+        if(!move) return 'snapback';
+        
         board.position(game.fen());
-        if(currentMode==='pvc' && game.turn()!==$('#playerColor').val()) {
-            isEnginePlaying=true; $('#thinkingIndicator').show();
-            setTimeout(() => engine.postMessage('position fen '+game.fen()) && engine.postMessage('go depth 10'), 500);
-        } else triggerAnalysis();
+        redoStack = [];
+
+        // Si es PVC y toca a la IA
+        if(currentMode === 'pvc' && game.turn() !== $('#playerColor').val()) {
+            setTimeout(triggerAI, 250); // Pequeña pausa para que se vea el movimiento humano antes
+        } else {
+            triggerAnalysis();
+        }
     }
+
     function onDragStart(s,p) {
         if(game.game_over() || isEnginePlaying) return false;
         if(currentMode==='pvc' && (($('#playerColor').val()==='w' && p.startsWith('b')) || ($('#playerColor').val()==='b' && p.startsWith('w')))) return false;
+        if(currentMode==='lesson' && !lessonState.active) return false;
     }
+
     function newGame() {
-        LessonSystem.stop(); TacticsSystem.stop(); game.reset(); board.start();
-        currentMode = 'pvc'; if($('#playerColor').val()==='b') { isEnginePlaying=true; engine.postMessage('go depth 5'); }
+        LessonSystem.stop(); TacticsSystem.stop(); game.reset(); board.start(); redoStack=[];
+        currentMode = $('#gameMode').val();
+        $('#statusText').text("Nueva Partida");
+        
+        // Si juega la IA primero (ej: Jugador elige negras)
+        if(currentMode === 'pvc' && $('#playerColor').val() === 'b') {
+            triggerAI();
+        } else {
+            triggerAnalysis();
+        }
     }
-    function undo(){ if(!isEnginePlaying) { game.undo(); board.position(game.fen()); }}
-    function redo(){ if(!isEnginePlaying && redoStack.length) { game.move(redoStack.pop()); board.position(game.fen()); }}
+    
+    function undo(){ if(!isEnginePlaying && currentMode!=='lesson' && currentMode!=='tactics') { game.undo(); if(currentMode==='pvc') game.undo(); board.position(game.fen()); triggerAnalysis(); }}
+    function redo(){ if(!isEnginePlaying && redoStack.length && currentMode!=='lesson') { game.move(redoStack.pop()); if(currentMode==='pvc' && redoStack.length) game.move(redoStack.pop()); board.position(game.fen()); triggerAnalysis(); }}
 
     $(document).ready(() => {
         board = Chessboard('board', { draggable:true, position:'start', onDragStart:onDragStart, onDrop:onDrop, pieceTheme:'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png' });
