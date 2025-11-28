@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AlterDrez 5.5</title>
+    <title>AlterDrez 5.6</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 
     <style>
-        /* --- CORE STYLES (INTACTOS v5.4) --- */
+        /* --- CORE STYLES (INTACTOS v5.5) --- */
         :root {
             --bg: #121212;
             --surface: #1e1e1e;
@@ -128,7 +128,6 @@
         }
 
         .eval-bar-wrapper { width: 100%; height: 12px; background: #263238; border-radius: 6px 6px 0 0; overflow: hidden; display: flex; }
-        /* Transición ultra suave (1.2s) para imitar Chess.com */
         .eval-fill { height: 100%; background: #fff; width: 50%; transition: width 1.2s cubic-bezier(0.25, 1, 0.5, 1); }
 
         .board-container {
@@ -174,7 +173,7 @@
         <a href="index.html" style="text-decoration:none;">
             <h1>AlterDrez</h1>
         </a>
-        <p>Entrenamiento de Ajedrez Profesional v5.5</p>
+        <p>Entrenamiento de Ajedrez Profesional v5.6</p>
     </div>
 
     <div class="cards-container">
@@ -230,12 +229,12 @@
         </div>
     </div>
 
-    <!-- TUTORIAL VIDEO -->
+    <!-- TUTORIAL VIDEO (CORREGIDO) -->
     <div class="tutorial-video-container">
         <div style="padding:10px; background:#1c1c1c; border-bottom:1px solid #333; color:#ccc; font-size:0.9rem; font-weight:bold;">
             <i class="bi bi-play-circle-fill"></i> Tutorial de Uso
         </div>
-        <video controls>
+        <video controls playsinline preload="metadata">
             <source src="assets/alterdrez/tutorial.mp4" type="video/mp4">
             Tu navegador no soporta video.
         </video>
@@ -286,7 +285,6 @@
     <div id="feedback" class="feedback-overlay"></div>
 
     <div class="game-layout">
-        <!-- BARRA ANÁLISIS PRO -->
         <div class="eval-bar-wrapper"><div id="eval-fill" class="eval-fill"></div></div>
         
         <div class="board-container">
@@ -345,10 +343,10 @@ const BaseTactics = {
     "2400": [{id:"21", fen:"8/8/8/8/p7/P7/2k5/7K w - - 0 1", moves:["Kg1"], theme:"Zugzwang"}, {id:"22", fen:"8/8/8/8/8/8/4K3/4k3 w - - 0 1", moves:["Ke3"], theme:"Oposición"}, {id:"23", fen:"7k/8/7K/8/8/8/8/Q7 w - - 0 1", moves:["Qa8#"], theme:"Mate Dama"}, {id:"24", fen:"8/8/8/5Q2/8/8/5K2/6qk w - - 0 1", moves:["Qh3+"], theme:"Tablas"}, {id:"25", fen:"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", moves:["e4"], theme:"Best Move"}]
 };
 
-// --- ESTADO ---
+// --- GESTIÓN DE ESTADO ---
 let State = { mode: 'menu', openings: [], tactics: {}, game: new Chess(), board: null, engine: null, redoStack: [], currentLesson: { moves: [], index: 0 }, currentPuzzle: { moves: [], index: 0 }, lastScore: 0 };
 
-// --- MOTOR CON MATEMÁTICA PRO ---
+// --- MOTOR ---
 const Engine = {
     init: function() {
         const blob = new Blob([`importScripts('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js');`], {type: 'application/javascript'});
@@ -361,6 +359,7 @@ const Engine = {
         State.engine.postMessage('position fen ' + State.game.fen());
         State.engine.postMessage(`go depth ${depth}`);
     },
+    stop: function() { State.engine.postMessage('stop'); },
     onMessage: function(e) {
         const msg = e.data;
         if(msg.startsWith('bestmove') && State.mode === 'play' && State.game.turn() !== $('#cfg-play-color').val()) {
@@ -371,23 +370,10 @@ const Engine = {
         if(msg.includes('score cp')) {
             const m = msg.match(/score cp (-?\d+)/);
             if(m) {
-                let cp = parseInt(m[1]);
-                if(State.game.turn() === 'b') cp = -cp;
-                // FÓRMULA NO LINEAL SUAVIZADA (Estilo Chess.com)
-                // 1 / (1 + e^(-k * cp)) con k = 0.003
-                let evalPerc = 100 / (1 + Math.exp(-0.003 * cp));
-                evalPerc = Math.max(2, Math.min(98, evalPerc)); // Clamp 2-98
-                $('#eval-fill').css('width', evalPerc + '%');
-                if(State.mode !== 'tactics') UI.updateCoach(cp);
-            }
-        }
-        if(msg.includes('score mate')) {
-            const m = msg.match(/score mate (-?\d+)/);
-            if(m) {
-                let mate = parseInt(m[1]);
-                if(State.game.turn() === 'b') mate = -mate;
-                let evalPerc = mate > 0 ? 100 : 0;
-                $('#eval-fill').css('width', evalPerc + '%');
+                let score = parseInt(m[1]);
+                if(State.game.turn() === 'b') score = -score;
+                UI.updateEval(score);
+                if(State.mode !== 'tactics') UI.updateCoach(score);
             }
         }
     },
@@ -398,7 +384,7 @@ const Engine = {
     }
 };
 
-// --- JUEGO ---
+// --- LÓGICA DE JUEGO ---
 const Game = {
     onDragStart: function(s, p) {
         if(State.game.game_over()) return false;
@@ -594,6 +580,14 @@ const UI = {
         else tag = "<span class='tag book'>Normal</span>";
         $('#coach-display').html(tag);
         State.lastScore = score;
+    },
+    updateEval: function(score) {
+        // Sigmoide suavizada estilo Chess.com
+        // 100 / (1 + e^-0.003x)
+        let p = 100 / (1 + Math.exp(-0.003 * score));
+        if(State.game.turn() === 'b') p = 100 - p;
+        p = Math.max(5, Math.min(95, p));
+        $('#eval-fill').css('width', p + '%');
     }
 };
 
@@ -605,7 +599,7 @@ const DB = {
             const lines = e.target.result.split('\n'); let c = 0;
             lines.forEach(l => {
                 const p = l.split('\t');
-                if(p.length >= 3) {
+                if(p.length >= 3 && p[p.length-1].length > 3) {
                     State.openings.push({eco:p[0], name:p[1], pgn:p[p.length-1].trim()});
                     c++;
                 }
@@ -619,8 +613,17 @@ const DB = {
         const reader = new FileReader();
         reader.onload = e => {
             const lines = e.target.result.split('\n'); let c = 0; const isComma = lines[0].includes(',');
-            lines.forEach(l => {
-                const cols = l.split(isComma ? ',' : '\t');
+            
+            // LIMITE DE SEGURIDAD RESTAURADO
+            const MAX_PUZZLES = 20000;
+            let currentTotal = 0;
+            Object.values(State.tactics).forEach(arr => currentTotal += arr.length);
+            if(currentTotal >= MAX_PUZZLES) return alert("Límite de memoria alcanzado (20k).");
+
+            for(let i=0; i < lines.length; i++) {
+                if(currentTotal >= MAX_PUZZLES) break;
+                if(!lines[i]) continue;
+                const cols = lines[i].split(isComma ? ',' : '\t');
                 if(cols.length > 3) {
                     const r = parseInt(cols[3]);
                     if(!isNaN(r)) {
@@ -635,10 +638,10 @@ const DB = {
                         if(!State.tactics[k]) State.tactics[k] = [];
                         let th = cols[7] ? cols[7].trim() : "";
                         State.tactics[k].push({id:cols[0], fen:cols[1], moves:cols[2].split(' '), theme: th});
-                        c++;
+                        c++; currentTotal++;
                     }
                 }
-            });
+            }
             Storage.save(); UI.refreshSelects(); alert(`+${c} Puzzles`);
         };
         reader.readAsText(file);
