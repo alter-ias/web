@@ -185,11 +185,15 @@
                     <option value="w">Blancas</option>
                     <option value="b">Negras</option>
                 </select>
+                <!-- MODIFICACIÓN: Categorías de ELO escalonadas -->
                 <select id="cfg-play-level">
-                    <option value="0">Novato (800)</option>
-                    <option value="5">Club (1500)</option>
-                    <option value="10">Maestro (2200)</option>
-                    <option value="20">GM (3000+)</option>
+                    <option value="0">Principiante (800)</option>
+                    <option value="3">Aficionado (1100)</option>
+                    <option value="6">Club (1400)</option>
+                    <option value="9">Intermedio (1700)</option>
+                    <option value="12">Experto (2000)</option>
+                    <option value="15">Maestro (2300)</option>
+                    <option value="20">Gran Maestro (2600+)</option>
                 </select>
             </div>
             <button class="btn-action" onclick="App.startPlay()">Jugar vs IA</button>
@@ -351,8 +355,11 @@ const Engine = {
                 let score = parseInt(m[1]);
                 if(State.game.turn() === 'b') score = -score;
                 
-                // SIGMOIDE para barra de análisis
-                let evalPerc = 100 / (1 + Math.exp(-0.003 * score));
+                // MODIFICACIÓN: Sigmoide suavizada usando Tangente Hiperbólica (tanh)
+                // Proporciona una transición más orgánica y menos brusca.
+                // 50% es neutral, tanh oscila entre -1 y 1.
+                let evalPerc = 50 + 50 * Math.tanh(score / 350);
+                
                 evalPerc = Math.max(2, Math.min(98, evalPerc));
                 $('#eval-fill').css('width', evalPerc + '%');
                 
@@ -451,7 +458,10 @@ const Game = {
             setTimeout(() => {
                 const lvl = parseInt($('#cfg-play-level').val());
                 let depth = 5; 
-                if(lvl > 5) depth = 10; if(lvl > 15) depth = 15;
+                // Ajuste de profundidad según nivel para más realismo
+                if(lvl > 5) depth = 8; 
+                if(lvl > 10) depth = 12;
+                if(lvl > 15) depth = 18;
                 State.engine.postMessage(`setoption name Skill Level value ${lvl}`);
                 Engine.go(depth);
             }, 250);
@@ -644,12 +654,6 @@ const UI = {
         else tag = "<span class='tag book'>Normal</span>";
         $('#coach-display').html(tag);
         State.lastScore = score;
-    },
-    updateEval: function(score) {
-        let p = 100 / (1 + Math.exp(-0.003 * score)); // Sigmoide
-        if(State.game.turn() === 'b') p = 100 - p;
-        p = Math.max(5, Math.min(95, p));
-        $('#eval-fill').css('width', p + '%');
     }
 };
 
