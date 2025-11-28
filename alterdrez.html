@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AlterDrez 5.7</title>
+    <title>AlterDrez 5.8</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 
     <style>
-        /* --- CORE STYLES (INTACTOS) --- */
+        /* --- CORE STYLES (INTACTOS v5.7) --- */
         :root {
             --bg: #121212;
             --surface: #1e1e1e;
@@ -73,22 +73,17 @@
         .card.learn .btn-action { background: #ffa726; color: #000; }
         .card.tactics .btn-action { background: var(--tactics); color: #fff; }
 
-        /* SECCIÓN DATOS Y VIDEO */
-        .db-section {
-            margin-top: 40px; padding: 25px; border-top: 1px solid #333;
-            max-width: 800px; margin-left: auto; margin-right: auto; width: 100%;
-            background: rgba(30,30,30,0.3); border-radius: 12px;
+        /* SECCIÓN VIDEO Y DATOS */
+        .tutorial-video-container {
+            max-width: 800px; margin: 40px auto 20px auto; width: 100%;
+            border-radius: 8px; overflow: hidden; border: 1px solid #444; background: #000;
         }
-        
-        /* Video Container Style */
-        .video-box {
-            width: 100%; margin-bottom: 20px; border: 1px solid #444; 
-            border-radius: 8px; overflow: hidden; background: #000;
-        }
-        .video-box video {
-            width: 100%; display: block; max-height: 400px;
-        }
+        .tutorial-video-container video { width: 100%; display: block; }
 
+        .db-section {
+            padding: 20px; border-top: 1px solid #333;
+            max-width: 800px; margin-left: auto; margin-right: auto; width: 100%;
+        }
         .db-btn { background: #333; color: #aaa; border: 1px dashed #555; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 10px; width: 100%; justify-content: center; margin-bottom: 10px; }
         .db-btn:hover { background: #444; color: #fff; border-color: #777; }
 
@@ -152,6 +147,7 @@
         .tag.good { background: var(--success); color: black; }
         .tag.bad { background: var(--error); color: white; }
         .tag.warn { background: var(--warn); color: black; }
+        .tag.end { background: #fff; color: #000; border: 2px solid var(--accent); }
 
         .controls { display: flex; justify-content: space-between; gap: 5px; }
         .ctrl-btn { flex: 1; background: #252525; border: 1px solid #333; color: #ccc; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 1.2rem; }
@@ -162,7 +158,7 @@
         /* Feedback */
         .feedback-overlay {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9); padding: 20px 40px; border-radius: 12px;
+            background: rgba(0,0,0,0.95); padding: 20px 40px; border-radius: 12px;
             color: #fff; font-size: 1.5rem; font-weight: 800; pointer-events: none;
             opacity: 0; transition: opacity 0.2s; border: 2px solid var(--accent); z-index: 50; text-align: center;
         }
@@ -179,7 +175,7 @@
         <a href="index.html" style="text-decoration:none;">
             <h1>AlterDrez</h1>
         </a>
-        <p>Entrenamiento de Ajedrez Profesional v5.7</p>
+        <p>Entrenamiento de Ajedrez Profesional v5.8</p>
     </div>
 
     <div class="cards-container">
@@ -240,8 +236,8 @@
         <h3 style="margin-top:0; color:#fff; border-bottom:1px solid #444; padding-bottom:10px; margin-bottom:20px;">Gestión de Datos & Tutorial</h3>
         
         <!-- VIDEO VISIBLE -->
-        <div class="video-box">
-            <video controls playsinline preload="auto" muted>
+        <div class="video-box" style="margin-bottom:20px; border:1px solid #444; border-radius:8px; overflow:hidden;">
+            <video controls playsinline preload="auto" muted style="width:100%; display:block; max-height:400px;">
                 <source src="assets/alterdrez/tutorial.mp4" type="video/mp4">
                 Tu navegador no soporta la reproducción de video.
             </video>
@@ -289,7 +285,6 @@
     <div id="feedback" class="feedback-overlay"></div>
 
     <div class="game-layout">
-        <!-- BARRA ANÁLISIS PRO -->
         <div class="eval-bar-wrapper"><div id="eval-fill" class="eval-fill"></div></div>
         
         <div class="board-container">
@@ -348,10 +343,8 @@ const BaseTactics = {
     "2400": [{id:"21", fen:"8/8/8/8/p7/P7/2k5/7K w - - 0 1", moves:["Kg1"], theme:"Zugzwang"}, {id:"22", fen:"8/8/8/8/8/8/4K3/4k3 w - - 0 1", moves:["Ke3"], theme:"Oposición"}, {id:"23", fen:"7k/8/7K/8/8/8/8/Q7 w - - 0 1", moves:["Qa8#"], theme:"Mate Dama"}, {id:"24", fen:"8/8/8/5Q2/8/8/5K2/6qk w - - 0 1", moves:["Qh3+"], theme:"Tablas"}, {id:"25", fen:"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", moves:["e4"], theme:"Best Move"}]
 };
 
-// --- GESTIÓN DE ESTADO ---
 let State = { mode: 'menu', openings: [], tactics: {}, game: new Chess(), board: null, engine: null, redoStack: [], currentLesson: { moves: [], index: 0 }, currentPuzzle: { moves: [], index: 0 }, lastScore: 0 };
 
-// --- MOTOR ---
 const Engine = {
     init: function() {
         const blob = new Blob([`importScripts('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js');`], {type: 'application/javascript'});
@@ -369,6 +362,7 @@ const Engine = {
         if(msg.startsWith('bestmove') && State.mode === 'play' && State.game.turn() !== $('#cfg-play-color').val()) {
             State.game.move(msg.split(' ')[1], {sloppy:true});
             State.board.position(State.game.fen());
+            Game.checkStatus(); // CHECAR SI TERMINÓ DESPUÉS DE IA
             Engine.analyze();
         }
         if(msg.includes('score cp')) {
@@ -376,7 +370,6 @@ const Engine = {
             if(m) {
                 let score = parseInt(m[1]);
                 if(State.game.turn() === 'b') score = -score;
-                // Fórmula Sigmoide
                 let evalPerc = 100 / (1 + Math.exp(-0.003 * score));
                 evalPerc = Math.max(2, Math.min(98, evalPerc));
                 $('#eval-fill').css('width', evalPerc + '%');
@@ -391,8 +384,23 @@ const Engine = {
     }
 };
 
-// --- JUEGO ---
 const Game = {
+    checkStatus: function() {
+        if(State.game.in_checkmate()) {
+            let winner = State.game.turn() === 'w' ? 'Negras' : 'Blancas';
+            UI.feedback("¡Jaque Mate!", "success");
+            $('#coach-display').html(`<span class="tag end">🏆 Ganan ${winner}</span>`);
+            State.engine.postMessage('stop');
+            return true;
+        }
+        if(State.game.in_draw() || State.game.in_stalemate() || State.game.in_threefold_repetition()) {
+            UI.feedback("¡Tablas!", "warn");
+            $('#coach-display').html(`<span class="tag end">½ - ½ Tablas</span>`);
+            State.engine.postMessage('stop');
+            return true;
+        }
+        return false;
+    },
     onDragStart: function(s, p) {
         if(State.game.game_over()) return false;
         if(State.mode === 'opening') return false; 
@@ -422,9 +430,7 @@ const Game = {
                             State.board.position(State.game.fen());
                             State.currentPuzzle.index++;
                         }, 500);
-                    } else {
-                        UI.feedback("¡Resuelto!", "success");
-                    }
+                    } else UI.feedback("¡Resuelto!", "success");
                     return;
                 }
             }
@@ -437,6 +443,9 @@ const Game = {
             if(!m) return 'snapback';
             State.board.position(State.game.fen());
             State.redoStack = [];
+            
+            if(Game.checkStatus()) return; // SI HAY MATE, PARAR TODO
+
             setTimeout(() => {
                 const lvl = parseInt($('#cfg-play-level').val());
                 let depth = 5; if(lvl > 5) depth = 10; if(lvl > 15) depth = 15;
@@ -450,8 +459,7 @@ const Game = {
         if(State.mode === 'opening') {
             State.game.undo(); State.board.position(State.game.fen());
             if(State.currentLesson.index > 0) State.currentLesson.index--;
-            Engine.analyze();
-            return;
+            Engine.analyze(); return;
         }
         let m = State.game.undo();
         if(m) {
@@ -468,8 +476,7 @@ const Game = {
                 State.board.position(State.game.fen());
                 State.currentLesson.index++;
                 Engine.analyze();
-            }
-            return;
+            } return;
         }
         if(State.redoStack.length > 0) {
             let m = State.redoStack.pop();
@@ -618,7 +625,6 @@ const DB = {
         const reader = new FileReader();
         reader.onload = e => {
             const lines = e.target.result.split('\n'); let c = 0; const isComma = lines[0].includes(',');
-            
             const MAX_PUZZLES = 20000;
             let currentTotal = 0;
             Object.values(State.tactics).forEach(arr => currentTotal += arr.length);
