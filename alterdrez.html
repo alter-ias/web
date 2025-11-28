@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AlterDrez 5.1</title>
+    <title>AlterDrez 5.2</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
@@ -81,25 +81,35 @@
 
         /* --- VISTA: BOARD (JUEGO FIJO) --- */
         #view-board {
-            flex: 1; display: none; /* Oculto inicio */
+            flex: 1; display: none; 
             flex-direction: column; align-items: center; justify-content: center;
             position: relative; background: #000;
             overflow: hidden;
         }
         #view-board.active { display: flex; }
 
-        /* Botón Salir */
+        /* HEADER DEL JUEGO (NUEVO) */
+        .game-header {
+            width: 100%; max-width: 600px; padding: 10px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            background: rgba(20,20,20,0.8); border-bottom: 1px solid #333;
+            position: absolute; top: 0; z-index: 50; height: 50px;
+        }
+        .gh-info { display: flex; flex-direction: column; }
+        .gh-title { font-weight: bold; color: #fff; font-size: 0.9rem; }
+        .gh-subtitle { font-size: 0.75rem; color: #888; }
+        
         .btn-exit {
-            position: absolute; top: 15px; left: 15px; z-index: 100;
-            background: rgba(0,0,0,0.6); border: 1px solid #444; color: #ccc;
-            padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 5px;
+            background: transparent; border: 1px solid #444; color: #ccc;
+            padding: 5px 12px; border-radius: 20px; cursor: pointer; font-size: 0.8rem;
         }
 
         /* Layout del Tablero */
         .game-layout {
             display: flex; flex-direction: column; align-items: center;
             width: 100%; max-width: 600px; height: 100%;
-            padding: 10px; justify-content: center;
+            padding: 60px 10px 10px 10px; /* Padding top para el header */
+            justify-content: center;
         }
 
         .eval-bar-wrapper { width: 100%; height: 12px; background: #333; border-radius: 6px 6px 0 0; overflow: hidden; display: flex; }
@@ -107,27 +117,27 @@
 
         .board-container {
             width: 100%; aspect-ratio: 1/1; position: relative;
-            /* Fix para que no se pierdan las piezas al redimensionar */
             background-size: contain; 
         }
 
         /* Panel Info */
         .game-info {
-            width: 100%; background: #1a1a1a; padding: 15px;
+            width: 100%; background: #1a1a1a; padding: 10px;
             border-radius: 0 0 8px 8px; border: 1px solid #333; border-top: none;
         }
 
-        .coach-tags { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; min-height: 25px; }
-        .tag { padding: 5px 12px; border-radius: 4px; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; }
+        .coach-tags { display: flex; gap: 10px; justify-content: center; margin-bottom: 10px; min-height: 25px; }
+        .tag { padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
         .tag.book { background: #448aff; color: white; }
         .tag.good { background: var(--success); color: black; }
         .tag.bad { background: var(--error); color: white; }
         .tag.warn { background: var(--warn); color: black; }
 
         .controls { display: flex; justify-content: space-between; gap: 5px; }
-        .ctrl-btn { flex: 1; background: #252525; border: 1px solid #333; color: #ccc; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 1.3rem; }
+        .ctrl-btn { flex: 1; background: #252525; border: 1px solid #333; color: #ccc; padding: 12px; border-radius: 4px; cursor: pointer; font-size: 1.2rem; }
         .ctrl-btn:active { background: #444; color: #fff; }
-        .ctrl-btn.sol { background: var(--tactics); color: #fff; border: none; }
+        .ctrl-btn.sol { background: var(--warn); color: #000; border: none; }
+        .ctrl-btn.next { background: var(--success); color: #000; border: none; }
 
         /* Feedback */
         .feedback-overlay {
@@ -142,7 +152,7 @@
         .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; display: none; align-items: center; justify-content: center; }
         .modal.active { display: flex; }
         .modal-box { background: #1e1e1e; padding: 30px; border-radius: 12px; max-width: 600px; width: 90%; color: #eee; }
-        .close-modal { background: var(--accent); color: #000; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 20px; width: 100%; }
+        .close-modal { background: var(--accent); color: #000; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 20px; width: 100%; }
 
         .hidden { display: none !important; }
     </style>
@@ -224,7 +234,15 @@
 
 <!-- VISTA: JUEGO -->
 <div id="view-board">
-    <button class="btn-exit" onclick="App.goHome()"><i class="bi bi-arrow-left"></i> Menú</button>
+    <!-- NUEVO HEADER DE JUEGO -->
+    <div class="game-header">
+        <div class="gh-info">
+            <div class="gh-title" id="gh-title">Modo Juego</div>
+            <div class="gh-subtitle" id="gh-subtitle">VS Stockfish</div>
+        </div>
+        <button class="btn-exit" onclick="App.goHome()"><i class="bi bi-x-lg"></i> Salir</button>
+    </div>
+
     <div id="feedback" class="feedback-overlay"></div>
 
     <div class="game-layout">
@@ -243,403 +261,7 @@
                 <button class="ctrl-btn" onclick="Game.undo()"><i class="bi bi-caret-left-fill"></i></button>
                 <button class="ctrl-btn" onclick="Game.redo()"><i class="bi bi-caret-right-fill"></i></button>
                 <button class="ctrl-btn" onclick="board.flip()"><i class="bi bi-arrow-repeat"></i></button>
-                <button class="ctrl-btn sol hidden" id="btn-solution" onclick="Game.showSolution()"><i class="bi bi-eye-fill"></i></button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL TUTORIAL -->
-<div id="modal-help" class="modal">
-    <div class="modal-box">
-        <h2>Guía Rápida</h2>
-        <p>1. Descarga el pack de bases de datos.</p>
-        <p>2. Carga los archivos para habilitar miles de ejercicios.</p>
-        <a href="https://drive.google.com/file/d/1p1_YbMN57ET5-YMbJhHuzpltCXHgN3Gq/view?usp=sharing" target="_blank" style="color:var(--accent);">Ir a Google Drive</a>
-        <button class="close-modal" onclick="document.getElementById('modal-help').classList.remove('active')">Entendido</button>
-    </div>
-</div>
-
-<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<!-- FIX: USAR UNPKG DIRECTO PARA PIEZAS -->
-<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.2/chess.js"></script>
-
-<script>
-// --- DATOS BASE PARA QUE NO ESTÉ VACÍO ---
-const BaseOpenings = [
-    {eco:"C50", name:"Italiana", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bc4"},
-    {eco:"B20", name:"Siciliana", pgn:"1. e4 c5"},
-    {eco:"D00", name:"Peón Dama", pgn:"1. d4 d5"},
-    {eco:"C60", name:"Ruy Lopez", pgn:"1. e4 e5 2. Nf3 Nc6 3. Bb5"},
-    {eco:"C00", name:"Francesa", pgn:"1. e4 e6"}
-];
-const BaseTactics = {
-    "800": [{id:"1", fen:"6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1", moves:["Rd8#"]}],
-    "1600": [{id:"2", fen:"4k3/8/8/3N4/8/8/8/4K3 w - - 0 1", moves:["Nc7+","Kd8","Nxa8"]}],
-    "2400": [{id:"3", fen:"8/8/8/8/p7/P7/2k5/7K w - - 0 1", moves:["Kg1"]}]
-};
-
-// --- GESTIÓN DE ESTADO ---
-let State = {
-    mode: 'menu', 
-    openings: [],
-    tactics: {},
-    game: new Chess(),
-    board: null,
-    engine: null,
-    redoStack: [],
-    currentLesson: { moves: [], index: 0 },
-    currentPuzzle: { moves: [], index: 0 },
-    lastScore: 0
-};
-
-// --- MOTOR ---
-const Engine = {
-    init: function() {
-        // Cargar stockfish de forma segura
-        const blob = new Blob([`importScripts('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.0/stockfish.js');`], {type: 'application/javascript'});
-        State.engine = new Worker(URL.createObjectURL(blob));
-        State.engine.onmessage = this.onMessage;
-        State.engine.postMessage('uci');
-    },
-    go: function(depth) {
-        if(State.mode === 'tactics') return; 
-        State.engine.postMessage('position fen ' + State.game.fen());
-        State.engine.postMessage(`go depth ${depth}`);
-    },
-    stop: function() { State.engine.postMessage('stop'); },
-    onMessage: function(e) {
-        const msg = e.data;
-        // IA Mueve
-        if(msg.startsWith('bestmove') && State.mode === 'play' && State.game.turn() !== $('#cfg-play-color').val()) {
-            State.game.move(msg.split(' ')[1], {sloppy:true});
-            State.board.position(State.game.fen());
-            Engine.analyze();
-        }
-        // Análisis
-        if(msg.includes('score cp')) {
-            const m = msg.match(/score cp (-?\d+)/);
-            if(m) {
-                let score = parseInt(m[1]);
-                // Ajustar barra visual (sigmoide)
-                let p = 50 + (score / 4);
-                if(State.game.turn() === 'b') p = 50 - (score / 4); // Invertir visual si es negras
-                p = Math.max(5, Math.min(95, p));
-                $('#eval-fill').css('width', p + '%');
                 
-                // Entrenador
-                if(State.mode !== 'tactics') UI.updateCoach(score);
-            }
-        }
-    },
-    analyze: function() {
-        State.engine.postMessage('stop');
-        State.engine.postMessage('position fen ' + State.game.fen());
-        State.engine.postMessage('go depth 10');
-    }
-};
-
-// --- LÓGICA DE JUEGO ---
-const Game = {
-    onDragStart: function(s, p) {
-        if(State.game.game_over()) return false;
-        
-        // Aperturas: solo ver
-        if(State.mode === 'opening') return false; 
-        
-        // Juego: respetar turno
-        if(State.mode === 'play') {
-            const myColor = $('#cfg-play-color').val();
-            if((myColor==='w' && p.startsWith('b')) || (myColor==='b' && p.startsWith('w'))) return false;
-        }
-        
-        // Táctica: respetar turno del puzzle
-        if(State.mode === 'tactics') {
-            if((State.game.turn()==='w' && p.startsWith('b')) || (State.game.turn()==='b' && p.startsWith('w'))) return false;
-        }
-        return true;
-    },
-    onDrop: function(s, t) {
-        // TACTICA
-        if(State.mode === 'tactics') {
-            const temp = new Chess(State.game.fen());
-            const m = temp.move({from:s, to:t, promotion:'q'});
-            if(m) {
-                const correct = State.currentPuzzle.moves[State.currentPuzzle.index];
-                // Validar SAN o UCI
-                if(m.san === correct || (m.from+m.to+(m.promotion||'')) === correct) {
-                    State.game.move({from:s, to:t, promotion:'q'});
-                    State.board.position(State.game.fen());
-                    State.currentPuzzle.index++;
-                    UI.feedback("¡Bien!", "success");
-                    
-                    // Juega la respuesta del rival si hay más
-                    if(State.currentPuzzle.index < State.currentPuzzle.moves.length) {
-                        setTimeout(() => {
-                            State.game.move(State.currentPuzzle.moves[State.currentPuzzle.index], {sloppy:true});
-                            State.board.position(State.game.fen());
-                            State.currentPuzzle.index++;
-                        }, 500);
-                    } else {
-                        UI.feedback("¡Completado!", "success");
-                    }
-                    return;
-                }
-            }
-            UI.feedback("Incorrecto", "error");
-            return 'snapback';
-        }
-
-        // JUEGO vs IA
-        if(State.mode === 'play') {
-            const m = State.game.move({from:s, to:t, promotion:'q'});
-            if(!m) return 'snapback';
-            State.board.position(State.game.fen());
-            State.redoStack = [];
-            
-            // Turno IA
-            setTimeout(() => {
-                const lvl = parseInt($('#cfg-play-level').val());
-                let depth = 5; if(lvl > 5) depth = 10; if(lvl > 15) depth = 15;
-                State.engine.postMessage(`setoption name Skill Level value ${lvl}`);
-                Engine.go(depth);
-            }, 250);
-        }
-    },
-    undo: function() {
-        if(State.mode === 'play' && State.game.turn() !== $('#cfg-play-color').val()) return; 
-        
-        if(State.mode === 'opening') {
-            State.game.undo(); State.board.position(State.game.fen());
-            if(State.currentLesson.index > 0) State.currentLesson.index--;
-            Engine.analyze();
-            return;
-        }
-
-        let m = State.game.undo();
-        if(m) {
-            State.redoStack.push(m);
-            if(State.mode === 'play') { // Deshacer respuesta IA
-                let m2 = State.game.undo();
-                if(m2) State.redoStack.push(m2);
-            }
-            State.board.position(State.game.fen());
-            Engine.analyze();
-        }
-    },
-    redo: function() {
-        if(State.mode === 'opening') {
-            if(State.currentLesson.index < State.currentLesson.moves.length) {
-                State.game.move(State.currentLesson.moves[State.currentLesson.index]);
-                State.board.position(State.game.fen());
-                State.currentLesson.index++;
-                Engine.analyze();
-            }
-            return;
-        }
-        if(State.redoStack.length > 0) {
-            let m = State.redoStack.pop();
-            State.game.move(m);
-            State.board.position(State.game.fen());
-            if(State.mode === 'play' && State.redoStack.length > 0) {
-                State.game.move(State.redoStack.pop());
-                State.board.position(State.game.fen());
-            }
-            Engine.analyze();
-        }
-    },
-    showSolution: function() {
-        if(State.mode !== 'tactics') return;
-        const move = State.currentPuzzle.moves[State.currentPuzzle.index];
-        if(move) {
-            State.game.move(move, {sloppy:true});
-            State.board.position(State.game.fen());
-            State.currentPuzzle.index++;
-            // Jugar respuesta rival
-            if(State.currentPuzzle.index < State.currentPuzzle.moves.length) {
-                setTimeout(() => {
-                    State.game.move(State.currentPuzzle.moves[State.currentPuzzle.index], {sloppy:true});
-                    State.board.position(State.game.fen());
-                    State.currentPuzzle.index++;
-                }, 500);
-            }
-        }
-    }
-};
-
-// --- APP ---
-const App = {
-    init: function() {
-        State.openings = JSON.parse(JSON.stringify(BaseOpenings));
-        State.tactics = JSON.parse(JSON.stringify(BaseTactics));
-        DB.loadFromMemory();
-        
-        // FIX: RUTA DE IMAGENES WIKIPEDIA
-        var boardConfig = {
-            draggable: true,
-            position: 'start',
-            onDragStart: Game.onDragStart,
-            onDrop: Game.onDrop,
-            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
-        };
-        
-        // Crear tablero pero no mostrarlo aún
-        State.board = Chessboard('board', boardConfig);
-        Engine.init();
-        UI.refreshSelects();
-    },
-    goHome: function() {
-        $('#view-board').removeClass('active');
-        $('#view-home').show();
-        State.mode = 'menu';
-        State.engine.postMessage('stop');
-    },
-    enterBoard: function(mode) {
-        State.mode = mode;
-        $('#view-home').hide();
-        $('#view-board').addClass('active');
-        // FIX: Resize crítico para que se vean las piezas
-        setTimeout(() => State.board.resize(), 200); 
-    },
-    startPlay: function() {
-        this.enterBoard('play');
-        State.game.reset(); State.board.start(); State.redoStack = [];
-        const color = $('#cfg-play-color').val();
-        State.board.orientation(color === 'w' ? 'white' : 'black');
-        $('#btn-solution').addClass('hidden');
-        $('#coach-display').html('<span class="tag book">Nueva Partida</span>');
-        
-        if(color === 'b') setTimeout(() => Engine.go(5), 500);
-        else Engine.analyze();
-    },
-    startOpening: function() {
-        const idx = $('#cfg-opening-select').val();
-        if(idx === "") return alert("Selecciona una apertura");
-        
-        const op = State.openings[idx];
-        this.enterBoard('opening');
-        State.game.reset(); State.board.start(); State.board.orientation('white');
-        
-        const clean = op.pgn.replace(/\d+\./g,'').replace(/\*/g,'').split(/\s+/).filter(x => x);
-        State.currentLesson = { moves: clean, index: 0 };
-        
-        $('#btn-solution').addClass('hidden');
-        $('#coach-display').html(`<span class="tag book">${op.name}</span>`);
-        Engine.analyze();
-    },
-    startTactics: function() {
-        const elo = $('#cfg-tactics-elo').val();
-        const puzzles = State.tactics[elo] || [];
-        if(puzzles.length === 0) return alert("No hay puzzles de este nivel.");
-        
-        const p = puzzles[Math.floor(Math.random() * puzzles.length)];
-        
-        this.enterBoard('tactics');
-        State.game.load(p.fen);
-        State.board.position(p.fen);
-        State.board.orientation(State.game.turn() === 'w' ? 'white' : 'black');
-        
-        State.currentPuzzle = { moves: p.moves, index: 0 };
-        $('#btn-solution').removeClass('hidden');
-        $('#coach-display').html(`<span class="tag book">Juegan ${State.game.turn()==='w'?'Blancas':'Negras'}</span>`);
-    }
-};
-
-// --- AUXILIARES ---
-const UI = {
-    refreshSelects: function() {
-        const s = $('#cfg-opening-select').empty().append('<option value="">-- Selecciona --</option>');
-        State.openings.forEach((o, i) => s.append(new Option(`[${o.eco}] ${o.name}`, i)));
-        $('#lbl-opening-count').text(State.openings.length);
-        
-        let totalP = 0;
-        Object.values(State.tactics).forEach(arr => totalP += arr.length);
-        $('#lbl-tactics-count').text(totalP);
-    },
-    feedback: function(msg, type) {
-        const el = $('#feedback');
-        el.text(msg).removeClass('success error').addClass('show ' + type);
-        setTimeout(() => el.removeClass('show'), 1000);
-    },
-    updateCoach: function(score) {
-        let delta = score - State.lastScore;
-        if(State.game.turn() === 'w') delta = -delta; 
-        
-        let tag = "";
-        if(delta < -200) tag = "<span class='tag bad'>Error Grave</span>";
-        else if(delta < -80) tag = "<span class='tag bad'>Error</span>";
-        else if(delta < -30) tag = "<span class='tag warn'>Imprecisión</span>";
-        else if(delta > 30) tag = "<span class='tag good'>Buena</span>";
-        else tag = "<span class='tag book'>Normal</span>";
-        
-        $('#coach-display').html(tag);
-        State.lastScore = score;
-    }
-};
-
-const DB = {
-    loadOpenings: function(input) {
-        const file = input.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = e => {
-            const lines = e.target.result.split('\n');
-            let c = 0;
-            lines.forEach(l => {
-                const p = l.split('\t');
-                if(p.length >= 3) {
-                    State.openings.push({eco:p[0], name:p[1], pgn:p[p.length-1].trim()});
-                    c++;
-                }
-            });
-            Storage.save(); UI.refreshSelects(); alert(`+${c} Aperturas`);
-        };
-        reader.readAsText(file);
-    },
-    loadTactics: function(input) {
-        const file = input.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = e => {
-            const lines = e.target.result.split('\n');
-            let c = 0; const isComma = lines[0].includes(',');
-            lines.forEach(l => {
-                const cols = l.split(isComma ? ',' : '\t');
-                if(cols.length > 3) {
-                    const r = parseInt(cols[3]);
-                    if(!isNaN(r)) {
-                        let k = "800";
-                        if(r >= 2400) k = "2400"; else if(r >= 1600) k = "1600";
-                        if(!State.tactics[k]) State.tactics[k] = [];
-                        State.tactics[k].push({id:cols[0], fen:cols[1], moves:cols[2].split(' ')});
-                        c++;
-                    }
-                }
-            });
-            Storage.save(); UI.refreshSelects(); alert(`+${c} Puzzles`);
-        };
-        reader.readAsText(file);
-    },
-    loadFromMemory: function() {
-        const op = localStorage.getItem('ad_openings');
-        const tac = localStorage.getItem('ad_tactics');
-        if(op) State.openings = JSON.parse(op);
-        if(tac) State.tactics = JSON.parse(tac);
-    }
-};
-
-const Storage = {
-    save: function() {
-        try {
-            localStorage.setItem('ad_openings', JSON.stringify(State.openings));
-            localStorage.setItem('ad_tactics', JSON.stringify(State.tactics));
-        } catch(e) { alert("Memoria llena."); }
-    },
-    clear: function() { localStorage.clear(); location.reload(); }
-};
-
-$(document).ready(function() { App.init(); });
-</script>
-</body>
-</html>
+                <!-- BOTONES ESPECIALES -->
+                <button class="ctrl-btn sol hidden" id="btn-solution" title="Ver Solución" onclick="Game.showSolution()"><i class="bi bi-eye-fill"></i></button>
+                <button clas
