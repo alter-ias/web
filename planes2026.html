@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estrategia 2026 - Alter.Lab</title>
+    <link rel="preconnect" href="[https://fonts.googleapis.com](https://fonts.googleapis.com)">
+    <link rel="preconnect" href="[https://fonts.gstatic.com](https://fonts.gstatic.com)" crossorigin>
+    <link href="[https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap](https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap)" rel="stylesheet">
+    
+    <script src="[https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js](https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js)"></script>
+
+    <style>
+        :root {
+            --background-color: #0F121B;
+            --text-color: #FFFFFF;
+            --secondary-text-color: #d1d1d1;
+            --accent-color: #00E5FF; /* Cian eléctrico */
+            --highlight-color: #FF0055; /* Un color secundario para alertas/fechas */
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { color: var(--text-color); font-family: 'Montserrat', sans-serif; overflow-x: hidden; background-color: var(--background-color); }
+
+        /* Video de fondo */
+        #background-video { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: -2; object-fit: cover; filter: brightness(0.2) blur(3px); 
+        }
+
+        /* Contenedor para el Canvas 3D */
+        #canvas-container {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; pointer-events: none;
+        }
+        
+       .container { width: 90%; max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; }
+
+        /* Header */
+       .main-header { display: flex; justify-content: center; align-items: center; padding: 30px 0; text-align: center; }
+       .header-content { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+       .logo a { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-direction: column; }
+       .logo img { height: 40px; width: auto; }
+       .logo.logo-text { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: var(--text-color); }
+        
+       .main-nav { margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 15px; }
+       .nav-button { background: transparent; border: none; color: var(--secondary-text-color); cursor: pointer; text-decoration: none; padding: 5px 10px; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; transition: color 0.3s ease; }
+       .nav-button:hover { color: var(--accent-color); }
+        
+        /* Hero Section */
+       .hero-section {
+            min-height: 50vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px 0;
+        }
+
+       .hero-title {
+            font-size: 2.5rem; 
+            font-weight: 700;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #fff, var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+            line-height: 1.2;
+            text-transform: uppercase;
+        }
+
+       .hero-subtitle {
+            font-size: 1.1rem;
+            color: var(--secondary-text-color);
+            max-width: 800px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+        }
+
+        /* Section Headers */
+       .section-header {
+            text-align: left;
+            margin-bottom: 30px;
+            margin-top: 60px;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 10px;
+        }
+       .section-header h2 {
+            font-size: 1.8rem;
+            color: var(--accent-color);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Grid Layouts */
+       .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+       .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        @media (min-width: 768px) {
+           .grid-3 { grid-template-columns: repeat(3, 1fr); }
+           .grid-2 { grid-template-columns: repeat(2, 1fr); }
+           .hero-title { font-size: 3.5rem; } 
+        }
+
+        /* Cards */
+       .info-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, border-color 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+       .info-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-color);
+            box-shadow: 0 5px 20px rgba(0, 229, 255, 0.1);
+        }
+
+       .card-icon { font-size: 2rem; margin-bottom: 15px; display: block; }
+       .card-title { font-size: 1.2rem; margin-bottom: 10px; color: #fff; font-weight: 700; }
+       .card-subtitle { font-size: 0.9rem; color: var(--accent-color); margin-bottom: 15px; text-transform: uppercase; font-weight: 600;}
+       .card-desc { font-size: 0.9rem; color: var(--secondary-text-color); line-height: 1.5; flex-grow: 1; }
+
+        /* Proposal Highlight */
+       .proposal-number {
+            font-size: 4rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.05);
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            pointer-events: none;
+        }
+       .info-card { position: relative; overflow: hidden; }
+
+        /* Tech Stack Tags */
+       .tech-tags { margin-top: 15px; display: flex; flex-wrap: wrap; gap: 8px; }
+       .tag { 
+            background: rgba(0, 229, 255, 0.1); 
+            color: var(--accent-color); 
+            padding: 4px 8px; 
+            border-radius: 4px; 
+            font-size: 0.75rem; 
+            font-weight: 600; 
+            border: 1px solid rgba(0, 229, 255, 0.2);
+        }
+
+        /* Timeline / Roadmap */
+       .roadmap-list { list-style: none; }
+       .roadmap-item {
+            border-left: 2px solid var(--accent-color);
+            padding-left: 20px;
+            margin-bottom: 30px;
+            position: relative;
+        }
+       .roadmap-item::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 0;
+            width: 10px;
+            height: 10px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+       .roadmap-date { color: var(--accent-color); font-weight: 700; font-size: 0.9rem; margin-bottom: 5px; display: block; }
+       .roadmap-content h4 { color: #fff; margin-bottom: 5px; }
+       .roadmap-content p { color: var(--secondary-text-color); font-size: 0.9rem; }
+
+        /* Call to Action */
+       .cta-section {
+            background: linear-gradient(180deg, rgba(15, 18, 27, 0) 0%, rgba(0, 229, 255, 0.05) 100%);
+            border-top: 1px solid var(--card-border);
+            padding: 60px 0;
+            text-align: center;
+            margin-top: 60px;
+        }
+
+       .cta-button {
+            display: inline-block;
+            background: transparent;
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+       .cta-button:hover {
+            background: var(--accent-color);
+            color: var(--background-color);
+            box-shadow: 0 0 20px var(--accent-color);
+        }
+
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <header class="main-header container">
+        <div class="header-content">
+            <div class="logo">
+                <a href="index.html"><img src="assets/img/logo03.png" alt="Alter.Lab Logo"><span class="logo-text">ALTER.LAB</span></a>
+            </div>
+            <div class="main-nav">
+                <a href="index.html" class="nav-button">Home</a>
+                <a href="portafolio.html" class="nav-button">Portafolio</a>
+                <a href="#" class="nav-button" style="color: var(--accent-color);">ESTRATEGIA 2026</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        
+        <section class="hero-section">
+            <h1 class="hero-title">ECOLOGÍAS DIGITALES <br>Y SOBERANÍA</h1>
+            <p class="hero-subtitle">
+                Análisis estratégico y hoja de ruta para el desarrollo de aplicaciones comunitarias, artes digitales y procesos de defensa del territorio en México (2025-2026).
+            </p>
+        </section>
+
+        <div class="section-header">
+            <h2>01. El Ecosistema Digital Mexicano</h2>
+        </div>
+        <section class="grid-3">
+            <div class="info-card">
+                <span class="card-icon">🏛️</span>
+                <h3 class="card-title">Instituciones Clave</h3>
+                <span class="card-subtitle">Piso 16 UNAM & CCD</span>
+                <p class="card-desc">
+                    Giro hacia la "Cultura de Paz" y la sostenibilidad. Oportunidades en convocatorias para proyectos que cruzan arte, ciencia y sociedad, con fechas clave entre Noviembre 2025 y Enero 2026.[1]
+                </p>
+            </div>
+            <div class="info-card">
+                <span class="card-icon">📡</span>
+                <h3 class="card-title">Infraestructura Autónoma</h3>
+                <span class="card-subtitle">Offline-First & Mesh</span>
+                <p class="card-desc">
+                    Crecimiento de redes comunitarias (Altermundi, LibreRouter). Necesidad urgente de servicios locales que funcionen sin internet corporativo en zonas rurales y barrios.[2]
+                </p>
+            </div>
+            <div class="info-card">
+                <span class="card-icon">✊</span>
+                <h3 class="card-title">Resistencia Digital</h3>
+                <span class="card-subtitle">Sursiendo & Defensa</span>
+                <p class="card-desc">
+                    Demanda de tecnologías para la defensa del territorio y la memoria colectiva. Rechazo al extractivismo de datos y búsqueda de herramientas de "cuidado digital".[3]
+                </p>
+            </div>
+        </section>
+
+        <div class="section-header">
+            <h2>02. Propuestas de Desarrollo</h2>
+        </div>
+        <section class="grid-2">
+            <div class="info-card">
+                <span class="proposal-number">01</span>
+                <h3 class="card-title">La Rockola Comunitaria</h3>
+                <span class="card-subtitle">Evolución de Kaylum</span>
+                <p class="card-desc">
+                    Transformar el reproductor en un servidor local de audio para espacios públicos (plazas, casas de cultura). Permite streaming local y "micrófono abierto" digital sin internet.
+                </p>
+                <div class="tech-tags">
+                    <span class="tag">Raspberry Pi/Orange Pi</span>
+                    <span class="tag">Icecast</span>
+                    <span class="tag">PWA Offline</span>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <span class="proposal-number">02</span>
+                <h3 class="card-title">Defensa del Territorio</h3>
+                <span class="card-subtitle">Evolución de Alterdrez</span>
+                <p class="card-desc">
+                    Juego de estrategia serio (Serious Game) para simular procesos de defensa territorial y gestión de bienes comunes. Herramienta pedagógica para escuelas y asambleas.
+                </p>
+                <div class="tech-tags">
+                    <span class="tag">Godot Engine</span>
+                    <span class="tag">WebAssembly</span>
+                    <span class="tag">Pedagogía Crítica</span>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <span class="proposal-number">03</span>
+                <h3 class="card-title">Archivo Vivo Biocultural</h3>
+                <span class="card-subtitle">Mapeo Participativo</span>
+                <p class="card-desc">
+                    App para el registro de saberes locales (plantas, historias) que sincroniza datos de manera segura y privada. Alternativa a Google Maps para comunidades.
+                </p>
+                <div class="tech-tags">
+                    <span class="tag">OpenStreetMap</span>
+                    <span class="tag">PouchDB</span>
+                    <span class="tag">Leaflet.js</span>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <span class="proposal-number">04</span>
+                <h3 class="card-title">Intranet de Cuidados</h3>
+                <span class="card-subtitle">Economía Solidaria</span>
+                <p class="card-desc">
+                    Plataforma barrial para trueque de servicios y alertas vecinales que corre sobre una red local. Reconstrucción del tejido social cara a cara.
+                </p>
+                <div class="tech-tags">
+                    <span class="tag">Node.js Ligero</span>
+                    <span class="tag">Redes Mesh</span>
+                    <span class="tag">ActivityPub</span>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <span class="proposal-number">05</span>
+                <h3 class="card-title">Lab Narrativas Generativas</h3>
+                <span class="card-subtitle">IA Ética y Local</span>
+                <p class="card-desc">
+                    Entorno de co-escritura con modelos de lenguaje pequeños (SLM) entrenados con literatura mexicana y lenguas originarias. IA soberana sin enviar datos a corporaciones.
+                </p>
+                <div class="tech-tags">
+                    <span class="tag">Llama-3 Local</span>
+                    <span class="tag">WebSockets</span>
+                    <span class="tag">Python</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="section-header">
+            <h2>03. Hoja de Ruta (Roadmap)</h2>
+        </div>
+        <section class="grid-2">
+            <div class="info-card">
+                <ul class="roadmap-list">
+                    <li class="roadmap-item">
+                        <span class="roadmap-date">Q4 2025 - Q1 2026</span>
+                        <div class="roadmap-content">
+                            <h4>Investigación y Fondos</h4>
+                            <p>Aplicación a <strong>Piso 16 UNAM</strong> (Cierre Ene 2026) y <strong>Entornos Electrónicos CCD</strong> (Cierre Feb 2026).[1, 4] Definición de alianzas con Sursiendo.</p>
+                        </div>
+                    </li>
+                    <li class="roadmap-item">
+                        <span class="roadmap-date">Q2 2026</span>
+                        <div class="roadmap-content">
+                            <h4>Prototipado MVP</h4>
+                            <p>Desarrollo de versiones Alpha de "Rockola" y "Archivo Vivo". Pruebas de campo en redes locales (Rancho Electrónico).</p>
+                        </div>
+                    </li>
+                    <li class="roadmap-item">
+                        <span class="roadmap-date">Q3 2026</span>
+                        <div class="roadmap-content">
+                            <h4>Despliegue y PADID</h4>
+                            <p>Aplicación al fondo educativo PADID (Jun-Jul).[5] Lanzamiento de beta abierta y talleres de apropiación tecnológica.</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="info-card" style="justify-content: center; align-items: center; text-align: center;">
+                <span class="card-icon">🛠️</span>
+                <h3 class="card-title">Stack de Soberanía</h3>
+                <p class="card-desc" style="margin-bottom: 20px;">
+                    Hardware: <strong>Orange Pi 5 / Rock 5B</strong><br>
+                    OS: <strong>Armbian Linux</strong><br>
+                    Red: <strong>LibreRouter / Meshtastic</strong>
+                </p>
+                <a href="#" class="cta-button" style="font-size: 0.9rem; padding: 10px 20px;">VER DOCUMENTACIÓN TÉCNICA</a>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <h2 style="font-size: 2rem; margin-bottom: 20px;">¿LISTOS PARA EL 2026?</h2>
+            <p style="color: var(--secondary-text-color); margin-bottom: 30px; max-width: 600px; margin-left: auto; margin-right: auto;">
+                Tenemos la tecnología, la visión y la comunidad. Es hora de convertir el código en una herramienta de transformación social.
+            </p>
+            <a href="mailto:contacto@alterlabgen.lat" class="cta-button">INICIAR COLABORACIÓN</a>
+        </section>
+
+    </main>
+
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Crear partículas - Aumentamos cantidad para más densidad
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 900; 
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 20;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 0.03,
+            color: 0x00E5FF, // Cian
+            transparent: true,
+            opacity: 0.6
+        });
+
+        const particlesMesh = new THREE.Points(particlesGeometry, material);
+        scene.add(particlesMesh);
+
+        // Geometría secundaria (Icosaedro wireframe)
+        const geometryWire = new THREE.IcosahedronGeometry(6, 1);
+        const materialWire = new THREE.MeshBasicMaterial({ 
+            color: 0x00E5FF, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.05 
+        });
+        const sphere = new THREE.Mesh(geometryWire, materialWire);
+        scene.add(sphere);
+
+        camera.position.z = 6;
+
+        let mouseX = 0;
+        let mouseY = 0;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - window.innerWidth / 2) * 0.0005;
+            mouseY = (event.clientY - window.innerHeight / 2) * 0.0005;
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+
+            sphere.rotation.y += 0.001;
+            sphere.rotation.x -= 0.001;
+
+            // Movimiento suave de partículas
+            particlesMesh.rotation.y += 0.05 * (mouseX - particlesMesh.rotation.y);
+            particlesMesh.rotation.x += 0.05 * (mouseY - particlesMesh.rotation.x);
+            
+            // Ondulación
+            particlesMesh.position.y = Math.sin(elapsedTime * 0.2) * 0.5;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
