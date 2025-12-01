@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Alter.Lab - Arte Generativo</title>
-    <!-- Fuentes de Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
-    <!-- Iconos de Bootstrap (para redes sociales) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script> 
+
     <style>
         :root {
             --background-color: #0F121B;
@@ -29,18 +29,32 @@
             color: var(--text-color);
             font-family: 'Montserrat', sans-serif;
             overflow-x: hidden;
+            /* El color de fondo base por si el video tarda en cargar */
+            background-color: var(--background-color); 
         }
         
+        /* VIDEO DE FONDO (Ajustado Z-index para estar al fondo absoluto) */
         #background-video {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -1;
+            z-index: -2; /* Cambio a -2 para dejar espacio al Canvas en -1 */
             object-fit: cover;
-            filter: brightness(0.4); /* Mantenemos el filtro para la legibilidad del texto */
+            filter: brightness(0.4); 
         }
+
+        /* CANVAS 3D (Agregado del primer código) */
+        #canvas-container { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: -1; /* Entre el video y el contenido */
+            pointer-events: none; /* Permite dar click a lo que está debajo */
+        } 
 
         .container {
             width: 90%;
@@ -291,6 +305,8 @@
         Tu navegador no soporta la etiqueta de video.
     </video>
 
+    <div id="canvas-container"></div> 
+
     <header class="main-header container">
         <div class="logo-container">
             <div class="logo">
@@ -302,7 +318,6 @@
             <div class="lang-switcher">
                 <button id="lang-en">EN</button>
                 <button id="lang-es" class="active">ES</button>
-                <!-- CAMBIO: Botón de francés añadido -->
                 <button id="lang-fr">FR</button>
             </div>
         </div>
@@ -364,7 +379,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             
-            // CAMBIO: Traducciones al francés añadidas
             const translations = {
                 en: {
                     heroTitle: 'GENERATIVE ART LABORATORY',
@@ -424,7 +438,6 @@
                 heroSubtitle: document.getElementById('hero-subtitle'),
                 ctaBlog: document.getElementById('cta-blog'),
                 ctaPortfolio: document.getElementById('cta-portfolio'),
-                ctaServices: document.getElementById('cta-services'),
                 ctaCourses: document.getElementById('cta-courses'),
                 contactTitle: document.getElementById('contact-title'),
                 labelName: document.getElementById('label-name'),
@@ -443,7 +456,6 @@
 
             const langEnButton = document.getElementById('lang-en');
             const langEsButton = document.getElementById('lang-es');
-            // CAMBIO: Se obtiene el botón de francés
             const langFrButton = document.getElementById('lang-fr');
 
             function setLanguage(lang) {
@@ -461,7 +473,6 @@
                     }
                 });
 
-                // CAMBIO: Se actualiza el estado activo de los 3 botones
                 langEnButton.classList.toggle('active', lang === 'en');
                 langEsButton.classList.toggle('active', lang === 'es');
                 langFrButton.classList.toggle('active', lang === 'fr');
@@ -470,11 +481,94 @@
 
             langEnButton.addEventListener('click', () => setLanguage('en'));
             langEsButton.addEventListener('click', () => setLanguage('es'));
-            // CAMBIO: Se añade el evento para el botón de francés
             langFrButton.addEventListener('click', () => setLanguage('fr'));
 
             setLanguage('es');
         });
     </script>
+
+    <script> 
+        const scene = new THREE.Scene(); 
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); 
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); 
+         
+        renderer.setSize(window.innerWidth, window.innerHeight); 
+        document.getElementById('canvas-container').appendChild(renderer.domElement); 
+
+        // Partículas
+        const particlesGeometry = new THREE.BufferGeometry(); 
+        const particlesCount = 700; 
+        const posArray = new Float32Array(particlesCount * 3); 
+
+        for(let i = 0; i < particlesCount * 3; i++) { 
+            posArray[i] = (Math.random() - 0.5) * 15; 
+        } 
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3)); 
+
+        const material = new THREE.PointsMaterial({ 
+            size: 0.02, 
+            color: 0x00E5FF, // Mantenemos el Cyan para conservar la identidad visual
+            transparent: true, 
+            opacity: 0.8 
+        }); 
+
+        const particlesMesh = new THREE.Points(particlesGeometry, material); 
+        scene.add(particlesMesh); 
+
+        // Esfera Wireframe
+        const geometryWire = new THREE.IcosahedronGeometry(4, 1); 
+        const materialWire = new THREE.MeshBasicMaterial({  
+            color: 0x00E5FF,  
+            wireframe: true,  
+            transparent: true,  
+            opacity: 0.1  
+        }); 
+        const sphere = new THREE.Mesh(geometryWire, materialWire); 
+        scene.add(sphere); 
+
+        camera.position.z = 5; 
+
+        // Variables del Mouse
+        let mouseX = 0; 
+        let mouseY = 0; 
+        let targetX = 0; 
+        let targetY = 0; 
+
+        const windowHalfX = window.innerWidth / 2; 
+        const windowHalfY = window.innerHeight / 2; 
+
+        document.addEventListener('mousemove', (event) => { 
+            mouseX = (event.clientX - windowHalfX); 
+            mouseY = (event.clientY - windowHalfY); 
+        }); 
+
+        const clock = new THREE.Clock(); 
+
+        function animate() { 
+            requestAnimationFrame(animate); 
+            const elapsedTime = clock.getElapsedTime(); 
+            targetX = mouseX * 0.001; 
+            targetY = mouseY * 0.001; 
+            
+            // Rotación constante de la esfera
+            sphere.rotation.y += 0.002; 
+            sphere.rotation.x += 0.001; 
+            
+            // Movimiento suave de partículas respondiendo al mouse
+            particlesMesh.rotation.y += 0.05 * (targetX - particlesMesh.rotation.y); 
+            particlesMesh.rotation.x += 0.05 * (targetY - particlesMesh.rotation.x); 
+            particlesMesh.rotation.z = elapsedTime * 0.05; 
+            
+            renderer.render(scene, camera); 
+        } 
+        animate(); 
+
+        window.addEventListener('resize', () => { 
+            camera.aspect = window.innerWidth / window.innerHeight; 
+            camera.updateProjectionMatrix(); 
+            renderer.setSize(window.innerWidth, window.innerHeight); 
+        }); 
+    </script> 
 </body>
 </html>
