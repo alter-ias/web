@@ -25,13 +25,13 @@
 
         body { color: var(--text-color); font-family: 'Montserrat', sans-serif; overflow-x: hidden; background-color: var(--background-color); } 
 
-        /* Video de fondo */ 
+        /* Video de fondo (Fijo para toda la app) */ 
         #background-video {  
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;  
             z-index: -2; object-fit: cover; filter: brightness(0.2) blur(3px);  
         } 
 
-        /* Canvas 3D */ 
+        /* Canvas 3D (Fijo para toda la app) */ 
         #canvas-container { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             z-index: -1; pointer-events: none; 
@@ -40,17 +40,40 @@
         .container { width: 90%; max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; } 
 
         /* --- HEADER --- */ 
-        .main-header { display: flex; justify-content: center; align-items: center; padding: 30px 0; text-align: center; position: relative; z-index: 1001; } 
+        /* Header normal, se mueve con el scroll */
+        .main-header { 
+            display: flex; justify-content: center; align-items: center; 
+            padding: 30px 0; text-align: center; position: relative; z-index: 10; 
+        } 
         .header-content { display: flex; flex-direction: column; align-items: center; gap: 15px; } 
         .logo a { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-direction: column; } 
         .logo img { height: 40px; width: auto; } 
         .logo .logo-text { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: var(--text-color); } 
+        
         .main-nav { margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 15px; } 
 
-        .nav-button { background: transparent; border: none; color: var(--secondary-text-color); cursor: pointer; text-decoration: none; padding: 5px 10px; font-size: 0.8rem; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; transition: color 0.3s ease; } 
-        .nav-button:hover, .nav-button.active { color: var(--accent-color); text-shadow: 0 0 10px rgba(0, 229, 255, 0.5); } 
+        /* Estilo base de botones del nav */
+        .nav-button { 
+            background: transparent; border: none; color: var(--secondary-text-color); 
+            cursor: pointer; text-decoration: none; padding: 8px 12px; 
+            font-size: 0.8rem; font-weight: 500; text-transform: uppercase; 
+            letter-spacing: 1px; transition: all 0.3s ease; border-radius: 4px;
+        } 
+        .nav-button:hover { color: var(--accent-color); }
+
+        /* Estado Activo en el Nav */
+        .nav-button.active-view {
+            color: var(--accent-color);
+            background: rgba(0, 229, 255, 0.1);
+            font-weight: 700;
+            border: 1px solid rgba(0, 229, 255, 0.2);
+        }
+        /* Botón de Estrategia destacado */
+        .strategy-btn-style {
+            border: 1px solid rgba(255,255,255,0.2);
+        }
          
-        /* --- ESTILOS GENERALES Y CO-LABORATORIO --- */ 
+        /* --- ESTILOS COMUNES --- */ 
         .hero-section { 
             min-height: 60vh; display: flex; flex-direction: column; 
             justify-content: center; align-items: center; text-align: center; padding: 40px 0; 
@@ -122,16 +145,13 @@
             color: var(--secondary-text-color); 
         } 
 
-        /* --- ESTILOS ESTRATEGIA 2026 --- */
-        
-        #strategy-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: var(--background-color);
-            z-index: 1000; overflow-y: auto; padding-top: 140px; 
-            padding-bottom: 60px;
+        /* --- ESTILOS ESPECÍFICOS ESTRATEGIA 2026 --- */
+        /* Contenedor fluido, sin posición fija, fondo transparente */
+        #strategy-view {
+            display: none; /* Oculto por defecto */
+            animation: fadeIn 0.5s forwards;
         }
 
-        .fade-in { animation: fadeIn 0.5s forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
         .section-header {
@@ -203,7 +223,7 @@
             
             /* Transformar tabla en cards para celular */
             table, thead, tbody, th, td, tr { display: block; }
-            thead tr { position: absolute; top: -9999px; left: -9999px; } /* Ocultar headers tradicionales */
+            thead tr { position: absolute; top: -9999px; left: -9999px; } 
             
             tr { 
                 margin-bottom: 1.5rem; 
@@ -225,17 +245,6 @@
                 font-weight: bold; color: var(--accent-color); content: attr(data-label); 
             }
         }
-
-        #close-strategy-btn {
-            position: fixed; bottom: 30px; right: 30px; z-index: 1500;
-            background: var(--background-color); border: 2px solid var(--accent-color);
-            border-radius: 50%; width: 50px; height: 50px; color: var(--accent-color);
-            font-size: 24px; font-weight: bold; cursor: pointer;
-            display: none; align-items: center; justify-content: center;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-        }
-        #close-strategy-btn:hover { background: var(--accent-color); color: #000; }
-
     </style> 
 </head> 
 <body> 
@@ -254,13 +263,15 @@
             <div class="main-nav"> 
                 <a href="index.html" class="nav-button">Home</a> 
                 <a href="portafolio.html" class="nav-button">Portafolio</a> 
-                <span class="nav-button" style="color: var(--accent-color); cursor: default; font-weight: 700;">CO-LABORATORIO</span>
-                <button onclick="triggerStrategy(true)" class="nav-button" id="strategy-btn" style="border: 1px solid rgba(255,255,255,0.2); border-radius: 4px;">📂 ESTRATEGIA 2026</button>
+                
+                <button onclick="switchView('main')" id="btn-colab" class="nav-button active-view">CO-LABORATORIO</button>
+                
+                <button onclick="switchView('strategy')" id="btn-strategy" class="nav-button strategy-btn-style">📂 ESTRATEGIA 2026</button>
             </div> 
         </div> 
     </header> 
 
-    <main class="container" id="main-content"> 
+    <main class="container" id="main-view"> 
         <section class="hero-section"> 
             <h1 class="hero-title">CONSTRUYAMOS EL FUTURO</h1> 
             <p class="hero-subtitle"> 
@@ -304,192 +315,188 @@
         </section> 
     </main> 
 
-    <div id="strategy-overlay">
-        <div class="container fade-in">
-            
-            <section class="hero-section" style="min-height: 40vh;">
-                <h1 class="hero-title" style="font-size: 3rem;">ECOLOGÍAS DIGITALES <br>Y SOBERANÍA</h1>
-                <p class="hero-subtitle">
-                    Análisis estratégico y hoja de ruta para el desarrollo de aplicaciones comunitarias, artes digitales y procesos de defensa del territorio (2025-2026).
-                </p>
-            </section>
+    <div class="container" id="strategy-view">
+        
+        <section class="hero-section" style="min-height: 40vh;">
+            <h1 class="hero-title" style="font-size: 3rem;">ECOLOGÍAS DIGITALES <br>Y SOBERANÍA</h1>
+            <p class="hero-subtitle">
+                Análisis estratégico y hoja de ruta para el desarrollo de aplicaciones comunitarias, artes digitales y procesos de defensa del territorio (2025-2026).
+            </p>
+        </section>
 
-            <div class="section-header">
-                <h2>01. El Ecosistema Digital</h2>
-            </div>
-            <section class="grid-3">
-                <div class="area-card">
-                    <span class="card-icon">🏛️</span>
-                    <h3 class="card-title">Instituciones Clave</h3>
-                    <span class="card-subtitle">Piso 16 UNAM & CCD</span>
-                    <p class="card-desc">
-                        Giro hacia la "Cultura de Paz" y la sostenibilidad. Oportunidades en convocatorias para proyectos que cruzan arte, ciencia y sociedad, con fechas clave entre Noviembre 2025 y Enero 2026.
-                    </p>
-                </div>
-                <div class="area-card">
-                    <span class="card-icon">📡</span>
-                    <h3 class="card-title">Infraestructura Autónoma</h3>
-                    <span class="card-subtitle">Offline-First & Mesh</span>
-                    <p class="card-desc">
-                        Crecimiento de redes comunitarias (Altermundi, LibreRouter). Necesidad urgente de servicios locales que funcionen sin internet corporativo en zonas rurales y barrios.
-                    </p>
-                </div>
-                <div class="area-card">
-                    <span class="card-icon">✊</span>
-                    <h3 class="card-title">Resistencia Digital</h3>
-                    <span class="card-subtitle">Sursiendo & Defensa</span>
-                    <p class="card-desc">
-                        Demanda de tecnologías para la defensa del territorio y la memoria colectiva. Rechazo al extractivismo de datos y búsqueda de herramientas de "cuidado digital".
-                    </p>
-                </div>
-            </section>
-
-            <div class="section-header">
-                <h2>02. Propuestas de Desarrollo</h2>
-            </div>
-            <section class="grid-2">
-                <div class="area-card">
-                    <span class="proposal-number">01</span>
-                    <h3 class="card-title">La Rockola Comunitaria</h3>
-                    <span class="card-subtitle">Evolución de Kaylum</span>
-                    <p class="card-desc">
-                        Transformar el reproductor en un servidor local de audio para espacios públicos. Permite streaming local y "micrófono abierto" digital sin internet.
-                    </p>
-                    <div class="tech-tags">
-                        <span class="tag">Raspberry Pi</span>
-                        <span class="tag">Icecast</span>
-                        <span class="tag">PWA Offline</span>
-                    </div>
-                </div>
-
-                <div class="area-card">
-                    <span class="proposal-number">02</span>
-                    <h3 class="card-title">Defensa del Territorio</h3>
-                    <span class="card-subtitle">Evolución de Alterdrez</span>
-                    <p class="card-desc">
-                        Juego de estrategia serio (Serious Game) para simular procesos de defensa territorial y gestión de bienes comunes. Herramienta pedagógica.
-                    </p>
-                    <div class="tech-tags">
-                        <span class="tag">Godot Engine</span>
-                        <span class="tag">WebAssembly</span>
-                        <span class="tag">Pedagogía Crítica</span>
-                    </div>
-                </div>
-
-                <div class="area-card">
-                    <span class="proposal-number">03</span>
-                    <h3 class="card-title">Archivo Vivo Biocultural</h3>
-                    <span class="card-subtitle">Mapeo Participativo</span>
-                    <p class="card-desc">
-                        App para el registro de saberes locales (plantas, historias) que sincroniza datos de manera segura. Alternativa a Google Maps.
-                    </p>
-                    <div class="tech-tags">
-                        <span class="tag">OpenStreetMap</span>
-                        <span class="tag">PouchDB</span>
-                        <span class="tag">Leaflet.js</span>
-                    </div>
-                </div>
-
-                <div class="area-card">
-                    <span class="proposal-number">04</span>
-                    <h3 class="card-title">Lab Narrativas Generativas</h3>
-                    <span class="card-subtitle">IA Ética y Local</span>
-                    <p class="card-desc">
-                        Entorno de co-escritura con modelos de lenguaje pequeños (SLM) entrenados con literatura mexicana. IA soberana sin enviar datos a corporaciones.
-                    </p>
-                    <div class="tech-tags">
-                        <span class="tag">Llama-3 Local</span>
-                        <span class="tag">WebSockets</span>
-                        <span class="tag">Python</span>
-                    </div>
-                </div>
-            </section>
-
-            <div class="section-header">
-                <h2>03. Hoja de Ruta (Roadmap)</h2>
-            </div>
-            <section class="grid-2">
-                <div class="area-card">
-                    <ul class="roadmap-list">
-                        <li class="roadmap-item">
-                            <span class="roadmap-date">Q4 2025 - Q1 2026</span>
-                            <div class="roadmap-content">
-                                <h4>Investigación y Fondos</h4>
-                                <p>Aplicación a <strong>Piso 16 UNAM</strong> y definición de alianzas estratégicas.</p>
-                            </div>
-                        </li>
-                        <li class="roadmap-item">
-                            <span class="roadmap-date">Q2 2026</span>
-                            <div class="roadmap-content">
-                                <h4>Prototipado MVP</h4>
-                                <p>Versiones Alpha de "Rockola" y "Archivo Vivo". Pruebas de campo.</p>
-                            </div>
-                        </li>
-                        <li class="roadmap-item">
-                            <span class="roadmap-date">Q3 2026</span>
-                            <div class="roadmap-content">
-                                <h4>Despliegue y PADID</h4>
-                                <p>Aplicación al fondo educativo PADID. Lanzamiento de beta abierta.</p>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
-                <div class="area-card" style="justify-content: center; align-items: center; text-align: center;">
-                    <span class="card-icon">🛠️</span>
-                    <h3 class="card-title">Stack de Soberanía</h3>
-                    <p class="card-desc" style="margin-bottom: 20px;">
-                        Hardware: <strong>Orange Pi 5 / Rock 5B</strong><br>
-                        OS: <strong>Armbian Linux</strong><br>
-                        Red: <strong>LibreRouter / Meshtastic</strong>
-                    </p>
-                    <a href="#" class="cta-button-glitch" style="font-size: 0.8rem; padding: 10px 20px;">DOCS TÉCNICOS</a>
-                </div>
-            </section>
-
-            <div class="section-header">
-                <h2>04. Estrategia de Financiamiento</h2>
-            </div>
-            <div class="grid-2"> 
-                <div class="area-card" onclick="openModal('modal-mexico')" style="cursor: pointer;">
-                    <span class="status-badge status-active">Prioridad Alta</span>
-                    <h3 class="card-title">🇲🇽 México: Federal & Regional</h3>
-                    <p class="card-desc">Ecosistema SACPC, Piso 16 UNAM y fondos estatales en Jalisco/Gto. <br><br><strong>Próximo cierre: 7 Enero 2026 (Piso 16)</strong></p>
-                    <div style="margin-top: 15px; text-align: right; color: var(--accent-color); font-size: 0.8rem;">VER DETALLES →</div>
-                </div>
-
-                <div class="area-card" onclick="openModal('modal-canada')" style="cursor: pointer;">
-                    <span class="status-badge status-pending">Coproducción</span>
-                    <h3 class="card-title">🇨🇦 Canadá: Estrategia Digital</h3>
-                    <p class="card-desc">Canada Council for the Arts y CALQ (Quebec). Enfoque en I+D y Ciencia-Arte.<br><br><strong>Ciclos: Abril y Octubre 2026</strong></p>
-                    <div style="margin-top: 15px; text-align: right; color: var(--accent-color); font-size: 0.8rem;">VER DETALLES →</div>
-                </div>
-
-                <div class="area-card" onclick="openModal('modal-francia')" style="cursor: pointer;">
-                    <span class="status-badge status-pending">Innovación XR/IA</span>
-                    <h3 class="card-title">🇫🇷 Francia: CNC & Inmersión</h3>
-                    <p class="card-desc">Dicréam, Residencias IA y Fondos Regionales. Vanguardia tecnológica.<br><br><strong>Cierre Residencia IA: 23 Feb 2026</strong></p>
-                    <div style="margin-top: 15px; text-align: right; color: var(--accent-color); font-size: 0.8rem;">VER DETALLES →</div>
-                </div>
-
-                <div class="area-card" onclick="openModal('modal-tech')" style="cursor: pointer;">
-                    <span class="status-badge status-active">Rolling Basis</span>
-                    <h3 class="card-title">🌐 Tech & Derechos Digitales</h3>
-                    <p class="card-desc">Open Technology Fund, Mozilla y Numun. Financiamiento en USD.<br><br><strong>Convocatorias abiertas todo el año</strong></p>
-                    <div style="margin-top: 15px; text-align: right; color: var(--accent-color); font-size: 0.8rem;">VER DETALLES →</div>
-                </div>
-            </div>
-
-            <section style="text-align: center; margin-top: 60px; padding: 40px 0; border-top: 1px solid var(--card-border);">
-                <h2 style="font-size: 2rem; margin-bottom: 20px; color: #fff;">¿LISTOS PARA EL 2026?</h2>
-                <p style="color: var(--secondary-text-color); margin-bottom: 30px; max-width: 600px; margin: 0 auto 30px auto;">
-                    Tenemos la tecnología, la visión y la comunidad. Es hora de convertir el código en una herramienta de transformación social.
-                </p>
-                <a href="https://www.alterlabgen.lat/index.html#contact-section" class="cta-button-glitch">INICIAR COLABORACIÓN</a>
-            </section>
+        <div class="section-header">
+            <h2>01. El Ecosistema Digital</h2>
         </div>
-    </div>
+        <section class="grid-3">
+            <div class="area-card">
+                <span class="card-icon">🏛️</span>
+                <h3 class="card-title">Instituciones Clave</h3>
+                <span class="card-subtitle">Piso 16 UNAM & CCD</span>
+                <p class="card-desc">
+                    Giro hacia la "Cultura de Paz" y la sostenibilidad. Oportunidades en convocatorias para proyectos que cruzan arte, ciencia y sociedad, con fechas clave entre Noviembre 2025 y Enero 2026.
+                </p>
+            </div>
+            <div class="area-card">
+                <span class="card-icon">📡</span>
+                <h3 class="card-title">Infraestructura Autónoma</h3>
+                <span class="card-subtitle">Offline-First & Mesh</span>
+                <p class="card-desc">
+                    Crecimiento de redes comunitarias (Altermundi, LibreRouter). Necesidad urgente de servicios locales que funcionen sin internet corporativo en zonas rurales y barrios.
+                </p>
+            </div>
+            <div class="area-card">
+                <span class="card-icon">✊</span>
+                <h3 class="card-title">Resistencia Digital</h3>
+                <span class="card-subtitle">Sursiendo & Defensa</span>
+                <p class="card-desc">
+                    Demanda de tecnologías para la defensa del territorio y la memoria colectiva. Rechazo al extractivismo de datos y búsqueda de herramientas de "cuidado digital".
+                </p>
+            </div>
+        </section>
 
-    <button id="close-strategy-btn" onclick="triggerStrategy(false)">✕</button>
+        <div class="section-header">
+            <h2>02. Propuestas de Desarrollo</h2>
+        </div>
+        <section class="grid-2">
+            <div class="area-card">
+                <span class="proposal-number">01</span>
+                <h3 class="card-title">La Rockola Comunitaria</h3>
+                <span class="card-subtitle">Evolución de Kaylum</span>
+                <p class="card-desc">
+                    Transformar el reproductor en un servidor local de audio para espacios públicos. Permite streaming local y "micrófono abierto" digital sin internet.
+                </p>
+                <div class="tech-tags">
+                    <span class="tag">Raspberry Pi</span>
+                    <span class="tag">Icecast</span>
+                    <span class="tag">PWA Offline</span>
+                </div>
+            </div>
+
+            <div class="area-card">
+                <span class="proposal-number">02</span>
+                <h3 class="card-title">Defensa del Territorio</h3>
+                <span class="card-subtitle">Evolución de Alterdrez</span>
+                <p class="card-desc">
+                    Juego de estrategia serio (Serious Game) para simular procesos de defensa territorial y gestión de bienes comunes. Herramienta pedagógica.
+                </p>
+                <div class="tech-tags">
+                    <span class="tag">Godot Engine</span>
+                    <span class="tag">WebAssembly</span>
+                    <span class="tag">Pedagogía Crítica</span>
+                </div>
+            </div>
+
+            <div class="area-card">
+                <span class="proposal-number">03</span>
+                <h3 class="card-title">Archivo Vivo Biocultural</h3>
+                <span class="card-subtitle">Mapeo Participativo</span>
+                <p class="card-desc">
+                    App para el registro de saberes locales (plantas, historias) que sincroniza datos de manera segura. Alternativa a Google Maps.
+                </p>
+                <div class="tech-tags">
+                    <span class="tag">OpenStreetMap</span>
+                    <span class="tag">PouchDB</span>
+                    <span class="tag">Leaflet.js</span>
+                </div>
+            </div>
+
+            <div class="area-card">
+                <span class="proposal-number">04</span>
+                <h3 class="card-title">Lab Narrativas Generativas</h3>
+                <span class="card-subtitle">IA Ética y Local</span>
+                <p class="card-desc">
+                    Entorno de co-escritura con modelos de lenguaje pequeños (SLM) entrenados con literatura mexicana. IA soberana sin enviar datos a corporaciones.
+                </p>
+                <div class="tech-tags">
+                    <span class="tag">Llama-3 Local</span>
+                    <span class="tag">WebSockets</span>
+                    <span class="tag">Python</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="section-header">
+            <h2>03. Hoja de Ruta (Roadmap)</h2>
+        </div>
+        <section class="grid-2">
+            <div class="area-card">
+                <ul class="roadmap-list">
+                    <li class="roadmap-item">
+                        <span class="roadmap-date">Q4 2025 - Q1 2026</span>
+                        <div class="roadmap-content">
+                            <h4>Investigación y Fondos</h4>
+                            <p>Aplicación a <strong>Piso 16 UNAM</strong> y definición de alianzas estratégicas.</p>
+                        </div>
+                    </li>
+                    <li class="roadmap-item">
+                        <span class="roadmap-date">Q2 2026</span>
+                        <div class="roadmap-content">
+                            <h4>Prototipado MVP</h4>
+                            <p>Versiones Alpha de "Rockola" y "Archivo Vivo". Pruebas de campo.</p>
+                        </div>
+                    </li>
+                    <li class="roadmap-item">
+                        <span class="roadmap-date">Q3 2026</span>
+                        <div class="roadmap-content">
+                            <h4>Despliegue y PADID</h4>
+                            <p>Aplicación al fondo educativo PADID. Lanzamiento de beta abierta.</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            <div class="area-card" style="justify-content: center; align-items: center; text-align: center;">
+                <span class="card-icon">🛠️</span>
+                <h3 class="card-title">Stack de Soberanía</h3>
+                <p class="card-desc" style="margin-bottom: 20px;">
+                    Hardware: <strong>Orange Pi 5 / Rock 5B</strong><br>
+                    OS: <strong>Armbian Linux</strong><br>
+                    Red: <strong>LibreRouter / Meshtastic</strong>
+                </p>
+                <a href="#" class="cta-button-glitch" style="font-size: 0.8rem; padding: 10px 20px;">DOCS TÉCNICOS</a>
+            </div>
+        </section>
+
+        <div class="section-header">
+            <h2>04. Estrategia de Financiamiento</h2>
+        </div>
+        <div class="grid-2"> 
+            <div class="area-card" onclick="openModal('modal-mexico')" style="cursor: pointer;">
+                <span class="status-badge status-active">Prioridad Alta</span>
+                <h3 class="card-title">🇲🇽 México: Federal & Regional</h3>
+                <p class="card-desc">Ecosistema SACPC, Piso 16 UNAM y fondos estatales en Jalisco/Gto. <br><br><strong>Próximo cierre: 7 Enero 2026 (Piso 16)</strong></p>
+                <div style="margin-top: 15px; text-align: right; color: var(--accent-color); font-size: 0.8rem;">VER DETALLES →</div>
+            </div>
+
+            <div class="area-card" onclick="openModal('modal-canada')" style="cursor: pointer;">
+                <span class="status-badge status-pending">Coproducción</span>
+                <h3 class="card-title">🇨🇦 Canadá: Estrategia Digital</h3>
+                <p class="card-desc">Canada Council for the Arts y CALQ (Quebec). Enfoque en I+D y Ciencia-Arte.<br><br><strong>Ciclos: Abril y Octubre 2026</strong></p>
+                <div style="margin-top: 15px; text-align: right; color: var(--accent-color); font-size: 0.8rem;">VER DETALLES →</div>
+            </div>
+
+            <div class="area-card" onclick="openModal('modal-francia')" style="cursor: pointer;">
+                <span class="status-badge status-pending">Innovación XR/IA</span>
+                <h3 class="card-title">🇫🇷 Francia: CNC & Inmersión</h3>
+                <p class="card-desc">Dicréam, Residencias IA y Fondos Regionales. Vanguardia tecnológica.<br><br><strong>Cierre Residencia IA: 23 Feb 2026</strong></p>
+                <div style="margin-top: 15px; text-align: right; color: var(--accent-color); font-size: 0.8rem;">VER DETALLES →</div>
+            </div>
+
+            <div class="area-card" onclick="openModal('modal-tech')" style="cursor: pointer;">
+                <span class="status-badge status-active">Rolling Basis</span>
+                <h3 class="card-title">🌐 Tech & Derechos Digitales</h3>
+                <p class="card-desc">Open Technology Fund, Mozilla y Numun. Financiamiento en USD.<br><br><strong>Convocatorias abiertas todo el año</strong></p>
+                <div style="margin-top: 15px; text-align: right; color: var(--accent-color); font-size: 0.8rem;">VER DETALLES →</div>
+            </div>
+        </div>
+
+        <section style="text-align: center; margin-top: 60px; padding: 40px 0; border-top: 1px solid var(--card-border);">
+            <h2 style="font-size: 2rem; margin-bottom: 20px; color: #fff;">¿LISTOS PARA EL 2026?</h2>
+            <p style="color: var(--secondary-text-color); margin-bottom: 30px; max-width: 600px; margin: 0 auto 30px auto;">
+                Tenemos la tecnología, la visión y la comunidad. Es hora de convertir el código en una herramienta de transformación social.
+            </p>
+            <a href="https://www.alterlabgen.lat/index.html#contact-section" class="cta-button-glitch">INICIAR COLABORACIÓN</a>
+        </section>
+    </div>
 
     <div id="modal-mexico" class="modal">
         <div class="modal-content">
@@ -615,7 +622,6 @@
         renderer.setSize(window.innerWidth, window.innerHeight); 
         document.getElementById('canvas-container').appendChild(renderer.domElement); 
 
-        // Crear partículas 
         const particlesGeometry = new THREE.BufferGeometry(); 
         const particlesCount = 700; 
         const posArray = new Float32Array(particlesCount * 3); 
@@ -626,10 +632,9 @@
 
         particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3)); 
 
-        // Material de las partículas 
         const material = new THREE.PointsMaterial({ 
             size: 0.02, 
-            color: 0x00E5FF, // Color Cian 
+            color: 0x00E5FF, 
             transparent: true, 
             opacity: 0.8 
         }); 
@@ -637,7 +642,6 @@
         const particlesMesh = new THREE.Points(particlesGeometry, material); 
         scene.add(particlesMesh); 
 
-        // Esfera Wireframe central
         const geometryWire = new THREE.IcosahedronGeometry(4, 1); 
         const materialWire = new THREE.MeshBasicMaterial({  
             color: 0x00E5FF,  
@@ -650,7 +654,6 @@
 
         camera.position.z = 5; 
 
-        // Interacción con el mouse 
         let mouseX = 0; 
         let mouseY = 0; 
         let targetX = 0; 
@@ -664,26 +667,20 @@
             mouseY = (event.clientY - windowHalfY); 
         }); 
 
-        // Loop de animación 
         const clock = new THREE.Clock(); 
 
         function animate() { 
             requestAnimationFrame(animate); 
             const elapsedTime = clock.getElapsedTime(); 
-
             targetX = mouseX * 0.001; 
             targetY = mouseY * 0.001; 
-
             sphere.rotation.y += 0.002; 
             sphere.rotation.x += 0.001; 
-
             particlesMesh.rotation.y += 0.05 * (targetX - particlesMesh.rotation.y); 
             particlesMesh.rotation.x += 0.05 * (targetY - particlesMesh.rotation.x); 
             particlesMesh.rotation.z = elapsedTime * 0.05; 
-
             renderer.render(scene, camera); 
         } 
-
         animate(); 
 
         window.addEventListener('resize', () => { 
@@ -693,82 +690,68 @@
         }); 
 
         // ==========================================================
-        // LÓGICA DE NAVEGACIÓN Y ESTRATEGIA (CON HISTORY API)
+        // LÓGICA DE NAVEGACIÓN (SWITCH VIEWS)
         // ==========================================================
         
-        // 1. Funciones para controlar SOLO lo visual
-        function showStrategyUI() {
-            const overlay = document.getElementById('strategy-overlay');
-            const mainContent = document.getElementById('main-content');
-            const btn = document.getElementById('strategy-btn');
-            const closeBtn = document.getElementById('close-strategy-btn');
+        function switchView(viewName) {
+            const mainView = document.getElementById('main-view');
+            const strategyView = document.getElementById('strategy-view');
+            const btnColab = document.getElementById('btn-colab');
+            const btnStrategy = document.getElementById('btn-strategy');
 
-            overlay.style.display = "block";
-            mainContent.style.display = "none";
-            btn.style.color = "var(--accent-color)";
-            btn.style.borderColor = "var(--accent-color)";
-            closeBtn.style.display = "flex";
-            overlay.scrollTop = 0;
-            document.body.style.overflow = "hidden"; // Evitar scroll doble
-        }
+            if (viewName === 'strategy') {
+                // Mostrar Estrategia
+                mainView.style.display = 'none';
+                strategyView.style.display = 'block';
+                
+                // Actualizar estilo botones Nav
+                btnColab.classList.remove('active-view');
+                btnStrategy.classList.add('active-view');
+                btnStrategy.classList.remove('strategy-btn-style'); // Quitar borde para que se vea activo normal
 
-        function hideStrategyUI() {
-            const overlay = document.getElementById('strategy-overlay');
-            const mainContent = document.getElementById('main-content');
-            const btn = document.getElementById('strategy-btn');
-            const closeBtn = document.getElementById('close-strategy-btn');
-
-            overlay.style.display = "none";
-            mainContent.style.display = "block";
-            btn.style.color = "var(--secondary-text-color)";
-            btn.style.borderColor = "rgba(255,255,255,0.2)";
-            closeBtn.style.display = "none";
-            document.body.style.overflow = "auto";
-            
-            // Cerrar cualquier modal interno que haya quedado abierto
-            document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-        }
-
-        // 2. Función Trigger (Disparada por botones)
-        function triggerStrategy(isOpen) {
-            if (isOpen) {
-                // Agregar estado al historial
-                history.pushState({strategy: true}, "", "#estrategia");
-                showStrategyUI();
+                // Historial URL
+                history.pushState({view: 'strategy'}, "", "#estrategia");
             } else {
-                // Al cerrar con botón, retrocedemos en el historial
-                // Esto disparará el evento 'popstate' que cerrará la UI
-                history.back();
+                // Mostrar Co-Laboratorio (Main)
+                strategyView.style.display = 'none';
+                mainView.style.display = 'block';
+                
+                // Actualizar estilo botones Nav
+                btnStrategy.classList.remove('active-view');
+                btnStrategy.classList.add('strategy-btn-style');
+                btnColab.classList.add('active-view');
+
+                // Historial URL
+                if (location.hash === "#estrategia") {
+                     history.pushState({view: 'main'}, "", "index.html"); // O history.back() si prefieres
+                }
             }
+            window.scrollTo(0, 0); // Reset scroll
         }
 
-        // 3. Event Listener para el botón "Atrás" del navegador/celular
+        // Manejar botón "Atrás" del navegador
         window.addEventListener('popstate', (event) => {
-            // Si la URL ya no tiene el hash #estrategia, cerramos la UI
-            if (!location.hash.includes('estrategia')) {
-                hideStrategyUI();
+            if (location.hash.includes('estrategia')) {
+                switchView('strategy');
             } else {
-                // Si por alguna razón avanzamos al hash (redo), abrimos
-                showStrategyUI();
+                switchView('main');
             }
         });
 
-        // 4. Comprobación inicial al cargar página (por si recargan con el hash puesto)
+        // Carga inicial correcta
         window.addEventListener('load', () => {
             if (location.hash.includes('estrategia')) {
-                showStrategyUI();
+                switchView('strategy');
             }
         });
 
-        // --- LÓGICA DE MODALES INTERNOS ---
+        // --- LÓGICA DE MODALES ---
         function openModal(modalId) {
             document.getElementById(modalId).style.display = "block";
         }
-
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = "none";
         }
-
         window.onclick = function(event) {
             if (event.target.classList.contains('modal')) {
                 event.target.style.display = "none";
