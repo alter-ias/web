@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pa'l Hueso | Herramienta de Ensayo - Alter.Lab</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        alter: {
+                            bg: '#0F121B',
+                            cyan: '#00E5FF',
+                            dark: '#1a1d26',
+                            glass: 'rgba(255, 255, 255, 0.05)'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                        mono: ['Inter', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --background-color: #0F121B;
+            --text-color: #FFFFFF;
+            --accent-color: #00E5FF;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Canvas de fondo */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        /* Estilos Glassmorphism para las tarjetas */
+        .glass-card {
+            background: rgba(15, 18, 27, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 229, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-card-header {
+            background: linear-gradient(90deg, rgba(0,229,255,0.1) 0%, rgba(0,0,0,0) 100%);
+            border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+        }
+
+        /* Inputs personalizados */
+        select, .custom-radio {
+            background-color: rgba(0, 0, 0, 0.4);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+        }
+
+        /* Chips de notas */
+        .note-chip {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            margin: 0.25rem;
+            border-radius: 9999px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .main-note {
+            background-color: rgba(0, 229, 255, 0.15);
+            color: #00E5FF;
+            border: 1px solid #00E5FF;
+            box-shadow: 0 0 5px rgba(0, 229, 255, 0.2);
+        }
+        .passing-note {
+            background-color: rgba(255, 0, 128, 0.15); /* Magenta para contraste */
+            color: #ff5ca8;
+            border: 1px dashed #ff5ca8;
+        }
+
+        /* Logo Animation */
+        .logo-text {
+            letter-spacing: 4px;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F121B; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00E5FF; 
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <div id="canvas-container"></div>
+
+    <header class="w-full py-6 z-10 relative">
+        <div class="container mx-auto px-4 flex flex-col items-center">
+            <div class="flex items-center gap-3 mb-2">
+                <svg class="w-8 h-8 text-alter-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                <span class="logo-text font-bold text-xl md:text-2xl text-white">ALTER.LAB</span>
+            </div>
+            <div class="h-0.5 w-24 bg-alter-cyan shadow-[0_0_10px_#00E5FF]"></div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 z-10 relative flex-grow max-w-5xl">
+        
+        <div class="text-center mb-12">
+            <h1 class="text-5xl md:text-7xl font-bold mb-4 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-alter-cyan to-white" style="text-shadow: 0 0 20px rgba(0,229,255,0.3);">
+                Pa'l Hueso
+            </h1>
+            <p class="text-gray-400 text-lg md:text-xl font-light tracking-wide uppercase">
+                La herramienta para no perder más tiempo en los ensayos
+            </p>
+        </div>
+
+        <div class="space-y-8">
+            
+            <div class="glass-card rounded-xl p-6 md:p-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="col-span-1 md:col-span-2">
+                        <label for="song-selector" class="block text-sm font-bold text-alter-cyan mb-2 uppercase tracking-wider">
+                            <i class="bi bi-music-note-beamed mr-2"></i>Selecciona la Pieza
+                        </label>
+                        <select id="song-selector" onchange="updateAnalysis()" class="w-full p-3 rounded-lg bg-gray-900/50 border border-gray-700 text-white focus:ring-2 focus:ring-alter-cyan transition-all">
+                            <option value="" disabled selected>-- Elige una canción del repertorio --</option>
+                            </select>
+                    </div>
+
+                    <div class="col-span-1">
+                        <label class="block text-sm font-bold text-alter-cyan mb-2 uppercase tracking-wider">
+                            <i class="bi bi-person-badge mr-2"></i>Instrumento
+                        </label>
+                        <div class="flex flex-col gap-2 p-3 rounded-lg bg-gray-900/30 border border-gray-700">
+                            <label class="flex items-center cursor-pointer hover:text-alter-cyan transition-colors">
+                                <input type="radio" name="instrument" value="Concert" checked onchange="updateAnalysis()" class="mr-2 accent-alter-cyan">
+                                <span class="text-sm">Concierto (Piano/Guitarra/C)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer hover:text-alter-cyan transition-colors">
+                                <input type="radio" name="instrument" value="Bb" onchange="updateAnalysis()" class="mr-2 accent-alter-cyan">
+                                <span class="text-sm">Sax Tenor / Trompeta (B♭)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer hover:text-alter-cyan transition-colors">
+                                <input type="radio" name="instrument" value="Eb" onchange="updateAnalysis()" class="mr-2 accent-alter-cyan">
+                                <span class="text-sm">Sax Alto (E♭)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="analysis-output" class="hidden space-y-6 animate-fade-in">
+                
+                <div class="glass-card rounded-xl overflow-hidden">
+                    <div class="glass-card-header p-4 flex justify-between items-center">
+                        <h2 class="text-lg font-bold text-white tracking-widest uppercase">
+                            <i class="bi bi-cpu mr-2"></i>Análisis Armónico
+                        </h2>
+                        <span id="instrument-display" class="text-xs font-mono bg-alter-cyan text-black px-2 py-1 rounded font-bold">CONCERT</span>
+                    </div>
+                    
+                    <div class="p-6 md:p-8">
+                        <div class="mb-8 text-center">
+                            <p class="text-xs text-gray-400 uppercase tracking-[0.2em] mb-2">Tonalidad Transpuesta</p>
+                            <p id="transposed-key" class="text-6xl md:text-8xl font-black text-white" style="text-shadow: 0 0 30px rgba(0,229,255,0.4);"></p>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50">
+                                <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Progresión Base</p>
+                                <div class="font-mono text-lg md:text-xl text-gray-200 overflow-x-auto whitespace-nowrap pb-2">
+                                    <span id="transposed-chords"></span>
+                                </div>
+                            </div>
+                            <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50">
+                                <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Escala Improvisación</p>
+                                <div class="font-mono text-lg md:text-xl text-gray-200">
+                                    <span id="transposed-scale"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl p-6 md:p-8">
+                    <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+                        <i class="bi bi-music-note-list mr-3 text-alter-cyan"></i>Notas Seguras vs Tensión
+                    </h3>
+                    
+                    <div class="mb-6">
+                        <p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Notas de Escala (Seguras)</p>
+                        <div id="main-notes" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Cromatismos / Paso (Tensión)</p>
+                        <div id="passing-notes" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl p-6 md:p-8 border-l-4 border-l-yellow-500">
+                    <h3 class="text-lg font-bold mb-3 text-yellow-500 uppercase tracking-wider">
+                        <i class="bi bi-lightbulb mr-2"></i>Data de Ejecución
+                    </h3>
+                    <p id="execution-advice" class="text-gray-300 leading-relaxed font-mono text-sm md:text-base"></p>
+                    
+                    <div id="critical-chord-section" class="mt-4 pt-4 border-t border-gray-700 hidden">
+                        <p class="text-xs text-red-400 font-bold uppercase mb-1">⚠️ Punto Crítico de Tensión</p>
+                        <p id="critical-chord-advice" class="text-sm font-mono bg-red-900/20 text-red-200 p-3 rounded border border-red-900/50"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="initial-message" class="glass-card p-12 text-center text-gray-500 rounded-xl">
+                <i class="bi bi-vinyl text-6xl mb-4 block text-gray-700"></i>
+                <p class="text-lg font-medium">Selecciona una canción y ajusta tu instrumento para iniciar la secuencia.</p>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="relative z-10 py-8 mt-12 border-t border-gray-800 bg-gray-900/80 backdrop-blur">
+        <div class="container mx-auto text-center">
+            <div class="flex justify-center gap-8 mb-4">
+                <a href="#" class="text-gray-400 hover:text-alter-cyan transition-colors text-2xl"><i class="bi bi-youtube"></i></a>
+                <a href="#" class="text-gray-400 hover:text-alter-cyan transition-colors text-2xl"><i class="bi bi-facebook"></i></a>
+                <a href="#" class="text-gray-400 hover:text-alter-cyan transition-colors text-2xl"><i class="bi bi-instagram"></i></a>
+            </div>
+            <p class="text-gray-600 text-xs uppercase tracking-widest">© 2025 Alter.Lab | Generative Art & Code</p>
+        </div>
+    </footer>
+
+    <script>
+        // Array de notas musicales
+        const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const ENHARMONICS = { "C#": "Db", "D#": "Eb", "F#": "Gb", "G#": "Ab", "A#": "Bb" };
+        const SCALE_STEPS = {
+            'Jónica': [0, 2, 4, 5, 7, 9, 11],
+            'Eólica': [0, 2, 3, 5, 7, 8, 10],
+            'Dórica': [0, 2, 3, 5, 7, 9, 10],
+            'Armónica Menor': [0, 2, 3, 5, 7, 8, 11],
+            'Pentatónica Menor': [0, 3, 5, 7, 10],
+            'Pentatónica Mayor': [0, 2, 4, 7, 9],
+            'Mixolidia': [0, 2, 4, 5, 7, 9, 10],
+            'Natural': [0, 2, 4, 5, 7, 9, 11],
+        };
+
+        const SONGS_DATA = {
+            'hotel-california': {
+                title: 'Hotel California (Eagles)',
+                concertKey: 'Bm',
+                baseChords: 'Bm–F#7–A–E–G–D–Em–F#7',
+                improvScale: 'B Armónica Menor',
+                advice: 'La nota clave es A# (sensible) sobre el acorde F#7. Utiliza la escala armónica SÓLO en ese acorde para generar la tensión dramática.',
+                criticalChord: 'F#7 (V Dominante)',
+                steps: [0, 2, 3, 5, 7, 8, 11]
+            },
+            'black-magic-woman': {
+                title: 'Black Magic Woman (Santana)',
+                concertKey: 'Dm',
+                baseChords: 'Dm–Am–Gm–Dm',
+                improvScale: 'D Menor Armónica',
+                advice: 'El V dominante (A7) exige la D Menor Armónica (con C#) para el color exótico. Prioridad al groove percusivo.',
+                criticalChord: 'A7',
+                steps: [0, 2, 3, 5, 7, 8, 11]
+            },
+            'just-the-two-of-us': {
+                title: 'Just the Two of Us',
+                concertKey: 'C',
+                baseChords: 'Cmaj7–B7–Em7–E♭m7–Dm7–G7',
+                improvScale: 'C Jónica / E Dórico',
+                advice: 'El acorde E♭m7 es de paso cromático y dura poco. B7 es un dominante secundario.',
+                criticalChord: 'E♭m7',
+                steps: [0, 2, 4, 5, 7, 9, 11]
+            },
+            'aint-no-sunshine': {
+                title: 'Ain\'t No Sunshine',
+                concertKey: 'Am',
+                baseChords: 'Am–Em–G–Am',
+                improvScale: 'A Menor Pentatónica',
+                advice: 'Menos es más. Espacio negativo y sentimiento blues.',
+                criticalChord: 'E7',
+                steps: [0, 3, 5, 7, 10]
+            },
+            'get-back': {
+                title: 'Get Back (The Beatles)',
+                concertKey: 'A',
+                baseChords: 'A-D-E',
+                improvScale: 'A Jónica / Mixolidia',
+                advice: 'Rock Diatónico. Mantener el ritmo constante.',
+                steps: [0, 2, 4, 5, 7, 9, 10]
+            }
+        };
+
+        function getNoteIndex(note) {
+            let baseNote = note.replace(/[^A-G#♭♯]/g, '').trim();
+            baseNote = baseNote.replace('♭', 'b').replace('♯', '#');
+            const flatToSharp = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
+            baseNote = flatToSharp[baseNote] || baseNote;
+            return NOTES.indexOf(baseNote);
+        }
+
+        function transposeNote(note, semitones) {
+            const baseNote = note.replace(/[^A-G#♭♯]/g, '').trim();
+            const suffix = note.substring(baseNote.length);
+            let startIndex = getNoteIndex(baseNote);
+            if (startIndex === -1) return note;
+
+            let newIndex = (startIndex + semitones) % 12;
+            if (newIndex < 0) newIndex += 12;
+            let newNote = NOTES[newIndex];
+            
+            // Preferencia estética de bemoles si el resultado suele tenerlos
+            const useFlat = note.includes('b') || ['F', 'Bb', 'Eb', 'Ab', 'Db'].includes(newNote);
+            if (useFlat && ENHARMONICS[newNote]) return ENHARMONICS[newNote] + suffix; // Búsqueda inversa simplificada para el ejemplo
+            
+             // Lógica inversa simple para mostrar bemoles si aplica (manual por ahora)
+             if (useFlat) {
+                 const flats = { 'A#': 'Bb', 'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab' };
+                 if(flats[newNote]) newNote = flats[newNote];
+             }
+
+            return newNote + suffix;
+        }
+
+        function generateScaleNotes(rootNote, steps, semitonesTranspose) {
+            const rootIndex = getNoteIndex(rootNote);
+            if (rootIndex === -1) return { main: [], passing: [] };
+            const mainNotes = [];
+            const passingNotes = [];
+            const transposedNotes = NOTES.map((n, i) => {
+                const finalIndex = (i + semitonesTranspose) % 12;
+                let nn = NOTES[finalIndex];
+                // Conversión simple a bemol para visualización
+                if (['A#', 'C#', 'D#', 'F#', 'G#'].includes(nn) && Math.random() > 0.5) { 
+                   // Simplificación: en una app real esto sería más robusto según la tonalidad
+                   // Aquí dejamos sostenidos por defecto para coincidir con el array NOTES
+                }
+                return nn;
+            });
+
+            steps.forEach(step => {
+                const stepIndex = (rootIndex + step + semitonesTranspose) % 12;
+                mainNotes.push(transposedNotes[stepIndex]);
+            });
+
+            transposedNotes.forEach(note => {
+                if (!mainNotes.includes(note)) passingNotes.push(note);
+            });
+            return { main: mainNotes, passing: passingNotes };
+        }
+
+        function getTransposedData(data, instrument) {
+            let semitones = 0;
+            let instrumentName = 'CONCIERTO (C)';
+            if (instrument === 'Bb') { semitones = 2; instrumentName = 'SAX TENOR / TRPT (B♭)'; }
+            else if (instrument === 'Eb') { semitones = 9; instrumentName = 'SAX ALTO (E♭)'; } // +9 es igual a -3
+
+            // Transponer Tonalidad
+            const transposedKey = transposeNote(data.concertKey, semitones);
+            
+            // Transponer Acordes (Regex simple)
+            let transposedChords = data.baseChords;
+            const chordsArray = data.baseChords.match(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g) || [];
+            // Un set único para no reemplazar substrings incorrectamente
+            const uniqueChords = [...new Set(chordsArray)];
+            uniqueChords.forEach(c => {
+                 // Nota: Este reemplazo es básico y podría fallar con acordes complejos anidados, funciona para demo
+                const t = transposeNote(c, semitones);
+                const regex = new RegExp(`\\b${c}\\b`, 'g');
+                transposedChords = transposedChords.replace(regex, t);
+            });
+
+            // Transponer Escala Texto
+            const scaleMatch = data.improvScale.match(/(\w[#♭b]?)\s/);
+            let transposedScale = data.improvScale;
+            let rootScale = '';
+            if (scaleMatch && scaleMatch[1]) {
+                rootScale = scaleMatch[1];
+                const newRootScale = transposeNote(rootScale, semitones);
+                transposedScale = data.improvScale.replace(rootScale, newRootScale);
+            }
+
+            // Transponer Acorde Crítico
+            let transposedCritical = 'N/A';
+            if(data.criticalChord) {
+                const critMatch = data.criticalChord.match(/(\w[#♭b]?)/);
+                if(critMatch) {
+                    const tCrit = transposeNote(critMatch[1], semitones);
+                    transposedCritical = data.criticalChord.replace(critMatch[1], tCrit);
+                }
+            }
+
+            const scaleNotes = generateScaleNotes(rootScale, data.steps || SCALE_STEPS['Natural'], semitones);
+
+            return {
+                key: transposedKey,
+                chords: transposedChords,
+                scale: transposedScale,
+                critical: transposedCritical,
+                instrumentName: instrumentName,
+                scaleNotes: scaleNotes
+            };
+        }
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            const selector = document.getElementById('song-selector');
+            for (const key in SONGS_DATA) {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = SONGS_DATA[key].title;
+                selector.appendChild(option);
+            }
+        });
+
+        function updateAnalysis() {
+            const songKey = document.getElementById('song-selector').value;
+            const instrument = document.querySelector('input[name="instrument"]:checked').value;
+            const outputDiv = document.getElementById('analysis-output');
+            const initialDiv = document.getElementById('initial-message');
+
+            if (!songKey) return;
+
+            const originalData = SONGS_DATA[songKey];
+            const data = getTransposedData(originalData, instrument);
+
+            initialDiv.classList.add('hidden');
+            outputDiv.classList.remove('hidden');
+
+            document.getElementById('instrument-display').textContent = data.instrumentName;
+            document.getElementById('transposed-key').textContent = data.key;
+            document.getElementById('transposed-chords').textContent = data.chords;
+            document.getElementById('transposed-scale').textContent = data.scale;
+            document.getElementById('execution-advice').textContent = originalData.advice;
+
+            // Render notas
+            const mainDiv = document.getElementById('main-notes');
+            const passDiv = document.getElementById('passing-notes');
+            mainDiv.innerHTML = '';
+            passDiv.innerHTML = '';
+
+            data.scaleNotes.main.forEach(n => mainDiv.innerHTML += `<span class="note-chip main-note">${n}</span>`);
+            data.scaleNotes.passing.forEach(n => passDiv.innerHTML += `<span class="note-chip passing-note">${n}</span>`);
+
+            // Acorde Crítico
+            const critSection = document.getElementById('critical-chord-section');
+            if (data.critical && data.critical !== 'N/A') {
+                document.getElementById('critical-chord-advice').innerHTML = `Atención al cambio: <strong>${data.critical}</strong>`;
+                critSection.classList.remove('hidden');
+            } else {
+                critSection.classList.add('hidden');
+            }
+        }
+    </script>
+
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Partículas
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 800; // Aumentado ligeramente
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 20; // Campo más amplio
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 0.03,
+            color: 0x00E5FF, // Cyan AlterLab
+            transparent: true,
+            opacity: 0.6
+        });
+
+        const particlesMesh = new THREE.Points(particlesGeometry, material);
+        scene.add(particlesMesh);
+
+        // Esfera Wireframe Central
+        const geometryWire = new THREE.IcosahedronGeometry(4, 1);
+        const materialWire = new THREE.MeshBasicMaterial({ 
+            color: 0x00E5FF, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.05 
+        });
+        const sphere = new THREE.Mesh(geometryWire, materialWire);
+        scene.add(sphere);
+
+        camera.position.z = 5;
+
+        // Mouse interaction
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX);
+            mouseY = (event.clientY - windowHalfY);
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+            
+            targetX = mouseX * 0.001;
+            targetY = mouseY * 0.001;
+            
+            sphere.rotation.y += 0.002;
+            sphere.rotation.x += 0.001;
+            
+            // Movimiento suave de la cámara/partículas
+            particlesMesh.rotation.y += 0.05 * (targetX - particlesMesh.rotation.y);
+            particlesMesh.rotation.x += 0.05 * (targetY - particlesMesh.rotation.x);
+            
+            // Efecto de respiración sutil
+            sphere.scale.x = 1 + Math.sin(elapsedTime * 0.5) * 0.05;
+            sphere.scale.y = 1 + Math.sin(elapsedTime * 0.5) * 0.05;
+            sphere.scale.z = 1 + Math.sin(elapsedTime * 0.5) * 0.05;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
