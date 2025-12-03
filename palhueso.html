@@ -3,14 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pa'l Hueso | Alter.Lab</title>
+    <title>Pa'l Hueso | Herramienta de Ensayo - Alter.Lab</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
     <script src="https://cdn.tailwindcss.com"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
@@ -18,419 +20,751 @@
             theme: {
                 extend: {
                     colors: {
-                        alter: { bg: '#0F121B', cyan: '#00E5FF', dark: '#1a1d26' }
+                        alter: {
+                            bg: '#0F121B',
+                            cyan: '#00E5FF',
+                            dark: '#1a1d26',
+                            glass: 'rgba(255, 255, 255, 0.05)'
+                        }
                     },
-                    fontFamily: { sans: ['Montserrat', 'sans-serif'], mono: ['Inter', 'monospace'] },
-                    animation: { 'fade-in': 'fadeIn 0.5s ease-out' },
-                    keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                        mono: ['Inter', 'monospace'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
                 }
             }
         }
     </script>
 
     <style>
-        :root { --background-color: #0F121B; --text-color: #FFFFFF; --accent-color: #00E5FF; }
-        body { background-color: var(--background-color); color: var(--text-color); font-family: 'Montserrat', sans-serif; overflow-x: hidden; }
-        
-        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
-
-        .glass-card {
-            background: rgba(15, 18, 27, 0.9);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 229, 255, 0.15);
-            box-shadow: 0 0 20px rgba(0,0,0,0.6);
-            border-radius: 12px;
+        :root {
+            --background-color: #0F121B;
+            --text-color: #FFFFFF;
+            --accent-color: #00E5FF;
         }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Canvas de fondo */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        /* Glassmorphism Cards */
+        .glass-card {
+            background: rgba(15, 18, 27, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 229, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-card-header {
+            background: linear-gradient(90deg, rgba(0,229,255,0.15) 0%, rgba(0,0,0,0) 100%);
+            border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+        }
+
+        /* Inputs & Selects */
+        select, .custom-radio {
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.25);
+        }
+        select option {
+            background-color: #0F121B;
+        }
+
+        /* Chips de notas */
+        .note-chip {
+            display: inline-block;
+            padding: 0.35rem 0.85rem;
+            margin: 0.25rem;
+            border-radius: 9999px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .main-note {
+            background-color: rgba(0, 229, 255, 0.1);
+            color: #00E5FF;
+            border: 1px solid rgba(0, 229, 255, 0.5);
+            text-shadow: 0 0 5px rgba(0, 229, 255, 0.5);
+        }
+        .passing-note {
+            background-color: rgba(255, 171, 0, 0.1); 
+            color: #ffab00;
+            border: 1px dashed #ffab00;
+        }
+
+        /* --- ESTILOS CYBERPUNK PARA SVG --- */
         
-        select, .btn-control { background-color: rgba(0, 0, 0, 0.6); color: white; border: 1px solid rgba(255, 255, 255, 0.2); transition: all 0.3s; }
-        select:focus, .btn-control:hover { outline: none; border-color: var(--accent-color); box-shadow: 0 0 15px rgba(0, 229, 255, 0.25); }
-        select option { background-color: #0F121B; }
+        /* Guitarra */
+        #guitar-diagram-svg .fret-line { stroke: #4b5563; stroke-width: 2; }
+        #guitar-diagram-svg .string { stroke: rgba(255, 255, 255, 0.3); stroke-width: 1; }
+        #guitar-diagram-svg .nut { fill: #00E5FF; opacity: 0.3; }
+        #guitar-diagram-svg .note-dot { 
+            fill: #00E5FF; 
+            stroke: #fff; 
+            stroke-width: 1px;
+            filter: drop-shadow(0 0 3px #00E5FF); 
+        }
 
-        .note-chip { display: inline-block; padding: 0.25rem 0.6rem; margin: 0.25rem; border-radius: 9999px; font-size: 0.9rem; font-weight: 600; }
-        .main-note { background-color: rgba(0, 229, 255, 0.1); color: #00E5FF; border: 1px solid #00E5FF; }
-        .passing-note { background-color: rgba(255, 171, 0, 0.1); color: #FFAB00; border: 1px dashed #FFAB00; }
-
-        .lyrics-container { white-space: pre-wrap; font-family: 'Inter', monospace; line-height: 1.8; color: #ddd; }
-        .chord-highlight { 
-            color: #00E5FF; font-weight: bold; 
-            background: rgba(0, 229, 255, 0.1); 
-            padding: 2px 5px; border-radius: 4px; 
-            box-shadow: 0 0 5px rgba(0,229,255,0.1);
+        /* Piano */
+        #piano-diagram-svg .white-key { 
+            fill: rgba(255, 255, 255, 0.05); 
+            stroke: rgba(255, 255, 255, 0.2); 
+            stroke-width: 1; 
+        }
+        #piano-diagram-svg .black-key { 
+            fill: #0F121B; 
+            stroke: rgba(255, 255, 255, 0.1); 
+            stroke-width: 1; 
+        }
+        #piano-diagram-svg .highlight-key { 
+            fill: #00E5FF; 
+            filter: drop-shadow(0 0 5px #00E5FF); 
         }
 
         /* Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #0F121B; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #00E5FF; }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F121B; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00E5FF; 
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col justify-between">
 
     <div id="canvas-container"></div>
 
-    <header class="py-6 bg-black/30 backdrop-blur-md border-b border-white/10 sticky top-0 z-50">
-        <div class="container mx-auto px-4 flex items-center justify-between">
-            <a href="index.html" class="flex items-center gap-3 group">
-                <svg class="w-8 h-8 text-alter-cyan filter drop-shadow-[0_0_5px_#00E5FF]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
-                <div class="flex flex-col">
-                    <span class="font-bold text-xl text-white tracking-widest leading-none">ALTER.LAB</span>
-                    <span class="text-[0.65rem] text-alter-cyan tracking-[0.3em] leading-none">PA'L HUESO</span>
-                </div>
+    <header class="w-full py-6 z-10 relative">
+        <div class="container mx-auto px-4 flex flex-col items-center">
+            <a href="index.html" class="flex items-center gap-3 mb-2 animate-fade-in hover:opacity-80 transition-opacity group">
+                <svg class="w-8 h-8 text-alter-cyan filter drop-shadow-[0_0_8px_rgba(0,229,255,0.8)] group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                <span class="logo-text font-bold text-xl md:text-2xl text-white tracking-[0.2em]">ALTER.LAB</span>
             </a>
+            <div class="h-0.5 w-24 bg-alter-cyan shadow-[0_0_15px_#00E5FF] rounded-full"></div>
         </div>
     </header>
 
-    <main class="container mx-auto px-4 py-8 flex-grow">
+    <main class="container mx-auto px-4 py-8 z-10 relative flex-grow max-w-5xl">
         
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="text-center mb-12 animate-fade-in">
+            <h1 class="text-5xl md:text-7xl font-bold mb-4 tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-alter-cyan to-gray-400" style="text-shadow: 0 0 30px rgba(0,229,255,0.2);">
+                Pa'l Hueso
+            </h1>
+            <p class="text-gray-400 text-lg md:text-xl font-light tracking-widest uppercase">
+                La herramienta para no perder más tiempo en los ensayos
+            </p>
+        </div>
+
+        <div class="space-y-8">
             
-            <div class="lg:col-span-5 space-y-6">
-                
-                <div class="glass-card p-5 animate-fade-in">
-                    <label class="block text-xs font-bold text-alter-cyan mb-2 uppercase tracking-wider"><i class="bi bi-music-note-beamed mr-2"></i>Repertorio</label>
-                    <select id="song-selector" onchange="updateAnalysis()" class="w-full p-3 rounded-lg text-white text-lg cursor-pointer">
-                        <option value="" disabled selected>-- Cargar Canción --</option>
-                    </select>
-                </div>
-
-                <div class="glass-card p-5 space-y-4 animate-fade-in">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-400 mb-2 uppercase">Instrumento</label>
-                        <div class="flex gap-2">
-                            <label class="flex-1 cursor-pointer bg-black/40 hover:bg-alter-cyan/20 border border-white/10 p-2 rounded text-center transition-colors">
-                                <input type="radio" name="instrument" value="0" checked onchange="updateAnalysis()" class="hidden"> <span class="text-sm font-bold">C</span>
-                            </label>
-                            <label class="flex-1 cursor-pointer bg-black/40 hover:bg-alter-cyan/20 border border-white/10 p-2 rounded text-center transition-colors">
-                                <input type="radio" name="instrument" value="2" onchange="updateAnalysis()" class="hidden"> <span class="text-sm font-bold">Bb</span>
-                            </label>
-                            <label class="flex-1 cursor-pointer bg-black/40 hover:bg-alter-cyan/20 border border-white/10 p-2 rounded text-center transition-colors">
-                                <input type="radio" name="instrument" value="9" onchange="updateAnalysis()" class="hidden"> <span class="text-sm font-bold">Eb</span>
-                            </label>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-yellow-500 mb-2 uppercase flex justify-between">
-                            <span>Ajuste Manual</span> <span id="pitch-val" class="bg-yellow-500/20 px-2 rounded">0</span>
+            <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in" style="animation-delay: 0.1s;">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="col-span-1 md:col-span-2">
+                        <label for="song-selector" class="block text-sm font-bold text-alter-cyan mb-2 uppercase tracking-wider">
+                            <i class="bi bi-music-note-beamed mr-2"></i>Selecciona la Pieza
                         </label>
-                        <div class="flex items-center gap-3">
-                            <button onclick="changePitch(-1)" class="btn-control w-8 h-8 rounded-full font-bold">-</button>
-                            <div class="flex-grow h-1 bg-gray-700 rounded"><div id="pitch-bar" class="h-full bg-yellow-500 w-1/2 transition-all"></div></div>
-                            <button onclick="changePitch(1)" class="btn-control w-8 h-8 rounded-full font-bold">+</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="analysis-output" class="hidden space-y-6 animate-fade-in">
-                    
-                    <div class="glass-card p-6 text-center">
-                        <p class="text-xs text-gray-500 uppercase tracking-[0.3em] mb-1">Tonalidad Resultante</p>
-                        <h2 id="transposed-key" class="text-7xl font-black text-white drop-shadow-[0_0_15px_rgba(0,229,255,0.6)]"></h2>
-                        
-                        <div class="mt-6 grid grid-cols-1 gap-3 text-left">
-                            <div class="bg-black/30 p-3 rounded border-l-2 border-alter-cyan">
-                                <span class="text-[10px] text-alter-cyan uppercase font-bold">Progresión</span>
-                                <div id="transposed-chords" class="font-mono text-lg overflow-x-auto whitespace-nowrap"></div>
-                            </div>
-                            <div class="bg-black/30 p-3 rounded border-l-2 border-purple-500">
-                                <span class="text-[10px] text-purple-400 uppercase font-bold">Escala</span>
-                                <div id="transposed-scale" class="font-mono text-lg"></div>
-                            </div>
-                        </div>
+                        <select id="song-selector" onchange="updateAnalysis()" class="w-full p-3 rounded-lg text-white focus:ring-2 focus:ring-alter-cyan transition-all cursor-pointer">
+                            <option value="" disabled selected>-- Repertorio Cargado --</option>
+                            </select>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="glass-card p-3 flex flex-col items-center">
-                            <span class="text-xs text-gray-400 mb-2"><i class="bi bi-guitar text-alter-cyan"></i> Guitarra</span>
-                            <div id="guitar-container" class="w-full"></div> <span id="guitar-chord-name" class="text-xs font-bold mt-1 text-alter-cyan"></span>
+                    <div class="col-span-1">
+                        <label class="block text-sm font-bold text-alter-cyan mb-2 uppercase tracking-wider">
+                            <i class="bi bi-person-badge mr-2"></i>Instrumento
+                        </label>
+                        <div class="flex flex-col gap-2 p-3 rounded-lg bg-black/20 border border-white/10">
+                            <label class="flex items-center cursor-pointer hover:text-alter-cyan transition-colors group">
+                                <input type="radio" name="instrument" value="Concert" checked onchange="updateAnalysis()" class="mr-3 accent-alter-cyan w-4 h-4">
+                                <span class="text-sm group-hover:translate-x-1 transition-transform">Concierto (C)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer hover:text-alter-cyan transition-colors group">
+                                <input type="radio" name="instrument" value="Bb" onchange="updateAnalysis()" class="mr-3 accent-alter-cyan w-4 h-4">
+                                <span class="text-sm group-hover:translate-x-1 transition-transform">Sax Tenor (B♭)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer hover:text-alter-cyan transition-colors group">
+                                <input type="radio" name="instrument" value="Eb" onchange="updateAnalysis()" class="mr-3 accent-alter-cyan w-4 h-4">
+                                <span class="text-sm group-hover:translate-x-1 transition-transform">Sax Alto (E♭)</span>
+                            </label>
                         </div>
-                        <div class="glass-card p-3 flex flex-col items-center">
-                            <span class="text-xs text-gray-400 mb-2"><i class="bi bi-keyboard text-purple-400"></i> Piano</span>
-                            <div id="piano-container" class="w-full"></div> <span id="piano-chord-name" class="text-xs font-bold mt-1 text-purple-400"></span>
-                        </div>
-                    </div>
-
-                    <div class="glass-card p-4">
-                        <p class="text-xs text-gray-400 uppercase mb-2">Notas Seguras</p>
-                        <div id="scale-notes-container" class="flex flex-wrap gap-2"></div>
                     </div>
                 </div>
             </div>
 
-            <div class="lg:col-span-7 h-full min-h-[600px]">
-                <div id="initial-message" class="glass-card h-full flex flex-col items-center justify-center text-gray-500 p-10 text-center animate-fade-in">
-                    <i class="bi bi-vinyl-fill text-6xl mb-4 opacity-50"></i>
-                    <p class="text-lg">Selecciona una canción para comenzar.</p>
-                </div>
-
-                <div id="right-panel-content" class="hidden h-full">
-                    <div class="glass-card h-full p-6 flex flex-col relative overflow-hidden animate-fade-in">
-                        
-                        <div class="flex justify-between items-start border-b border-white/10 pb-4 mb-4 z-10">
-                            <div>
-                                <h2 id="song-title" class="text-2xl font-bold text-white"></h2>
-                                <p id="song-advice" class="text-sm text-yellow-500 font-mono mt-1"></p>
-                            </div>
-                            <div id="crit-chord-box" class="hidden px-3 py-1 bg-red-900/40 border border-red-500/30 rounded text-center">
-                                <span class="text-[10px] text-red-300 uppercase block">Ojo al cambio</span>
-                                <span id="crit-chord-val" class="font-bold text-red-100"></span>
-                            </div>
+            <div id="analysis-output" class="hidden space-y-6">
+                
+                <div class="glass-card rounded-xl overflow-hidden animate-fade-in">
+                    <div class="glass-card-header p-4 flex justify-between items-center">
+                        <h2 class="text-lg font-bold text-white tracking-widest uppercase">
+                            <i class="bi bi-cpu-fill mr-2"></i>Análisis Armónico
+                        </h2>
+                        <span id="instrument-display" class="text-xs font-mono bg-alter-cyan text-black px-2 py-1 rounded font-bold shadow-[0_0_10px_#00E5FF]">CONCERT</span>
+                    </div>
+                    
+                    <div class="p-6 md:p-8">
+                        <div class="mb-8 text-center">
+                            <p class="text-xs text-gray-400 uppercase tracking-[0.3em] mb-2">Tonalidad Transpuesta</p>
+                            <p id="transposed-key" class="text-6xl md:text-8xl font-black text-white filter drop-shadow-[0_0_15px_rgba(0,229,255,0.4)] transition-all hover:scale-105 duration-300"></p>
                         </div>
 
-                        <div id="lyrics-area" class="lyrics-container flex-grow overflow-y-auto pr-2 custom-scrollbar text-sm md:text-base z-10"></div>
-                        
-                        <div class="absolute bottom-0 right-0 p-8 opacity-5 pointer-events-none">
-                            <i class="bi bi-music-note-list text-9xl"></i>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50 hover:border-alter-cyan/30 transition-colors">
+                                <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Progresión Base</p>
+                                <div class="font-mono text-lg md:text-xl text-gray-200 overflow-x-auto whitespace-nowrap pb-2">
+                                    <span id="transposed-chords"></span>
+                                </div>
+                            </div>
+                            <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50 hover:border-alter-cyan/30 transition-colors">
+                                <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Escala Improvisación</p>
+                                <div class="font-mono text-lg md:text-xl text-gray-200">
+                                    <span id="transposed-scale"></span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in" style="animation-delay: 0.1s;">
+                    <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+                        <i class="bi bi-music-note-list mr-3 text-alter-cyan"></i>Mapa de Notas (Melodía)
+                    </h3>
+                    
+                    <div class="mb-6">
+                        <p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Notas de Escala (Seguras)</p>
+                        <div id="main-notes" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Cromatismos / Paso (Tensión)</p>
+                        <div id="passing-notes" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+
+                
+
+[Image of guitar fretboard diagram]
+
+                
+
+[Image of piano keyboard chord diagram]
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in" style="animation-delay: 0.15s;">
+                    <div class="glass-card rounded-xl p-6 border-l-4 border-l-alter-cyan">
+                        <h3 class="text-lg font-bold text-white mb-2 flex items-center">
+                            <i class="bi bi-guitar mr-2"></i>Acorde Tónica (Guitarra)
+                        </h3>
+                        <p class="text-xs text-gray-400 mb-4">Posición sugerida para: <span id="guitar-chord-name" class="font-bold text-alter-cyan text-base ml-1"></span></p>
+                        <div class="w-full max-w-xs mx-auto py-2">
+                            <svg id="guitar-diagram-svg" viewBox="0 0 200 150" class="w-full h-auto drop-shadow-[0_0_10px_rgba(0,229,255,0.2)]" xmlns="http://www.w3.org/2000/svg">
+                                </svg>
+                        </div>
+                    </div>
+
+                    <div class="glass-card rounded-xl p-6 border-l-4 border-l-purple-500">
+                        <h3 class="text-lg font-bold text-white mb-2 flex items-center">
+                            <i class="bi bi-keyboard mr-2"></i>Acorde Tónica (Teclado)
+                        </h3>
+                        <p class="text-xs text-gray-400 mb-4">Voicing básico para: <span id="piano-chord-name" class="font-bold text-alter-cyan text-base ml-1"></span></p>
+                        <div class="w-full max-w-sm mx-auto py-2">
+                            <svg id="piano-diagram-svg" viewBox="0 0 350 120" class="w-full h-auto drop-shadow-[0_0_10px_rgba(0,229,255,0.2)]" xmlns="http://www.w3.org/2000/svg">
+                                </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl p-6 md:p-8 border-l-4 border-l-yellow-500 animate-fade-in" style="animation-delay: 0.2s;">
+                    <h3 class="text-lg font-bold mb-3 text-yellow-500 uppercase tracking-wider">
+                        <i class="bi bi-lightbulb-fill mr-2"></i>Data de Ejecución
+                    </h3>
+                    <p id="execution-advice" class="text-gray-300 leading-relaxed font-mono text-sm md:text-base"></p>
+                    
+                    <div id="critical-chord-section" class="mt-4 pt-4 border-t border-gray-700 hidden">
+                        <p class="text-xs text-red-400 font-bold uppercase mb-1 flex items-center"><i class="bi bi-exclamation-triangle-fill mr-2"></i>Punto Crítico de Tensión</p>
+                        <p id="critical-chord-advice" class="text-sm font-mono bg-red-900/20 text-red-100 p-3 rounded border border-red-500/30"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="initial-message" class="glass-card p-12 text-center text-gray-500 rounded-xl animate-fade-in">
+                <i class="bi bi-vinyl-fill text-6xl mb-6 block text-gray-700/50"></i>
+                <p class="text-lg font-medium">Selecciona una canción y ajusta tu instrumento para cargar la data.</p>
             </div>
 
         </div>
     </main>
 
-    <footer class="py-6 border-t border-white/5 text-center mt-8">
-        <p class="text-gray-600 text-xs uppercase tracking-widest">© 2025 Alter.Lab | Generative Art & Code</p>
+    <footer class="relative z-10 py-8 mt-12 border-t border-gray-800 bg-gray-900/80 backdrop-blur-md">
+        <div class="container mx-auto text-center">
+            <div class="flex justify-center gap-8 mb-4">
+                <a href="#" class="text-gray-500 hover:text-alter-cyan transition-colors text-2xl hover:scale-110 transform duration-200"><i class="bi bi-youtube"></i></a>
+                <a href="#" class="text-gray-500 hover:text-alter-cyan transition-colors text-2xl hover:scale-110 transform duration-200"><i class="bi bi-facebook"></i></a>
+                <a href="#" class="text-gray-500 hover:text-alter-cyan transition-colors text-2xl hover:scale-110 transform duration-200"><i class="bi bi-instagram"></i></a>
+            </div>
+            <p class="text-gray-600 text-xs uppercase tracking-widest">© 2025 Alter.Lab | Generative Art & Code</p>
+        </div>
     </footer>
 
     <script>
         const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-        const ENHARMONICS = { "C#": "Db", "D#": "Eb", "F#": "Gb", "G#": "Ab", "A#": "Bb", "Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#" };
+        const ENHARMONICS = { "C#": "Db", "D#": "Eb", "F#": "Gb", "G#": "Ab", "A#": "Bb" };
         
-        const SCALE_STEPS = { 'Jónica':[0,2,4,5,7,9,11], 'Eólica':[0,2,3,5,7,8,10], 'Dórica':[0,2,3,5,7,9,10], 'Armónica':[0,2,3,5,7,8,11], 'Pentatónica':[0,3,5,7,10], 'Mayor':[0,2,4,7,9], 'Mixolidia':[0,2,4,5,7,9,10], 'Blues':[0,3,5,6,7,10], 'Natural':[0,2,4,5,7,9,11], 'Lidia':[0,2,4,6,7,9,11] };
-        const CHORD_INTERVALS = { 'm':[0,3,7], 'maj7':[0,4,7,11], 'm7':[0,3,7,10], '7':[0,4,7,10], 'M':[0,4,7], 'dim':[0,3,6], 'sus4':[0,5,7] };
-        const GUITAR_TUNING = [4, 9, 2, 7, 11, 4];
-
-        // --- BASE DE DATOS COMPLETA (28 CANCIONES) ---
-        const SONGS_DATA = {
-            'up-around-the-bend': { title: 'Up Around the Bend (CCR)', concertKey: 'D', baseChords: 'D–A–G', improvScale: 'D Mayor Pentatónica', advice: 'Tonalidad Re (D). Riff con cuerdas al aire.', criticalChord: 'A7 (V)', chordType: 'M', steps: SCALE_STEPS['Mayor'], lyrics: `[Intro] (Riff en D)\n\n[Verso 1]\nThere's a place up ahead and I'm [A]goin'\nJust as fast as my feet can fly\nCome away, come away if you're [A]goin'\nLeave the sinkin' ship behind\n\n[Estribillo]\n[G]C'mon the risin'wind\n[G]We're goin' up around the [A]bend\n[A7]Ooh!` },
-            'born-on-the-bayou': { title: 'Born on the Bayou (CCR)', concertKey: 'E', baseChords: 'E7–D–A', improvScale: 'E Mixolidia / Blues', advice: 'Todo gira sobre el E7 "vamp". Acordes de paso D y A.', criticalChord: 'E7#9', chordType: '7', steps: SCALE_STEPS['Blues'], lyrics: `[Intro] (E7 Vamp)\n\n[Verso 1]\n[E7]Now, when I was just a little boy\n[E7]Standin' to my Daddy's knee\n[E7]My poppa said, "Son, don't let the man get you\n[E7]Do what he done to me"` },
-            'fortunate-son': { title: 'Fortunate Son (CCR)', concertKey: 'G', baseChords: 'G–F–C–G', improvScale: 'G Mixolidia', advice: 'Movimiento G -> F -> C -> G. El F natural (bVII) es clave.', criticalChord: 'F (bVII)', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], lyrics: `[Intro] [G][F][C][G]\n\n[Verso 1]\n[G]Some folks are born [F]made to wave the flag\n[C]Ooh, they're red, white and [G]blue\n[G]And when the band plays [F]"Hail to the chief"\n[C]Ooh, they point the cannon at [G]you, Lord` },
-            'get-back': { title: 'Get Back (The Beatles)', concertKey: 'A', baseChords: 'A–G–D', improvScale: 'A Mixolidia', advice: 'Ritmo "Pony". D7/A crea tensión.', criticalChord: 'G (bVII)', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], lyrics: `[Intro] (Ritmo A)\n\n[Verso 1]\n[A]Jojo was a man who thought he was a loner\n[A]But he knew it couldn't last\n[A]Jojo left his home in Tucson, Arizona\n[A]For some California grass\n\n[Estribillo]\n[A]Get back, get back\n[A]Get back to where you once be-longed` },
-            'dreams-fleetwood': { title: 'Dreams (Fleetwood Mac)', concertKey: 'F', baseChords: 'Fmaj7–G6', improvScale: 'F Jónica', advice: 'Oscila entre Fmaj7 y G6.', criticalChord: 'G6', chordType: 'maj7', steps: SCALE_STEPS['Lidia'], lyrics: `[Verso 1]\n[Fmaj7]Now here you go again, you say [G6]you want your freedom\n[Fmaj7]Well, who am I to keep you [G6]down?\n[Fmaj7]It's only right that you should [G6]play the way you feel it` },
-            'dreams-cranberries': { title: 'Dreams (The Cranberries)', concertKey: 'E', baseChords: 'E–A–B', improvScale: 'E Mayor', advice: 'Tonalidad Mi Mayor (E).', criticalChord: 'G', chordType: 'M', steps: SCALE_STEPS['Mayor'], lyrics: `[Verso 1]\n[E]Oh, my life is changing [A]everyday\nIn every possible [E]way\n[E]And oh, my dreams, it's never quite as it [A]seems` },
-            'tin-man': { title: 'Tin Man (America)', concertKey: 'G', baseChords: 'Gmaj7–Cmaj7', improvScale: 'G Mayor', advice: 'Uso de extensiones Maj7.', criticalChord: 'Cmaj7', chordType: 'maj7', steps: SCALE_STEPS['Mayor'], lyrics: `[Intro] [Gmaj7][Cmaj7]\n\n[Verso 1]\n[Gmaj7]Sometimes late when things are real\n[Cmaj7]And people share the gift of gab between themselves` },
-            'everybody-wants-to-rule': { title: 'Everybody Wants to Rule the World', concertKey: 'D', baseChords: 'D–G/D–A/D', improvScale: 'D Mixolidia', advice: 'Bajo pedal en D. El estribillo rompe a Em - F#m.', criticalChord: 'G/D', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], lyrics: `[Intro] (Riff D)\n\n[Verso 1]\nWelcome to your life\nThere's no turning back\nEven while we sleep\nWe will find you` },
-            'overkill': { title: 'Overkill (Men at Work)', concertKey: 'D', baseChords: 'D–A–C–G', improvScale: 'D Mixolidia', advice: 'Progresión clave: D - A - C - G.', criticalChord: 'C (bVII)', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], lyrics: `[Verso 1]\nI can't get to [A]sleep\n[C]I think about the impli-[G]cations\nOf diving in too [A]deep\n[C]And possibly the compli-[G]cations` },
-            'hold-the-line': { title: 'Hold the Line (Toto)', concertKey: 'F#m', baseChords: 'F#m–C#m–D–E', improvScale: 'F# Menor', advice: 'Tonalidad F#m. Piano en tresillos.', criticalChord: 'C#m', chordType: 'm', steps: SCALE_STEPS['Eólica'], lyrics: `[Intro] [F#m][C#m][E]\n\n[Estribillo]\n[F#m]Hold the [C#m]line\n[E]Love isn't always on [F#m]time [C#m][E]` },
-            'baby-come-back': { title: 'Baby Come Back (Player)', concertKey: 'Cm', baseChords: 'Abmaj7–Gm7–Cm7', improvScale: 'C Menor Natural', advice: 'Yacht Rock. Estribillo usa Abmaj7.', criticalChord: 'Abmaj7', chordType: 'maj7', steps: SCALE_STEPS['Eólica'], lyrics: `[Intro] [Abmaj7][Gm7][Cm7]\n\n[Verso 1]\nSpending all my nights, all my [Gm7]money going out on the town` },
-            'shape-of-my-heart': { title: 'Shape of my heart (Sting)', concertKey: 'F#m', baseChords: 'F#m–E6–D6–C#7', improvScale: 'F# Menor', advice: 'Tonalidad F#m. Bajada diatónica.', criticalChord: 'C#7', chordType: 'm', steps: SCALE_STEPS['Eólica'], lyrics: `[Verso 1]\n[F#m]He deals the [C#m]cards as a medi-tation [C#sus4][C#7]\n[F#m]And those he [C#m]plays never sus-pect [C#sus4][C#7]` },
-            'michelle': { title: 'Michelle (The Beatles)', concertKey: 'F', baseChords: 'F–Fm–Bb7', improvScale: 'F Mayor / F Menor', advice: 'Intercambio modal F Mayor/Menor.', criticalChord: 'C#dim7', chordType: 'M', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso 1]\n[F]Michelle, [Gm7]ma belle\n[C]These are words that [C#dim7]go together [C]well` },
-            'here-today': { title: 'Here Today (Paul McCartney)', concertKey: 'G', baseChords: 'G–Bm–C–F', improvScale: 'G Mayor', advice: 'Tonalidad Sol (G).', criticalChord: 'C#dim7', chordType: 'maj7', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso 1]\n[G]And if I said\nI really knew you well\nWhat would your [C]answer be` },
-            'in-my-life': { title: 'In my life (The Beatles)', concertKey: 'A', baseChords: 'A–E–F#m–Dm', improvScale: 'A Jónica', advice: 'Uso del iv menor (Dm).', criticalChord: 'Dm (iv)', chordType: 'M', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso 1]\n[A]There are [E]places [F#m]I re-[A7]member\nAll my life, though [A]some have changed` },
-            'hotel-california': { title: 'Hotel California (Eagles)', concertKey: 'Bm', baseChords: 'Bm–F#7–A–E–G', improvScale: 'B Menor Armónica', advice: 'Nota clave A# sobre F#7.', criticalChord: 'F#7 (V)', chordType: 'm', steps: SCALE_STEPS['Armónica'], lyrics: `[Verso 1]\nOn a dark desert highway, [F#7]cool wind in my hair\n[A]Warm smell of colitas, [E]rising up through the air` },
-            'band-on-the-run': { title: 'Band on the Run (Wings)', concertKey: 'D -> Am -> C', baseChords: 'Dmaj7 / Am / C-F-G', improvScale: 'C Jónica', advice: 'Tres partes: Balada D/G, Rock Am, Folk C.', criticalChord: 'Fmaj7', chordType: 'm', steps: SCALE_STEPS['Eólica'], lyrics: `Stuck inside these four walls\n[G6]Sent inside forever\n\n[Am]If I ever get out of here` },
-            'quien-fuera-bunkers': { title: 'Quien Fuera (Los Bunkers)', concertKey: 'G', baseChords: 'G–Em–C–D', improvScale: 'G Mayor', advice: 'Versión rockera en G.', criticalChord: 'B7', chordType: 'm', steps: SCALE_STEPS['Mayor'], lyrics: `[Intro]\n(Riff G - Em - C - D)\n\n[Verso 1]\n[G]Estoy buscando una [Em]palabra\n[C]En el umbral de tu mis-terio` },
-            'bad-moon-rising': { title: 'Bad Moon Rising (CCR)', concertKey: 'D', baseChords: 'D–A–G', improvScale: 'D Mayor', advice: 'Ritmo rápido y cortado.', criticalChord: 'Ninguno', chordType: 'M', steps: SCALE_STEPS['Mayor'], lyrics: `[Verso 1]\nI see the [A]bad [G]moon a-rising\nI see [A]trouble [G]on the way` },
-            'mala-bad-bunny': { title: 'Vete (Bad Bunny)', concertKey: 'Bbm', baseChords: 'Gbmaj7–Fm7–Bbm7', improvScale: 'Bb Menor', advice: 'Jazz/Neo-Soul chords.', criticalChord: 'Gbmaj7', chordType: 'm', steps: SCALE_STEPS['Eólica'], lyrics: `[Intro]\n[Gbmaj7][Fm7]\nYeh, yeh, yeh, yeh\n\n[Estribillo]\n[Gbmaj7]Vete, eh, eh, eh` },
-            'dont-let-me-down': { title: 'Don\'t Let Me Down (The Beatles)', concertKey: 'E', baseChords: 'E–F#m7', improvScale: 'E Mayor', advice: 'Compás de 5/4 en estrofa.', criticalChord: 'F#m7', chordType: 'M', steps: SCALE_STEPS['Mayor'], lyrics: `[Estribillo]\n[F#m7]Don't let me [E]down\n[F#m7]Don't let me [E]down` },
-            'black-magic-woman': { title: 'Black Magic Woman (Santana)', concertKey: 'Dm', baseChords: 'Dm–Am–Gm–Dm', improvScale: 'D Dórica', advice: 'Ritmo Latino/Rock.', criticalChord: 'A7', chordType: 'm', steps: SCALE_STEPS['Dórica'], lyrics: `[Verso 1]\nGot a black magic [Am]woman\nGot a black magic [Am]woman` },
-            'gypsy-queen': { title: 'Gypsy Queen (Santana)', concertKey: 'D', baseChords: 'D–C–G/B–A', improvScale: 'D Mixolidia', advice: 'Instrumental.', criticalChord: 'D (Vamp)', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], lyrics: `[Instrumental]\n(Transición rápida)\n\n| D | D | D | D |` },
-            'sirius': { title: 'Sirius (APP)', concertKey: 'Bm', baseChords: 'Bm–G', improvScale: 'B Menor', advice: 'Intro icónica. Arpegio de Clavinet.', criticalChord: 'G', chordType: 'm', steps: SCALE_STEPS['Eólica'], lyrics: `[Instrumental]\n(Arpegio en Bm)\n\n| Bm | G | Bm | G |` },
-            'eye-in-the-sky': { title: 'Eye in the Sky (APP)', concertKey: 'Bm / D', baseChords: 'Bm–G–D–F#m', improvScale: 'D Mayor', advice: 'Estribillo usa Bm - G - D - F#m.', criticalChord: 'Gm', chordType: 'm', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso 1]\nDon't think sorry's easily said\n[G]You've taken lots of chances be-[Gm]fore` },
-            'golden-slumbers': { title: 'Golden Slumbers (The Beatles)', concertKey: 'Am / C', baseChords: 'Am7–Dm–G7–C', improvScale: 'C Mayor', advice: 'Piano balada.', criticalChord: 'E7', chordType: 'M', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso 1]\n[Am7]Once there was a way to get back homeward\n[Am7]Once there was a way to get back [G7]home` },
-            'carry-that-weight': { title: 'Carry That Weight (The Beatles)', concertKey: 'C', baseChords: 'C–G', improvScale: 'C Mayor', advice: 'Coro himno.', criticalChord: 'G', chordType: 'M', steps: SCALE_STEPS['Jónica'], lyrics: `[Estribillo]\n[C]Boy, you're gonna [G]carry that weight\n[G]Carry that weight a long [C]time` },
-            'the-end': { title: 'The End (The Beatles)', concertKey: 'A (Solos) -> C (Final)', baseChords: 'A–D / C–F–G', improvScale: 'A Blues / C Mayor', advice: 'Duelo de guitarras. Final majestuoso.', criticalChord: 'F', chordType: 'M', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso]\n[A]Oh yeah, all right\n| A7 | D7 | A7 | D7 |` },
-            'coming-back-to-life': { title: 'Coming back to life (Pink Floyd)', concertKey: 'C', baseChords: 'C–Fmaj7–Am–G', improvScale: 'C Mayor', advice: 'Tonalidad C Mayor. Intro etérea.', criticalChord: 'Fmaj7', chordType: 'M', steps: SCALE_STEPS['Mayor'], lyrics: `[Verso 1]\n[C]Where were you when I was burned and [Fmaj7]broken?\n[Am]While the days slipped by [G]from my window [F]watching` },
-            'just-the-two-of-us': { title: 'Just the Two of Us', concertKey: 'Fm', baseChords: 'Dbmaj7–C7–Fm7', improvScale: 'F Menor', advice: 'Tonalidad Fm. Progresión Jazz R&B.', criticalChord: 'C7alt', chordType: 'maj7', steps: SCALE_STEPS['Eólica'], lyrics: `[Verso 1]\nI see the crystal [C7]raindrops fall\n[Fm7]And the beauty of it [Ebm7]all [Ab7]` },
-            'aint-no-sunshine': { title: 'Ain\'t No Sunshine (Bill Withers)', concertKey: 'Am', baseChords: 'Am–Em–G–Am', improvScale: 'A Menor Pentatónica', advice: 'Minimalismo. Am - Em - G - Am.', criticalChord: 'Em7', chordType: 'm', steps: SCALE_STEPS['Pentatónica'], lyrics: `[Verso 1]\n[Am]Ain't no sunshine [Em]when she's [Am]gone\n[Am]It's not warm [Em]when she's [Am]away` },
-            'smooth-operator': { title: 'Smooth Operator (Sade)', concertKey: 'Dm', baseChords: 'Dm7–Am7–Gm7', improvScale: 'D Menor Natural', advice: 'Tonalidad Dm. Línea de bajo icónica.', criticalChord: 'Gm7', chordType: 'm7', steps: SCALE_STEPS['Eólica'], lyrics: `[Verso 1]\nDiamond life, [Am7]lover boy\n[Gm7]We move in space with [Am7]minimum waste` },
+        const SCALE_STEPS = {
+            'Jónica': [0, 2, 4, 5, 7, 9, 11], 
+            'Eólica': [0, 2, 3, 5, 7, 8, 10], 
+            'Dórica': [0, 2, 3, 5, 7, 9, 10], 
+            'Armónica Menor': [0, 2, 3, 5, 7, 8, 11],
+            'Pentatónica Menor': [0, 3, 5, 7, 10],
+            'Pentatónica Mayor': [0, 2, 4, 7, 9],
+            'Mixolidia': [0, 2, 4, 5, 7, 9, 10],
+            'Blues': [0, 3, 5, 6, 7, 10],
+            'Natural': [0, 2, 4, 5, 7, 9, 11],
+            'Mayor': [0, 2, 4, 5, 7, 9, 11], // Alias de Jónica
+            'Pentatónica': [0, 3, 5, 7, 10] // Alias de Pentatónica Menor
         };
 
-        let manualShift = 0;
+        const CHORD_INTERVALS = {
+            'm': [0, 3, 7], 
+            'maj7': [0, 4, 7, 11], 
+            'm7': [0, 3, 7, 10], 
+            '7': [0, 4, 7, 10], 
+            'M': [0, 4, 7] 
+        };
 
-        // FUNCIONES DE CÁLCULO
+        const GUITAR_TUNING = [4, 9, 2, 7, 11, 4]; // E A D G B E
+
+        const SONGS_DATA = {
+            'up-around-the-bend': { title: 'Up Around the Bend (CCR)', concertKey: 'A', baseChords: 'A–D–E–A (I-IV-V)', improvScale: 'A Menor Pentatónica', advice: 'Rock simple. El desafío es la precisión del shuffle rítmico y la articulación del riff. Inyectar la Blue Note (G/C) en los solos para el sabor Blues.', criticalChord: 'Blue Note (G)', steps: SCALE_STEPS['Pentatónica Menor'], chordType: 'M' },
+            'born-on-the-bayou': { title: 'Born on the Bayou (CCR)', concertKey: 'E', baseChords: 'E7–A7–E7 (Blues Tónico)', improvScale: 'E Blues', advice: 'El groove es crucial. Mantener el ritmo pantanoso. Usar el vibrato y el *bending* característico de John Fogerty.', criticalChord: 'Blue Note (Bb)', steps: SCALE_STEPS['Blues'], chordType: '7' },
+            'fortunate-son': { title: 'Fortunate Son (CCR)', concertKey: 'G', baseChords: 'G–C–F (I-IV-bVII)', improvScale: 'G Pentatónica Menor', advice: 'Rock muy directo. El acorde F (bVII) le da el toque Mixolidio/Blues. Prioridad absoluta al ritmo y la fuerza.', criticalChord: 'F (bVII)', steps: SCALE_STEPS['Pentatónica Menor'], chordType: 'M' },
+            'get-back': { title: 'Get Back (The Beatles)', concertKey: 'A', baseChords: 'A–G–D–A (I-bVII-IV)', improvScale: 'A Mixolidia', advice: 'El acorde G (bVII) es la clave del sonido Beatle. Enfocarse en el riff de guitarra y la firmeza del bajo.', criticalChord: 'G (bVII)', steps: SCALE_STEPS['Mixolidia'], chordType: 'M' },
+            'dreams-fleetwood': { title: 'Dreams (Fleetwood Mac)', concertKey: 'F', baseChords: 'F–Gm7–C–F (I-ii-V-I)', improvScale: 'F Jónica (Mayor)', advice: 'Pieza centrada en el groove del bajo. La simpleza armónica requiere perfección rítmica y textural.', criticalChord: 'Ninguno - Enfoque en Groove', steps: SCALE_STEPS['Jónica'], chordType: 'M' },
+            'dreams-cranberries': { title: 'Dreams (The Cranberries)', concertKey: 'Bm', baseChords: 'Bm–G–D–A (vi-IV-I-V en D)', improvScale: 'B Eólica / D Jónica', advice: 'Progresión diatónica sencilla en D Mayor. Mantener la ligereza y el color *jangle-pop*.', criticalChord: 'Ninguno - Enfoque en Melodía', steps: SCALE_STEPS['Eólica'], chordType: 'm' },
+            'tin-man': { title: 'Tin Man (America)', concertKey: 'G', baseChords: 'G–C–F–G (I-IV-bVII)', improvScale: 'G Mixolidia', advice: 'Folk-Rock. La complejidad es la superposición de guitarras acústicas arpegiadas. El F (bVII) es la nota clave.', criticalChord: 'F (bVII)', steps: SCALE_STEPS['Mixolidia'], chordType: 'M' },
+            'everybody-wants-to-rule': { title: 'Everybody Wants to Rule the World (Tears for Fears)', concertKey: 'D', baseChords: 'D–A–Bm–G (I-V-vi-IV)', improvScale: 'D Jónica (Mayor)', advice: 'Completamente diatónica. Usar efectos de modulación (chorus/flanger) en guitarra/teclado para capturar el sonido pulido de los 80s.', criticalChord: 'Ninguno - Enfoque en Timbre 80s', steps: SCALE_STEPS['Jónica'], chordType: 'M' },
+            'overkill': { title: 'Overkill (Men at Work)', concertKey: 'Em', baseChords: 'Em7–Cmaj7–G–Dsus4', improvScale: 'E Dórica', advice: 'Dominar el groove sincopado. El acorde Dsus4 (IV en E Dórico) es clave. La escala Dórica es más brillante que la Eólica.', criticalChord: 'Dsus4 (IV)', steps: SCALE_STEPS['Dórica'], chordType: 'm' },
+            'hold-the-line': { title: 'Hold the Line (Toto)', concertKey: 'G', baseChords: 'G–D/F#–Em–C (I-V-vi-IV)', improvScale: 'G Jónica (Mayor)', advice: 'Prog. clásica de rock. El solo requiere frases rápidas y melódicas que pasen por los acordes, evitando el *diatónico plano*.', criticalChord: 'Ninguno - Enfoque en Arpegios', steps: SCALE_STEPS['Jónica'], chordType: 'M' },
+            'baby-come-back': { title: 'Baby Come Back (Player)', concertKey: 'A', baseChords: 'Amaj7–C#m7–F#m7–Bm7–E7', improvScale: 'A Jónica / F# Eólica', advice: 'Soft Rock. Prioridad al uso de extensiones (7ª, 9ª, 11ª) en los acordes. Escala Jónica y arpegios.', criticalChord: 'C11', steps: SCALE_STEPS['Jónica'], chordType: 'maj7' },
+            'shape-of-my-heart': { title: 'Shape of my heart (Sting)', concertKey: 'Cm', baseChords: 'Cm–A♭–E♭–B♭ (vi-IV-I-V en E♭)', improvScale: 'C Eólica / E♭ Jónica', advice: 'Armonía de jazz/folk con un groove peculiar. El solo de armónica usa la escala menor natural (Eólica). Enfoque en la dinámica suave.', criticalChord: 'Ninguno - Enfoque en Dinámica', steps: SCALE_STEPS['Eólica'], chordType: 'm' },
+            'michelle': { title: 'Michelle (The Beatles)', concertKey: 'F', baseChords: 'F–A7–Dm–Gm–C7', improvScale: 'F Jónica (Mayor)', advice: 'Enfoque en la fluidez de las voicings de séptima y los sutiles acordes de paso. El bajo cromático es vital.', criticalChord: 'Ninguno - Enfoque en Bassline', steps: SCALE_STEPS['Jónica'], chordType: 'M' },
+            'here-today': { title: 'Here Today (Paul McCartney)', concertKey: 'D', baseChords: 'Dmaj7–Bm7–Em7–A7', improvScale: 'D Jónica (Mayor)', advice: 'Balada simple. Tocar con mucha sensibilidad y *legato*. La emotividad es la clave.', criticalChord: 'Ninguno - Enfoque en Expresión', steps: SCALE_STEPS['Jónica'], chordType: 'maj7' },
+            'in-my-life': { title: 'In my life (The Beatles)', concertKey: 'A', baseChords: 'A–F#m–Bm–E7', improvScale: 'A Jónica (Mayor)', advice: 'Diatónica. El solo de teclado/guitarra debe ser simple y melódico. Replicar el timbre de clavecín/piano del original.', criticalChord: 'Ninguno - Enfoque en Timbre', steps: SCALE_STEPS['Jónica'], chordType: 'M' },
+            'hotel-california': { title: 'Hotel California (Eagles)', concertKey: 'Bm', baseChords: 'Bm–F#7–A–E–G–D–Em–F#7', improvScale: 'B Armónica Menor', advice: 'La nota clave es A# (sensible) sobre el acorde F#7. Utiliza la escala armónica SÓLO en ese acorde. El resto de acordes usa B Menor Natural (Eólica).', criticalChord: 'F#7 (V Dominante)', steps: SCALE_STEPS['Armónica Menor'], chordType: 'm' },
+            'band-on-the-run': { title: 'Band on the Run (Wings)', concertKey: 'Am', baseChords: 'Am–G–F–C (S1), G–A (S2), F–G–C (S3)', improvScale: 'A Eólica / C Jónica', advice: 'Es una suite con múltiples cambios de clave (Am, D, C). El solista debe saber en qué sección está para cambiar la mentalidad diatónica.', criticalChord: 'Cambios Modales', steps: SCALE_STEPS['Eólica'], chordType: 'm' },
+            'quien-fuera-bunkers': { title: 'Quien Fuera (Los Bunkers)', concertKey: 'Am', baseChords: 'Am–G/B–C–F–E7', improvScale: 'A Eólica / A Armónica', advice: 'Dominar la función del E7 (V dominante) con la escala armónica. Enfoque en la articulación del fraseo vocal/guitarra.', criticalChord: 'E7 (V Dominante)', steps: SCALE_STEPS['Eólica'], chordType: 'm' },
+            'bad-moon-rising': { title: 'Bad Moon Rising (CCR)', concertKey: 'D', baseChords: 'D–G–A (I-IV-V)', improvScale: 'D Pentatónica Mayor', advice: 'Rock simple. El desafío es el groove y la articulación del riff. Usar la 6ª menor (B♭/A#) como blue note de paso para un toque más rock.', criticalChord: 'Ninguno - Enfoque en Rítmica', steps: SCALE_STEPS['Pentatónica Mayor'], chordType: 'M' },
+            'mala': { title: 'Mala (Bad Bunny)', concertKey: 'Cm', baseChords: 'Cm–A♭–E♭–B♭', improvScale: 'C Eólica / E♭ Jónica', advice: 'Reggaetón. La simpleza armónica permite enfocarse en el *flow* rítmico. Los sintes usan C Menor Pentatónica.', criticalChord: 'Ninguno - Enfoque en Flow', steps: SCALE_STEPS['Pentatónica Menor'], chordType: 'm' },
+            'dont-let-me-down': { title: 'Don\'t Let Me Down (The Beatles)', concertKey: 'E', baseChords: 'E–B7–C#m–E7/D–A', improvScale: 'E Mixolidia / E Blues', advice: 'Blues-Rock lento. El acorde E7/D (dominante secundario) es el punto de color. Usar la escala Blues con el vibrato lento.', criticalChord: 'E7/D', steps: SCALE_STEPS['Blues'], chordType: 'M' },
+            'black-magic-woman': { title: 'Black Magic Woman (Santana)', concertKey: 'Dm', baseChords: 'Dm–Am–Gm–Dm', improvScale: 'D Menor Armónica', advice: 'El V dominante (A7) exige la D Menor Armónica (con C#) para el color flamenco/exótico. Prioridad al groove percusivo.', criticalChord: 'A7 (V Dominante)', steps: SCALE_STEPS['Armónica Menor'], chordType: 'm' },
+            'sirius-eye-in-the-sky': { title: 'Sirius / Eye in the Sky (APP)', concertKey: 'Am', baseChords: 'Am–G–Fmaj7–E7', improvScale: 'A Eólica / A Armónica', advice: 'El riff de Sirius es pura textura. Eye in the Sky es diatónico. Usar A Armónica en el E7.', criticalChord: 'E7 (V Dominante)', steps: SCALE_STEPS['Eólica'], chordType: 'm' },
+            'golden-slumbers-suite': { title: 'Golden Slumbers Suite (The Beatles)', concertKey: 'C', baseChords: 'Am7–Dm7–G7–C / F–C–G–C', improvScale: 'C Jónica / A Eólica', advice: 'Masterizar las transiciones entre secciones. Es diatónica en C Mayor. El solo en "The End" requiere coordinación.', criticalChord: 'E♭dim7', steps: SCALE_STEPS['Jónica'], chordType: 'M' },
+            'coming-back-to-life': { title: 'Coming back to life (Pink Floyd)', concertKey: 'G', baseChords: 'G–D/F#–Em–C', improvScale: 'G Jónica / E Eólica', advice: 'Balada lenta con un solo épico. La clave es el *sustain*, el *bending* lento y el uso de la Pentatónica Mayor para la emoción.', criticalChord: 'Ninguno - Enfoque en Tono', steps: SCALE_STEPS['Pentatónica Mayor'], chordType: 'M' },
+            'just-the-two-of-us': { title: 'Just the Two of Us (Grover W.)', concertKey: 'C', baseChords: 'Cmaj7–B7–Em7–E♭m7–Dm7–G7', improvScale: 'C Jónica / E Dórico', advice: 'Jazz-Pop sofisticado. El acorde E♭m7 es de paso cromático. Enfócate en arpegios sobre los acordes de séptima.', criticalChord: 'E♭m7', steps: SCALE_STEPS['Jónica'], chordType: 'maj7' },
+            'aint-no-sunshine': { title: 'Ain\'t No Sunshine (Bill Withers)', concertKey: 'Am', baseChords: 'Am–G–C–F / Dm–Am–E7', improvScale: 'A Menor Pentatónica', advice: 'El E7 (V Dominante) es el punto de tensión. Usa la A Menor Armónica sobre el E7. Prioridad al *feel* y la dinámica.', criticalChord: 'E7 (V Dominante)', steps: SCALE_STEPS['Pentatónica Menor'], chordType: 'm' },
+            'smooth-operator': { title: 'Smooth Operator (Sade)', concertKey: 'Am', baseChords: 'Am9–Gmaj7–Fmaj7–E7', improvScale: 'A Dórica', advice: 'Sophisti-Pop. El acorde E7 (V) trae tensión, pero el A Menor Dórico (con F# y G natural) le da el color elegante.', criticalChord: 'E7 (V Dominante)', steps: SCALE_STEPS['Dórica'], chordType: 'm' },
+        };
+
         function getNoteIndex(note) {
-            if(!note) return -1;
-            let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim().replace('♭', 'b').replace('♯', '#');
+            let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim();
+            baseNote = baseNote.replace('♭', 'b').replace('♯', '#');
             const flatToSharp = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
             baseNote = flatToSharp[baseNote] || baseNote;
             return NOTES.indexOf(baseNote);
         }
 
         function transposeNote(note, semitones) {
-            let idx = getNoteIndex(note);
-            if (idx === -1) return note;
-            let newIdx = (idx + semitones) % 12;
-            if (newIdx < 0) newIdx += 12;
-            let newNote = NOTES[newIdx] || note; // Fail-safe
-            const useFlat = note.includes('b') || ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'].includes(newNote);
+            const baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim();
+            const suffix = note.substring(baseNote.length);
+            let startIndex = getNoteIndex(baseNote);
+            if (startIndex === -1) return note;
+
+            let newIndex = (startIndex + semitones) % 12;
+            if (newIndex < 0) newIndex += 12;
+            let newNote = NOTES[newIndex];
+            
+            // Preferencia estética de bemoles
+            const useFlat = note.includes('b') || note.includes('♭') || ['F', 'Bb', 'Eb', 'Ab', 'Db'].includes(newNote);
             if (useFlat) {
                 const flats = { 'A#': 'Bb', 'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab' };
                 if(flats[newNote]) newNote = flats[newNote];
             }
-            return newNote;
+            return newNote + suffix;
         }
 
-        function getFullTransposedNote(fullChordStr, semitones) {
-            const match = fullChordStr.match(/^([A-G][#b]?)(.*)$/);
-            if(!match) return fullChordStr;
-            return transposeNote(match[1], semitones) + match[2];
+        // Generar notas del acorde tónica
+        function generateChordNotes(rootNote, chordType, semitonesTranspose) {
+            const rootIndex = getNoteIndex(rootNote);
+            const intervals = CHORD_INTERVALS[chordType] || CHORD_INTERVALS['M']; 
+            if (rootIndex === -1) return [];
+
+            const chordNotes = [];
+            intervals.forEach(interval => {
+                const noteIndex = (rootIndex + interval + semitonesTranspose) % 12;
+                let note = NOTES[noteIndex];
+                
+                // Intentar mantener coherencia de bemoles si la raíz los usa
+                const rootTransposed = transposeNote(rootNote, semitonesTranspose);
+                if (rootTransposed.includes('b') || rootTransposed.includes('♭')) {
+                     const flats = { 'A#': 'Bb', 'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab' };
+                     if(flats[note]) note = flats[note];
+                }
+                chordNotes.push(note);
+            });
+            return chordNotes;
         }
 
-        function generateChordNotes(root, type, semitones) {
-            let idx = getNoteIndex(root);
-            if(idx === -1) return [];
-            let intervals = CHORD_INTERVALS[type] || CHORD_INTERVALS['M'];
-            return intervals.map(i => NOTES[(idx + i + semitones) % 12]);
-        }
+        // SVG Guitarra
+        function generateGuitarDiagram(chordNotes) {
+            const SVG_WIDTH = 200;
+            const SVG_HEIGHT = 150;
+            const NUM_STRINGS = 6;
+            const NUM_FRETS = 4;
+            const FRET_WIDTH = SVG_WIDTH / (NUM_FRETS + 1);
+            const STRING_SPACING = (SVG_HEIGHT - 20) / (NUM_STRINGS - 1);
+            let svgContent = '';
 
-        // GENERADORES DE DIAGRAMAS (SVG INLINE)
-        function drawGuitar(notes) {
-            const W=200, H=150, FRETS=4, STRINGS=6;
-            const fw = W/(FRETS+1), sh = (H-20)/(STRINGS-1);
-            let s = `<rect x="5" y="10" width="${fw/2}" height="${H-20}" fill="rgba(0,229,255,0.3)" stroke="none"/>`; // Nut
+            // Cejuela (Nut)
+            svgContent += `<rect x="5" y="10" width="${FRET_WIDTH/2}" height="${SVG_HEIGHT - 20}" class="nut" />`; 
+
             // Trastes
-            for(let i=0; i<=FRETS; i++) { let x=5+fw/2+i*fw; s+=`<line x1="${x}" y1="10" x2="${x}" y2="${H-10}" stroke="#4b5563" stroke-width="2"/>`; }
+            for (let i = 0; i <= NUM_FRETS; i++) {
+                const x = 5 + (FRET_WIDTH/2) + i * FRET_WIDTH;
+                svgContent += `<line x1="${x}" y1="10" x2="${x}" y2="${SVG_HEIGHT - 10}" class="fret-line" />`;
+            }
+
             // Cuerdas
-            for(let i=0; i<STRINGS; i++) { let y=10+i*sh; s+=`<line x1="5" y1="${y}" x2="${W-5}" y2="${y}" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>`; }
-            // Puntos
-            for(let str=0; str<STRINGS; str++) {
-                let openIdx = GUITAR_TUNING[str], y = 10 + str*sh;
-                for(let f=1; f<=FRETS; f++) {
-                    let note = NOTES[(openIdx + f) % 12];
-                    if(notes.some(n => getNoteIndex(n) === getNoteIndex(note))) {
-                        s+=`<circle cx="${5 + fw/2 + f*fw - fw/2}" cy="${y}" r="6" fill="#00E5FF" stroke="#fff" stroke-width="1" filter="drop-shadow(0 0 4px #00E5FF)"/>`;
+            for (let i = 0; i < NUM_STRINGS; i++) {
+                const y = 10 + i * STRING_SPACING;
+                svgContent += `<line x1="5" y1="${y}" x2="${SVG_WIDTH - 5}" y2="${y}" class="string" />`;
+            }
+
+            // Notas
+            for (let string = 0; string < NUM_STRINGS; string++) {
+                const openNoteIndex = GUITAR_TUNING[string];
+                const stringY = 10 + string * STRING_SPACING;
+
+                for (let fret = 1; fret <= NUM_FRETS; fret++) {
+                    const fretNoteIndex = (openNoteIndex + fret) % 12;
+                    let fretNote = NOTES[fretNoteIndex];
+                    
+                    // Comprobar notas (manejando enharmónicos simple)
+                    const isNoteInChord = chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(fretNote));
+
+                    if (isNoteInChord) {
+                        const dotX = (fret * FRET_WIDTH) + 5; 
+                        svgContent += `<circle cx="${dotX}" cy="${stringY}" r="6" class="note-dot" />`;
                     }
                 }
             }
-            return s;
+            return svgContent;
         }
 
-        function drawPiano(notes) {
-            let s='', wx=0;
-            const keys = [{n:'C',t:0},{n:'C#',t:1},{n:'D',t:0},{n:'D#',t:1},{n:'E',t:0},{n:'F',t:0},{n:'F#',t:1},{n:'G',t:0},{n:'G#',t:1},{n:'A',t:0},{n:'A#',t:1},{n:'B',t:0},{n:'C',t:0},{n:'C#',t:1}];
-            // Blancas
-            keys.forEach(k => {
-                if(k.t===0) {
-                    let act = notes.some(n => getNoteIndex(n) === getNoteIndex(k.n));
-                    s+=`<rect x="${wx*25}" y="0" width="25" height="100" fill="${act?'#00E5FF':'rgba(255,255,255,0.05)'}" stroke="rgba(0,229,255,0.3)" stroke-width="1"/>`;
-                    wx++;
-                }
-            });
-            wx=0;
-            // Negras
-            keys.forEach(k => {
-                if(k.t===0) wx++;
-                else {
-                    let act = notes.some(n => getNoteIndex(n) === getNoteIndex(k.n));
-                    s+=`<rect x="${(wx-1)*25+17.5}" y="0" width="15" height="60" fill="${act?'#00E5FF':'rgba(0,0,0,0.8)'}" stroke="rgba(0,229,255,0.2)" stroke-width="1"/>`;
-                }
-            });
-            return s;
-        }
-
-        // CONTROLADORES
-        function changePitch(delta) {
-            manualShift += delta;
-            document.getElementById('pitch-val').innerText = (manualShift > 0 ? '+' : '') + manualShift;
-            document.getElementById('pitch-bar').style.width = Math.min(100, Math.max(0, 50 + manualShift*4)) + '%';
-            updateAnalysis();
-        }
-
-        function updateAnalysis() {
-            const key = document.getElementById('song-selector').value;
-            if(!key) return;
-            const song = SONGS_DATA[key];
-            const instShift = parseInt(document.querySelector('input[name="instrument"]:checked').value);
-            const totalShift = instShift + manualShift;
-
-            // Visibilidad
-            document.getElementById('initial-message').classList.add('hidden');
-            document.getElementById('analysis-output').classList.remove('hidden');
-            document.getElementById('right-panel-content').classList.remove('hidden');
-
-            // Datos Base
-            document.getElementById('song-title').innerText = song.title;
-            document.getElementById('song-advice').innerText = song.advice;
-
-            const rootKey = song.concertKey.split(' ')[0].trim();
-            const newKey = getFullTransposedNote(rootKey, totalShift);
-            document.getElementById('transposed-key').innerText = newKey;
+        // SVG Piano
+        function generatePianoDiagram(chordNotes) {
+            const WHITE_KEY_WIDTH = 25;
+            const BLACK_KEY_WIDTH = 15;
+            const BLACK_KEY_HEIGHT = 70;
+            const WHITE_KEY_HEIGHT = 100;
+            let svgContent = '';
             
-            const newChords = song.baseChords.replace(/([A-G][#b]?)([^–\s]*)/g, (m,r,s) => getFullTransposedNote(r+s, totalShift));
-            document.getElementById('transposed-chords').innerText = newChords;
+            const pianoMap = [
+                { note: 'C', type: 'white' }, { note: 'C#', type: 'black' },
+                { note: 'D', type: 'white' }, { note: 'D#', type: 'black' },
+                { note: 'E', type: 'white' },
+                { note: 'F', type: 'white' }, { note: 'F#', type: 'black' },
+                { note: 'G', type: 'white' }, { note: 'G#', type: 'black' },
+                { note: 'A', type: 'white' }, { note: 'A#', type: 'black' },
+                { note: 'B', type: 'white' },
+                { note: 'C', type: 'white' }, { note: 'C#', type: 'black' }
+            ];
 
-            // Escala
-            const scaleMatch = song.improvScale.match(/^([A-G][#b]?)(.*)$/);
-            if(scaleMatch) {
-                document.getElementById('transposed-scale').innerText = transposeNote(scaleMatch[1], totalShift) + scaleMatch[2];
-            } else {
-                document.getElementById('transposed-scale').innerText = song.improvScale;
+            let whiteKeyIndex = 0;
+
+            // Dibujar blancas primero
+            for (let i = 0; i < pianoMap.length; i++) {
+                const keyData = pianoMap[i];
+                if (keyData.type === 'white') {
+                    const isHighlighted = chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(keyData.note));
+                    const x = whiteKeyIndex * WHITE_KEY_WIDTH;
+                    const highlightClass = isHighlighted ? 'highlight-key' : 'white-key';
+                    svgContent += `<rect x="${x}" y="0" width="${WHITE_KEY_WIDTH}" height="${WHITE_KEY_HEIGHT}" class="${highlightClass}" />`;
+                    whiteKeyIndex++;
+                }
             }
-
-            // Letras
-            if(song.lyrics) {
-                document.getElementById('lyrics-area').innerHTML = song.lyrics.replace(/\[([A-G][#b]?)(.*?)\]/g, (m,r,s) => `<span class="chord-highlight">[${transposeNote(r, totalShift)}${s}]</span>`);
-            }
-
-            // Notas Escala
-            const scaleRootMatch = song.improvScale.match(/^[A-G][#b]?/);
-            if(scaleRootMatch) {
-                const scaleIdx = getNoteIndex(scaleRootMatch[0]);
-                let scaleNotesHTML = "";
-                (song.steps || SCALE_STEPS['Natural']).forEach(s => scaleNotesHTML += `<span class="note-chip main-note">${NOTES[(scaleIdx+s+totalShift)%12]}</span>`);
-                document.getElementById('scale-notes-container').innerHTML = scaleNotesHTML;
-            }
-
-            // Acorde Crítico
-            const critSection = document.getElementById('critical-chord-section');
-            if(song.criticalChord && !song.criticalChord.includes('Ninguno')) {
-                const critMatch = song.criticalChord.match(/^([A-G][#b]?)(.*)$/);
-                if(critMatch) {
-                    document.getElementById('crit-chord-val').innerText = transposeNote(critMatch[1], totalShift) + critMatch[2];
+            // Dibujar negras encima
+            whiteKeyIndex = 0;
+            for (let i = 0; i < pianoMap.length; i++) {
+                const keyData = pianoMap[i];
+                if (keyData.type === 'white') {
+                    whiteKeyIndex++;
                 } else {
-                    document.getElementById('crit-chord-val').innerText = song.criticalChord;
+                     const isHighlighted = chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(keyData.note));
+                     const x = (whiteKeyIndex - 1) * WHITE_KEY_WIDTH + (WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2);
+                     const highlightClass = isHighlighted ? 'highlight-key' : 'black-key';
+                     svgContent += `<rect x="${x}" y="0" width="${BLACK_KEY_WIDTH}" height="${BLACK_KEY_HEIGHT}" class="${highlightClass}" />`;
                 }
-                critSection.classList.remove('hidden');
-            } else { critSection.classList.add('hidden'); }
-
-            // Diagramas
-            const tonicNotes = generateChordNotes(rootKey, song.chordType || 'M', totalShift);
-            document.getElementById('guitar-diagram-svg').innerHTML = drawGuitar(tonicNotes);
-            document.getElementById('guitar-chord-name').innerText = newKey + (song.chordType === 'm' ? 'm' : '');
-            
-            document.getElementById('piano-diagram-svg').innerHTML = drawPiano(tonicNotes);
-            document.getElementById('piano-chord-name').innerText = newKey + (song.chordType === 'm' ? 'm' : '');
+            }
+            return svgContent;
         }
 
-        // Inicializar Select
-        const sel = document.getElementById('song-selector');
-        Object.keys(SONGS_DATA).sort((a,b) => SONGS_DATA[a].title.localeCompare(SONGS_DATA[b].title)).forEach(k => {
-            let opt = document.createElement('option'); opt.value = k; opt.innerText = SONGS_DATA[k].title; sel.appendChild(opt);
+        function generateScaleNotes(rootNote, steps, semitonesTranspose) {
+            const rootIndex = getNoteIndex(rootNote);
+            if (rootIndex === -1) return { main: [], passing: [] };
+            const mainNotes = [];
+            const transposedNotes = NOTES.map((n, i) => {
+                const finalIndex = (i + semitonesTranspose) % 12;
+                return NOTES[finalIndex];
+            });
+
+            steps.forEach(step => {
+                const stepIndex = (rootIndex + step + semitonesTranspose) % 12;
+                mainNotes.push(transposedNotes[stepIndex]);
+            });
+
+            const passingNotes = transposedNotes.filter(n => !mainNotes.includes(n));
+            return { main: mainNotes, passing: passingNotes };
+        }
+
+        function getTransposedData(data, instrument) {
+            let semitones = 0;
+            let instrumentName = 'CONCIERTO (C)';
+            if (instrument === 'Bb') { semitones = 2; instrumentName = 'SAX TENOR / TRPT (B♭)'; }
+            else if (instrument === 'Eb') { semitones = 9; instrumentName = 'SAX ALTO (E♭)'; }
+
+            const originalKeyParts = data.concertKey.split('/');
+            const transposedKey = originalKeyParts.map(note => transposeNote(note.trim(), semitones)).join(' / ');
+            const rootKey = originalKeyParts[0].replace(/m(aj)?\d*/, '').trim();
+            
+            let transposedChords = data.baseChords;
+            const chordsArray = data.baseChords.match(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g) || [];
+            const uniqueChords = [...new Set(chordsArray)];
+            uniqueChords.forEach(originalChord => {
+                const transposed = transposeNote(originalChord, semitones);
+                const regex = new RegExp(`\\b${originalChord}\\b`, 'g');
+                transposedChords = transposedChords.replace(regex, transposed);
+            });
+
+            const scaleMatch = data.improvScale.match(/(\w[#♭b]?)\s/); 
+            let transposedScale = data.improvScale;
+            let rootScale = '';
+            if (scaleMatch && scaleMatch[1]) {
+                rootScale = scaleMatch[1];
+                const newRootScale = transposeNote(rootScale, semitones);
+                transposedScale = data.improvScale.replace(rootScale, newRootScale);
+            }
+
+            let transposedCritical = data.criticalChord || '';
+            if (data.criticalChord && !data.criticalChord.includes('Ninguno')) {
+                 const criticalChordMatch = data.criticalChord.match(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g) || [];
+                 criticalChordMatch.forEach(originalChord => {
+                    const transposed = transposeNote(originalChord, semitones);
+                    const regex = new RegExp(`\\b${originalChord}\\b`, 'g');
+                    transposedCritical = transposedCritical.replace(regex, transposed);
+                });
+            }
+
+            const scaleNameMatch = data.improvScale.match(/(\w+)\s*$/);
+            const scaleType = scaleNameMatch ? scaleNameMatch[1] : 'Natural';
+            // Limpieza de nombres de escala para mapear a SCALE_STEPS
+            const cleanScaleType = scaleType.replace(/Menor|Mayor/g, '').trim() || 'Natural';
+            const scaleSteps = SCALE_STEPS[cleanScaleType] || SCALE_STEPS['Natural'];
+            
+            const scaleNotes = generateScaleNotes(rootScale, scaleSteps, semitones);
+            
+            // Datos para diagramas
+            const tonicChordNotes = generateChordNotes(rootKey, data.chordType || 'M', semitones);
+            const tonicChordName = transposeNote(rootKey, semitones) + (data.chordType === 'm' ? 'm' : '');
+
+            return {
+                key: transposedKey,
+                chords: transposedChords,
+                scale: transposedScale,
+                critical: transposedCritical,
+                instrumentName: instrumentName,
+                scaleNotes: scaleNotes,
+                tonicChordNotes: tonicChordNotes,
+                tonicChordName: tonicChordName
+            };
+        }
+
+        // Inicialización y ordenamiento
+        document.addEventListener('DOMContentLoaded', () => {
+            const selector = document.getElementById('song-selector');
+            const songTitles = Object.keys(SONGS_DATA).map(key => ({
+                key: key,
+                title: SONGS_DATA[key].title
+            })).sort((a, b) => a.title.localeCompare(b.title));
+
+            songTitles.forEach(song => {
+                const option = document.createElement('option');
+                option.value = song.key;
+                option.textContent = song.title;
+                selector.appendChild(option);
+            });
         });
 
-        // THREE.JS FONDO
+        function updateAnalysis() {
+            const songKey = document.getElementById('song-selector').value;
+            const instrument = document.querySelector('input[name="instrument"]:checked').value;
+            const outputDiv = document.getElementById('analysis-output');
+            const initialDiv = document.getElementById('initial-message');
+
+            if (!songKey) return;
+
+            const originalData = SONGS_DATA[songKey];
+            const data = getTransposedData(originalData, instrument);
+
+            initialDiv.classList.add('hidden');
+            outputDiv.classList.remove('hidden');
+
+            document.getElementById('instrument-display').textContent = data.instrumentName;
+            document.getElementById('transposed-key').textContent = data.key;
+            document.getElementById('transposed-chords').textContent = data.chords;
+            document.getElementById('transposed-scale').textContent = data.scale;
+            document.getElementById('execution-advice').innerHTML = originalData.advice;
+
+            const mainDiv = document.getElementById('main-notes');
+            const passDiv = document.getElementById('passing-notes');
+            mainDiv.innerHTML = '';
+            passDiv.innerHTML = '';
+
+            data.scaleNotes.main.forEach(n => mainDiv.innerHTML += `<span class="note-chip main-note">${n}</span>`);
+            data.scaleNotes.passing.forEach(n => passDiv.innerHTML += `<span class="note-chip passing-note">${n}</span>`);
+
+            const criticalSection = document.getElementById('critical-chord-section');
+            if (data.critical && !originalData.criticalChord.includes('Ninguno')) {
+                document.getElementById('critical-chord-advice').innerHTML = `Atención al cambio: <strong>${data.critical}</strong>`;
+                criticalSection.classList.remove('hidden');
+            } else {
+                criticalSection.classList.add('hidden');
+            }
+
+            // Render Diagramas
+            document.getElementById('guitar-chord-name').textContent = data.tonicChordName;
+            document.getElementById('piano-chord-name').textContent = data.tonicChordName;
+            
+            document.getElementById('guitar-diagram-svg').innerHTML = generateGuitarDiagram(data.tonicChordNotes);
+            document.getElementById('piano-diagram-svg').innerHTML = generatePianoDiagram(data.tonicChordNotes);
+        }
+    </script>
+
+    <script>
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
-        
-        const partGeo = new THREE.BufferGeometry();
-        const pos = []; for(let i=0;i<800;i++) pos.push((Math.random()-0.5)*25, (Math.random()-0.5)*25, (Math.random()-0.5)*25);
-        partGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-        const parts = new THREE.Points(partGeo, new THREE.PointsMaterial({color:0x00E5FF, size:0.03, transparent:true, opacity:0.6}));
-        scene.add(parts);
-        
-        const geoWire = new THREE.IcosahedronGeometry(4, 1);
-        const matWire = new THREE.MeshBasicMaterial({color:0x00E5FF, wireframe:true, transparent:true, opacity:0.07});
-        const sphere = new THREE.Mesh(geoWire, matWire);
+
+        // Partículas
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 900;
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 25;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 0.035,
+            color: 0x00E5FF, 
+            transparent: true,
+            opacity: 0.7,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particlesMesh = new THREE.Points(particlesGeometry, material);
+        scene.add(particlesMesh);
+
+        // Esfera Wireframe
+        const geometryWire = new THREE.IcosahedronGeometry(4, 1);
+        const materialWire = new THREE.MeshBasicMaterial({ 
+            color: 0x00E5FF, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.07 
+        });
+        const sphere = new THREE.Mesh(geometryWire, materialWire);
         scene.add(sphere);
-        
+
         camera.position.z = 6;
-        let mouseX = 0, mouseY = 0;
-        document.addEventListener('mousemove', e => { mouseX = e.clientX - window.innerWidth/2; mouseY = e.clientY - window.innerHeight/2; });
-        
+
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX);
+            mouseY = (event.clientY - windowHalfY);
+        });
+
+        const clock = new THREE.Clock();
+
         function animate() {
             requestAnimationFrame(animate);
-            parts.rotation.y += 0.05 * (mouseX*0.001 - parts.rotation.y);
-            parts.rotation.x += 0.05 * (mouseY*0.001 - parts.rotation.x);
+            const elapsedTime = clock.getElapsedTime();
+            
+            targetX = mouseX * 0.001;
+            targetY = mouseY * 0.001;
+            
             sphere.rotation.y += 0.002;
+            sphere.rotation.x += 0.001;
+            
+            particlesMesh.rotation.y += 0.03 * (targetX - particlesMesh.rotation.y);
+            particlesMesh.rotation.x += 0.03 * (targetY - particlesMesh.rotation.x);
+            particlesMesh.rotation.z = elapsedTime * 0.03;
+
+            sphere.scale.x = 1 + Math.sin(elapsedTime * 0.3) * 0.05;
+            sphere.scale.y = 1 + Math.sin(elapsedTime * 0.3) * 0.05;
+            sphere.scale.z = 1 + Math.sin(elapsedTime * 0.3) * 0.05;
+
             renderer.render(scene, camera);
         }
         animate();
-        window.onresize = () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
