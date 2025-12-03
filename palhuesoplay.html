@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pa'l Hueso | Herramienta de Ensayo - Alter.Lab</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        alter: {
+                            bg: '#0F121B',
+                            cyan: '#00E5FF',
+                            dark: '#1a1d26',
+                            glass: 'rgba(255, 255, 255, 0.05)'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                        mono: ['Inter', 'monospace'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --background-color: #0F121B;
+            --text-color: #FFFFFF;
+            --accent-color: #00E5FF;
+        }
+
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Canvas de fondo */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        /* Glassmorphism Cards */
+        .glass-card {
+            background: rgba(15, 18, 27, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 229, 255, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-card-header {
+            background: linear-gradient(90deg, rgba(0,229,255,0.15) 0%, rgba(0,0,0,0) 100%);
+            border-bottom: 1px solid rgba(0, 229, 255, 0.1);
+        }
+
+        /* Inputs & Selects */
+        select, .custom-radio {
+            background-color: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.25);
+        }
+        select option {
+            background-color: #0F121B;
+        }
+
+        /* Chips de notas */
+        .note-chip {
+            display: inline-block;
+            padding: 0.35rem 0.85rem;
+            margin: 0.25rem;
+            border-radius: 9999px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .main-note {
+            background-color: rgba(0, 229, 255, 0.1);
+            color: #00E5FF;
+            border: 1px solid rgba(0, 229, 255, 0.5);
+            text-shadow: 0 0 5px rgba(0, 229, 255, 0.5);
+        }
+        .passing-note {
+            background-color: rgba(255, 171, 0, 0.1); 
+            color: #ffab00;
+            border: 1px dashed #ffab00;
+        }
+
+        /* --- ESTILOS CYBERPUNK PARA SVG --- */
+        
+        /* Guitarra */
+        #guitar-diagram-svg .fret-line { stroke: #4b5563; stroke-width: 2; }
+        #guitar-diagram-svg .string { stroke: rgba(255, 255, 255, 0.3); stroke-width: 1; }
+        #guitar-diagram-svg .nut { fill: #00E5FF; opacity: 0.3; }
+        #guitar-diagram-svg .note-dot { 
+            fill: #00E5FF; 
+            stroke: #fff; 
+            stroke-width: 1px;
+            filter: drop-shadow(0 0 3px #00E5FF); 
+        }
+
+        /* Piano */
+        #piano-diagram-svg .white-key { 
+            fill: rgba(255, 255, 255, 0.05); 
+            stroke: rgba(255, 255, 255, 0.2); 
+            stroke-width: 1; 
+        }
+        #piano-diagram-svg .black-key { 
+            fill: #0F121B; 
+            stroke: rgba(255, 255, 255, 0.1); 
+            stroke-width: 1; 
+        }
+        #piano-diagram-svg .highlight-key { 
+            fill: #00E5FF; 
+            filter: drop-shadow(0 0 5px #00E5FF); 
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F121B; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00E5FF; 
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+        }
+        
+        /* Player Button Pulse */
+        @keyframes pulse-cyan {
+            0% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 229, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); }
+        }
+        .playing-pulse {
+            animation: pulse-cyan 2s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <audio id="audio-player" preload="auto"></audio>
+
+    <div id="canvas-container"></div>
+
+    <header class="w-full py-6 z-10 relative">
+        <div class="container mx-auto px-4 flex flex-col items-center">
+            <a href="index.html" class="flex items-center gap-3 mb-2 animate-fade-in hover:opacity-80 transition-opacity group">
+                <svg class="w-8 h-8 text-alter-cyan filter drop-shadow-[0_0_8px_rgba(0,229,255,0.8)] group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                <span class="logo-text font-bold text-xl md:text-2xl text-white tracking-[0.2em]">ALTER.LAB</span>
+            </a>
+            <div class="h-0.5 w-24 bg-alter-cyan shadow-[0_0_15px_#00E5FF] rounded-full"></div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 z-10 relative flex-grow max-w-5xl">
+        
+        <div class="text-center mb-12 animate-fade-in">
+            <h1 class="text-5xl md:text-7xl font-bold mb-4 tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-alter-cyan to-gray-400" style="text-shadow: 0 0 30px rgba(0,229,255,0.2);">
+                Pa'l Hueso
+            </h1>
+            <p class="text-gray-400 text-lg md:text-xl font-light tracking-widest uppercase">
+                La herramienta para no perder más tiempo en los ensayos
+            </p>
+        </div>
+
+        <div class="space-y-8">
+            
+            <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in" style="animation-delay: 0.1s;">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="col-span-1 md:col-span-2">
+                        <label for="song-selector" class="block text-sm font-bold text-alter-cyan mb-2 uppercase tracking-wider">
+                            <i class="bi bi-music-note-beamed mr-2"></i>Selecciona la Pieza
+                        </label>
+                        <select id="song-selector" onchange="updateAnalysis()" class="w-full p-3 rounded-lg text-white focus:ring-2 focus:ring-alter-cyan transition-all cursor-pointer">
+                            <option value="" disabled selected>-- Repertorio Cargado --</option>
+                        </select>
+                    </div>
+
+                    <div class="col-span-1">
+                        <label class="block text-sm font-bold text-alter-cyan mb-2 uppercase tracking-wider">
+                            <i class="bi bi-person-badge mr-2"></i>Instrumento
+                        </label>
+                        <div class="flex flex-col gap-2 p-3 rounded-lg bg-black/20 border border-white/10">
+                            <label class="flex items-center cursor-pointer hover:text-alter-cyan transition-colors group">
+                                <input type="radio" name="instrument" value="Concert" checked onchange="updateAnalysis()" class="mr-3 accent-alter-cyan w-4 h-4">
+                                <span class="text-sm group-hover:translate-x-1 transition-transform">Concierto (C)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer hover:text-alter-cyan transition-colors group">
+                                <input type="radio" name="instrument" value="Bb" onchange="updateAnalysis()" class="mr-3 accent-alter-cyan w-4 h-4">
+                                <span class="text-sm group-hover:translate-x-1 transition-transform">Sax Tenor (B♭)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer hover:text-alter-cyan transition-colors group">
+                                <input type="radio" name="instrument" value="Eb" onchange="updateAnalysis()" class="mr-3 accent-alter-cyan w-4 h-4">
+                                <span class="text-sm group-hover:translate-x-1 transition-transform">Sax Alto (E♭)</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="analysis-output" class="hidden space-y-6">
+                
+                <div class="glass-card rounded-xl overflow-hidden animate-fade-in">
+                    <div class="glass-card-header p-4 flex justify-between items-center">
+                        <div class="flex items-center gap-4">
+                            <h2 class="text-lg font-bold text-white tracking-widest uppercase">
+                                <i class="bi bi-cpu-fill mr-2"></i>Análisis Armónico
+                            </h2>
+                            
+                            <button id="play-btn" onclick="toggleAudio()" class="w-10 h-10 rounded-full bg-alter-cyan text-black flex items-center justify-center hover:scale-110 hover:bg-white transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.6)] group">
+                                <i id="play-icon" class="bi bi-play-fill text-2xl group-hover:text-alter-bg"></i>
+                            </button>
+                        </div>
+
+                        <span id="instrument-display" class="text-xs font-mono bg-alter-cyan text-black px-2 py-1 rounded font-bold shadow-[0_0_10px_#00E5FF]">CONCERT</span>
+                    </div>
+                    
+                    <div class="p-6 md:p-8">
+                        <div class="mb-8 text-center">
+                            <p class="text-xs text-gray-400 uppercase tracking-[0.3em] mb-2">Tonalidad Transpuesta</p>
+                            <p id="transposed-key" class="text-6xl md:text-8xl font-black text-white filter drop-shadow-[0_0_15px_rgba(0,229,255,0.4)] transition-all hover:scale-105 duration-300"></p>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50 hover:border-alter-cyan/30 transition-colors">
+                                <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Progresión Base</p>
+                                <div class="font-mono text-lg md:text-xl text-gray-200 overflow-x-auto whitespace-nowrap pb-2">
+                                    <span id="transposed-chords"></span>
+                                </div>
+                            </div>
+                            <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50 hover:border-alter-cyan/30 transition-colors">
+                                <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Escala Improvisación</p>
+                                <div class="font-mono text-lg md:text-xl text-gray-200">
+                                    <span id="transposed-scale"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in" style="animation-delay: 0.1s;">
+                    <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+                        <i class="bi bi-music-note-list mr-3 text-alter-cyan"></i>Mapa de Notas (Melodía)
+                    </h3>
+                    
+                    <div class="mb-6">
+                        <p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Notas de Escala (Seguras)</p>
+                        <div id="main-notes" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Cromatismos / Paso (Tensión)</p>
+                        <div id="passing-notes" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in" style="animation-delay: 0.15s;">
+                    <h3 class="text-xl font-bold text-white mb-6 flex items-center">
+                        <i class="bi bi-mic-fill mr-3 text-alter-cyan"></i>Letra & Progresión
+                    </h3>
+                    <div class="bg-gray-900/40 rounded-lg p-6 border border-gray-700/50 overflow-x-auto max-h-[500px] overflow-y-auto custom-scrollbar">
+                        <pre id="lyrics-content" class="font-mono text-sm md:text-base text-gray-300 whitespace-pre-wrap leading-relaxed"></pre>
+                    </div>
+                </div>
+                
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in" style="animation-delay: 0.2s;">
+                    <div class="glass-card rounded-xl p-6 border-l-4 border-l-alter-cyan">
+                        <h3 class="text-lg font-bold text-white mb-2 flex items-center">
+                            <i class="bi bi-guitar mr-2"></i>Acorde Tónica (Guitarra)
+                        </h3>
+                        <p class="text-xs text-gray-400 mb-4">Posición sugerida para: <span id="guitar-chord-name" class="font-bold text-alter-cyan text-base ml-1"></span></p>
+                        <div class="w-full max-w-xs mx-auto py-2">
+                            <svg id="guitar-diagram-svg" viewBox="0 0 200 150" class="w-full h-auto drop-shadow-[0_0_10px_rgba(0,229,255,0.2)]" xmlns="http://www.w3.org/2000/svg">
+                                </svg>
+                        </div>
+                    </div>
+
+                    <div class="glass-card rounded-xl p-6 border-l-4 border-l-purple-500">
+                        <h3 class="text-lg font-bold text-white mb-2 flex items-center">
+                            <i class="bi bi-keyboard mr-2"></i>Acorde Tónica (Teclado)
+                        </h3>
+                        <p class="text-xs text-gray-400 mb-4">Voicing básico para: <span id="piano-chord-name" class="font-bold text-alter-cyan text-base ml-1"></span></p>
+                        <div class="w-full max-w-sm mx-auto py-2">
+                            <svg id="piano-diagram-svg" viewBox="0 0 350 120" class="w-full h-auto drop-shadow-[0_0_10px_rgba(0,229,255,0.2)]" xmlns="http://www.w3.org/2000/svg">
+                                </svg>
+                        </div>
+                    </div>
+                </div>
+                
+                                
+                
+                <div class="glass-card rounded-xl p-6 md:p-8 border-l-4 border-l-yellow-500 animate-fade-in" style="animation-delay: 0.25s;">
+                    <h3 class="text-lg font-bold mb-3 text-yellow-500 uppercase tracking-wider">
+                        <i class="bi bi-lightbulb-fill mr-2"></i>Data de Ejecución
+                    </h3>
+                    <p id="execution-advice" class="text-gray-300 leading-relaxed font-mono text-sm md:text-base"></p>
+                    
+                    <div id="critical-chord-section" class="mt-4 pt-4 border-t border-gray-700 hidden">
+                        <p class="text-xs text-red-400 font-bold uppercase mb-1 flex items-center"><i class="bi bi-exclamation-triangle-fill mr-2"></i>Punto Crítico de Tensión</p>
+                        <p id="critical-chord-advice" class="text-sm font-mono bg-red-900/20 text-red-100 p-3 rounded border border-red-500/30"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="initial-message" class="glass-card p-12 text-center text-gray-500 rounded-xl animate-fade-in">
+                <i class="bi bi-vinyl-fill text-6xl mb-6 block text-gray-700/50"></i>
+                <p class="text-lg font-medium">Selecciona una canción y ajusta tu instrumento para cargar la data.</p>
+            </div>
+
+        </div>
+    </main>
+
+    <footer class="relative z-10 py-8 mt-12 border-t border-gray-800 bg-gray-900/80 backdrop-blur-md">
+        <div class="container mx-auto text-center">
+            <div class="flex justify-center gap-8 mb-4">
+                <a href="#" class="text-gray-500 hover:text-alter-cyan transition-colors text-2xl hover:scale-110 transform duration-200"><i class="bi bi-youtube"></i></a>
+                <a href="#" class="text-gray-500 hover:text-alter-cyan transition-colors text-2xl hover:scale-110 transform duration-200"><i class="bi bi-facebook"></i></a>
+                <a href="#" class="text-gray-500 hover:text-alter-cyan transition-colors text-2xl hover:scale-110 transform duration-200"><i class="bi bi-instagram"></i></a>
+            </div>
+            <p class="text-gray-600 text-xs uppercase tracking-widest">© 2025 Alter.Lab | Generative Art & Code</p>
+        </div>
+    </footer>
+
+    <script>
+        const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const ENHARMONICS = { "C#": "Db", "D#": "Eb", "F#": "Gb", "G#": "Ab", "A#": "Bb" };
+        
+        const SCALE_STEPS = {
+            'Jónica': [0, 2, 4, 5, 7, 9, 11], 
+            'Eólica': [0, 2, 3, 5, 7, 8, 10], 
+            'Dórica': [0, 2, 3, 5, 7, 9, 10], 
+            'Armónica': [0, 2, 3, 5, 7, 8, 11],
+            'Pentatónica': [0, 3, 5, 7, 10], 
+            'Mayor': [0, 2, 4, 5, 7, 9, 11], 
+            'Mixolidia': [0, 2, 4, 5, 7, 9, 10],
+            'Blues': [0, 3, 5, 6, 7, 10],
+            'Natural': [0, 2, 4, 5, 7, 9, 11],
+            'Lidia': [0, 2, 4, 6, 7, 9, 11]
+        };
+
+        const CHORD_INTERVALS = {
+            'm': [0, 3, 7], 
+            'maj7': [0, 4, 7, 11], 
+            'm7': [0, 3, 7, 10], 
+            '7': [0, 4, 7, 10], 
+            'M': [0, 4, 7],
+            'dim': [0, 3, 6],
+            'sus4': [0, 5, 7],
+            'add9': [0, 4, 7, 14]
+        };
+
+        const GUITAR_TUNING = [4, 9, 2, 7, 11, 4]; 
+
+        // --- DATA CON AUDIO AGREGADO ---
+        const SONGS_DATA = {
+            'up-around-the-bend': { 
+                title: 'Up Around the Bend (CCR)', 
+                concertKey: 'D', 
+                baseChords: 'D–A–G', 
+                improvScale: 'D Mayor Pentatónica', 
+                advice: 'Corrección: La tonalidad original es Re (D), no La. El riff de apertura usa cuerdas al aire (D y A) para crear ese sonido de "gaita". El ataque debe ser agresivo.', 
+                criticalChord: 'A7 (V)', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Mayor'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735873/Creedence_Clearwater_Revival_-_Up_Around_The_Bend_qnktfe.flac',
+                lyrics: `[Intro]
+(Riff en D Mayor)
+
+[Verso 1]
+There's a place up ahead and I'm [A]goin'
+Just as fast as my feet can fly
+Come away, come away if you're [A]goin'
+Leave the sinkin' ship behind...` 
+            },
+            'born-on-the-bayou': { 
+                title: 'Born on the Bayou (CCR)', 
+                concertKey: 'E', 
+                baseChords: 'E7–D–A', 
+                improvScale: 'E Mixolidia / Blues', 
+                advice: 'Corrección: El acorde de paso no es B7, sino D y A. Todo gira sobre el E7 "vamp". Usa mucho trémolo en la guitarra.', 
+                criticalChord: 'E7#9 (Hendrix Chord)', 
+                chordType: '7', 
+                steps: SCALE_STEPS['Blues'], 
+                // Nota: Usando el link provisto en la base de datos (parece ser Black Magic Woman en el archivo original)
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735904/Santana_-_Black_Magic_Woman_svhmye.flac',
+                lyrics: `[Intro]
+(E7 Vamp - Trémolo lento)
+
+[Verso 1]
+[E7]Now, when I was just a little boy
+[E7]Standin' to my Daddy's knee...` 
+            },
+            'fortunate-son': { 
+                title: 'Fortunate Son (CCR)', 
+                concertKey: 'G', 
+                baseChords: 'G–F–C–G', 
+                improvScale: 'G Mixolidia', 
+                advice: 'Clave el movimiento descendente: G -> F -> C -> G. El F natural (bVII) es lo que le da el carácter rebelde y Mixolidio.', 
+                criticalChord: 'F (bVII)', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Mixolidia'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735883/Creedence_Clearwater_Revival_-_Fortunate_Son_f3zmx2.flac',
+                lyrics: `[Intro]
+[G][F][C][G]
+
+[Verso 1]
+[G]Some folks are born [F]made to wave the flag...` 
+            },
+            'get-back': { 
+                title: 'Get Back (The Beatles)', 
+                concertKey: 'A', 
+                baseChords: 'A–G–D', 
+                improvScale: 'A Mixolidia', 
+                advice: 'Ritmo "Pony" (galope). El acorde D7/A en el estribillo crea la tensión. El solo es puramente pentatónico menor sobre acordes mayores.', 
+                criticalChord: 'G (bVII)', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Mixolidia'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735878/The_Beatles_-_Get_Back_Remastered_2009_hlcyh6.flac',
+                lyrics: `[Intro]
+(Ritmo en A)
+
+[Verso 1]
+[A]Jojo was a man who thought he was a loner...` 
+            },
+            'dreams-fleetwood': { 
+                title: 'Dreams (Fleetwood Mac)', 
+                concertKey: 'F', 
+                baseChords: 'Fmaj7–G6', 
+                improvScale: 'La Menor Pentatónica / F Lidio', 
+                advice: 'Corrección: No es Gm7, es G6. La canción oscila solo entre dos acordes: Fmaj7 y G6. La melodía vocal está en La menor, creando una ambigüedad modal.', 
+                criticalChord: 'G6', 
+                chordType: 'maj7', 
+                steps: SCALE_STEPS['Lidia'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735897/Fleetwood_Mac_-_Dreams_2001_Remaster_mrpopb.flac',
+                lyrics: `[Verso 1]
+[Fmaj7]Now here you go again, you say [G6]you want your freedom...` 
+            },
+            'dreams-cranberries': { 
+                title: 'Dreams (The Cranberries)', 
+                concertKey: 'E', 
+                baseChords: 'E–A–B', 
+                improvScale: 'E Mayor', 
+                advice: 'Corrección: La tonalidad original es Mi Mayor (E), no Si menor. Acordes: E, A, B. El puente modula sorpresivamente.', 
+                criticalChord: 'G (Intercambio modal)', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Mayor'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735898/The_Cranberries_-_Dreams_lnrcsg.flac',
+                lyrics: `[Verso 1]
+[E]Oh, my life is changing [A]everyday...` 
+            },
+            'tin-man': { 
+                title: 'Tin Man (America)', 
+                concertKey: 'G', 
+                baseChords: 'Gmaj7–Cmaj7', 
+                improvScale: 'G Mayor', 
+                advice: 'Corrección: La magia está en las extensiones Maj7. El coro usa Am7 y Bm7 (o Em7 según la inversión). George Martin produjo esto, busca la suavidad acústica.', 
+                criticalChord: 'Cmaj7', 
+                chordType: 'maj7', 
+                steps: SCALE_STEPS['Mayor'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735920/America_-_Tin_Man_wjt4sg.flac',
+                lyrics: `[Intro]
+[Gmaj7][Cmaj7] (x2)...` 
+            },
+            'everybody-wants-to-rule': { 
+                title: 'Everybody Wants to Rule the World (Tears for Fears)', 
+                concertKey: 'D', 
+                baseChords: 'D–G/D–A/D', 
+                improvScale: 'D Mixolidia', 
+                advice: 'El bajo (D) se mantiene constante en los versos (Pedal Point), creando tensión. El estribillo rompe a Em - F#m.', 
+                criticalChord: 'G/D (Pedal)', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Mixolidia'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735896/Tears_For_Fears_-_Everybody_Wants_To_Rule_The_World_zuyf4k.flac',
+                lyrics: `[Intro]
+ (Riff de guitarra en D)...` 
+            },
+            'overkill': { 
+                title: 'Overkill (Men at Work)', 
+                concertKey: 'D', 
+                baseChords: 'D–A–C–G', 
+                improvScale: 'D Mixolidia', 
+                advice: 'Corrección: Tonalidad original D (acústica) o E (estudio). Progresión clave: D - A - C - G (bajada cromática del bajo implícita). El solo de saxo es legendario.', 
+                criticalChord: 'C (bVII)', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Mixolidia'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735934/Men_At_Work_-_Overkill_kwvcxn.flac',
+                lyrics: `[Verso 1]
+I can't get to [A]sleep...` 
+            },
+            'hold-the-line': { 
+                title: 'Hold the Line (Toto)', 
+                concertKey: 'F#m', 
+                baseChords: 'F#m–C#m–D–E', 
+                improvScale: 'F# Menor / Pentatónica', 
+                advice: 'Corrección: La tonalidad es Fa sostenido menor (F#m). El piano lleva tresillos constantes. La progresión es F#m - C#m - D - E.', 
+                criticalChord: 'C#m (v)', 
+                chordType: 'm', 
+                steps: SCALE_STEPS['Eólica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735879/TOTO_-_Hold_the_Line_ojsxff.flac',
+                lyrics: `[Intro]
+[F#m][C#m][E] (Riff de piano en tresillos)...` 
+            },
+            'baby-come-back': { 
+                title: 'Baby Come Back (Player)', 
+                concertKey: 'Cm', 
+                baseChords: 'Abmaj7–Gm7–Cm7–Fm7', 
+                improvScale: 'C Menor Natural', 
+                advice: 'Yacht Rock clásico. Acordes extendidos. El estribillo usa Abmaj7 para ir bajando suavemente a Cm7. El puente modula.', 
+                criticalChord: 'Abmaj7 (bVI)', 
+                chordType: 'maj7', 
+                steps: SCALE_STEPS['Eólica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735920/Player_-_Baby_Come_Back_lnpmbf.flac',
+                lyrics: `[Intro]
+[Abmaj7][Gm7][Cm7][Fm7]...` 
+            },
+            'shape-of-my-heart': { 
+                title: 'Shape of my heart (Sting)', 
+                concertKey: 'F#m', 
+                baseChords: 'F#m–E6–D6–C#7', 
+                improvScale: 'F# Menor', 
+                advice: 'Corrección: La tonalidad es F#m. La bajada es diatónica: F#m - E - D - C#sus4 - C#7. La guitarra clásica de Dominic Miller es esencial.', 
+                criticalChord: 'C#7 (V)', 
+                chordType: 'm', 
+                steps: SCALE_STEPS['Eólica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735927/Sting_-_Shape_Of_My_Heart_llbb9e.flac',
+                lyrics: `[Verso 1]
+[F#m]He deals the [C#m]cards as a medi-tation [C#sus4][C#7]...` 
+            },
+            'michelle': { 
+                title: 'Michelle (The Beatles)', 
+                concertKey: 'F', 
+                baseChords: 'F–Fm–Bb7', 
+                improvScale: 'F Mayor / F Menor', 
+                advice: 'Usa el intercambio modal entre F Mayor y F Menor. El acorde disminuido (C#dim7) es clave en "go together well".', 
+                criticalChord: 'C#dim7', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Jónica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735860/The_Beatles_-_Michelle_Remastered_2009_kxgxcn.flac',
+                lyrics: `[Intro]
+[Fm][C][Fm][C]...` 
+            },
+            'here-today': { 
+                title: 'Here Today (Paul McCartney)', 
+                concertKey: 'G', 
+                baseChords: 'G–Bm–C–F', 
+                improvScale: 'G Mayor', 
+                advice: 'Corrección: Tonalidad Sol (G). La progresión usa acordes prestados como Fmaj7. Es una carta abierta a John Lennon.', 
+                criticalChord: 'C#dim7', 
+                chordType: 'maj7', 
+                steps: SCALE_STEPS['Jónica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735862/Paul_McCartney_-_Here_Today_Remixed_2015_r0bchh.flac',
+                lyrics: `[Verso 1]
+[G]And if I said...` 
+            },
+            'in-my-life': { 
+                title: 'In my life (The Beatles)', 
+                concertKey: 'A', 
+                baseChords: 'A–E–F#m–Dm', 
+                improvScale: 'A Jónica', 
+                advice: 'El uso del Dm (iv menor) en una tonalidad mayor es el sello de nostalgia de los Beatles. Solo de piano barroco.', 
+                criticalChord: 'Dm (iv)', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Jónica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735861/The_Beatles_-_In_My_Life_Remastered_2009_snplpd.flac',
+                lyrics: `[Verso 1]
+[A]There are [E]places [F#m]I re-[A7]member...` 
+            },
+            'hotel-california': { 
+                title: 'Hotel California (Eagles)', 
+                concertKey: 'Bm', 
+                baseChords: 'Bm–F#7–A–E–G–D–Em–F#7', 
+                improvScale: 'B Menor Armónica / Pentatónica', 
+                advice: 'La progresión es única, casi un ciclo flamenco extendido. El solo final de guitarras armonizadas es historia pura.', 
+                criticalChord: 'F#7 (V)', 
+                chordType: 'm', 
+                steps: SCALE_STEPS['Armónica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735875/Eagles_-_Hotel_California_2013_Remaster_u1bdcw.flac',
+                lyrics: `[Verso 1]
+On a dark desert highway, [F#7]cool wind in my hair...` 
+            },
+            'band-on-the-run': { 
+                title: 'Band on the Run (Wings)', 
+                concertKey: 'D -> Am -> C', 
+                baseChords: 'Dmaj7-G (Parte 1), Am-D (Parte 2), C-F-G (Parte 3)', 
+                improvScale: 'C Jónica (Final)', 
+                advice: 'Corrección: Son tres canciones en una. Empieza balada en D/G, pasa a Rock en Am y libera en Folk en C. El cambio a C ("Well the rain...") es la liberación.', 
+                criticalChord: 'Fmaj7', 
+                chordType: 'm', 
+                steps: SCALE_STEPS['Eólica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735917/Paul_McCartney_Wings_-_Band_On_The_Run_ouk572.flac',
+                lyrics: `
+Stuck inside these four walls...` 
+            },
+            'quien-fuera-bunkers': { 
+                title: 'Quien Fuera (Los Bunkers)', 
+                concertKey: 'G', 
+                baseChords: 'G–Em–C–D', 
+                improvScale: 'G Mayor', 
+                advice: 'Corrección: Versión rockera de Los Bunkers. Tonalidad G. Intro icónica de guitarra eléctrica.', 
+                criticalChord: 'B7 (V del vi)', 
+                chordType: 'm', 
+                steps: SCALE_STEPS['Mayor'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735933/Los_Bunkers_-_Qui%C3%A9n_Fuera_nriiye.flac',
+                lyrics: `[Intro]
+(Riff guitarra G - Em - C - D)...` 
+            },
+            'bad-moon-rising': { 
+                title: 'Bad Moon Rising (CCR)', 
+                concertKey: 'D', 
+                baseChords: 'D–A–G', 
+                improvScale: 'D Mayor', 
+                advice: 'Acordes D, A, G. El ritmo es rápido y cortado. Cuidado con el cambio rápido A-G en el verso.', 
+                criticalChord: 'G', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Mayor'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735908/Creedence_Clearwater_Revival_-_Bad_Moon_Rising_uvsds2.flac',
+                lyrics: `[Verso 1]
+I see the [A]bad [G]moon a-rising...` 
+            },
+            'mala-bad-bunny': { 
+                title: 'Vete (Bad Bunny)', 
+                concertKey: 'Bbm', 
+                baseChords: 'Gbmaj7–Fm7–Bbm7', 
+                improvScale: 'Bb Menor', 
+                advice: 'Corrección: Basado en las letras "Lo nuestro ya se murió", la canción es "Vete". Usa acordes de Jazz/Neo-Soul: Gbmaj7, Fm7, Bbm7. Loop constante.', 
+                criticalChord: 'Gbmaj7', 
+                chordType: 'm', 
+                steps: SCALE_STEPS['Eólica'], 
+                // Nota: Usando el link provisto en la DB (apunta a Tin Man erróneamente en el archivo fuente, pero respeto la data)
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735920/America_-_Tin_Man_wjt4sg.flac',
+                lyrics: `[Intro]
+[Gbmaj7][Fm7]
+Yeh, yeh, yeh, yeh...` 
+            },
+            'dont-let-me-down': { 
+                title: 'Don\'t Let Me Down (The Beatles)', 
+                concertKey: 'E', 
+                baseChords: 'E–F#m7', 
+                improvScale: 'E Mayor', 
+                advice: 'La estrofa tiene un compás de 5/4 inesperado ("I\'m in love for the first time"). El F#m7 sobre el bajo de E es muy característico.', 
+                criticalChord: 'F#m7', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Mayor'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735898/The_Beatles_-_Don_t_Let_Me_Down_Remastered_2009_tkooln.flac',
+                lyrics: `[Estribillo]
+[F#m7]Don't let me [E]down...` 
+            },
+            'black-magic-woman': { 
+                title: 'Black Magic Woman (Santana)', 
+                concertKey: 'Dm', 
+                baseChords: 'Dm–Am–Gm–Dm', 
+                improvScale: 'D Dórica / Menor', 
+                advice: 'Ritmo Latino/Rock. Usa Dm7 y Am7. El cambio a Gm marca la diferencia con un blues estándar. El A7 altera la escala a D Armónica.', 
+                criticalChord: 'A7', 
+                chordType: 'm', 
+                steps: SCALE_STEPS['Armónica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735904/Santana_-_Black_Magic_Woman_svhmye.flac',
+                lyrics: `[Intro]
+(Solo de Guitarra sobre Dm)...` 
+            },
+            'gypsy-queen': { 
+                title: 'Gypsy Queen (Santana)', 
+                concertKey: 'D', 
+                baseChords: 'D–C–G/B–A', 
+                improvScale: 'D Mixolidia', 
+                advice: 'Instrumental que sigue a Black Magic Woman. Modula a Re Mayor. Ritmo más rápido y frenético.', 
+                criticalChord: 'D (Vamp)', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Mixolidia'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735878/Santana_-_Black_Magic_Woman___Gypsy_Queen_xlslzw.flac',
+                lyrics: `[Instrumental]
+(Transición rápida)...` 
+            },
+            'sirius': { 
+                title: 'Sirius (Alan Parsons Project)', 
+                concertKey: 'Bm', 
+                baseChords: 'Bm–G', 
+                improvScale: 'B Menor', 
+                advice: 'Corrección: Tonalidad Bm. Intro icónica de los Chicago Bulls. Arpegio de Clavinet con Delay. Acordes simples Bm - G.', 
+                criticalChord: 'G', 
+                chordType: 'm', 
+                steps: SCALE_STEPS['Eólica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735919/The_Alan_Parsons_Project_-_Sirius_d84rn3.flac',
+                lyrics: `[Instrumental]
+(Arpegio en Bm)...` 
+            },
+            'eye-in-the-sky': { 
+                title: 'Eye in the Sky (Alan Parsons Project)', 
+                concertKey: 'Bm / D', 
+                baseChords: 'Bm–G–D–F#m', 
+                improvScale: 'D Mayor', 
+                advice: 'Sigue inmediatamente a Sirius. El estribillo usa Bm - G - D - F#m. La producción es cristalina.', 
+                criticalChord: 'Gm (iv menor)', 
+                chordType: 'm', 
+                steps: SCALE_STEPS['Jónica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735897/The_Alan_Parsons_Project_-_Eye_In_The_Sky_kwunpj.flac',
+                lyrics: `[Verso 1]
+Don't think sorry's easilysaid...` 
+            },
+            'golden-slumbers': { 
+                title: 'Golden Slumbers (The Beatles)', 
+                concertKey: 'Am / C', 
+                baseChords: 'Am7–Dm–G7–C', 
+                improvScale: 'C Mayor', 
+                advice: 'Parte de la suite de Abbey Road. Piano balada. Am7 abre, resuelve en C.', 
+                criticalChord: 'E7', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Jónica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735861/The_Beatles_-_Golden_Slumbers_Remastered_2009_eoqjzx.flac',
+                lyrics: `[Verso 1]
+[Am7]Once there was a way to get back homeward...` 
+            },
+            'carry-that-weight': { 
+                title: 'Carry That Weight (The Beatles)', 
+                concertKey: 'C', 
+                baseChords: 'C–G', 
+                improvScale: 'C Mayor', 
+                advice: 'Coro himno. Unísono vocal. C y G dominan.', 
+                criticalChord: 'G', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Jónica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735870/The_Beatles_-_Carry_That_Weight_Remastered_2009_i3pd5k.flac',
+                lyrics: `[Estribillo]
+[C]Boy, you're gonna [G]carry that weight...` 
+            },
+            'the-end': { 
+                title: 'The End (The Beatles)', 
+                concertKey: 'A (Solos) -> C (Final)', 
+                baseChords: 'A–D (Rock), C–F–G (Final)', 
+                improvScale: 'A Blues / C Mayor', 
+                advice: 'Duelo de guitarras (Paul, George, John) sobre A7-D7. Final majestuoso en Do Mayor.', 
+                criticalChord: 'F', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Jónica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735910/The_Beatles_-_The_End_Remastered_2009_iu8sii.flac',
+                lyrics: `[Verso]
+[A]Oh yeah, all right...` 
+            },
+            'coming-back-to-life': { 
+                title: 'Coming back to life (Pink Floyd)', 
+                concertKey: 'C', 
+                baseChords: 'C–Fmaj7–Am–G', 
+                improvScale: 'C Mayor', 
+                advice: 'Corrección: Tonalidad C Mayor. Intro etérea en C con sintetizadores. El solo de Gilmour es puro sentimiento sobre la progresión del verso.', 
+                criticalChord: 'Fmaj7', 
+                chordType: 'M', 
+                steps: SCALE_STEPS['Mayor'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735879/Pink_Floyd_-_Coming_Back_to_Life_luo2kv.flac',
+                lyrics: `[Verso 1]
+[C]Where were you when I was burned and [Fmaj7]broken?...` 
+            },
+            'just-the-two-of-us': { 
+                title: 'Just the Two of Us (Grover Washington Jr.)', 
+                concertKey: 'Fm (Dbmaj7 start)', 
+                baseChords: 'Dbmaj7–C7–Fm7–Ebm7–Ab7', 
+                improvScale: 'F Menor', 
+                advice: 'Corrección: Progresión de Jazz R&B clásica. Dbmaj7 - C7alt - Fm7 - Ebm7 - Ab7 (ii-V a Gb). Los acordes Ebm7 y Ab7 son esenciales para el movimiento.', 
+                criticalChord: 'C7alt', 
+                chordType: 'maj7', 
+                steps: SCALE_STEPS['Eólica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735874/Grover_Washington_Jr._-_Just_the_Two_of_Us_tt9tu8.flac',
+                lyrics: `[Verso 1]
+I see the crystal [C7]raindrops fall...` 
+            },
+            'aint-no-sunshine': { 
+                title: 'Ain\'t No Sunshine (Bill Withers)', 
+                concertKey: 'Am', 
+                baseChords: 'Am–Em–G–Am', 
+                improvScale: 'A Menor Pentatónica', 
+                advice: 'Minimalismo. La progresión Am - Em - G - Am es constante. El E7#9 o Em7 en el paso es clave.', 
+                criticalChord: 'Em7', 
+                chordType: 'm', 
+                steps: SCALE_STEPS['Pentatónica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735908/Bill_Withers_-_Ain_t_No_Sunshine_t94x1j.flac',
+                lyrics: `[Verso 1]
+[Am]Ain't no sunshine [Em]when she's [Am]gone...` 
+            },
+            'smooth-operator': { 
+                title: 'Smooth Operator (Sade)', 
+                concertKey: 'Dm', 
+                baseChords: 'Dm7–Am7–Gm7–Am7', 
+                improvScale: 'D Menor Natural', 
+                advice: 'Corrección: Tonalidad Dm. La línea de bajo icónica se mueve sobre Dm7 - Am7 - Gm7 - Am7. Sofisticado y minimalista.', 
+                criticalChord: 'Gm7', 
+                chordType: 'm7', 
+                steps: SCALE_STEPS['Eólica'], 
+                audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735926/Sade_-_Smooth_Operator_2011_Remastered_hxznit.flac',
+                lyrics: `[Verso 1]
+Diamond life, [Am7]lover boy...` 
+            },
+        };
+
+        function getNoteIndex(note) {
+            let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim();
+            baseNote = baseNote.replace('♭', 'b').replace('♯', '#');
+            const flatToSharp = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
+            baseNote = flatToSharp[baseNote] || baseNote;
+            return NOTES.indexOf(baseNote);
+        }
+
+        function transposeNote(note, semitones) {
+            const baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim();
+            const suffix = note.substring(baseNote.length);
+            let startIndex = getNoteIndex(baseNote);
+            if (startIndex === -1) return note;
+
+            let newIndex = (startIndex + semitones) % 12;
+            if (newIndex < 0) newIndex += 12;
+            let newNote = NOTES[newIndex];
+            
+            const useFlat = note.includes('b') || note.includes('♭') || ['F', 'Bb', 'Eb', 'Ab', 'Db'].includes(newNote);
+            if (useFlat) {
+                const flats = { 'A#': 'Bb', 'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab' };
+                if(flats[newNote]) newNote = flats[newNote];
+            }
+            return newNote + suffix;
+        }
+
+        function generateChordNotes(rootNote, chordType, semitonesTranspose) {
+            const rootIndex = getNoteIndex(rootNote);
+            const intervals = CHORD_INTERVALS[chordType] || CHORD_INTERVALS['M']; 
+            if (rootIndex === -1) return [];
+
+            const chordNotes = [];
+            intervals.forEach(interval => {
+                const noteIndex = (rootIndex + interval + semitonesTranspose) % 12;
+                let note = NOTES[noteIndex];
+                
+                const rootTransposed = transposeNote(rootNote, semitonesTranspose);
+                if (rootTransposed.includes('b') || rootTransposed.includes('♭')) {
+                     const flats = { 'A#': 'Bb', 'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab' };
+                     if(flats[note]) note = flats[note];
+                }
+                chordNotes.push(note);
+            });
+            return chordNotes;
+        }
+
+        function generateGuitarDiagram(chordNotes) {
+            const SVG_WIDTH = 200;
+            const SVG_HEIGHT = 150;
+            const NUM_STRINGS = 6;
+            const NUM_FRETS = 4;
+            const FRET_WIDTH = SVG_WIDTH / (NUM_FRETS + 1);
+            const STRING_SPACING = (SVG_HEIGHT - 20) / (NUM_STRINGS - 1);
+            let svgContent = '';
+
+            svgContent += `<rect x="5" y="10" width="${FRET_WIDTH/2}" height="${SVG_HEIGHT - 20}" class="nut" />`; 
+
+            for (let i = 0; i <= NUM_FRETS; i++) {
+                const x = 5 + (FRET_WIDTH/2) + i * FRET_WIDTH;
+                svgContent += `<line x1="${x}" y1="10" x2="${x}" y2="${SVG_HEIGHT - 10}" class="fret-line" />`;
+            }
+
+            for (let i = 0; i < NUM_STRINGS; i++) {
+                const y = 10 + i * STRING_SPACING;
+                svgContent += `<line x1="5" y1="${y}" x2="${SVG_WIDTH - 5}" y2="${y}" class="string" />`;
+            }
+
+            for (let string = 0; string < NUM_STRINGS; string++) {
+                const openNoteIndex = GUITAR_TUNING[string];
+                const stringY = 10 + string * STRING_SPACING;
+
+                for (let fret = 1; fret <= NUM_FRETS; fret++) {
+                    const fretNoteIndex = (openNoteIndex + fret) % 12;
+                    let fretNote = NOTES[fretNoteIndex];
+                    
+                    const isNoteInChord = chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(fretNote));
+
+                    if (isNoteInChord) {
+                        const dotX = (fret * FRET_WIDTH) + 5; 
+                        svgContent += `<circle cx="${dotX}" cy="${stringY}" r="6" class="note-dot" />`;
+                    }
+                }
+            }
+            return svgContent;
+        }
+
+        function generatePianoDiagram(chordNotes) {
+            const WHITE_KEY_WIDTH = 25;
+            const BLACK_KEY_WIDTH = 15;
+            const BLACK_KEY_HEIGHT = 70;
+            const WHITE_KEY_HEIGHT = 100;
+            let svgContent = '';
+            
+            const pianoMap = [
+                { note: 'C', type: 'white' }, { note: 'C#', type: 'black' },
+                { note: 'D', type: 'white' }, { note: 'D#', type: 'black' },
+                { note: 'E', type: 'white' },
+                { note: 'F', type: 'white' }, { note: 'F#', type: 'black' },
+                { note: 'G', type: 'white' }, { note: 'G#', type: 'black' },
+                { note: 'A', type: 'white' }, { note: 'A#', type: 'black' },
+                { note: 'B', type: 'white' },
+                { note: 'C', type: 'white' }, { note: 'C#', type: 'black' }
+            ];
+
+            let whiteKeyIndex = 0;
+
+            for (let i = 0; i < pianoMap.length; i++) {
+                const keyData = pianoMap[i];
+                if (keyData.type === 'white') {
+                    const isHighlighted = chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(keyData.note));
+                    const x = whiteKeyIndex * WHITE_KEY_WIDTH;
+                    const highlightClass = isHighlighted ? 'highlight-key' : 'white-key';
+                    svgContent += `<rect x="${x}" y="0" width="${WHITE_KEY_WIDTH}" height="${WHITE_KEY_HEIGHT}" class="${highlightClass}" />`;
+                    whiteKeyIndex++;
+                }
+            }
+            whiteKeyIndex = 0;
+            for (let i = 0; i < pianoMap.length; i++) {
+                const keyData = pianoMap[i];
+                if (keyData.type === 'white') {
+                    whiteKeyIndex++;
+                } else {
+                     const isHighlighted = chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(keyData.note));
+                     const x = (whiteKeyIndex - 1) * WHITE_KEY_WIDTH + (WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2);
+                     const highlightClass = isHighlighted ? 'highlight-key' : 'black-key';
+                     svgContent += `<rect x="${x}" y="0" width="${BLACK_KEY_WIDTH}" height="${BLACK_KEY_HEIGHT}" class="${highlightClass}" />`;
+                }
+            }
+            return svgContent;
+        }
+
+        function generateScaleNotes(rootNote, steps, semitonesTranspose) {
+            const rootIndex = getNoteIndex(rootNote);
+            if (rootIndex === -1) return { main: [], passing: [] };
+            const mainNotes = [];
+            const transposedNotes = NOTES.map((n, i) => {
+                const finalIndex = (i + semitonesTranspose) % 12;
+                return NOTES[finalIndex];
+            });
+
+            steps.forEach(step => {
+                const stepIndex = (rootIndex + step + semitonesTranspose) % 12;
+                mainNotes.push(transposedNotes[stepIndex]);
+            });
+
+            const passingNotes = transposedNotes.filter(n => !mainNotes.includes(n));
+            return { main: mainNotes, passing: passingNotes };
+        }
+
+        function transposeLyrics(lyrics, semitones) {
+            if (!lyrics) return "Letra no disponible.";
+            return lyrics.replace(/\[(.*?)\]/g, (match, chord) => {
+                const transposed = transposeNote(chord, semitones);
+                return `<span class="text-alter-cyan font-bold">${transposed}</span>`;
+            });
+        }
+
+        function getTransposedData(data, instrument) {
+            let semitones = 0;
+            let instrumentName = 'CONCIERTO (C)';
+            if (instrument === 'Bb') { semitones = 2; instrumentName = 'SAX TENOR / TRPT (B♭)'; }
+            else if (instrument === 'Eb') { semitones = 9; instrumentName = 'SAX ALTO (E♭)'; }
+
+            const originalKeyParts = data.concertKey.split('/');
+            const transposedKey = originalKeyParts.map(note => transposeNote(note.trim(), semitones)).join(' / ');
+            const rootKey = originalKeyParts[0].replace(/m(aj)?\d*/, '').trim();
+            
+            let transposedChords = data.baseChords;
+            const chordsArray = data.baseChords.match(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g) || [];
+            const uniqueChords = [...new Set(chordsArray)];
+            uniqueChords.forEach(originalChord => {
+                const transposed = transposeNote(originalChord, semitones);
+                const regex = new RegExp(`\\b${originalChord}\\b`, 'g');
+                transposedChords = transposedChords.replace(regex, transposed);
+            });
+
+            const scaleMatch = data.improvScale.match(/(\w[#♭b]?)\s/); 
+            let transposedScale = data.improvScale;
+            let rootScale = '';
+            if (scaleMatch && scaleMatch[1]) {
+                rootScale = scaleMatch[1];
+                const newRootScale = transposeNote(rootScale, semitones);
+                transposedScale = data.improvScale.replace(rootScale, newRootScale);
+            }
+
+            let transposedCritical = data.criticalChord || '';
+            if (data.criticalChord && !data.criticalChord.includes('Ninguno')) {
+                 const criticalChordMatch = data.criticalChord.match(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g) || [];
+                 criticalChordMatch.forEach(originalChord => {
+                    const transposed = transposeNote(originalChord, semitones);
+                    const regex = new RegExp(`\\b${originalChord}\\b`, 'g');
+                    transposedCritical = transposedCritical.replace(regex, transposed);
+                });
+            }
+
+            const scaleNameMatch = data.improvScale.match(/(\w+)\s*$/);
+            const scaleType = scaleNameMatch ? scaleNameMatch[1] : 'Natural';
+            const cleanScaleType = scaleType.replace(/Menor|Mayor/g, '').trim() || 'Natural';
+            const scaleSteps = SCALE_STEPS[cleanScaleType] || SCALE_STEPS['Natural'];
+            
+            const scaleNotes = generateScaleNotes(rootScale, scaleSteps, semitones);
+            
+            const tonicChordNotes = generateChordNotes(rootKey, data.chordType || 'M', semitones);
+            const tonicChordName = transposeNote(rootKey, semitones) + (data.chordType === 'm' ? 'm' : '');
+            
+            const transposedLyrics = transposeLyrics(data.lyrics, semitones);
+
+            return {
+                key: transposedKey,
+                chords: transposedChords,
+                scale: transposedScale,
+                critical: transposedCritical,
+                instrumentName: instrumentName,
+                scaleNotes: scaleNotes,
+                tonicChordNotes: tonicChordNotes,
+                tonicChordName: tonicChordName,
+                lyrics: transposedLyrics,
+                audioUrl: data.audioUrl // Pass through audio URL
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const selector = document.getElementById('song-selector');
+            const songTitles = Object.keys(SONGS_DATA).map(key => ({
+                key: key,
+                title: SONGS_DATA[key].title
+            })).sort((a, b) => a.title.localeCompare(b.title));
+
+            songTitles.forEach(song => {
+                const option = document.createElement('option');
+                option.value = song.key;
+                option.textContent = song.title;
+                selector.appendChild(option);
+            });
+        });
+
+        // --- LÓGICA DE AUDIO ---
+        const audioPlayer = document.getElementById('audio-player');
+        const playBtn = document.getElementById('play-btn');
+        const playIcon = document.getElementById('play-icon');
+
+        function toggleAudio() {
+            if (audioPlayer.paused) {
+                audioPlayer.play();
+                playIcon.classList.remove('bi-play-fill');
+                playIcon.classList.add('bi-pause-fill');
+                playBtn.classList.add('playing-pulse');
+            } else {
+                audioPlayer.pause();
+                playIcon.classList.add('bi-play-fill');
+                playIcon.classList.remove('bi-pause-fill');
+                playBtn.classList.remove('playing-pulse');
+            }
+        }
+
+        function updateAnalysis() {
+            const songKey = document.getElementById('song-selector').value;
+            const instrument = document.querySelector('input[name="instrument"]:checked').value;
+            const outputDiv = document.getElementById('analysis-output');
+            const initialDiv = document.getElementById('initial-message');
+
+            if (!songKey) return;
+
+            const originalData = SONGS_DATA[songKey];
+            const data = getTransposedData(originalData, instrument);
+
+            initialDiv.classList.add('hidden');
+            outputDiv.classList.remove('hidden');
+
+            document.getElementById('instrument-display').textContent = data.instrumentName;
+            document.getElementById('transposed-key').textContent = data.key;
+            document.getElementById('transposed-chords').textContent = data.chords;
+            document.getElementById('transposed-scale').textContent = data.scale;
+            document.getElementById('execution-advice').innerHTML = originalData.advice;
+            
+            document.getElementById('lyrics-content').innerHTML = data.lyrics;
+
+            const mainDiv = document.getElementById('main-notes');
+            const passDiv = document.getElementById('passing-notes');
+            mainDiv.innerHTML = '';
+            passDiv.innerHTML = '';
+
+            data.scaleNotes.main.forEach(n => mainDiv.innerHTML += `<span class="note-chip main-note">${n}</span>`);
+            data.scaleNotes.passing.forEach(n => passDiv.innerHTML += `<span class="note-chip passing-note">${n}</span>`);
+
+            const criticalSection = document.getElementById('critical-chord-section');
+            if (data.critical && !originalData.criticalChord.includes('Ninguno')) {
+                document.getElementById('critical-chord-advice').innerHTML = `Atención al cambio: <strong>${data.critical}</strong>`;
+                criticalSection.classList.remove('hidden');
+            } else {
+                criticalSection.classList.add('hidden');
+            }
+
+            document.getElementById('guitar-chord-name').textContent = data.tonicChordName;
+            document.getElementById('piano-chord-name').textContent = data.tonicChordName;
+            
+            document.getElementById('guitar-diagram-svg').innerHTML = generateGuitarDiagram(data.tonicChordNotes);
+            document.getElementById('piano-diagram-svg').innerHTML = generatePianoDiagram(data.tonicChordNotes);
+
+            // --- ACTUALIZAR AUDIO ---
+            if (originalData.audioUrl) {
+                // Si la canción cambia, detenemos y cargamos la nueva
+                if (audioPlayer.src !== originalData.audioUrl) {
+                    audioPlayer.src = originalData.audioUrl;
+                    audioPlayer.load();
+                    // Resetear estado visual
+                    playIcon.classList.add('bi-play-fill');
+                    playIcon.classList.remove('bi-pause-fill');
+                    playBtn.classList.remove('playing-pulse');
+                    playBtn.classList.remove('hidden');
+                }
+            } else {
+                // Si no hay audio, ocultar botón o deshabilitar
+                audioPlayer.pause();
+                playBtn.classList.add('hidden');
+            }
+        }
+    </script>
+
+    <script>
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 900;
+        const posArray = new Float32Array(particlesCount * 3);
+
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 25;
+        }
+
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+
+        const material = new THREE.PointsMaterial({
+            size: 0.035,
+            color: 0x00E5FF, 
+            transparent: true,
+            opacity: 0.7,
+            blending: THREE.AdditiveBlending
+        });
+
+        const particlesMesh = new THREE.Points(particlesGeometry, material);
+        scene.add(particlesMesh);
+
+        const geometryWire = new THREE.IcosahedronGeometry(4, 1);
+        const materialWire = new THREE.MeshBasicMaterial({ 
+            color: 0x00E5FF, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.07 
+        });
+        const sphere = new THREE.Mesh(geometryWire, materialWire);
+        scene.add(sphere);
+
+        camera.position.z = 6;
+
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX);
+            mouseY = (event.clientY - windowHalfY);
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const elapsedTime = clock.getElapsedTime();
+            
+            targetX = mouseX * 0.001;
+            targetY = mouseY * 0.001;
+            
+            sphere.rotation.y += 0.002;
+            sphere.rotation.x += 0.001;
+            
+            particlesMesh.rotation.y += 0.03 * (targetX - particlesMesh.rotation.y);
+            particlesMesh.rotation.x += 0.03 * (targetY - particlesMesh.rotation.x);
+            particlesMesh.rotation.z = elapsedTime * 0.03;
+
+            sphere.scale.x = 1 + Math.sin(elapsedTime * 0.3) * 0.05;
+            sphere.scale.y = 1 + Math.sin(elapsedTime * 0.3) * 0.05;
+            sphere.scale.z = 1 + Math.sin(elapsedTime * 0.3) * 0.05;
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
