@@ -71,7 +71,7 @@
 
         /* Glassmorphism Cards */
         .glass-card {
-            background: rgba(15, 18, 27, 0.75);
+            background: rgba(15, 18, 27, 0.85);
             backdrop-filter: blur(16px);
             border: 1px solid rgba(0, 229, 255, 0.15);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
@@ -83,12 +83,13 @@
         }
 
         /* Inputs & Selects */
-        select, .custom-radio {
+        select, .custom-radio, .btn-control {
             background-color: rgba(0, 0, 0, 0.6);
             color: white;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s;
         }
-        select:focus {
+        select:focus, .btn-control:hover {
             outline: none;
             border-color: var(--accent-color);
             box-shadow: 0 0 15px rgba(0, 229, 255, 0.25);
@@ -189,7 +190,7 @@
                             </label>
                             <select id="song-selector" onchange="updateAnalysis()" class="w-full p-3 rounded-lg text-white focus:ring-2 focus:ring-alter-cyan transition-all cursor-pointer">
                                 <option value="" disabled selected>-- Repertorio Cargado --</option>
-                            </select>
+                                </select>
                         </div>
 
                         <div>
@@ -211,6 +212,20 @@
                                 </label>
                             </div>
                         </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-yellow-500 mb-2 uppercase flex justify-between">
+                                <span>Ajuste Manual (+/- Semitonos)</span>
+                                <span id="pitch-val" class="bg-yellow-500/20 px-2 rounded text-yellow-500">0</span>
+                            </label>
+                            <div class="flex items-center gap-4">
+                                <button onclick="changePitch(-1)" class="btn-control w-10 h-10 rounded-full font-bold text-xl">-</button>
+                                <div class="flex-grow h-1 bg-gray-700 rounded overflow-hidden">
+                                    <div id="pitch-bar" class="h-full bg-yellow-500 w-1/2 transition-all duration-300"></div>
+                                </div>
+                                <button onclick="changePitch(1)" class="btn-control w-10 h-10 rounded-full font-bold text-xl">+</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -218,7 +233,9 @@
                     
                     <div class="glass-card rounded-xl overflow-hidden animate-fade-in">
                         <div class="glass-card-header p-4 flex justify-between items-center">
-                            <h2 class="text-lg font-bold text-white tracking-widest uppercase"><i class="bi bi-cpu-fill mr-2"></i>Harmonic HUD</h2>
+                            <h2 class="text-lg font-bold text-white tracking-widest uppercase">
+                                <i class="bi bi-cpu-fill mr-2"></i>Harmonic HUD
+                            </h2>
                             <span id="instrument-display" class="text-xs font-mono bg-alter-cyan text-black px-2 py-1 rounded font-bold shadow-[0_0_10px_#00E5FF]">CONCERT</span>
                         </div>
                         
@@ -244,15 +261,31 @@
 
                     <div class="grid grid-cols-2 gap-4 animate-fade-in">
                          <div class="glass-card rounded-xl p-4 border-l-2 border-l-alter-cyan flex flex-col items-center">
-                            <h3 class="text-xs font-bold text-gray-300 mb-2 w-full"><i class="bi bi-guitar mr-1 text-alter-cyan"></i>Gtr Tonic</h3>
-                            <div class="w-full max-w-[150px]"><svg id="guitar-diagram-svg" viewBox="0 0 200 150" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg"></svg></div>
+                            <h3 class="text-xs font-bold text-gray-300 mb-2 w-full text-center">
+                                <i class="bi bi-guitar mr-1 text-alter-cyan"></i>Gtr Tonic
+                            </h3>
+                            <div class="w-full max-w-[150px]">
+                                <svg id="guitar-diagram-svg" viewBox="0 0 200 150" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                            <p id="guitar-chord-name" class="text-xs font-bold mt-2 text-alter-cyan"></p>
                         </div>
+
                         <div class="glass-card rounded-xl p-4 border-l-2 border-l-purple-500 flex flex-col items-center">
-                            <h3 class="text-xs font-bold text-gray-300 mb-2 w-full"><i class="bi bi-keyboard mr-1 text-purple-400"></i>Keys Tonic</h3>
-                            <div class="w-full max-w-[180px]"><svg id="piano-diagram-svg" viewBox="0 0 350 120" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg"></svg></div>
+                            <h3 class="text-xs font-bold text-gray-300 mb-2 w-full text-center">
+                                <i class="bi bi-keyboard mr-1 text-purple-400"></i>Keys Tonic
+                            </h3>
+                            <div class="w-full max-w-[180px]">
+                                <svg id="piano-diagram-svg" viewBox="0 0 350 120" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg"></svg>
+                            </div>
+                            <p id="piano-chord-name" class="text-xs font-bold mt-2 text-purple-400"></p>
                         </div>
                     </div>
 
+                    <div class="glass-card p-5 rounded-xl">
+                        <h3 class="text-sm font-bold text-white mb-3 border-b border-white/10 pb-2">Notas Seguras (Improvisación)</h3>
+                        <div id="scale-notes-container" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    
                     <div class="glass-card rounded-xl p-6 animate-fade-in border-l-4 border-l-yellow-500">
                         <h3 class="text-lg font-bold mb-3 text-yellow-500 uppercase tracking-wider"><i class="bi bi-lightbulb-fill mr-2"></i>Tips</h3>
                         <p id="execution-advice" class="text-gray-300 leading-relaxed font-mono text-sm"></p>
@@ -264,7 +297,7 @@
                 
                 <div id="initial-message" class="glass-card p-12 text-center text-gray-500 rounded-xl animate-fade-in h-full flex flex-col justify-center items-center min-h-[400px]">
                     <i class="bi bi-vinyl-fill text-6xl mb-6 block text-gray-700/50"></i>
-                    <p class="text-lg font-medium">Selecciona una canción para ver la letra y acordes transpusestos.</p>
+                    <p class="text-lg font-medium">Selecciona una canción y ajusta tu instrumento para cargar la data.</p>
                 </div>
 
                 <div id="right-panel-content" class="hidden h-full">
@@ -300,7 +333,7 @@
 
     <script>
         const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-        const ENHARMONICS = { "C#": "Db", "D#": "Eb", "F#": "Gb", "G#": "Ab", "A#": "Bb" };
+        const ENHARMONICS = { "C#": "Db", "D#": "Eb", "F#": "Gb", "G#": "Ab", "A#": "Bb", "Db": "C#", "Eb": "D#", "Gb": "F#", "Ab": "G#", "Bb": "A#" };
         
         const SCALE_STEPS = {
             'Jónica': [0, 2, 4, 5, 7, 9, 11], 
@@ -320,1511 +353,215 @@
             '7': [0, 4, 7, 10], 'M': [0, 4, 7], 'dim': [0, 3, 6], 'sus4': [0, 5, 7]
         };
 
-        const GUITAR_TUNING = [4, 9, 2, 7, 11, 4];
+        const GUITAR_TUNING = [4, 9, 2, 7, 11, 4]; // E A D G B E
 
         // --- DATOS COMPLETOS DE CANCIONES (CON LETRAS) ---
         const SONGS_DATA = {
-    'up-around-the-bend': { 
-        title: 'Up Around the Bend (CCR)', 
-        concertKey: 'D', 
-        baseChords: 'D–A–G', 
-        improvScale: 'D Mayor Pentatónica', 
-        advice: 'Corrección: La tonalidad original es Re (D), no La. El riff de apertura usa cuerdas al aire (D y A) para crear ese sonido de "gaita". El ataque debe ser agresivo.', 
-        criticalChord: 'A7 (V)', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Mayor'], 
-        lyrics: `[Intro]
-(Riff en D Mayor)
-
-[Verso 1]
-There's a place up ahead and I'm [A]goin'
-Just as fast as my feet can fly
-Come away, come away if you're [A]goin'
-Leave the sinkin' ship behind
-
-[Estribillo]
-[G]C'mon the risin'wind
-[G]We're goin' up around the [A]bend
-[A7]Ooh!
-
-[Verso 2]
-Bring a song and a smile for the [A]banjo
-Better get while the gettin's good
-Hitch a ride to the end of the [A]highway
-Where the neons turn to wood
-
-[Estribillo]
-[G]C'mon the risin'wind
-[G]We're goin' up around the [A]bend
-[A7]Yeah!
-
-
-| D | D | A | D |
-| D | D | A | D |
-
-[Verso 3]
-You can ponder perpetual [A]motion
-Fix your mind on a crystal day
-Always time for a good conver-[A]sation
-There's an ear for what you say
-
-[Estribillo]
-[G]C'mon the risin'wind
-[G]We're goin' up around the [A]bend
-[A7]Yeah!
-
-[Verso 4]
-Catch a ride to the end of the [A]highway
-And we'll meet by the big red tree
-There's a place up ahead and I'm [A]goin'
-Come along, come along with me
-
-[Estribillo]
-[G]C'mon the risin'wind
-[G]We're goin' up around the [A]bend
-[A7]Yeah!
-
-[Outro]
-Do do doo do...` 
-    },
-
-    'born-on-the-bayou': { 
-        title: 'Born on the Bayou (CCR)', 
-        concertKey: 'E', 
-        baseChords: 'E7–D–A', 
-        improvScale: 'E Mixolidia / Blues', 
-        advice: 'Corrección: El acorde de paso no es B7, sino D y A. Todo gira sobre el E7 "vamp". Usa mucho trémolo en la guitarra.', 
-        criticalChord: 'E7#9 (Hendrix Chord)', 
-        chordType: '7', 
-        steps: SCALE_STEPS['Blues'], 
-        lyrics: `[Intro]
-(E7 Vamp - Trémolo lento)
-
-[Verso 1]
-[E7]Now, when I was just a little boy
-[E7]Standin' to my Daddy's knee
-[E7]My poppa said, "Son, don't let the man get you
-[E7]Do what he done to me"
-
-[Estribillo]
-[E7]'Cause he'll get you
-[E7]'Cause he'll get you now, now
-
-[Verso 2]
-[E7]And I can remember the fourth of July
-[E7]Runnin' through the backwood, bare[A]
-[E7]And I can still hear my old hound dog barkin'
-[E7]Chasin' down a hoodoo there[A]
-[E7]Chasin' down a hoodoo there[A]
-
-[Estribillo]
-[E7]Born on the bayou[A]
-[E7]Born on the bayou[A]
-[E7]Born on the bayou[A]
-
-[Verso 3]
-[E7]Wish I was back on the bayou
-[E7]Rollin' with some Cajun queen
-[E7]Wishin' I were a fast freight train
-[E7]Just a chooglin' on down to New Or-leans[A]
-
-[Estribillo]
-[E7]Born on the bayou[A]
-[E7]Born on the bayou[A]
-[E7]Do it, do it, do it!
-
-
-(Escala E Blues sobre E7)
-
-[Verso 4]
-[E7]I can remember the fourth of July
-[E7]Runnin' through the backwood, bare[A]
-[E7]And I can still hear my old hound dog barkin'
-[E7]Chasin' down a hoodoo there[A]
-[E7]Chasin' down a hoodoo there[A]
-
-[Outro]
-[E7]Born on the bayou...` 
-    },
-
-    'fortunate-son': { 
-        title: 'Fortunate Son (CCR)', 
-        concertKey: 'G', 
-        baseChords: 'G–F–C–G', 
-        improvScale: 'G Mixolidia', 
-        advice: 'Clave el movimiento descendente: G -> F -> C -> G. El F natural (bVII) es lo que le da el carácter rebelde y Mixolidio.', 
-        criticalChord: 'F (bVII)', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Mixolidia'], 
-        lyrics: `[Intro]
-[G][F][C][G]
-
-[Verso 1]
-[G]Some folks are born [F]made to wave the flag
-[C]Ooh, they're red, white and [G]blue
-[G]And when the band plays [F]"Hail to the chief"
-[C]Ooh, they point the cannon at [G]you, Lord
-
-[Estribillo]
-[G]It ain't me, it ain't me
-[C]I ain't no senator's [G]son, son
-[G]It ain't me, it ain't me
-[C]I ain't no fortunate [G]one, no
-
-[Verso 2]
-[G]Some folks are born [F]silver spoon in hand
-[C]Lord, don't they help them-[G]selves, y'all
-[G]But when the taxman [F]comes to the door
-[C]Lord, the house looks like a rummage [G]sale, yes
-
-[Estribillo]
-[G]It ain't me, it ain't me
-[C]I ain't no millionaire's [G]son, no, no
-[G]It ain't me, it ain't me
-[C]I ain't no fortunate [G]one, no
-
-[Instrumental]
-
-| G | F | C | G |
-| G | F | C | G |
-
-[Verso 3]
-[G]Some folks inherit [F]star spangled eyes
-[C]Ooh, they send you down to [G]war, Lord
-[G]And when you ask 'em, [F]"How much should we give?"
-[C]Ooh, they only answer, "More! More! [G]More!" y'all
-
-[Estribillo]
-[G]It ain't me, it ain't me
-[C]I ain't no military [G]son, son
-[G]It ain't me, it ain't me
-[C]I ain't no fortunate [G]one, one
-[G]It ain't me, it ain't me
-[C]I ain't no fortunate [G]one, no, no, no
-[G]It ain't me, it ain't me
-[C]I ain't no fortunate [G]son, no, no, no` 
-    },
-
-    'get-back': { 
-        title: 'Get Back (The Beatles)', 
-        concertKey: 'A', 
-        baseChords: 'A–G–D–A', 
-        improvScale: 'A Mixolidia', 
-        advice: 'Ritmo "Pony" (galope). El acorde D7/A en el estribillo crea la tensión. El solo es puramente pentatónico menor sobre acordes mayores.', 
-        criticalChord: 'G (bVII)', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Mixolidia'], 
-        lyrics: `[Intro]
-(Ritmo en A)
-
-[Verso 1]
-[A]Jojo was a man who thought he was a loner
-[A]But he knew it couldn't last
-[A]Jojo left his home in Tucson, Arizona
-[A]For some California grass
-
-[Estribillo]
-[A]Get back, get back
-[A]Get back to where you once be-longed
-[A]Get back, get back
-[A]Get back to where you once be-longed
-(Get back Jojo)
-
-
-| A | A | D | A |
-| A | A | D | A |
-
-[Verso 2]
-[A]Sweet Loretta Martin thought she was a woman
-[A]But she was another man
-[A]All the girls around her say she's got it coming
-[A]But she gets it while she can
-
-[Estribillo]
-[A]Get back, get back
-[A]Get back to where you once be-longed
-[A]Get back, get back
-[A]Get back to where you once be-longed
-(Get back Loretta)
-
-
-| A | A | D | A |
-
-[Estribillo]
-[A]Get back, get back
-[A]Get back to where you once be-longed
-[A]Get back, get back
-[A]Get back to where you once be-longed
-
-[Outro]
-[A]Get back Loretta...
-[A]Your mommy's waiting for you...
-[A]Wearing her high-heel shoes and her low-neck sweater...
-[A]Get back home, Loretta.` 
-    },
-
-    'dreams-fleetwood': { 
-        title: 'Dreams (Fleetwood Mac)', 
-        concertKey: 'F', 
-        baseChords: 'Fmaj7–G6', 
-        improvScale: 'La Menor Pentatónica / F Lidio', 
-        advice: 'Corrección: No es Gm7, es G6. La canción oscila solo entre dos acordes: Fmaj7 y G6. La melodía vocal está en La menor, creando una ambigüedad modal.', 
-        criticalChord: 'G6', 
-        chordType: 'maj7', 
-        steps: SCALE_STEPS['Lidia'], 
-        lyrics: `[Verso 1]
-[Fmaj7]Now here you go again, you say [G6]you want your freedom
-[Fmaj7]Well, who am I to keep you [G6]down?
-[Fmaj7]It's only right that you should [G6]play the way you feel it
-[Fmaj7]But listen carefully to the [G6]sound
-Of your [Fmaj7]loneliness
-
-[Estribillo]
-[Fmaj7]Like a heartbeat drives you [G6]mad
-In the [Fmaj7]stillness of remembering what you [G6]had
-[Fmaj7]And what you lost... [G6]
-[Fmaj7]And what you had... [G6]
-[Fmaj7]And what you lost
-
-[Estribillo]
-[Fmaj7]Thunder only happens when it's [G6]raining
-[Fmaj7]Players only love you when they're [G6]playing
-[Fmaj7]Say, women, they will come and they will [G6]go
-[Fmaj7]When the rain washes you clean, you'll [G6]know
-You'll [Fmaj7]know
-
-[Verso 2]
-[Fmaj7]Now here I go again, I see [G6]the crystal visions
-[Fmaj7]I keep my visions to my-[G6]self
-[Fmaj7]It's only me who wants to [G6]wrap around your dreams and...
-[Fmaj7]Have you any dreams you'd like to [G6]sell?
-Dreams of [Fmaj7]loneliness...
-
-[Estribillo]
-[Fmaj7]Like a heartbeat drives you [G6]mad...
-[Fmaj7]Thunder only happens when it's [G6]raining
-[Fmaj7]Players only love you when they're [G6]playing
-[Fmaj7]Say, women, they will come and they will [G6]go
-[Fmaj7]When the rain washes you clean, you'll [G6]know
-You'll [Fmaj7]know` 
-    },
-
-    'dreams-cranberries': { 
-        title: 'Dreams (The Cranberries)', 
-        concertKey: 'E', 
-        baseChords: 'E–A–B', 
-        improvScale: 'E Mayor', 
-        advice: 'Corrección: La tonalidad original es Mi Mayor (E), no Si menor. Acordes: E, A, B. El puente modula sorpresivamente.', 
-        criticalChord: 'G (Intercambio modal)', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Mayor'], 
-        lyrics: `[Verso 1]
-[E]Oh, my life is changing [A]everyday
-In every possible [E]way
-[E]And oh, my dreams, it's never quite as it [A]seems
-Never quite as it [E]seems
-
-[Estribillo]
-[E]I know I've felt like this be-[A]fore
-But now I'm feeling it even [E]more
-[E]Because it came from [A]you
-[A]Then I open up and [E]see
-[E]The person falling here is [A]me
-A different way to [E]be
-
-[Puente]
-[G]La, la-la, la-la, la [C]la...
-[G]La, la-la, la-la, la [C]la...
-
-[Verso 2]
-[E]I want more, impossible to ig-[A]nore
-Impossible to ig-[E]nore
-[E]And they'll come true, impossible not to [A]do
-Impossible not to [E]do
-
-[Estribillo]
-[E]And now I tell you open-[A]ly
-You have my heart so don't hurt [E]me
-[E]You're what I couldn't [A]find
-A totally amazing [E]mind
-[E]So understanding and so [A]kind
-You're everything to [E]me
-
-[Outro]
-[E]Oh, my life is changing [A]everyday
-In every possible [E]way...` 
-    },
-
-    'tin-man': { 
-        title: 'Tin Man (America)', 
-        concertKey: 'G', 
-        baseChords: 'Gmaj7–Cmaj7', 
-        improvScale: 'G Mayor', 
-        advice: 'Corrección: La magia está en las extensiones Maj7. El coro usa Am7 y Bm7 (o Em7 según la inversión). George Martin produjo esto, busca la suavidad acústica.', 
-        criticalChord: 'Cmaj7', 
-        chordType: 'maj7', 
-        steps: SCALE_STEPS['Mayor'], 
-        lyrics: `[Intro]
-[Gmaj7][Cmaj7] (x2)
-
-[Verso 1]
-[Gmaj7]Sometimes late when things are real
-[Cmaj7]And people share the gift of gab between themselves
-[Gmaj7]Some are quick to take the bait
-[Cmaj7]And catch the perfect prize that waits among the shelves
-
-[Estribillo]
-[Am7]But Oz never did give nothing to the [Gmaj7]Tin Man
-[Am7]That he didn't, didn't already [Gmaj7]have
-[Am7]And Cause never was the reason for the [Gmaj7]evening
-[Am7]Or the tropic of Sir Gala-[Gmaj7]had
-
-[Puente]
-So please believe inme
-
-[Verso 2]
-[Gmaj7]When I say I'm spinning round, round, round, round
-[Cmaj7]Smoke glass stain bright color, image going down, down, down, down
-[Gmaj7]Soap suds green like [Cmaj7]bubbles
-
-[Estribillo]
-[Am7]But Oz never did give nothing to the [Gmaj7]Tin Man
-[Am7]That he didn't, didn't already [Gmaj7]have
-[Am7]And Cause never was the reason for the [Gmaj7]evening
-[Am7]Or the tropic of Sir Gala-[Gmaj7]had
-
-[Outro]
-So please believe inme
-[Gmaj7]Ohh, [Cmaj7]ohh...` 
-    },
-
-    'everybody-wants-to-rule': { 
-        title: 'Everybody Wants to Rule the World (Tears for Fears)', 
-        concertKey: 'D', 
-        baseChords: 'D–G/D–A/D', 
-        improvScale: 'D Mixolidia', 
-        advice: 'El bajo (D) se mantiene constante en los versos (Pedal Point), creando tensión. El estribillo rompe a Em - F#m.', 
-        criticalChord: 'G/D (Pedal)', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Mixolidia'], 
-        lyrics: `[Intro]
- (Riff de guitarra en D)
-
-[Verso 1]
-Welcome to yourlife
-There's no turningback
-Even while wesleep
-We will findyou
-
-[Estribillo]
-[Em]Acting on your [F#m]best behaviour
-[G]Turn your back on [F#m]mother nature
-[Em]Every-[F#m]body [G]wants to [A]rule theworld
-
-[Verso 2]
-It's my own de-sign
-It's my own re-morse
-Help me to de-cide
-Help me make themost of freedom and of pleasure
-[G]Nothing ever [F#m]lasts forever
-[Em]Every-[F#m]body [G]wants to [A]rule theworld
-
-[Puente]
-[G]There's a room where thelight won't [A]find you
-[G]Holding hands while thewalls come [A]tumbling down
-[G]When they do I'll beright be-[A]hind you
-
-[Estribillo]
-[Em]So glad we've [F#m]almost made it
-[G]So sad they [F#m]had to fade it
-[Em]Every-[F#m]body [G]wants to [A]rule theworld` 
-    },
-
-    'overkill': { 
-        title: 'Overkill (Men at Work)', 
-        concertKey: 'D', 
-        baseChords: 'D–A–C–G', 
-        improvScale: 'D Mixolidia', 
-        advice: 'Corrección: Tonalidad original D (acústica) o E (estudio). Progresión clave: D - A - C - G (bajada cromática del bajo implícita). El solo de saxo es legendario.', 
-        criticalChord: 'C (bVII)', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Mixolidia'], 
-        lyrics: `[Verso 1]
-I can't get to [A]sleep
-[C]I think about the impli-[G]cations
-Of diving in too [A]deep
-[C]And possibly the compli-[G]cations
-
-[Verso 2]
-Especially at [A]night
-[C]I worry over situ-[G]ations
-I know will be al-[A]right
-[C]Perhaps it's just imagi-[G]nation
-
-[Estribillo]
-Day after day it reappe-[A]ars
-Night after night my heartbeat shows the [A]fear
-[F#sus4]Ghosts ap-[F#]pear and fade a-[G]way
-[F#sus4]Ghosts ap-[F#]pear and fade a-[G]way
-
-[Verso 3]
-Alone between the [A]sheets
-[C]Only brings exaspe-[G]ration
-It's time to walk the [A]streets
-[C]Smell the desper-[G]ation
-
-[Verso 4]
-At least there's pretty [A]lights
-[C]And though there's little vari-[G]ation
-It nullifies the [A]night
-[C]From over-[G]kill
-
-[Estribillo]
-Day after day it reappe-[A]ars
-Night after night my heartbeat shows the [A]fear
-[F#sus4]Ghosts ap-[F#]pear and fade a-[G]way` 
-    },
-
-    'hold-the-line': { 
-        title: 'Hold the Line (Toto)', 
-        concertKey: 'F#m', 
-        baseChords: 'F#m–C#m–D–E', 
-        improvScale: 'F# Menor / Pentatónica', 
-        advice: 'Corrección: La tonalidad es Fa sostenido menor (F#m). El piano lleva tresillos constantes. La progresión es F#m - C#m - D - E.', 
-        criticalChord: 'C#m (v)', 
-        chordType: 'm', 
-        steps: SCALE_STEPS['Eólica'], 
-        lyrics: `[Intro]
-[F#m][C#m][E] (Riff de piano en tresillos)
-
-[Verso 1]
-[F#m]It's not in the [C#m]way that you hold me[E]
-[F#m]It's not in the [C#m]way you say you care[E]
-[F#m]It's not in the [C#m]way you've been treating my friends[E]
-[F#m]It's not in the [C#m]way that you stayed 'til the end[E]
-[F#m]It's not in the [C#m]way you look or the things that you say that you'lldo [E]
-
-[Estribillo]
-[F#m]Hold the [C#m]line
-[E]Love isn't always on [F#m]time [C#m][E]
-[F#m]Hold the [C#m]line
-[E]Love isn't always on [F#m]time [C#m][E]
-
-[Verso 2]
-[F#m]It's not in the [C#m]words that you told me[E]
-[F#m]It's not in the [C#m]way you say you're mine[E]
-[F#m]It's not in the [C#m]way that you came back to me[E]
-[F#m]It's not in the [C#m]way that your love set me free[E]
-[F#m]It's not in the [C#m]way you look or the things that you say that you'lldo [E]
-
-[Estribillo]
-[F#m]Hold the [C#m]line
-[E]Love isn't always on [F#m]time [C#m][E]` 
-    },
-
-    'baby-come-back': { 
-        title: 'Baby Come Back (Player)', 
-        concertKey: 'Cm', 
-        baseChords: 'Abmaj7–Gm7–Cm7–Fm7', 
-        improvScale: 'C Menor Natural', 
-        advice: 'Yacht Rock clásico. Acordes extendidos. El estribillo usa Abmaj7 para ir bajando suavemente a Cm7. El puente modula.', 
-        criticalChord: 'Abmaj7 (bVI)', 
-        chordType: 'maj7', 
-        steps: SCALE_STEPS['Eólica'], 
-        lyrics: `[Intro]
-[Abmaj7][Gm7][Cm7][Fm7]
-
-[Verso 1]
-Spending all my nights, all my [Gm7]money going out on the town
-Doing anything just to [Gm7]get you off of my mind
-But when the morning comes, I'm right [Gm7]back where I started again
-Trying to forget you is just a waste of [C]time
-
-[Estribillo]
-[Abmaj7]Baby come back, any [Gm7]kind of fool could [Cm7]see
-[Fm7]There was something in [Gm7]everything a-[Cm7]-bout you
-[Abmaj7]Baby come back, you can [Gm7]blame it all on [Cm7]me
-[Fm7]I was wrong, and I [Gm7]just can't live with-[Cm7]-out you
-
-[Verso 2]
-All day long, wearing a [Gm7]mask of false bravado
-Trying to keep up the smile that hides a [Gm7]tear
-But as the sun goes down, I get that [Gm7]empty feeling again
-How I wish to God that you were [C]here
-
-[Estribillo]
-[Abmaj7]Baby come back...
-
-[Puente]
-[Gbmaj7]Now that I put it all to--gether
-[Gbmaj7]Give me the chance to make yousee
-[Gbmaj7]Have you used up all the love in your [Fm7]heart
-Nothing left forme, ain't there nothing left for me?` 
-    },
-
-    'shape-of-my-heart': { 
-        title: 'Shape of my heart (Sting)', 
-        concertKey: 'F#m', 
-        baseChords: 'F#m–E6–D6–C#7', 
-        improvScale: 'F# Menor', 
-        advice: 'Corrección: La tonalidad es F#m. La bajada es diatónica: F#m - E - D - C#sus4 - C#7. La guitarra clásica de Dominic Miller es esencial.', 
-        criticalChord: 'C#7 (V)', 
-        chordType: 'm', 
-        steps: SCALE_STEPS['Eólica'], 
-        lyrics: `[Verso 1]
-[F#m]He deals the [C#m]cards as a medi-tation [C#sus4][C#7]
-[F#m]And those he [C#m]plays never sus-pect [C#sus4][C#7]
-[F#m]He doesn't [C#m]play for the money hewins [C#sus4][C#7]
-[F#m]He don't [C#m]play for re-spect [C#sus4][C#7]
-
-[Verso 2]
-[F#m]He deals the [C#m]cards to find theanswer [C#sus4][C#7]
-[F#m]The sacred [C#m]geometry ofchance [C#sus4][C#7]
-[F#m]The hidden [C#m]law of a probableoutcome [C#sus4][C#7]
-[F#m]The numbers [C#m]lead adance [C#sus4][C#7]
-
-[Estribillo]
-[F#m]I know that the [C#m]spades are the swords of asoldier [C#sus4][C#7]
-[F#m]I know that the [C#m]clubs are weapons ofwar [C#sus4][C#7]
-[F#m]I know that [C#m]diamonds mean money for thisart [C#sus4][C#7]
-[F#m]But that's not the [C#m]shape of myheart [C#sus4][C#7]
-[F#m]That's not the [C#m]shape of my [F#m]heart` 
-    },
-
-    'michelle': { 
-        title: 'Michelle (The Beatles)', 
-        concertKey: 'F', 
-        baseChords: 'F–Fm–Bb7', 
-        improvScale: 'F Mayor / F Menor', 
-        advice: 'Usa el intercambio modal entre F Mayor y F Menor. El acorde disminuido (C#dim7) es clave en "go together well".', 
-        criticalChord: 'C#dim7', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Jónica'], 
-        lyrics: `[Intro]
-[Fm][C][Fm][C]
-
-[Verso 1]
-[F]Michelle, [Gm7]ma belle
-[C]These are words that [C#dim7]go together [C]well
-[C#dim7]My Mi-[C]-chelle
-
-[Verso 2]
-[F]Michelle, [Gm7]ma belle
-[C]Sont des mots qui [C#dim7]vont très bien en-[C]-semble
-[C#dim7]Très bien en-[C]-semble
-
-[Puente]
-[Fm]I love you, I love you, I love you
-[Ab7]That's all I want to say
-[C7]Until I find a [Fm]way
-I will [Fm]say the [Eb]onlywords I [C]know that you'll understand
-
-[Verso 3]
-[F]Michelle, [Gm7]ma belle
-[C]Sont des mots qui [C#dim7]vont très bien en-[C]-semble
-[C#dim7]Très bien en-[C]-semble` 
-    },
-
-    'here-today': { 
-        title: 'Here Today (Paul McCartney)', 
-        concertKey: 'G', 
-        baseChords: 'G–Bm–C–F', 
-        improvScale: 'G Mayor', 
-        advice: 'Corrección: Tonalidad Sol (G). La progresión usa acordes prestados como Fmaj7. Es una carta abierta a John Lennon.', 
-        criticalChord: 'C#dim7', 
-        chordType: 'maj7', 
-        steps: SCALE_STEPS['Jónica'], 
-        lyrics: `[Verso 1]
-[G]And if I said
-I really knew youwell
-What would your [C]answer be
-If you were [Am]here to-day?
-[G]Ooh, ooh, [Em]ooh
-[Am]Here to-day
-
-[Verso 2]
-[G]Well, knowing you
-You'd probably laugh andsay
-That we were [C]worlds apart
-If you were [Am]here to-day
-[G]Ooh, ooh, [Em]ooh
-[Am]Here to-day
-
-[Puente]
-[C]But as for me
-[F]I still remember how it was before
-[C]And I am holding back the tears no more
-[F]Ooh, [Em]ooh, [Am]ooh, I love you,ooh` 
-    },
-
-    'in-my-life': { 
-        title: 'In my life (The Beatles)', 
-        concertKey: 'A', 
-        baseChords: 'A–E–F#m–Dm', 
-        improvScale: 'A Jónica', 
-        advice: 'El uso del Dm (iv menor) en una tonalidad mayor es el sello de nostalgia de los Beatles. Solo de piano barroco.', 
-        criticalChord: 'Dm (iv)', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Jónica'], 
-        lyrics: `[Verso 1]
-[A]There are [E]places [F#m]I re-[A7]member
-All mylife, though [A]some have changed
-[A]Some for-[E]ever, [F#m]not for [A7]better
-Some havegone and [A]some remain
-
-[Pre-Estribillo]
-[F#m]All these places have theirmoments
-[G]With lovers and friends I [A]still can recall
-[F#m]Some are dead and some areliving
-In mylife, I [A]love them all
-
-
-| A E | F#m A7 | D Dm | A |
-
-[Verso 2]
-[F#m]Though I know I'll never lose af-fection
-[G]For people and things that [A]went before
-[F#m]I know I'll often stop and think a-bout them
-In mylife, I [A]love you more
-In mylife, I [A]love you more` 
-    },
-
-    'hotel-california': { 
-        title: 'Hotel California (Eagles)', 
-        concertKey: 'Bm', 
-        baseChords: 'Bm–F#7–A–E–G–D–Em–F#7', 
-        improvScale: 'B Menor Armónica / Pentatónica', 
-        advice: 'La progresión es única, casi un ciclo flamenco extendido. El solo final de guitarras armonizadas es historia pura.', 
-        criticalChord: 'F#7 (V)', 
-        chordType: 'm', 
-        steps: SCALE_STEPS['Armónica'], 
-        lyrics: `[Verso 1]
-On a dark desert highway, [F#7]cool wind in my hair
-[A]Warm smell of colitas, [E]rising up through the air
-[G]Up ahead in the distance,I saw a shimmering light
-[Em]My head grew heavy and my sight grew dim
-[F#7]I had to stop for the night
-
-[Verso 2]
-There she stood in the doorway; [F#7]I heard the mission bell
-[A]And I was thinking to myself, "This could be [E]heaven or this could be hell"
-[G]Then she lit up a candleand she showed me the way
-[Em]There were voices down the corridor, [F#7]I thought I heard them say...
-
-[Estribillo]
-[G]Welcome to the Hotel Cali-fornia
-[F#7]Such a lovely place (Such a lovely place)
-Such a lovely face
-[G]Plenty of room at the Hotel Cali-fornia
-[Em]Any time of year (Any time of year)
-[F#7]You can find it here` 
-    },
-
-    'band-on-the-run': { 
-        title: 'Band on the Run (Wings)', 
-        concertKey: 'D -> Am -> C', 
-        baseChords: 'Dmaj7-G (Parte 1), Am-D (Parte 2), C-F-G (Parte 3)', 
-        improvScale: 'C Jónica (Final)', 
-        advice: 'Corrección: Son tres canciones en una. Empieza balada en D/G, pasa a Rock en Am y libera en Folk en C. El cambio a C ("Well the rain...") es la liberación.', 
-        criticalChord: 'Fmaj7', 
-        chordType: 'm', 
-        steps: SCALE_STEPS['Eólica'], 
-        lyrics: `
-Stuck inside these four walls
-[G6]Sent inside forever
-Never seeing no one nice a-gain [G6][Gm6]
-
-
-[Am]If I ever get out of here
-Thought of giving it all away
-[Am]To a registered charity
-All I need is a pint a day
-If I ever get out of here... (Riff)
-
-
-[C]Well, the rain exploded with a mighty [Fmaj7]crash
-[C]As we fell into the sun
-[C]And the first one said to the second one [Fmaj7]there
-[Em]I hope you're having fun
-
-[Estribillo]
-[G]Band on the [C]run, [Em]band on the [C]run
-[F]And the jailer man and sailor Sam
-[F]Were searching every one
-[C]For the band on the [F]run, [C]band on the [F]run` 
-    },
-
-    'quien-fuera-bunkers': { 
-        title: 'Quien Fuera (Los Bunkers)', 
-        concertKey: 'G', 
-        baseChords: 'G–Em–C–D', 
-        improvScale: 'G Mayor', 
-        advice: 'Corrección: Versión rockera de Los Bunkers. Tonalidad G. Intro icónica de guitarra eléctrica.', 
-        criticalChord: 'B7 (V del vi)', 
-        chordType: 'm', 
-        steps: SCALE_STEPS['Mayor'], 
-        lyrics: `[Intro]
-(Riff guitarra G - Em - C - D)
-
-[Verso 1]
-[G]Estoy buscando una [Em]palabra
-[C]En el umbral de tu mis-terio
-[G]Quien fuera Ali Ba-[Em]ba
-[C]Quien fuera el mítico sim-bad
-[G]Quien fuera un poderoso sor-[Em]tilegio
-[C]Quien fuera encanta-dor
-
-[Verso 2]
-[G]Estoy buscando una esca-[Em]fandra
-[C]Al pie del mar de los de-lirios
-[G]Quien fuera Jacques Cous-[Em]teau
-[C]Quien fuera Nemo el capi-tán
-[G]Quien fuera la batis-[Em]cafo de tu abismo
-[C]Quien fuera explora-dor
-
-[Estribillo]
-[G]Corazón, corazón os-[Em]curo
-[C]Corazón, corazón conmuros
-[G]Corazón que se es-[Em]conde
-[C]Corazón que estadónde
-[G]Corazón en [Em]fuga
-[C]Herido de dudas de a-mor` 
-    },
-
-    'bad-moon-rising': { 
-        title: 'Bad Moon Rising (CCR)', 
-        concertKey: 'D', 
-        baseChords: 'D–A–G', 
-        improvScale: 'D Mayor', 
-        advice: 'Acordes D, A, G. El ritmo es rápido y cortado. Cuidado con el cambio rápido A-G en el verso.', 
-        criticalChord: 'G', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Mayor'], 
-        lyrics: `[Verso 1]
-I see the [A]bad [G]moon a-rising
-I see [A]trouble [G]on theway
-I see [A]earth-[G]quakes andlightning
-I see [A]bad [G]times to-day
-
-[Estribillo]
-[G]Don't go around tonight
-Well, it'sbound to take your life
-[A]There's a [G]bad moon on therise
-
-[Verso 2]
-I hear [A]hurri-[G]canes a-blowing
-I know the [A]end is [G]comingsoon
-I fear [A]rivers [G]overflowing
-I hear the [A]voice of [G]rage andruin
-
-[Estribillo]
-[G]Don't go around tonight
-Well, it'sbound to take your life
-[A]There's a [G]bad moon on therise` 
-    },
-
-    'mala-bad-bunny': { 
-        title: 'Vete (Bad Bunny)', 
-        concertKey: 'Bbm', 
-        baseChords: 'Gbmaj7–Fm7–Bbm7', 
-        improvScale: 'Bb Menor', 
-        advice: 'Corrección: Basado en las letras "Lo nuestro ya se murió", la canción es "Vete". Usa acordes de Jazz/Neo-Soul: Gbmaj7, Fm7, Bbm7. Loop constante.', 
-        criticalChord: 'Gbmaj7', 
-        chordType: 'm', 
-        steps: SCALE_STEPS['Eólica'], 
-        lyrics: `[Intro]
-[Gbmaj7][Fm7]
-Yeh, yeh, yeh, yeh
-
-[Estribillo]
-[Gbmaj7]Vete, eh, eh, eh
-[Fm7]Nadie te está aguantando y la puerta está a-bierta, eh
-No te preocupes por nosotros dos, nuestra historia ya estámuerta
-Espero que seas feli-[Gbmaj7]z y que te diviertas, eh
-[Fm7]Pero pa' acá no vuelvas, no, no, no,no
-Porque lo nuestro ya se murió...` 
-    },
-
-    'dont-let-me-down': { 
-        title: 'Don\'t Let Me Down (The Beatles)', 
-        concertKey: 'E', 
-        baseChords: 'E–F#m7', 
-        improvScale: 'E Mayor', 
-        advice: 'La estrofa tiene un compás de 5/4 inesperado ("I\'m in love for the first time"). El F#m7 sobre el bajo de E es muy característico.', 
-        criticalChord: 'F#m7', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Mayor'], 
-        lyrics: `[Estribillo]
-[F#m7]Don't let me [E]down
-[F#m7]Don't let me [E]down
-[F#m7]Don't let me [E]down
-[F#m7]Don't let me [E]down
-
-[Verso 1]
-[E]Nobody ever loved me like she does
-[F#m7]Ooh, she does, yeah, she does
-[E]And if somebody loved me like she do me
-[F#m7]Ooh, she do me, yes, she does
-
-[Estribillo]
-[F#m7]Don't let me [E]down
-[F#m7]Don't let me [E]down...
-
-[Verso 2]
-[E]I'm in love for the first time
-[F#m7]Don't you know it's gonna last
-[E]It's a love that lasts forever
-[F#m7]It's a love that had no past` 
-    },
-
-    'black-magic-woman': { 
-        title: 'Black Magic Woman (Santana)', 
-        concertKey: 'Dm', 
-        baseChords: 'Dm–Am–Gm–Dm', 
-        improvScale: 'D Dórica / Menor', 
-        advice: 'Ritmo Latino/Rock. Usa Dm7 y Am7. El cambio a Gm marca la diferencia con un blues estándar. El A7 altera la escala a D Armónica.', 
-        criticalChord: 'A7', 
-        chordType: 'm', 
-        steps: SCALE_STEPS, 
-        lyrics: `[Intro]
-(Solo de Guitarra sobre Dm)
-
-[Verso 1]
-Got a black magic [Am]woman
-Got a black magic [Am]woman
-I got a black magic woman
-[Gm]Got me so blind I can'tsee
-That she's a black magic [A7]woman
-[A7]She's tryin' to make a devil out ofme
-
-[Verso 2]
-Turn your back on me [Am]baby
-Turn your back on me [Am]baby
-Yes, don't turn your back on me baby
-[Gm]Stop messin' 'round with yourtricks
-Don't turn your back on me [A7]baby
-[A7]You just might pick up my magicsticks` 
-    },
-    
-    'gypsy-queen': { 
-        title: 'Gypsy Queen (Santana)', 
-        concertKey: 'D', 
-        baseChords: 'D–C–G/B–A', 
-        improvScale: 'D Mixolidia', 
-        advice: 'Instrumental que sigue a Black Magic Woman. Modula a Re Mayor. Ritmo más rápido y frenético.', 
-        criticalChord: 'D (Vamp)', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Mixolidia'], 
-        lyrics: `[Instrumental]
-(Transición rápida)
-
-| D | D | D | D |
-(Improvisación guitarra y percusión)
-
-[Final]
-[C][A]` 
-    },
-
-    'sirius': { 
-        title: 'Sirius (Alan Parsons Project)', 
-        concertKey: 'Bm', 
-        baseChords: 'Bm–G', 
-        improvScale: 'B Menor', 
-        advice: 'Corrección: Tonalidad Bm. Intro icónica de los Chicago Bulls. Arpegio de Clavinet con Delay. Acordes simples Bm - G.', 
-        criticalChord: 'G', 
-        chordType: 'm', 
-        steps: SCALE_STEPS['Eólica'], 
-        lyrics: `[Instrumental]
-(Arpegio en Bm)
-
-| Bm | G | Bm | G |
-(Entran cuerdas y solo de guitarra eléctrica melódico)` 
-    },
-
-    'eye-in-the-sky': { 
-        title: 'Eye in the Sky (Alan Parsons Project)', 
-        concertKey: 'Bm / D', 
-        baseChords: 'Bm–G–D–F#m', 
-        improvScale: 'D Mayor', 
-        advice: 'Sigue inmediatamente a Sirius. El estribillo usa Bm - G - D - F#m. La producción es cristalina.', 
-        criticalChord: 'Gm (iv menor)', 
-        chordType: 'm', 
-        steps: SCALE_STEPS['Jónica'], 
-        lyrics: `[Verso 1]
-Don't think sorry's easilysaid
-Don't try turning tables in-stead
-[G]You've taken lots of chances be-[Gm]fore
-But I ain't gonna give any [Em]more
-Don't askme
-That's how it [G]goes
-'Cause part of meknows what you're thinkin'
-
-[Estribillo]
-I am theeye in the sky, looking at [F#m]you
-I can read yourmind
-I am the maker of rules, dealing with [F#m]fools
-I can cheat youblind
-And I [G]don't need to see any [Gm]more
-To know thatI can read your mind` 
-    },
-
-    'golden-slumbers': { 
-        title: 'Golden Slumbers (The Beatles)', 
-        concertKey: 'Am / C', 
-        baseChords: 'Am7–Dm–G7–C', 
-        improvScale: 'C Mayor', 
-        advice: 'Parte de la suite de Abbey Road. Piano balada. Am7 abre, resuelve en C.', 
-        criticalChord: 'E7', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Jónica'], 
-        lyrics: `[Verso 1]
-[Am7]Once there was a way to get back homeward
-[Am7]Once there was a way to get back [G7]home
-[C]Sleep pretty darling, [Am]do not cry
-[G7]And I will sing a lulla-[C]by
-
-[Estribillo]
-[C]Golden [F]slumbers fill your [C]eyes
-[C]Smiles a-[F]wake you when you [C]rise
-[C]Sleep pretty darling, [Am]do not cry
-[G7]And I will sing a lulla-[C]by` 
-    },
-
-    'carry-that-weight': { 
-        title: 'Carry That Weight (The Beatles)', 
-        concertKey: 'C', 
-        baseChords: 'C–G', 
-        improvScale: 'C Mayor', 
-        advice: 'Coro himno. Unísono vocal. C y G dominan.', 
-        criticalChord: 'G', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Jónica'], 
-        lyrics: `[Estribillo]
-[C]Boy, you're gonna [G]carry that weight
-[G]Carry that weight a long [C]time
-[C]Boy, you're gonna [G]carry that weight
-[G]Carry that weight a long [C]time
-
-[Verso]
-[C]I never give you my [Am]pillow
-[Am]I only send you my invi-tations
-[G7]And in the middle of the cele-[C]brations
-[Fmaj7]I break [G7]down` 
-    },
-
-    'the-end': { 
-        title: 'The End (The Beatles)', 
-        concertKey: 'A (Solos) -> C (Final)', 
-        baseChords: 'A–D (Rock), C–F–G (Final)', 
-        improvScale: 'A Blues / C Mayor', 
-        advice: 'Duelo de guitarras (Paul, George, John) sobre A7-D7. Final majestuoso en Do Mayor.', 
-        criticalChord: 'F', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Jónica'], 
-        lyrics: `[Verso]
-[A]Oh yeah, all right
-Are you gonna be in my dreams
-[A]Tonight?
-
-
-
-
-| A7 | D7 | A7 | D7 | (x N veces)
-
-[Piano Intro Final]
-(Piano en acordes bloque)
-
-[Estribillo Final]
-[A]And in the end
-[G]The love you take
-[F]Is equal to the love
-[G7]You make [C]` 
-    },
-
-    'coming-back-to-life': { 
-        title: 'Coming back to life (Pink Floyd)', 
-        concertKey: 'C', 
-        baseChords: 'C–Fmaj7–Am–G', 
-        improvScale: 'C Mayor', 
-        advice: 'Corrección: Tonalidad C Mayor. Intro etérea en C con sintetizadores. El solo de Gilmour es puro sentimiento sobre la progresión del verso.', 
-        criticalChord: 'Fmaj7', 
-        chordType: 'M', 
-        steps: SCALE_STEPS['Mayor'], 
-        lyrics: `[Verso 1]
-[C]Where were you when I was burned and [Fmaj7]broken?
-[Am]While the days slipped by [G]from my window [F]watching
-[C]And where were you when I was hurt and [Fmaj7]helpless?
-[Am]Because the things you say [G]and the things you [F]do surround me
-[Am]While you were hanging your-self on someone else's words
-[Am]Dying to believe inwhat you heard
-[Am]I was staring straight in-[G]to the shining [C]sun
-
-[Verso 2]
-[C]Lost in thought and lost in [Fmaj7]time
-[Am]While the seeds of life [G]and the seeds of [F]change were planted
-[C]Outside the rain fell dark and [Fmaj7]slow
-[Am]While I pondered on [G]this dangerous but irre-[F]sistible pastime
-[Am]I took a heavenlyride through our silence
-[Am]I knew the momenthad arrived
-[Am]For killing the past and [G]coming back to [C]life` 
-    },
-
-    'just-the-two-of-us': { 
-        title: 'Just the Two of Us (Grover Washington Jr.)', 
-        concertKey: 'Fm (Dbmaj7 start)', 
-        baseChords: 'Dbmaj7–C7–Fm7–Ebm7–Ab7', 
-        improvScale: 'F Menor', 
-        advice: 'Corrección: Progresión de Jazz R&B clásica. Dbmaj7 - C7alt - Fm7 - Ebm7 - Ab7 (ii-V a Gb). Los acordes Ebm7 y Ab7 son esenciales para el movimiento.', 
-        criticalChord: 'C7alt', 
-        chordType: 'maj7', 
-        steps: SCALE_STEPS['Eólica'], 
-        lyrics: `[Verso 1]
-I see the crystal [C7]raindrops fall
-[Fm7]And the beauty of it [Ebm7]all [Ab7]
-Is when the sun [C7]comes shining [Fm7]through
-To make those rainbows [C7]in my mind
-[Fm7]When I think of you some-[Ebm7]time [Ab7]
-And I want to spend [C7]some time with [Fm7]you
-
-[Estribillo]
-Just the two [C7]of us
-[Fm7]We can make it if we [Ebm7]try [Ab7]
-Just the two [C7]of us
-[Fm7]Just the two of us
-Just the two [C7]of us
-[Fm7]Building castles in the [Ebm7]sky [Ab7]
-Just the two [C7]of us
-[Fm7]You and I` 
-    },
-
-    'aint-no-sunshine': { 
-        title: 'Ain\'t No Sunshine (Bill Withers)', 
-        concertKey: 'Am', 
-        baseChords: 'Am–Em–G–Am', 
-        improvScale: 'A Menor Pentatónica', 
-        advice: 'Minimalismo. La progresión Am - Em - G - Am es constante. El E7#9 o Em7 en el paso es clave.', 
-        criticalChord: 'Em7', 
-        chordType: 'm', 
-        steps: SCALE_STEPS['Pentatónica'], 
-        lyrics: `[Verso 1]
-[Am]Ain't no sunshine [Em]when she's [Am]gone
-[Am]It's not warm [Em]when she's [Am]away
-[Am]Ain't no sunshine [Em]when she'sgone
-And she's always gone too [Am]long
-Anytime she [Em]goes a-[Am]way
-
-[Verso 2]
-[Am]Wonder this time [Em]where she's [Am]gone
-[Am]Wonder if she's [Em]gone to [Am]stay
-[Am]Ain't no sunshine [Em]when she'sgone
-And this house just ain't no [Am]home
-Anytime she [Em]goes a-[Am]way
-
-[Puente]
-I know, I know, I know, I know... (x26)` 
-    },
-
-    'smooth-operator': { 
-        title: 'Smooth Operator (Sade)', 
-        concertKey: 'Dm', 
-        baseChords: 'Dm7–Am7–Gm7–Am7', 
-        improvScale: 'D Menor Natural', 
-        advice: 'Corrección: Tonalidad Dm. La línea de bajo icónica se mueve sobre Dm7 - Am7 - Gm7 - Am7. Sofisticado y minimalista.', 
-        criticalChord: 'Gm7', 
-        chordType: 'm7', 
-        steps: SCALE_STEPS['Eólica'], 
-        lyrics: `[Verso 1]
-Diamond life, [Am7]lover boy
-[Gm7]We move in space with [Am7]minimum waste andmaximum joy
-City lights [Am7]and business nights
-[Gm7]When you require [Am7]streetcar desire forhigher heights
-
-[Pre-Estribillo]
-[Gm7]No place for beginners or [Am7]sensitive hearts
-[Gm7]When sentiment is left to [Am7]chance
-[Gm7]No place to be ending but [Am7]somewhere to start
-[Gm7]No need toask
-He's a smooth [Am7]operator
-[Gm7]Smooth [Am7]operator
-Smooth [Am7]operator
-[Gm7]Smooth [Am7]operator` 
-    },
-};
+            'up-around-the-bend': { title: 'Up Around the Bend (CCR)', concertKey: 'D', baseChords: 'D–A–G', improvScale: 'D Mayor Pentatónica', advice: 'Corrección: La tonalidad original es Re (D), no La. El riff de apertura usa cuerdas al aire (D y A) para crear ese sonido de "gaita". El ataque debe ser agresivo.', criticalChord: 'A7 (V)', chordType: 'M', steps: SCALE_STEPS['Mayor'], lyrics: `[Intro]\n(Riff en D Mayor)\n\n[Verso 1]\nThere's a place up ahead and I'm [A]goin'\nJust as fast as my feet can fly\nCome away, come away if you're [A]goin'\nLeave the sinkin' ship behind\n\n[Estribillo]\n[G]C'mon the risin'wind\n[G]We're goin' up around the [A]bend\n[A7]Ooh!\n\n[Verso 2]\nBring a song and a smile for the [A]banjo\nBetter get while the gettin's good\nHitch a ride to the end of the [A]highway\nWhere the neons turn to wood\n\n[Estribillo]\n[G]C'mon the risin'wind\n[G]We're goin' up around the [A]bend\n[A7]Yeah!\n\n\n| D | D | A | D |\n| D | D | A | D |\n\n[Verso 3]\nYou can ponder perpetual [A]motion\nFix your mind on a crystal day\nAlways time for a good conver-[A]sation\nThere's an ear for what you say\n\n[Estribillo]\n[G]C'mon the risin'wind\n[G]We're goin' up around the [A]bend\n[A7]Yeah!\n\n[Verso 4]\nCatch a ride to the end of the [A]highway\nAnd we'll meet by the big red tree\nThere's a place up ahead and I'm [A]goin'\nCome along, come along with me\n\n[Estribillo]\n[G]C'mon the risin'wind\n[G]We're goin' up around the [A]bend\n[A7]Yeah!\n\n[Outro]\nDo do doo do...` },
+            'born-on-the-bayou': { title: 'Born on the Bayou (CCR)', concertKey: 'E', baseChords: 'E7–D–A', improvScale: 'E Mixolidia / Blues', advice: 'Corrección: El acorde de paso no es B7, sino D y A. Todo gira sobre el E7 "vamp". Usa mucho trémolo en la guitarra.', criticalChord: 'E7#9 (Hendrix Chord)', chordType: '7', steps: SCALE_STEPS['Blues'], lyrics: `[Intro]\n(E7 Vamp - Trémolo lento)\n\n[Verso 1]\n[E7]Now, when I was just a little boy\n[E7]Standin' to my Daddy's knee\n[E7]My poppa said, "Son, don't let the man get you\n[E7]Do what he done to me"\n\n[Estribillo]\n[E7]'Cause he'll get you\n[E7]'Cause he'll get you now, now\n\n[Verso 2]\n[E7]And I can remember the fourth of July\n[E7]Runnin' through the backwood, bare[A]\n[E7]And I can still hear my old hound dog barkin'\n[E7]Chasin' down a hoodoo there[A]\n[E7]Chasin' down a hoodoo there[A]\n\n[Estribillo]\n[E7]Born on the bayou[A]\n[E7]Born on the bayou[A]\n[E7]Born on the bayou[A]\n\n[Verso 3]\n[E7]Wish I was back on the bayou\n[E7]Rollin' with some Cajun queen\n[E7]Wishin' I were a fast freight train\n[E7]Just a chooglin' on down to New Or-leans[A]\n\n[Estribillo]\n[E7]Born on the bayou[A]\n[E7]Born on the bayou[A]\n[E7]Do it, do it, do it!\n\n\n(Escala E Blues sobre E7)\n\n[Verso 4]\n[E7]I can remember the fourth of July\n[E7]Runnin' through the backwood, bare[A]\n[E7]And I can still hear my old hound dog barkin'\n[E7]Chasin' down a hoodoo there[A]\n[E7]Chasin' down a hoodoo there[A]\n\n[Outro]\n[E7]Born on the bayou...` },
+            'fortunate-son': { title: 'Fortunate Son (CCR)', concertKey: 'G', baseChords: 'G–F–C–G', improvScale: 'G Mixolidia', advice: 'Clave el movimiento descendente: G -> F -> C -> G. El F natural (bVII) es lo que le da el carácter rebelde y Mixolidio.', criticalChord: 'F (bVII)', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], lyrics: `[Intro]\n[G][F][C][G]\n\n[Verso 1]\n[G]Some folks are born [F]made to wave the flag\n[C]Ooh, they're red, white and [G]blue\n[G]And when the band plays [F]"Hail to the chief"\n[C]Ooh, they point the cannon at [G]you, Lord\n\n[Estribillo]\n[G]It ain't me, it ain't me\n[C]I ain't no senator's [G]son, son\n[G]It ain't me, it ain't me\n[C]I ain't no fortunate [G]one, no\n\n[Verso 2]\n[G]Some folks are born [F]silver spoon in hand\n[C]Lord, don't they help them-[G]selves, y'all\n[G]But when the taxman [F]comes to the door\n[C]Lord, the house looks like a rummage [G]sale, yes\n\n[Estribillo]\n[G]It ain't me, it ain't me\n[C]I ain't no millionaire's [G]son, no, no\n[G]It ain't me, it ain't me\n[C]I ain't no fortunate [G]one, no\n\n[Instrumental]\n\n| G | F | C | G |\n| G | F | C | G |\n\n[Verso 3]\n[G]Some folks inherit [F]star spangled eyes\n[C]Ooh, they send you down to [G]war, Lord\n[G]And when you ask 'em, [F]"How much should we give?"\n[C]Ooh, they only answer, "More! More! [G]More!" y'all\n\n[Estribillo]\n[G]It ain't me, it ain't me\n[C]I ain't no military [G]son, son\n[G]It ain't me, it ain't me\n[C]I ain't no fortunate [G]one, one\n[G]It ain't me, it ain't me\n[C]I ain't no fortunate [G]one, no, no, no\n[G]It ain't me, it ain't me\n[C]I ain't no fortunate [G]son, no, no, no` },
+            'get-back': { title: 'Get Back (The Beatles)', concertKey: 'A', baseChords: 'A–G–D–A', improvScale: 'A Mixolidia', advice: 'Ritmo "Pony" (galope). El acorde D7/A en el estribillo crea la tensión. El solo es puramente pentatónico menor sobre acordes mayores.', criticalChord: 'G (bVII)', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], lyrics: `[Intro]\n(Ritmo en A)\n\n[Verso 1]\n[A]Jojo was a man who thought he was a loner\n[A]But he knew it couldn't last\n[A]Jojo left his home in Tucson, Arizona\n[A]For some California grass\n\n[Estribillo]\n[A]Get back, get back\n[A]Get back to where you once be-longed\n[A]Get back, get back\n[A]Get back to where you once be-longed\n(Get back Jojo)\n\n\n| A | A | D | A |\n| A | A | D | A |\n\n[Verso 2]\n[A]Sweet Loretta Martin thought she was a woman\n[A]But she was another man\n[A]All the girls around her say she's got it coming\n[A]But she gets it while she can\n\n[Estribillo]\n[A]Get back, get back\n[A]Get back to where you once be-longed\n[A]Get back, get back\n[A]Get back to where you once be-longed\n(Get back Loretta)\n\n\n| A | A | D | A |\n\n[Estribillo]\n[A]Get back, get back\n[A]Get back to where you once be-longed\n[A]Get back, get back\n[A]Get back to where you once be-longed\n\n[Outro]\n[A]Get back Loretta...\n[A]Your mommy's waiting for you...\n[A]Wearing her high-heel shoes and her low-neck sweater...\n[A]Get back home, Loretta.` },
+            'dreams-fleetwood': { title: 'Dreams (Fleetwood Mac)', concertKey: 'F', baseChords: 'Fmaj7–G6', improvScale: 'F Jónica (Mayor)', advice: 'Corrección: No es Gm7, es G6. La canción oscila solo entre dos acordes: Fmaj7 y G6. La melodía vocal está en La menor, creando una ambigüedad modal.', criticalChord: 'G6', chordType: 'maj7', steps: SCALE_STEPS['Lidia'], lyrics: `[Verso 1]\n[Fmaj7]Now here you go again, you say [G6]you want your freedom\n[Fmaj7]Well, who am I to keep you [G6]down?\n[Fmaj7]It's only right that you should [G6]play the way you feel it\n[Fmaj7]But listen carefully to the [G6]sound\nOf your [Fmaj7]loneliness\n\n[Estribillo]\n[Fmaj7]Like a heartbeat drives you [G6]mad\nIn the [Fmaj7]stillness of remembering what you [G6]had\n[Fmaj7]And what you lost... [G6]\n[Fmaj7]And what you had... [G6]\n[Fmaj7]And what you lost\n\n[Estribillo]\n[Fmaj7]Thunder only happens when it's [G6]raining\n[Fmaj7]Players only love you when they're [G6]playing\n[Fmaj7]Say, women, they will come and they will [G6]go\n[Fmaj7]When the rain washes you clean, you'll [G6]know\nYou'll [Fmaj7]know\n\n[Verso 2]\n[Fmaj7]Now here I go again, I see [G6]the crystal visions\n[Fmaj7]I keep my visions to my-[G6]self\n[Fmaj7]It's only me who wants to [G6]wrap around your dreams and...\n[Fmaj7]Have you any dreams you'd like to [G6]sell?\nDreams of [Fmaj7]loneliness...\n\n[Estribillo]\n[Fmaj7]Like a heartbeat drives you [G6]mad...\n[Fmaj7]Thunder only happens when it's [G6]raining\n[Fmaj7]Players only love you when they're [G6]playing\n[Fmaj7]Say, women, they will come and they will [G6]go\n[Fmaj7]When the rain washes you clean, you'll [G6]know\nYou'll [Fmaj7]know` },
+            'dreams-cranberries': { title: 'Dreams (The Cranberries)', concertKey: 'E', baseChords: 'E–A–B', improvScale: 'E Mayor', advice: 'Corrección: La tonalidad original es Mi Mayor (E), no Si menor. Acordes: E, A, B. El puente modula sorpresivamente.', criticalChord: 'G (Intercambio modal)', chordType: 'M', steps: SCALE_STEPS['Mayor'], lyrics: `[Verso 1]\n[E]Oh, my life is changing [A]everyday\nIn every possible [E]way\n[E]And oh, my dreams, it's never quite as it [A]seems\nNever quite as it [E]seems\n\n[Estribillo]\n[E]I know I've felt like this be-[A]fore\nBut now I'm feeling it even [E]more\n[E]Because it came from [A]you\n[A]Then I open up and [E]see\n[E]The person falling here is [A]me\nA different way to [E]be\n\n[Puente]\n[G]La, la-la, la-la, la [C]la...\n[G]La, la-la, la-la, la [C]la...\n\n[Verso 2]\n[E]I want more, impossible to ig-[A]nore\nImpossible to ig-[E]nore\n[E]And they'll come true, impossible not to [A]do\nImpossible not to [E]do\n\n[Estribillo]\n[E]And now I tell you open-[A]ly\nYou have my heart so don't hurt [E]me\n[E]You're what I couldn't [A]find\nA totally amazing [E]mind\n[E]So understanding and so [A]kind\nYou're everything to [E]me\n\n[Outro]\n[E]Oh, my life is changing [A]everyday\nIn every possible [E]way...` },
+            'tin-man': { title: 'Tin Man (America)', concertKey: 'G', baseChords: 'Gmaj7–Cmaj7', improvScale: 'G Mayor', advice: 'Corrección: La magia está en las extensiones Maj7. El coro usa Am7 y Bm7 (o Em7 según la inversión). George Martin produjo esto, busca la suavidad acústica.', criticalChord: 'Cmaj7', chordType: 'maj7', steps: SCALE_STEPS['Mayor'], lyrics: `[Intro]\n[Gmaj7][Cmaj7] (x2)\n\n[Verso 1]\n[Gmaj7]Sometimes late when things are real\n[Cmaj7]And people share the gift of gab between themselves\n[Gmaj7]Some are quick to take the bait\n[Cmaj7]And catch the perfect prize that waits among the shelves\n\n[Estribillo]\n[Am7]But Oz never did give nothing to the [Gmaj7]Tin Man\n[Am7]That he didn't, didn't already [Gmaj7]have\n[Am7]And Cause never was the reason for the [Gmaj7]evening\n[Am7]Or the tropic of Sir Gala-[Gmaj7]had\n\n[Puente]\nSo please believe inme\n\n[Verso 2]\n[Gmaj7]When I say I'm spinning round, round, round, round\n[Cmaj7]Smoke glass stain bright color, image going down, down, down, down\n[Gmaj7]Soap suds green like [Cmaj7]bubbles\n\n[Estribillo]\n[Am7]But Oz never did give nothing to the [Gmaj7]Tin Man\n[Am7]That he didn't, didn't already [Gmaj7]have\n[Am7]And Cause never was the reason for the [Gmaj7]evening\n[Am7]Or the tropic of Sir Gala-[Gmaj7]had\n\n[Outro]\nSo please believe inme\n[Gmaj7]Ohh, [Cmaj7]ohh...` },
+            'everybody-wants-to-rule': { title: 'Everybody Wants to Rule the World (Tears for Fears)', concertKey: 'D', baseChords: 'D–G/D–A/D', improvScale: 'D Mixolidia', advice: 'El bajo (D) se mantiene constante en los versos (Pedal Point), creando tensión. El estribillo rompe a Em - F#m.', criticalChord: 'G/D (Pedal)', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], lyrics: `[Intro]\n (Riff de guitarra en D)\n\n[Verso 1]\nWelcome to yourlife\nThere's no turningback\nEven while wesleep\nWe will findyou\n\n[Estribillo]\n[Em]Acting on your [F#m]best behaviour\n[G]Turn your back on [F#m]mother nature\n[Em]Every-[F#m]body [G]wants to [A]rule theworld\n\n[Verso 2]\nIt's my own de-sign\nIt's my own re-morse\nHelp me to de-cide\nHelp me make themost of freedom and of pleasure\n[G]Nothing ever [F#m]lasts forever\n[Em]Every-[F#m]body [G]wants to [A]rule theworld\n\n[Puente]\n[G]There's a room where thelight won't [A]find you\n[G]Holding hands while thewalls come [A]tumbling down\n[G]When they do I'll beright be-[A]hind you\n\n[Estribillo]\n[Em]So glad we've [F#m]almost made it\n[G]So sad they [F#m]had to fade it\n[Em]Every-[F#m]body [G]wants to [A]rule theworld` },
+            'overkill': { title: 'Overkill (Men at Work)', concertKey: 'D', baseChords: 'D–A–C–G', improvScale: 'D Mixolidia', advice: 'Corrección: Tonalidad original D (acústica) o E (estudio). Progresión clave: D - A - C - G (bajada cromática del bajo implícita). El solo de saxo es legendario.', criticalChord: 'C (bVII)', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], lyrics: `[Verso 1]\nI can't get to [A]sleep\n[C]I think about the impli-[G]cations\nOf diving in too [A]deep\n[C]And possibly the compli-[G]cations\n\n[Verso 2]\nEspecially at [A]night\n[C]I worry over situ-[G]ations\nI know will be al-[A]right\n[C]Perhaps it's just imagi-[G]nation\n\n[Estribillo]\nDay after day it reappe-[A]ars\nNight after night my heartbeat shows the [A]fear\n[F#sus4]Ghosts ap-[F#]pear and fade a-[G]way\n[F#sus4]Ghosts ap-[F#]pear and fade a-[G]way\n\n[Verso 3]\nAlone between the [A]sheets\n[C]Only brings exaspe-[G]ration\nIt's time to walk the [A]streets\n[C]Smell the desper-[G]ation\n\n[Verso 4]\nAt least there's pretty [A]lights\n[C]And though there's little vari-[G]ation\nIt nullifies the [A]night\n[C]From over-[G]kill\n\n[Estribillo]\nDay after day it reappe-[A]ars\nNight after night my heartbeat shows the [A]fear\n[F#sus4]Ghosts ap-[F#]pear and fade a-[G]way` },
+            'hold-the-line': { title: 'Hold the Line (Toto)', concertKey: 'F#m', baseChords: 'F#m–C#m–D–E', improvScale: 'F# Menor / Pentatónica', advice: 'Corrección: La tonalidad es Fa sostenido menor (F#m). El piano lleva tresillos constantes. La progresión es F#m - C#m - D - E.', criticalChord: 'C#m (v)', chordType: 'm', steps: SCALE_STEPS['Eólica'], lyrics: `[Intro]\n[F#m][C#m][E] (Riff de piano en tresillos)\n\n[Verso 1]\n[F#m]It's not in the [C#m]way that you hold me[E]\n[F#m]It's not in the [C#m]way you say you care[E]\n[F#m]It's not in the [C#m]way you've been treating my friends[E]\n[F#m]It's not in the [C#m]way that you stayed 'til the end[E]\n[F#m]It's not in the [C#m]way you look or the things that you say that you'lldo [E]\n\n[Estribillo]\n[F#m]Hold the [C#m]line\n[E]Love isn't always on [F#m]time [C#m][E]\n[F#m]Hold the [C#m]line\n[E]Love isn't always on [F#m]time [C#m][E]\n\n[Verso 2]\n[F#m]It's not in the [C#m]words that you told me[E]\n[F#m]It's not in the [C#m]way you say you're mine[E]\n[F#m]It's not in the [C#m]way that you came back to me[E]\n[F#m]It's not in the [C#m]way that your love set me free[E]\n[F#m]It's not in the [C#m]way you look or the things that you say that you'lldo [E]\n\n[Estribillo]\n[F#m]Hold the [C#m]line\n[E]Love isn't always on [F#m]time [C#m][E]` },
+            'baby-come-back': { title: 'Baby Come Back (Player)', concertKey: 'Cm', baseChords: 'Abmaj7–Gm7–Cm7–Fm7', improvScale: 'C Menor Natural', advice: 'Yacht Rock clásico. Acordes extendidos. El estribillo usa Abmaj7 para ir bajando suavemente a Cm7. El puente modula.', criticalChord: 'Abmaj7 (bVI)', chordType: 'maj7', steps: SCALE_STEPS['Eólica'], lyrics: `[Intro]\n[Abmaj7][Gm7][Cm7][Fm7]\n\n[Verso 1]\nSpending all my nights, all my [Gm7]money going out on the town\nDoing anything just to [Gm7]get you off of my mind\nBut when the morning comes, I'm right [Gm7]back where I started again\nTrying to forget you is just a waste of [C]time\n\n[Estribillo]\n[Abmaj7]Baby come back, any [Gm7]kind of fool could [Cm7]see\n[Fm7]There was something in [Gm7]everything a-[Cm7]-bout you\n[Abmaj7]Baby come back, you can [Gm7]blame it all on [Cm7]me\n[Fm7]I was wrong, and I [Gm7]just can't live with-[Cm7]-out you\n\n[Verso 2]\nAll day long, wearing a [Gm7]mask of false bravado\nTrying to keep up the smile that hides a [Gm7]tear\nBut as the sun goes down, I get that [Gm7]empty feeling again\nHow I wish to God that you were [C]here\n\n[Estribillo]\n[Abmaj7]Baby come back...\n\n[Puente]\n[Gbmaj7]Now that I put it all to--gether\n[Gbmaj7]Give me the chance to make yousee\n[Gbmaj7]Have you used up all the love in your [Fm7]heart\nNothing left forme, ain't there nothing left for me?` },
+            'shape-of-my-heart': { title: 'Shape of my heart (Sting)', concertKey: 'F#m', baseChords: 'F#m–E6–D6–C#7', improvScale: 'F# Menor', advice: 'Corrección: La tonalidad es F#m. La bajada es diatónica: F#m - E - D - C#sus4 - C#7. La guitarra clásica de Dominic Miller es esencial.', criticalChord: 'C#7 (V)', chordType: 'm', steps: SCALE_STEPS['Eólica'], lyrics: `[Verso 1]\n[F#m]He deals the [C#m]cards as a medi-tation [C#sus4][C#7]\n[F#m]And those he [C#m]plays never sus-pect [C#sus4][C#7]\n[F#m]He doesn't [C#m]play for the money hewins [C#sus4][C#7]\n[F#m]He don't [C#m]play for re-spect [C#sus4][C#7]\n\n[Verso 2]\n[F#m]He deals the [C#m]cards to find theanswer [C#sus4][C#7]\n[F#m]The sacred [C#m]geometry ofchance [C#sus4][C#7]\n[F#m]The hidden [C#m]law of a probableoutcome [C#sus4][C#7]\n[F#m]The numbers [C#m]lead adance [C#sus4][C#7]\n\n[Estribillo]\n[F#m]I know that the [C#m]spades are the swords of asoldier [C#sus4][C#7]\n[F#m]I know that the [C#m]clubs are weapons ofwar [C#sus4][C#7]\n[F#m]I know that [C#m]diamonds mean money for thisart [C#sus4][C#7]\n[F#m]But that's not the [C#m]shape of myheart [C#sus4][C#7]\n[F#m]That's not the [C#m]shape of my [F#m]heart` },
+            'michelle': { title: 'Michelle (The Beatles)', concertKey: 'F', baseChords: 'F–Fm–Bb7', improvScale: 'F Mayor / F Menor', advice: 'Usa el intercambio modal entre F Mayor y F Menor. El acorde disminuido (C#dim7) es clave en "go together well".', criticalChord: 'C#dim7', chordType: 'M', steps: SCALE_STEPS['Jónica'], lyrics: `[Intro]\n[Fm][C][Fm][C]\n\n[Verso 1]\n[F]Michelle, [Gm7]ma belle\n[C]These are words that [C#dim7]go together [C]well\n[C#dim7]My Mi-[C]-chelle\n\n[Verso 2]\n[F]Michelle, [Gm7]ma belle\n[C]Sont des mots qui [C#dim7]vont très bien en-[C]-semble\n[C#dim7]Très bien en-[C]-semble\n\n[Puente]\n[Fm]I love you, I love you, I love you\n[Ab7]That's all I want to say\n[C7]Until I find a [Fm]way\nI will [Fm]say the [Eb]onlywords I [C]know that you'll understand\n\n[Verso 3]\n[F]Michelle, [Gm7]ma belle\n[C]Sont des mots qui [C#dim7]vont très bien en-[C]-semble\n[C#dim7]Très bien en-[C]-semble` },
+            'here-today': { title: 'Here Today (Paul McCartney)', concertKey: 'G', baseChords: 'G–Bm–C–F', improvScale: 'G Mayor', advice: 'Corrección: Tonalidad Sol (G). La progresión usa acordes prestados como Fmaj7. Es una carta abierta a John Lennon.', criticalChord: 'C#dim7', chordType: 'maj7', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso 1]\n[G]And if I said\nI really knew youwell\nWhat would your [C]answer be\nIf you were [Am]here to-day?\n[G]Ooh, ooh, [Em]ooh\n[Am]Here to-day\n\n[Verso 2]\n[G]Well, knowing you\nYou'd probably laugh andsay\nThat we were [C]worlds apart\nIf you were [Am]here to-day\n[G]Ooh, ooh, [Em]ooh\n[Am]Here to-day\n\n[Puente]\n[C]But as for me\n[F]I still remember how it was before\n[C]And I am holding back the tears no more\n[F]Ooh, [Em]ooh, [Am]ooh, I love you,ooh` },
+            'in-my-life': { title: 'In my life (The Beatles)', concertKey: 'A', baseChords: 'A–E–F#m–Dm', improvScale: 'A Jónica', advice: 'El uso del Dm (iv menor) en una tonalidad mayor es el sello de nostalgia de los Beatles. Solo de piano barroco.', criticalChord: 'Dm (iv)', chordType: 'M', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso 1]\n[A]There are [E]places [F#m]I re-[A7]member\nAll mylife, though [A]some have changed\n[A]Some for-[E]ever, [F#m]not for [A7]better\nSome havegone and [A]some remain\n\n[Pre-Estribillo]\n[F#m]All these places have theirmoments\n[G]With lovers and friends I [A]still can recall\n[F#m]Some are dead and some areliving\nIn mylife, I [A]love them all\n\n\n| A E | F#m A7 | D Dm | A |\n\n[Verso 2]\n[F#m]Though I know I'll never lose af-fection\n[G]For people and things that [A]went before\n[F#m]I know I'll often stop and think a-bout them\nIn mylife, I [A]love you more\nIn mylife, I [A]love you more` },
+            'hotel-california': { title: 'Hotel California (Eagles)', concertKey: 'Bm', baseChords: 'Bm–F#7–A–E–G–D–Em–F#7', improvScale: 'B Menor Armónica / Pentatónica', advice: 'La progresión es única, casi un ciclo flamenco extendido. El solo final de guitarras armonizadas es historia pura.', criticalChord: 'F#7 (V)', chordType: 'm', steps: SCALE_STEPS['Armónica'], lyrics: `[Verso 1]\nOn a dark desert highway, [F#7]cool wind in my hair\n[A]Warm smell of colitas, [E]rising up through the air\n[G]Up ahead in the distance,I saw a shimmering light\n[Em]My head grew heavy and my sight grew dim\n[F#7]I had to stop for the night\n\n[Verso 2]\nThere she stood in the doorway; [F#7]I heard the mission bell\n[A]And I was thinking to myself, "This could be [E]heaven or this could be hell"\n[G]Then she lit up a candleand she showed me the way\n[Em]There were voices down the corridor, [F#7]I thought I heard them say...\n\n[Estribillo]\n[G]Welcome to the Hotel Cali-fornia\n[F#7]Such a lovely place (Such a lovely place)\nSuch a lovely face\n[G]Plenty of room at the Hotel Cali-fornia\n[Em]Any time of year (Any time of year)\n[F#7]You can find it here` },
+            'band-on-the-run': { title: 'Band on the Run (Wings)', concertKey: 'D -> Am -> C', baseChords: 'Dmaj7-G (Parte 1), Am-D (Parte 2), C-F-G (Parte 3)', improvScale: 'C Jónica (Final)', advice: 'Corrección: Son tres canciones en una. Empieza balada en D/G, pasa a Rock en Am y libera en Folk en C. El cambio a C ("Well the rain...") es la liberación.', criticalChord: 'Fmaj7', chordType: 'm', steps: SCALE_STEPS['Eólica'], lyrics: `\nStuck inside these four walls\n[G6]Sent inside forever\nNever seeing no one nice a-gain [G6][Gm6]\n\n\n[Am]If I ever get out of here\nThought of giving it all away\n[Am]To a registered charity\nAll I need is a pint a day\nIf I ever get out of here... (Riff)\n\n\n[C]Well, the rain exploded with a mighty [Fmaj7]crash\n[C]As we fell into the sun\n[C]And the first one said to the second one [Fmaj7]there\n[Em]I hope you're having fun\n\n[Estribillo]\n[G]Band on the [C]run, [Em]band on the [C]run\n[F]And the jailer man and sailor Sam\n[F]Were searching every one\n[C]For the band on the [F]run, [C]band on the [F]run` },
+            'quien-fuera-bunkers': { title: 'Quien Fuera (Los Bunkers)', concertKey: 'G', baseChords: 'G–Em–C–D', improvScale: 'G Mayor', advice: 'Corrección: Versión rockera de Los Bunkers. Tonalidad G. Intro icónica de guitarra eléctrica.', criticalChord: 'B7 (V del vi)', chordType: 'm', steps: SCALE_STEPS['Mayor'], lyrics: `[Intro]\n(Riff guitarra G - Em - C - D)\n\n[Verso 1]\n[G]Estoy buscando una [Em]palabra\n[C]En el umbral de tu mis-terio\n[G]Quien fuera Ali Ba-[Em]ba\n[C]Quien fuera el mítico sim-bad\n[G]Quien fuera un poderoso sor-[Em]tilegio\n[C]Quien fuera encanta-dor\n\n[Verso 2]\n[G]Estoy buscando una esca-[Em]fandra\n[C]Al pie del mar de los de-lirios\n[G]Quien fuera Jacques Cous-[Em]teau\n[C]Quien fuera Nemo el capi-tán\n[G]Quien fuera la batis-[Em]cafo de tu abismo\n[C]Quien fuera explora-dor\n\n[Estribillo]\n[G]Corazón, corazón os-[Em]curo\n[C]Corazón, corazón conmuros\n[G]Corazón que se es-[Em]conde\n[C]Corazón que estadónde\n[G]Corazón en [Em]fuga\n[C]Herido de dudas de a-mor` },
+            'bad-moon-rising': { title: 'Bad Moon Rising (CCR)', concertKey: 'D', baseChords: 'D–A–G', improvScale: 'D Mayor', advice: 'Acordes D, A, G. El ritmo es rápido y cortado. Cuidado con el cambio rápido A-G en el verso.', criticalChord: 'G', chordType: 'M', steps: SCALE_STEPS['Mayor'], lyrics: `[Verso 1]\nI see the [A]bad [G]moon a-rising\nI see [A]trouble [G]on theway\nI see [A]earth-[G]quakes andlightning\nI see [A]bad [G]times to-day\n\n[Estribillo]\n[G]Don't go around tonight\nWell, it'sbound to take your life\n[A]There's a [G]bad moon on therise\n\n[Verso 2]\nI hear [A]hurri-[G]canes a-blowing\nI know the [A]end is [G]comingsoon\nI fear [A]rivers [G]overflowing\nI hear the [A]voice of [G]rage andruin\n\n[Estribillo]\n[G]Don't go around tonight\nWell, it'sbound to take your life\n[A]There's a [G]bad moon on therise` },
+            'mala-bad-bunny': { title: 'Vete (Bad Bunny)', concertKey: 'Bbm', baseChords: 'Gbmaj7–Fm7–Bbm7', improvScale: 'Bb Menor', advice: 'Corrección: Basado en las letras "Lo nuestro ya se murió", la canción es "Vete". Usa acordes de Jazz/Neo-Soul: Gbmaj7, Fm7, Bbm7. Loop constante.', criticalChord: 'Gbmaj7', chordType: 'm', steps: SCALE_STEPS['Eólica'], lyrics: `[Intro]\n[Gbmaj7][Fm7]\nYeh, yeh, yeh, yeh\n\n[Estribillo]\n[Gbmaj7]Vete, eh, eh, eh\n[Fm7]Nadie te está aguantando y la puerta está a-bierta, eh\nNo te preocupes por nosotros dos, nuestra historia ya estámuerta\nEspero que seas feli-[Gbmaj7]z y que te diviertas, eh\n[Fm7]Pero pa' acá no vuelvas, no, no, no,no\nPorque lo nuestro ya se murió...` },
+            'dont-let-me-down': { title: 'Don\'t Let Me Down (The Beatles)', concertKey: 'E', baseChords: 'E–B7–C#m–E7/D–A', improvScale: 'E Mixolidia / E Blues', advice: 'Blues-Rock lento. El acorde E7/D (dominante secundario) es el punto de color. Usar la escala Blues con el vibrato lento.', criticalChord: 'E7/D', chordType: 'M', steps: SCALE_STEPS['Blues'], lyrics: `[Verso 1]\n[E]Don't let me down\n[B7]Don't let me [C#m]down\n[E7/D]I'm in [A]love for the [E]first time\n[B7]Don't you know it's [E]gonna last` },
+            'black-magic-woman': { title: 'Black Magic Woman (Santana)', concertKey: 'Dm', baseChords: 'Dm–Am–Gm–Dm', improvScale: 'D Menor Armónica', advice: 'El V dominante (A7) exige la D Menor Armónica (con C#) para el color flamenco/exótico. Prioridad al groove percusivo.', criticalChord: 'A7 (V Dominante)', chordType: 'm', steps: SCALE_STEPS['Armónica'], lyrics: `[Verso 1]\n[Dm]Got a black magic [Am]woman\n[Gm]Got a black magic [Dm]woman\n[Dm]I got a black magic [Am]woman, [A7]got me so [Dm]blind\n[Gm]Got a black magic [Dm]woman` },
+            'gypsy-queen': { title: 'Gypsy Queen (Santana)', concertKey: 'D', baseChords: 'D–C–G/B–A', improvScale: 'D Mixolidia', advice: 'Instrumental que sigue a Black Magic Woman. Modula a Re Mayor. Ritmo más rápido y frenético.', criticalChord: 'D (Vamp)', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], lyrics: `[Instrumental]\n(Transición rápida)\n\n| D | D | D | D |\n(Improvisación guitarra y percusión)\n\n[Final]\n[C][A]` },
+            'sirius': { title: 'Sirius (Alan Parsons Project)', concertKey: 'Bm', baseChords: 'Bm–G', improvScale: 'B Menor', advice: 'Corrección: Tonalidad Bm. Intro icónica de los Chicago Bulls. Arpegio de Clavinet con Delay. Acordes simples Bm - G.', criticalChord: 'G', chordType: 'm', steps: SCALE_STEPS['Eólica'], lyrics: `[Instrumental]\n(Arpegio en Bm)\n\n| Bm | G | Bm | G |\n(Entran cuerdas y solo de guitarra eléctrica melódico)` },
+            'eye-in-the-sky': { title: 'Eye in the Sky (Alan Parsons Project)', concertKey: 'Bm / D', baseChords: 'Bm–G–D–F#m', improvScale: 'D Mayor', advice: 'Sigue inmediatamente a Sirius. El estribillo usa Bm - G - D - F#m. La producción es cristalina.', criticalChord: 'Gm (iv menor)', chordType: 'm', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso 1]\nDon't think sorry's easilysaid\nDon't try turning tables in-stead\n[G]You've taken lots of chances be-[Gm]fore\nBut I ain't gonna give any [Em]more\nDon't askme\nThat's how it [G]goes\n'Cause part of meknows what you're thinkin'\n\n[Estribillo]\nI am theeye in the sky, looking at [F#m]you\nI can read yourmind\nI am the maker of rules, dealing with [F#m]fools\nI can cheat youblind\nAnd I [G]don't need to see any [Gm]more\nTo know thatI can read your mind` },
+            'golden-slumbers': { title: 'Golden Slumbers (The Beatles)', concertKey: 'Am / C', baseChords: 'Am7–Dm–G7–C', improvScale: 'C Mayor', advice: 'Parte de la suite de Abbey Road. Piano balada. Am7 abre, resuelve en C.', criticalChord: 'E7', chordType: 'M', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso 1]\n[Am7]Once there was a way to get back homeward\n[Am7]Once there was a way to get back [G7]home\n[C]Sleep pretty darling, [Am]do not cry\n[G7]And I will sing a lulla-[C]by\n\n[Estribillo]\n[C]Golden [F]slumbers fill your [C]eyes\n[C]Smiles a-[F]wake you when you [C]rise\n[C]Sleep pretty darling, [Am]do not cry\n[G7]And I will sing a lulla-[C]by` },
+            'carry-that-weight': { title: 'Carry That Weight (The Beatles)', concertKey: 'C', baseChords: 'C–G', improvScale: 'C Mayor', advice: 'Coro himno. Unísono vocal. C y G dominan.', criticalChord: 'G', chordType: 'M', steps: SCALE_STEPS['Jónica'], lyrics: `[Estribillo]\n[C]Boy, you're gonna [G]carry that weight\n[G]Carry that weight a long [C]time\n[C]Boy, you're gonna [G]carry that weight\n[G]Carry that weight a long [C]time\n\n[Verso]\n[C]I never give you my [Am]pillow\n[Am]I only send you my invi-tations\n[G7]And in the middle of the cele-[C]brations\n[Fmaj7]I break [G7]down` },
+            'the-end': { title: 'The End (The Beatles)', concertKey: 'A (Solos) -> C (Final)', baseChords: 'A–D (Rock), C–F–G (Final)', improvScale: 'A Blues / C Mayor', advice: 'Duelo de guitarras (Paul, George, John) sobre A7-D7. Final majestuoso en Do Mayor.', criticalChord: 'F', chordType: 'M', steps: SCALE_STEPS['Jónica'], lyrics: `[Verso]\n[A]Oh yeah, all right\nAre you gonna be in my dreams\n[A]Tonight?\n\n\n\n\n| A7 | D7 | A7 | D7 | (x N veces)\n\n[Piano Intro Final]\n(Piano en acordes bloque)\n\n[Estribillo Final]\n[A]And in the end\n[G]The love you take\n[F]Is equal to the love\n[G7]You make [C]` },
+            'coming-back-to-life': { title: 'Coming back to life (Pink Floyd)', concertKey: 'C', baseChords: 'C–Fmaj7–Am–G', improvScale: 'C Mayor', advice: 'Corrección: Tonalidad C Mayor. Intro etérea en C con sintetizadores. El solo de Gilmour es puro sentimiento sobre la progresión del verso.', criticalChord: 'Fmaj7', chordType: 'M', steps: SCALE_STEPS['Mayor'], lyrics: `[Verso 1]\n[C]Where were you when I was burned and [Fmaj7]broken?\n[Am]While the days slipped by [G]from my window [F]watching\n[C]And where were you when I was hurt and [Fmaj7]helpless?\n[Am]Because the things you say [G]and the things you [F]do surround me\n[Am]While you were hanging your-self on someone else's words\n[Am]Dying to believe inwhat you heard\n[Am]I was staring straight in-[G]to the shining [C]sun\n\n[Verso 2]\n[C]Lost in thought and lost in [Fmaj7]time\n[Am]While the seeds of life [G]and the seeds of [F]change were planted\n[C]Outside the rain fell dark and [Fmaj7]slow\n[Am]While I pondered on [G]this dangerous but irre-[F]sistible pastime\n[Am]I took a heavenlyride through our silence\n[Am]I knew the momenthad arrived\n[Am]For killing the past and [G]coming back to [C]life` },
+            'just-the-two-of-us': { title: 'Just the Two of Us (Grover Washington Jr.)', concertKey: 'Fm (Dbmaj7 start)', baseChords: 'Dbmaj7–C7–Fm7–Ebm7–Ab7', improvScale: 'F Menor', advice: 'Corrección: Progresión de Jazz R&B clásica. Dbmaj7 - C7alt - Fm7 - Ebm7 - Ab7 (ii-V a Gb). Los acordes Ebm7 y Ab7 son esenciales para el movimiento.', criticalChord: 'C7alt', chordType: 'maj7', steps: SCALE_STEPS['Eólica'], lyrics: `[Verso 1]\nI see the crystal [C7]raindrops fall\n[Fm7]And the beauty of it [Ebm7]all [Ab7]\nIs when the sun [C7]comes shining [Fm7]through\nTo make those rainbows [C7]in my mind\n[Fm7]When I think of you some-[Ebm7]time [Ab7]\nAnd I want to spend [C7]some time with [Fm7]you\n\n[Estribillo]\nJust the two [C7]of us\n[Fm7]We can make it if we [Ebm7]try [Ab7]\nJust the two [C7]of us\n[Fm7]Just the two of us\nJust the two [C7]of us\n[Fm7]Building castles in the [Ebm7]sky [Ab7]\nJust the two [C7]of us\n[Fm7]You and I` },
+            'aint-no-sunshine': { title: 'Ain\'t No Sunshine (Bill Withers)', concertKey: 'Am', baseChords: 'Am–Em–G–Am', improvScale: 'A Menor Pentatónica', advice: 'Minimalismo. La progresión Am - Em - G - Am es constante. El E7#9 o Em7 en el paso es clave.', criticalChord: 'Em7', chordType: 'm', steps: SCALE_STEPS['Pentatónica'], lyrics: `[Verso 1]\n[Am]Ain't no sunshine [Em]when she's [Am]gone\n[Am]It's not warm [Em]when she's [Am]away\n[Am]Ain't no sunshine [Em]when she'sgone\nAnd she's always gone too [Am]long\nAnytime she [Em]goes a-[Am]way\n\n[Verso 2]\n[Am]Wonder this time [Em]where she's [Am]gone\n[Am]Wonder if she's [Em]gone to [Am]stay\n[Am]Ain't no sunshine [Em]when she'sgone\nAnd this house just ain't no [Am]home\nAnytime she [Em]goes a-[Am]way\n\n[Puente]\nI know, I know, I know, I know... (x26)` },
+            'smooth-operator': { title: 'Smooth Operator (Sade)', concertKey: 'Dm', baseChords: 'Dm7–Am7–Gm7–Am7', improvScale: 'D Menor Natural', advice: 'Corrección: Tonalidad Dm. La línea de bajo icónica se mueve sobre Dm7 - Am7 - Gm7 - Am7. Sofisticado y minimalista.', criticalChord: 'Gm7', chordType: 'm7', steps: SCALE_STEPS['Eólica'], lyrics: `[Verso 1]\nDiamond life, [Am7]lover boy\n[Gm7]We move in space with [Am7]minimum waste andmaximum joy\nCity lights [Am7]and business nights\n[Gm7]When you require [Am7]streetcar desire forhigher heights\n\n[Pre-Estribillo]\n[Gm7]No place for beginners or [Am7]sensitive hearts\n[Gm7]When sentiment is left to [Am7]chance\n[Gm7]No place to be ending but [Am7]somewhere to start\n[Gm7]No need toask\nHe's a smooth [Am7]operator\n[Gm7]Smooth [Am7]operator\nSmooth [Am7]operator\n[Gm7]Smooth [Am7]operator` },
+        };
+
+        let manualShift = 0;
 
         function getNoteIndex(note) {
-            let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim();
-            baseNote = baseNote.replace('♭', 'b').replace('♯', '#');
+            let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim().replace('♭', 'b').replace('♯', '#');
             const flatToSharp = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
             baseNote = flatToSharp[baseNote] || baseNote;
             return NOTES.indexOf(baseNote);
         }
 
         function transposeNote(note, semitones) {
-            const baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim();
-            const suffix = note.substring(baseNote.length);
-            let startIndex = getNoteIndex(baseNote);
-            if (startIndex === -1) return note;
-
-            let newIndex = (startIndex + semitones) % 12;
-            if (newIndex < 0) newIndex += 12;
-            let newNote = NOTES[newIndex];
-            
-            const useFlat = note.includes('b') || note.includes('♭') || ['F', 'Bb', 'Eb', 'Ab', 'Db'].includes(newNote);
+            let idx = getNoteIndex(note);
+            if (idx === -1) return note;
+            let newIdx = (idx + semitones) % 12;
+            if (newIdx < 0) newIdx += 12;
+            let newNote = NOTES[newIdx];
+            const useFlat = note.includes('b') || ['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb'].includes(newNote);
             if (useFlat) {
                 const flats = { 'A#': 'Bb', 'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab' };
                 if(flats[newNote]) newNote = flats[newNote];
             }
-            return newNote + suffix;
+            return newNote;
         }
 
-        function generateChordNotes(rootNote, chordType, semitonesTranspose) {
-            const rootIndex = getNoteIndex(rootNote);
-            const intervals = CHORD_INTERVALS[chordType] || CHORD_INTERVALS['M']; 
-            if (rootIndex === -1) return [];
-
-            const chordNotes = [];
-            intervals.forEach(interval => {
-                const noteIndex = (rootIndex + interval + semitonesTranspose) % 12;
-                let note = NOTES[noteIndex];
-                
-                const rootTransposed = transposeNote(rootNote, semitonesTranspose);
-                if (rootTransposed.includes('b') || rootTransposed.includes('♭')) {
-                     const flats = { 'A#': 'Bb', 'C#': 'Db', 'D#': 'Eb', 'F#': 'Gb', 'G#': 'Ab' };
-                     if(flats[note]) note = flats[note];
-                }
-                chordNotes.push(note);
-            });
-            return chordNotes;
+        function getFullTransposedNote(fullChordStr, semitones) {
+            const match = fullChordStr.match(/^([A-G][#b]?)(.*)$/);
+            if(!match) return fullChordStr;
+            return transposeNote(match[1], semitones) + match[2];
         }
 
-        function generateGuitarDiagram(chordNotes) {
-            const SVG_WIDTH = 200;
-            const SVG_HEIGHT = 150;
-            const NUM_STRINGS = 6;
-            const NUM_FRETS = 4;
-            const FRET_WIDTH = SVG_WIDTH / (NUM_FRETS + 1);
-            const STRING_SPACING = (SVG_HEIGHT - 20) / (NUM_STRINGS - 1);
-            let svgContent = '';
+        function generateChordNotes(root, type, semitones) {
+            let idx = getNoteIndex(root);
+            if(idx === -1) return [];
+            let intervals = CHORD_INTERVALS[type] || CHORD_INTERVALS['M'];
+            return intervals.map(i => NOTES[(idx + i + semitones) % 12]);
+        }
 
-            svgContent += `<rect x="5" y="10" width="${FRET_WIDTH/2}" height="${SVG_HEIGHT - 20}" class="nut" />`; 
-
-            for (let i = 0; i <= NUM_FRETS; i++) {
-                const x = 5 + (FRET_WIDTH/2) + i * FRET_WIDTH;
-                svgContent += `<line x1="${x}" y1="10" x2="${x}" y2="${SVG_HEIGHT - 10}" class="fret-line" />`;
-            }
-
-            for (let i = 0; i < NUM_STRINGS; i++) {
-                const y = 10 + i * STRING_SPACING;
-                svgContent += `<line x1="5" y1="${y}" x2="${SVG_WIDTH - 5}" y2="${y}" class="string" />`;
-            }
-
-            for (let string = 0; string < NUM_STRINGS; string++) {
-                const openNoteIndex = GUITAR_TUNING[string];
-                const stringY = 10 + string * STRING_SPACING;
-
-                for (let fret = 1; fret <= NUM_FRETS; fret++) {
-                    const fretNoteIndex = (openNoteIndex + fret) % 12;
-                    let fretNote = NOTES[fretNoteIndex];
-                    const isNoteInChord = chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(fretNote));
-
-                    if (isNoteInChord) {
-                        const dotX = (fret * FRET_WIDTH) + 5; 
-                        svgContent += `<circle cx="${dotX}" cy="${stringY}" r="6" class="note-dot" />`;
+        function drawGuitar(notes) {
+            const W=200, H=140, FRETS=4, STRINGS=6;
+            const fw = W/(FRETS+1), sh = (H-20)/(STRINGS-1);
+            let s = `<rect x="5" y="10" width="${fw/2}" height="${H-20}" class="nut"/>`;
+            for(let i=0; i<=FRETS; i++) { let x=5+fw/2+i*fw; s+=`<line x1="${x}" y1="10" x2="${x}" y2="${H-10}" class="fret-line"/>`; }
+            for(let i=0; i<STRINGS; i++) { let y=10+i*sh; s+=`<line x1="5" y1="${y}" x2="${W-5}" y2="${y}" class="string"/>`; }
+            for(let str=0; str<STRINGS; str++) {
+                let openIdx = GUITAR_TUNING[str], y = 10 + str*sh;
+                for(let f=1; f<=FRETS; f++) {
+                    let note = NOTES[(openIdx + f) % 12];
+                    if(notes.some(n => getNoteIndex(n) === getNoteIndex(note))) {
+                        s+=`<circle cx="${5 + fw/2 + f*fw - fw/2}" cy="${y}" r="6" class="note-dot"/>`;
                     }
                 }
             }
-            return svgContent;
+            return s;
         }
 
-        function generatePianoDiagram(chordNotes) {
-            const WHITE_KEY_WIDTH = 25;
-            const BLACK_KEY_WIDTH = 15;
-            const BLACK_KEY_HEIGHT = 70;
-            const WHITE_KEY_HEIGHT = 100;
-            let svgContent = '';
-            
-            const pianoMap = [
-                { note: 'C', type: 'white' }, { note: 'C#', type: 'black' },
-                { note: 'D', type: 'white' }, { note: 'D#', type: 'black' },
-                { note: 'E', type: 'white' },
-                { note: 'F', type: 'white' }, { note: 'F#', type: 'black' },
-                { note: 'G', type: 'white' }, { note: 'G#', type: 'black' },
-                { note: 'A', type: 'white' }, { note: 'A#', type: 'black' },
-                { note: 'B', type: 'white' },
-                { note: 'C', type: 'white' }, { note: 'C#', type: 'black' }
-            ];
-
-            let whiteKeyIndex = 0;
-            for (let i = 0; i < pianoMap.length; i++) {
-                const keyData = pianoMap[i];
-                if (keyData.type === 'white') {
-                    const isHighlighted = chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(keyData.note));
-                    const x = whiteKeyIndex * WHITE_KEY_WIDTH;
-                    const highlightClass = isHighlighted ? 'highlight-key' : 'white-key';
-                    svgContent += `<rect x="${x}" y="0" width="${WHITE_KEY_WIDTH}" height="${WHITE_KEY_HEIGHT}" class="${highlightClass}" />`;
-                    whiteKeyIndex++;
+        function drawPiano(notes) {
+            const keys = [{n:'C',t:0},{n:'C#',t:1},{n:'D',t:0},{n:'D#',t:1},{n:'E',t:0},{n:'F',t:0},{n:'F#',t:1},{n:'G',t:0},{n:'G#',t:1},{n:'A',t:0},{n:'A#',t:1},{n:'B',t:0},{n:'C',t:0},{n:'C#',t:1}];
+            let s='', wx=0;
+            keys.forEach(k => {
+                if(k.t===0) {
+                    let act = notes.some(n => getNoteIndex(n) === getNoteIndex(k.n));
+                    s+=`<rect x="${wx*25}" y="0" width="25" height="100" class="${act?'highlight-key':'white-key'}"/>`;
+                    wx++;
                 }
-            }
-            whiteKeyIndex = 0;
-            for (let i = 0; i < pianoMap.length; i++) {
-                const keyData = pianoMap[i];
-                if (keyData.type === 'white') {
-                    whiteKeyIndex++;
-                } else {
-                     const isHighlighted = chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(keyData.note));
-                     const x = (whiteKeyIndex - 1) * WHITE_KEY_WIDTH + (WHITE_KEY_WIDTH - BLACK_KEY_WIDTH / 2);
-                     const highlightClass = isHighlighted ? 'highlight-key' : 'black-key';
-                     svgContent += `<rect x="${x}" y="0" width="${BLACK_KEY_WIDTH}" height="${BLACK_KEY_HEIGHT}" class="${highlightClass}" />`;
+            });
+            wx=0;
+            keys.forEach(k => {
+                if(k.t===0) wx++;
+                else {
+                    let act = notes.some(n => getNoteIndex(n) === getNoteIndex(k.n));
+                    s+=`<rect x="${(wx-1)*25+17.5}" y="0" width="15" height="60" class="${act?'highlight-key':'black-key'}"/>`;
                 }
-            }
-            return svgContent;
+            });
+            return s;
         }
 
-        function generateScaleNotes(rootNote, steps, semitonesTranspose) {
-            const rootIndex = getNoteIndex(rootNote);
-            if (rootIndex === -1) return { main: [], passing: [] };
-            const mainNotes = [];
-            const transposedNotes = NOTES.map((n, i) => {
-                const finalIndex = (i + semitonesTranspose) % 12;
-                return NOTES[finalIndex];
-            });
-
-            steps.forEach(step => {
-                const stepIndex = (rootIndex + step + semitonesTranspose) % 12;
-                mainNotes.push(transposedNotes[stepIndex]);
-            });
-
-            const passingNotes = transposedNotes.filter(n => !mainNotes.includes(n));
-            return { main: mainNotes, passing: passingNotes };
+        function changePitch(delta) {
+            manualShift += delta;
+            document.getElementById('pitch-val').innerText = (manualShift > 0 ? '+' : '') + manualShift;
+            document.getElementById('pitch-bar').style.width = Math.min(100, Math.max(0, 50 + manualShift*4)) + '%';
+            updateAnalysis();
         }
-
-        function getTransposedData(data, instrument) {
-            let semitones = 0;
-            let instrumentName = 'CONCIERTO (C)';
-            if (instrument === 'Bb') { semitones = 2; instrumentName = 'SAX TENOR / TRPT (B♭)'; }
-            else if (instrument === 'Eb') { semitones = 9; instrumentName = 'SAX ALTO (E♭)'; }
-
-            const originalKeyParts = data.concertKey.split('/');
-            const transposedKey = originalKeyParts.map(note => transposeNote(note.trim(), semitones)).join(' / ');
-            const rootKey = originalKeyParts[0].replace(/m(aj)?\d*/, '').trim();
-            
-            let transposedChords = data.baseChords;
-            const chordsArray = data.baseChords.match(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g) || [];
-            const uniqueChords = [...new Set(chordsArray)];
-            uniqueChords.forEach(originalChord => {
-                const transposed = transposeNote(originalChord, semitones);
-                const regex = new RegExp(`\\b${originalChord}\\b`, 'g');
-                transposedChords = transposedChords.replace(regex, transposed);
-            });
-
-            const scaleMatch = data.improvScale.match(/(\w[#♭b]?)\s/); 
-            let transposedScale = data.improvScale;
-            let rootScale = '';
-            if (scaleMatch && scaleMatch[1]) {
-                rootScale = scaleMatch[1];
-                const newRootScale = transposeNote(rootScale, semitones);
-                transposedScale = data.improvScale.replace(rootScale, newRootScale);
-            }
-
-            let transposedCritical = data.criticalChord || '';
-            if (data.criticalChord && !data.criticalChord.includes('Ninguno')) {
-                 const criticalChordMatch = data.criticalChord.match(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g) || [];
-                 criticalChordMatch.forEach(originalChord => {
-                    const transposed = transposeNote(originalChord, semitones);
-                    const regex = new RegExp(`\\b${originalChord}\\b`, 'g');
-                    transposedCritical = transposedCritical.replace(regex, transposed);
-                });
-            }
-
-            const scaleNameMatch = data.improvScale.match(/(\w+)\s*$/);
-            const scaleType = scaleNameMatch ? scaleNameMatch[1] : 'Natural';
-            // Limpieza de nombres de escala para mapear a SCALE_STEPS
-            const cleanScaleType = scaleType.replace(/Menor|Mayor/g, '').trim() || 'Natural';
-            const scaleSteps = SCALE_STEPS[cleanScaleType] || SCALE_STEPS['Natural'];
-            
-            const scaleNotes = generateScaleNotes(rootScale, scaleSteps, semitones);
-            
-            // Datos para diagramas
-            const tonicChordNotes = generateChordNotes(rootKey, data.chordType || 'M', semitones);
-            const tonicChordName = transposeNote(rootKey, semitones) + (data.chordType === 'm' ? 'm' : '');
-
-            // Transponer Letras (Buscando [Chord])
-            let transposedLyrics = "";
-            if (data.lyrics) {
-                transposedLyrics = data.lyrics.replace(/\[(.*?)\]/g, (match, chord) => {
-                     // Extraer sufijos complejos si existen, transponer raíz
-                     const matchChord = chord.match(/(\w[#♭b]?)(.*)/);
-                     if (matchChord) {
-                        const root = matchChord[1];
-                        const suffix = matchChord[2];
-                        return `<span class="chord-highlight">[${transposeNote(root, semitones) + suffix}]</span>`;
-                     }
-                     return match;
-                });
-            } else {
-                transposedLyrics = "Letra no disponible para esta canción.";
-            }
-
-            return {
-                key: transposedKey,
-                chords: transposedChords,
-                scale: transposedScale,
-                critical: transposedCritical,
-                instrumentName: instrumentName,
-                scaleNotes: scaleNotes,
-                tonicChordNotes: tonicChordNotes,
-                tonicChordName: tonicChordName,
-                lyrics: transposedLyrics,
-                advice: data.advice // Ensure advice is passed
-            };
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const selector = document.getElementById('song-selector');
-            const songTitles = Object.keys(SONGS_DATA).map(key => ({
-                key: key,
-                title: SONGS_DATA[key].title
-            })).sort((a, b) => a.title.localeCompare(b.title));
-
-            songTitles.forEach(song => {
-                const option = document.createElement('option');
-                option.value = song.key;
-                option.textContent = song.title;
-                selector.appendChild(option);
-            });
-        });
 
         function updateAnalysis() {
-            const songKey = document.getElementById('song-selector').value;
-            const instrument = document.querySelector('input[name="instrument"]:checked').value;
+            const key = document.getElementById('song-selector').value;
+            if(!key) return;
+            const song = SONGS_DATA[key];
+            const instShift = parseInt(document.querySelector('input[name="instrument"]:checked').value);
+            const totalShift = instShift + manualShift;
+
+            document.getElementById('initial-message').classList.add('hidden');
+            document.getElementById('analysis-output').classList.remove('hidden');
+            document.getElementById('right-panel-content').classList.remove('hidden');
+
+            const rootKey = song.concertKey.split(' ')[0];
+            const newKey = getFullTransposedNote(rootKey, totalShift);
+            document.getElementById('transposed-key').innerText = newKey;
             
-            // UI elements
-            const outputDiv = document.getElementById('analysis-output');
-            const initialDiv = document.getElementById('initial-message');
-            const rightPanel = document.getElementById('right-panel-content');
+            const newChords = song.baseChords.replace(/([A-G][#b]?)([^–\s]*)/g, (m,r,s) => getFullTransposedNote(r+s, totalShift));
+            document.getElementById('transposed-chords').innerText = newChords;
 
-            if (!songKey) return;
+            const scaleRoot = song.improvScale.match(/^[A-G][#b]?/)[0];
+            const scaleType = song.improvScale.replace(/^[A-G][#b]?\s*/, '');
+            document.getElementById('transposed-scale').innerText = transposeNote(scaleRoot, totalShift) + " " + scaleType;
+            
+            document.getElementById('execution-advice').innerText = song.advice;
 
-            const originalData = SONGS_DATA[songKey];
-            const data = getTransposedData(originalData, instrument);
-
-            // Show panels
-            initialDiv.classList.add('hidden');
-            outputDiv.classList.remove('hidden');
-            rightPanel.classList.remove('hidden');
-
-            // Update DOM elements
-            document.getElementById('instrument-display').textContent = data.instrumentName;
-            document.getElementById('transposed-key').textContent = data.key;
-            document.getElementById('transposed-chords').textContent = data.chords;
-            document.getElementById('transposed-scale').textContent = data.scale;
-            document.getElementById('execution-advice').innerHTML = data.advice;
-            document.getElementById('lyrics-content').innerHTML = data.lyrics;
-
-            const mainDiv = document.getElementById('main-notes');
-            const passDiv = document.getElementById('passing-notes');
-            mainDiv.innerHTML = '';
-            passDiv.innerHTML = '';
-
-            data.scaleNotes.main.forEach(n => mainDiv.innerHTML += `<span class="note-chip main-note">${n}</span>`);
-            data.scaleNotes.passing.forEach(n => passDiv.innerHTML += `<span class="note-chip passing-note">${n}</span>`);
-
-            const criticalSection = document.getElementById('critical-chord-section');
-            if (data.critical && !originalData.criticalChord.includes('Ninguno')) {
-                document.getElementById('critical-chord-advice').innerHTML = `Atención al cambio: <strong>${data.critical}</strong>`;
-                criticalSection.classList.remove('hidden');
-            } else {
-                criticalSection.classList.add('hidden');
+            if(song.lyrics) {
+                document.getElementById('lyrics-content').innerHTML = song.lyrics.replace(/\[([A-G][#b]?)(.*?)\]/g, (m,r,s) => `<span class="chord-highlight">[${transposeNote(r, totalShift)}${s}]</span>`);
             }
 
-            // Render Diagramas
-            document.getElementById('guitar-diagram-svg').innerHTML = generateGuitarDiagram(data.tonicChordNotes);
-            document.getElementById('piano-diagram-svg').innerHTML = generatePianoDiagram(data.tonicChordNotes);
-        }
-    </script>
+            const scaleIdx = getNoteIndex(scaleRoot);
+            let scaleNotesHTML = "";
+            (song.steps || SCALE_STEPS['Natural']).forEach(s => scaleNotesHTML += `<span class="note-chip main-note">${NOTES[(scaleIdx+s+totalShift)%12]}</span>`);
+            document.getElementById('scale-notes-container').innerHTML = scaleNotesHTML;
 
-    <script>
+            const tonicNotes = generateChordNotes(rootKey, song.chordType, totalShift);
+            document.getElementById('guitar-diagram-svg').innerHTML = drawGuitar(tonicNotes);
+            document.getElementById('guitar-chord-name').textContent = newKey + (song.chordType === 'm' ? 'm' : '');
+            
+            document.getElementById('piano-diagram-svg').innerHTML = drawPiano(tonicNotes);
+            document.getElementById('piano-chord-name').textContent = newKey + (song.chordType === 'm' ? 'm' : '');
+
+            const critSection = document.getElementById('critical-chord-section');
+            if (song.criticalChord && !song.criticalChord.includes('Ninguno')) {
+                const critRoot = song.criticalChord.match(/^[A-G][#b]?/);
+                let displayCrit = song.criticalChord;
+                if(critRoot) {
+                    let transCrit = transposeNote(critRoot[0], totalShift);
+                    displayCrit = song.criticalChord.replace(critRoot[0], transCrit);
+                }
+                document.getElementById('critical-chord-advice').textContent = displayCrit;
+                critSection.classList.remove('hidden');
+            } else { critSection.classList.add('hidden'); }
+        }
+
+        const sel = document.getElementById('song-selector');
+        Object.keys(SONGS_DATA).sort((a,b) => SONGS_DATA[a].title.localeCompare(SONGS_DATA[b].title)).forEach(k => {
+            let opt = document.createElement('option'); opt.value = k; opt.innerText = SONGS_DATA[k].title; sel.appendChild(opt);
+        });
+
+        // THREE.JS ANIMATION
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-        const particlesGeometry = new THREE.BufferGeometry();
-        const particlesCount = 900;
-        const posArray = new Float32Array(particlesCount * 3);
-
-        for(let i = 0; i < particlesCount * 3; i++) {
-            posArray[i] = (Math.random() - 0.5) * 25;
-        }
-
-        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-
-        const material = new THREE.PointsMaterial({
-            size: 0.035,
-            color: 0x00E5FF, 
-            transparent: true,
-            opacity: 0.7,
-            blending: THREE.AdditiveBlending
-        });
-
-        const particlesMesh = new THREE.Points(particlesGeometry, material);
-        scene.add(particlesMesh);
-
-        const geometryWire = new THREE.IcosahedronGeometry(4, 1);
-        const materialWire = new THREE.MeshBasicMaterial({ 
-            color: 0x00E5FF, 
-            wireframe: true, 
-            transparent: true, 
-            opacity: 0.07 
-        });
-        const sphere = new THREE.Mesh(geometryWire, materialWire);
+        
+        const partGeo = new THREE.BufferGeometry();
+        const pos = []; for(let i=0;i<800;i++) pos.push((Math.random()-0.5)*25, (Math.random()-0.5)*25, (Math.random()-0.5)*25);
+        partGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        const parts = new THREE.Points(partGeo, new THREE.PointsMaterial({color:0x00E5FF, size:0.03, transparent:true, opacity:0.6}));
+        scene.add(parts);
+        
+        const geoWire = new THREE.IcosahedronGeometry(4, 1);
+        const matWire = new THREE.MeshBasicMaterial({color:0x00E5FF, wireframe:true, transparent:true, opacity:0.07});
+        const sphere = new THREE.Mesh(geoWire, matWire);
         scene.add(sphere);
-
+        
         camera.position.z = 6;
-
-        let mouseX = 0;
-        let mouseY = 0;
-        let targetX = 0;
-        let targetY = 0;
-        const windowHalfX = window.innerWidth / 2;
-        const windowHalfY = window.innerHeight / 2;
-
-        document.addEventListener('mousemove', (event) => {
-            mouseX = (event.clientX - windowHalfX);
-            mouseY = (event.clientY - windowHalfY);
-        });
-
-        const clock = new THREE.Clock();
-
+        let mouseX = 0, mouseY = 0;
+        document.addEventListener('mousemove', e => { mouseX = e.clientX - window.innerWidth/2; mouseY = e.clientY - window.innerHeight/2; });
+        
         function animate() {
             requestAnimationFrame(animate);
-            const elapsedTime = clock.getElapsedTime();
-            
-            targetX = mouseX * 0.001;
-            targetY = mouseY * 0.001;
-            
+            parts.rotation.y += 0.05 * (mouseX*0.001 - parts.rotation.y);
+            parts.rotation.x += 0.05 * (mouseY*0.001 - parts.rotation.x);
             sphere.rotation.y += 0.002;
-            sphere.rotation.x += 0.001;
-            
-            particlesMesh.rotation.y += 0.03 * (targetX - particlesMesh.rotation.y);
-            particlesMesh.rotation.x += 0.03 * (targetY - particlesMesh.rotation.x);
-            particlesMesh.rotation.z = elapsedTime * 0.03;
-
-            sphere.scale.x = 1 + Math.sin(elapsedTime * 0.3) * 0.05;
-            sphere.scale.y = 1 + Math.sin(elapsedTime * 0.3) * 0.05;
-            sphere.scale.z = 1 + Math.sin(elapsedTime * 0.3) * 0.05;
-
             renderer.render(scene, camera);
         }
         animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        window.onresize = () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); };
     </script>
 </body>
 </html>
