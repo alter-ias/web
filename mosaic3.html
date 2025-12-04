@@ -1,30 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Kira: Keyboard Control</title>
+    <title>Kira: Smooth Cinematic Control</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <style>
-        body { 
-            margin: 0; 
-            overflow: hidden; 
-            background-color: #000; 
-            color: #888;
-            font-family: monospace;
-        }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: monospace; }
         #info {
-            position: absolute;
-            top: 20px;
-            width: 100%;
-            text-align: center;
-            z-index: 100;
-            pointer-events: none;
-            color: #444;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            line-height: 1.5em;
+            position: absolute; top: 20px; width: 100%; text-align: center; z-index: 100;
+            pointer-events: none; color: #aaa; text-shadow: 0 0 4px #000;
+            letter-spacing: 1px; font-size: 14px;
         }
-        .controls { color: #00ffff; font-weight: bold; }
+        .key { color: #00ffff; font-weight: bold; }
     </style>
 
     <script type="importmap">
@@ -39,8 +26,8 @@
 
 <body>
     <div id="info">
-        Interactive Dream Sequence<br/>
-        <span class="controls">FLECHAS:</span> Mover Arriba/Abajo/Lados &bull; <span class="controls">W / S:</span> Profundidad
+        CINEMATIC MODE<br/>
+        <span class="key">FLECHAS</span>: Mover (Suave) &bull; <span class="key">W/S</span>: Profundidad &bull; <span class="key">H</span>: Ocultar/Ver Gizmo
     </div>
 
     <script type="module">
@@ -54,17 +41,18 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- CONFIGURACIÓN MAESTRA ---
+        // --- CONFIGURACIÓN DE AFINADO ---
         const CONFIG = {
-            bloomStrength: 0,
-            bloomRadius: 0.306,
-            orbIntensity: 0.6,
+            bloomStrength: 0, 
+            bloomRadius: 0.3,
             orbColor: 0x00ffff,
-            rimIntensity: 6.12,
             rimColor: 0xff00ff,
             camPos: new THREE.Vector3(0.92, 1.41, -1.64),
             camTarget: new THREE.Vector3(2.14, 1.11, -0.24),
-            moveSpeed: 0.03 // Velocidad de movimiento del teclado
+            
+            // FÍSICA DE MOVIMIENTO
+            moveSpeed: 0.02,   // Velocidad base (más bajo = más precisión)
+            smoothFactor: 0.08 // Factor de suavizado (0.01 = muy lento/pesado, 0.5 = rápido)
         };
 
         let scene, camera, renderer, composer;
@@ -75,16 +63,13 @@
         const clock = new THREE.Clock();
         const v0 = new THREE.Vector3();
 
-        // Estado del teclado
+        // Variables para el movimiento suave
+        const targetPos = new THREE.Vector3(); // Donde QUEREMOS que esté el orbe
+        let isGizmovisible = false; // Empezamos oculto para que se vea limpio
+
         const keys = {
-            ArrowUp: false,
-            ArrowDown: false,
-            ArrowLeft: false,
-            ArrowRight: false,
-            w: false,
-            s: false,
-            W: false,
-            S: false
+            ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+            w: false, s: false, W: false, S: false
         };
 
         init();
@@ -92,33 +77,21 @@
         async function init() {
             // 1. ESCENA
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x050510, 0.03);
+            scene.fog = new THREE.FogExp2(0x050510, 0.02);
             scene.background = new THREE.Color(0x050510);
 
             // 2. CÁMARA
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.001, 5000);
             camera.position.copy(CONFIG.camPos);
 
-            // 3. LUCES
-            const ambientLight = new THREE.AmbientLight(0x222222);
-            scene.add(ambientLight);
-
-            // Luz de Orbe (Cian) - Se añade luego al objeto
-            const orbLight = new THREE.PointLight(CONFIG.orbColor, CONFIG.orbIntensity, 5);
-
-            // Luz de Contra (Magenta)
-            const rimLight = new THREE.SpotLight(CONFIG.rimColor, CONFIG.rimIntensity);
-            rimLight.position.set(-2, 2, -2);
-            rimLight.lookAt(0, 1, 0);
-            scene.add(rimLight);
-
-            // 4. RENDERER
+            // 3. RENDERER
             renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.toneMapping = THREE.ReinhardToneMapping;
             document.body.appendChild(renderer.domElement);
 
+            // 4. POST-PROCESADO
             const renderScene = new RenderPass(scene, camera);
             const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
             bloomPass.threshold = 0;
@@ -129,7 +102,7 @@
             composer.addPass(renderScene);
             composer.addPass(bloomPass);
 
-            // 5. CARGA DEL MODELO
+            // 5. CARGA
             const dracoLoader = new DRACOLoader();
             dracoLoader.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
             const gltfLoader = new GLTFLoader();
@@ -137,40 +110,37 @@
 
             try {
                 const gltf = await gltfLoader.loadAsync('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/kira.glb');
-
+                
                 gltf.scene.traverse(n => {
                     if (n.name === 'head') OOI.head = n;
-                    if (n.name === 'lowerarm_l') OOI.lowerarm_l = n;
-                    if (n.name === 'Upperarm_l') OOI.Upperarm_l = n;
                     if (n.name === 'hand_l') OOI.hand_l = n;
                     if (n.name === 'target_hand_l') OOI.target_hand_l = n;
                     if (n.name === 'boule') OOI.sphere = n;
                     if (n.name === 'Kira_Shirt_left') OOI.kira = n;
 
                     if (n.isMesh) {
-                        n.castShadow = true;
+                        n.castShadow = true; 
                         n.receiveShadow = true;
-                        if (n.material) n.material.roughness = 0.4;
                     }
                 });
                 scene.add(gltf.scene);
 
-                // Configurar Orbe
+                // Configuración del Orbe
                 OOI.hand_l.attach(OOI.sphere);
-                const orbMaterial = new THREE.MeshBasicMaterial({ color: CONFIG.orbColor, wireframe: true });
+                const orbMaterial = new THREE.MeshBasicMaterial({ color: CONFIG.orbColor, wireframe: true, transparent: true, opacity: 0.8 });
                 OOI.sphere.material = orbMaterial;
+                
+                // Luz dentro del orbe
+                const orbLight = new THREE.PointLight(CONFIG.orbColor, 0.8, 4);
                 OOI.sphere.add(orbLight);
 
-                const coreGeo = new THREE.IcosahedronGeometry(0.05, 0);
-                const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-                const core = new THREE.Mesh(coreGeo, coreMat);
-                OOI.sphere.add(core);
+                // Inicializamos la posición objetivo donde está el orbe actualmente
+                targetPos.copy(OOI.sphere.position);
 
-                // Configurar IK
+                // Configuración IK
                 OOI.kira.add(OOI.kira.skeleton.bones[0]);
                 const iks = [{
-                    target: 22,
-                    effector: 6,
+                    target: 22, effector: 6,
                     links: [
                         { index: 5, rotationMin: new THREE.Vector3(1.2, -1.8, -.4), rotationMax: new THREE.Vector3(1.7, -1.1, .3) },
                         { index: 4, rotationMin: new THREE.Vector3(0.1, -0.7, -1.8), rotationMax: new THREE.Vector3(1.1, 0, -1.4) },
@@ -178,108 +148,97 @@
                 }];
                 IKSolver = new CCDIKSolver(OOI.kira, iks);
 
-                // Setup Controles Cámara
+                // Controles de Cámara
                 orbitControls = new OrbitControls(camera, renderer.domElement);
-                orbitControls.minDistance = 0.1;
-                orbitControls.maxDistance = 10;
                 orbitControls.enableDamping = true;
+                orbitControls.dampingFactor = 0.05;
                 orbitControls.target.copy(CONFIG.camTarget);
-                orbitControls.update();
-
-                // Setup Controles Objeto (Visualizador)
+                
+                // Gizmo (Flechas de control visual)
                 transformControls = new TransformControls(camera, renderer.domElement);
-                transformControls.size = 0.4;
+                transformControls.size = 0.5;
                 transformControls.space = 'world';
                 transformControls.attach(OOI.target_hand_l);
-                // Ocultamos el gizmo visual si queremos que se vea más limpio, o lo dejamos:
-                scene.add(transformControls);
+                transformControls.visible = isGizmovisible; // Oculto al inicio
+                scene.add(transformControls); // SIN .getHelper(), directo a escena
 
-                // Listener para desactivar órbita al arrastrar
-                transformControls.addEventListener('mouseDown', () => orbitControls.enabled = false);
-                transformControls.addEventListener('mouseUp', () => orbitControls.enabled = true);
+                // Luces ambientales
+                const ambient = new THREE.AmbientLight(0x404040, 1.5); 
+                scene.add(ambient);
+                
+                const rimLight = new THREE.SpotLight(CONFIG.rimColor, 8);
+                rimLight.position.set(-2, 3, -2);
+                rimLight.lookAt(0,0,0);
+                scene.add(rimLight);
 
-                createFloatingParticles();
-                setupKeyboard(); // Inicializamos el teclado
+                createParticles();
+                setupInputs();
                 
                 window.addEventListener('resize', onWindowResize, false);
                 renderer.setAnimationLoop(animate);
 
-            } catch (error) {
-                console.error("Error cargando modelo:", error);
-            }
+            } catch (e) { console.error(e); }
         }
 
-        function createFloatingParticles() {
-            const geometry = new THREE.BufferGeometry();
-            const vertices = [];
-            for (let i = 0; i < 400; i++) {
-                vertices.push( (Math.random()-0.5)*4, (Math.random()-0.5)*4+1, (Math.random()-0.5)*4 );
-            }
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            const material = new THREE.PointsMaterial({ color: CONFIG.rimColor, size: 0.015, transparent: true, opacity: 0.5 });
-            particlesMesh = new THREE.Points(geometry, material);
-            scene.add(particlesMesh);
-        }
-
-        // --- LÓGICA DE TECLADO ---
-        function setupKeyboard() {
+        function setupInputs() {
             window.addEventListener('keydown', (e) => {
-                if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) {
-                    keys[e.key] = true;
+                if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key] = true;
+                if(e.key.toLowerCase() === 'h') {
+                    isGizmovisible = !isGizmovisible;
+                    transformControls.visible = isGizmovisible;
                 }
             });
             window.addEventListener('keyup', (e) => {
-                if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) {
-                    keys[e.key] = false;
-                }
+                if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key] = false;
             });
         }
 
-        function processKeyboardMovement() {
-            if (!OOI.target_hand_l) return;
-
-            const target = OOI.target_hand_l;
+        function updateMovementTarget() {
+            // Actualizamos la posición IDEAL (targetPos), no la real todavía
             const speed = CONFIG.moveSpeed;
+            if (keys.ArrowRight) targetPos.x += speed;
+            if (keys.ArrowLeft) targetPos.x -= speed;
+            if (keys.ArrowUp) targetPos.y += speed;
+            if (keys.ArrowDown) targetPos.y -= speed;
+            if (keys.w || keys.W) targetPos.z -= speed;
+            if (keys.s || keys.S) targetPos.z += speed;
+        }
 
-            // X axis (Izquierda / Derecha)
-            if (keys.ArrowRight) target.position.x += speed;
-            if (keys.ArrowLeft) target.position.x -= speed;
-
-            // Y axis (Arriba / Abajo)
-            if (keys.ArrowUp) target.position.y += speed;
-            if (keys.ArrowDown) target.position.y -= speed;
-
-            // Z axis (Profundidad con W/S)
-            if (keys.w || keys.W) target.position.z -= speed;
-            if (keys.s || keys.S) target.position.z += speed;
+        function createParticles() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            for (let i = 0; i < 300; i++) vertices.push((Math.random()-0.5)*5, (Math.random()-0.5)*5+2, (Math.random()-0.5)*5);
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            particlesMesh = new THREE.Points(geometry, new THREE.PointsMaterial({ color: CONFIG.rimColor, size: 0.02, transparent: true, opacity: 0.4 }));
+            scene.add(particlesMesh);
         }
 
         function animate() {
             const time = clock.getElapsedTime();
 
-            // 1. Procesar Movimiento de Teclado
-            processKeyboardMovement();
-
-            // 2. Animaciones Ambientales
-            if (particlesMesh) {
-                particlesMesh.rotation.y = time * 0.03;
-                particlesMesh.position.y = Math.sin(time * 0.2) * 0.05;
-            }
-            if (OOI.sphere) {
-                const s = 1 + Math.sin(time * 2.5) * 0.1;
-                OOI.sphere.scale.set(s, s, s);
+            // 1. CÁLCULO DE MOVIMIENTO SUAVE
+            if (OOI.target_hand_l) {
+                // Actualizamos a dónde queremos ir según las teclas
+                updateMovementTarget();
+                
+                // INTERPOLACIÓN (LERP): Mueve el objeto real un 8% hacia el objetivo en cada frame
+                // Esto crea el efecto de suavidad y peso
+                OOI.target_hand_l.position.lerp(targetPos, CONFIG.smoothFactor);
             }
 
-            // 3. Cabeza sigue al orbe
+            // 2. Lógica IK y Mirada
             if (OOI.head && OOI.sphere) {
                 OOI.sphere.getWorldPosition(v0);
                 OOI.head.lookAt(v0);
                 OOI.head.rotation.set(OOI.head.rotation.x, OOI.head.rotation.y + Math.PI, OOI.head.rotation.z);
             }
-
-            // 4. Actualizar IK
             if (IKSolver) IKSolver.update();
-            scene.traverse(o => { if (o.isSkinnedMesh) o.computeBoundingSphere(); });
+
+            // 3. Efectos
+            if (particlesMesh) {
+                particlesMesh.rotation.y = time * 0.02;
+                particlesMesh.position.y = Math.sin(time * 0.3) * 0.1;
+            }
 
             orbitControls.update();
             composer.render();
