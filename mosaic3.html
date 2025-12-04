@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Kira: Smooth Cinematic Control</title>
+    <title>Kira: Limited Range</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <style>
@@ -26,8 +26,8 @@
 
 <body>
     <div id="info">
-        CINEMATIC MODE<br/>
-        <span class="key">FLECHAS</span>: Mover (Suave) &bull; <span class="key">W/S</span>: Profundidad &bull; <span class="key">H</span>: Ocultar/Ver Gizmo
+        RANGO LIMITADO<br/>
+        <span class="key">FLECHAS</span>: Mover &bull; <span class="key">W/S</span>: Profundidad &bull; <span class="key">H</span>: Ver Gizmo
     </div>
 
     <script type="module">
@@ -41,7 +41,7 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- CONFIGURACIÓN DE AFINADO ---
+        // --- CONFIGURACIÓN ---
         const CONFIG = {
             bloomStrength: 0, 
             bloomRadius: 0.3,
@@ -50,9 +50,16 @@
             camPos: new THREE.Vector3(0.92, 1.41, -1.64),
             camTarget: new THREE.Vector3(2.14, 1.11, -0.24),
             
-            // FÍSICA DE MOVIMIENTO
-            moveSpeed: 0.02,   // Velocidad base (más bajo = más precisión)
-            smoothFactor: 0.08 // Factor de suavizado (0.01 = muy lento/pesado, 0.5 = rápido)
+            // AJUSTE DE MOVIMIENTO
+            moveSpeed: 0.04,     // Más rápido para sentir control
+            smoothFactor: 0.1,   // Más responsivo
+            
+            // --- AQUÍ ESTÁN LOS LÍMITES DE LA CAJA ---
+            limits: {
+                xMin: -0.5, xMax: 1.2,  // Izquierda / Derecha
+                yMin: 0.5,  yMax: 1.8,  // Suelo / Techo (No bajar de 0.5 para no atravesar la silla)
+                zMin: -0.8, zMax: 0.8   // Profundidad
+            }
         };
 
         let scene, camera, renderer, composer;
@@ -63,9 +70,8 @@
         const clock = new THREE.Clock();
         const v0 = new THREE.Vector3();
 
-        // Variables para el movimiento suave
-        const targetPos = new THREE.Vector3(); // Donde QUEREMOS que esté el orbe
-        let isGizmovisible = false; // Empezamos oculto para que se vea limpio
+        const targetPos = new THREE.Vector3(); 
+        let isGizmovisible = false; 
 
         const keys = {
             ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
@@ -75,23 +81,19 @@
         init();
 
         async function init() {
-            // 1. ESCENA
             scene = new THREE.Scene();
             scene.fog = new THREE.FogExp2(0x050510, 0.02);
             scene.background = new THREE.Color(0x050510);
 
-            // 2. CÁMARA
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.001, 5000);
             camera.position.copy(CONFIG.camPos);
 
-            // 3. RENDERER
             renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.toneMapping = THREE.ReinhardToneMapping;
             document.body.appendChild(renderer.domElement);
 
-            // 4. POST-PROCESADO
             const renderScene = new RenderPass(scene, camera);
             const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
             bloomPass.threshold = 0;
@@ -102,7 +104,6 @@
             composer.addPass(renderScene);
             composer.addPass(bloomPass);
 
-            // 5. CARGA
             const dracoLoader = new DRACOLoader();
             dracoLoader.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
             const gltfLoader = new GLTFLoader();
@@ -117,27 +118,19 @@
                     if (n.name === 'target_hand_l') OOI.target_hand_l = n;
                     if (n.name === 'boule') OOI.sphere = n;
                     if (n.name === 'Kira_Shirt_left') OOI.kira = n;
-
-                    if (n.isMesh) {
-                        n.castShadow = true; 
-                        n.receiveShadow = true;
-                    }
+                    if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
                 });
                 scene.add(gltf.scene);
 
-                // Configuración del Orbe
                 OOI.hand_l.attach(OOI.sphere);
                 const orbMaterial = new THREE.MeshBasicMaterial({ color: CONFIG.orbColor, wireframe: true, transparent: true, opacity: 0.8 });
                 OOI.sphere.material = orbMaterial;
                 
-                // Luz dentro del orbe
                 const orbLight = new THREE.PointLight(CONFIG.orbColor, 0.8, 4);
                 OOI.sphere.add(orbLight);
 
-                // Inicializamos la posición objetivo donde está el orbe actualmente
                 targetPos.copy(OOI.sphere.position);
 
-                // Configuración IK
                 OOI.kira.add(OOI.kira.skeleton.bones[0]);
                 const iks = [{
                     target: 22, effector: 6,
@@ -148,24 +141,20 @@
                 }];
                 IKSolver = new CCDIKSolver(OOI.kira, iks);
 
-                // Controles de Cámara
                 orbitControls = new OrbitControls(camera, renderer.domElement);
                 orbitControls.enableDamping = true;
                 orbitControls.dampingFactor = 0.05;
                 orbitControls.target.copy(CONFIG.camTarget);
                 
-                // Gizmo (Flechas de control visual)
                 transformControls = new TransformControls(camera, renderer.domElement);
                 transformControls.size = 0.5;
                 transformControls.space = 'world';
                 transformControls.attach(OOI.target_hand_l);
-                transformControls.visible = isGizmovisible; // Oculto al inicio
-                scene.add(transformControls); // SIN .getHelper(), directo a escena
+                transformControls.visible = isGizmovisible;
+                scene.add(transformControls);
 
-                // Luces ambientales
                 const ambient = new THREE.AmbientLight(0x404040, 1.5); 
                 scene.add(ambient);
-                
                 const rimLight = new THREE.SpotLight(CONFIG.rimColor, 8);
                 rimLight.position.set(-2, 3, -2);
                 rimLight.lookAt(0,0,0);
@@ -193,15 +182,23 @@
             });
         }
 
+        // --- AQUÍ ESTÁ LA LÓGICA DE LÍMITES ---
         function updateMovementTarget() {
-            // Actualizamos la posición IDEAL (targetPos), no la real todavía
             const speed = CONFIG.moveSpeed;
+            
+            // 1. Calcular nueva posición teórica
             if (keys.ArrowRight) targetPos.x += speed;
             if (keys.ArrowLeft) targetPos.x -= speed;
             if (keys.ArrowUp) targetPos.y += speed;
             if (keys.ArrowDown) targetPos.y -= speed;
             if (keys.w || keys.W) targetPos.z -= speed;
             if (keys.s || keys.S) targetPos.z += speed;
+
+            // 2. APLICAR LÍMITES (CLAMP)
+            // Esto obliga al valor a mantenerse entre Min y Max
+            targetPos.x = THREE.MathUtils.clamp(targetPos.x, CONFIG.limits.xMin, CONFIG.limits.xMax);
+            targetPos.y = THREE.MathUtils.clamp(targetPos.y, CONFIG.limits.yMin, CONFIG.limits.yMax);
+            targetPos.z = THREE.MathUtils.clamp(targetPos.z, CONFIG.limits.zMin, CONFIG.limits.zMax);
         }
 
         function createParticles() {
@@ -216,17 +213,11 @@
         function animate() {
             const time = clock.getElapsedTime();
 
-            // 1. CÁLCULO DE MOVIMIENTO SUAVE
             if (OOI.target_hand_l) {
-                // Actualizamos a dónde queremos ir según las teclas
                 updateMovementTarget();
-                
-                // INTERPOLACIÓN (LERP): Mueve el objeto real un 8% hacia el objetivo en cada frame
-                // Esto crea el efecto de suavidad y peso
                 OOI.target_hand_l.position.lerp(targetPos, CONFIG.smoothFactor);
             }
 
-            // 2. Lógica IK y Mirada
             if (OOI.head && OOI.sphere) {
                 OOI.sphere.getWorldPosition(v0);
                 OOI.head.lookAt(v0);
@@ -234,7 +225,6 @@
             }
             if (IKSolver) IKSolver.update();
 
-            // 3. Efectos
             if (particlesMesh) {
                 particlesMesh.rotation.y = time * 0.02;
                 particlesMesh.position.y = Math.sin(time * 0.3) * 0.1;
