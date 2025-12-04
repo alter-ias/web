@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Kira: Dream Sequence (Final)</title>
+    <title>Kira: Keyboard Control</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <style>
@@ -20,10 +20,11 @@
             z-index: 100;
             pointer-events: none;
             color: #444;
-            opacity: 0.5;
             text-transform: uppercase;
             letter-spacing: 2px;
+            line-height: 1.5em;
         }
+        .controls { color: #00ffff; font-weight: bold; }
     </style>
 
     <script type="importmap">
@@ -37,7 +38,10 @@
 </head>
 
 <body>
-    <div id="info">Interactive Dream Sequence</div>
+    <div id="info">
+        Interactive Dream Sequence<br/>
+        <span class="controls">FLECHAS:</span> Mover Arriba/Abajo/Lados &bull; <span class="controls">W / S:</span> Profundidad
+    </div>
 
     <script type="module">
         import * as THREE from 'three';
@@ -50,7 +54,7 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- TUS VARIABLES MAESTRAS (Extraídas de tu JSON) ---
+        // --- CONFIGURACIÓN MAESTRA ---
         const CONFIG = {
             bloomStrength: 0,
             bloomRadius: 0.306,
@@ -58,8 +62,9 @@
             orbColor: 0x00ffff,
             rimIntensity: 6.12,
             rimColor: 0xff00ff,
-            camPos: new THREE.Vector3(0.9245545038381124, 1.4142747970928973, -1.6477404380731393),
-            camTarget: new THREE.Vector3(2.143176548309741, 1.110952765868537, -0.2431985467631249)
+            camPos: new THREE.Vector3(0.92, 1.41, -1.64),
+            camTarget: new THREE.Vector3(2.14, 1.11, -0.24),
+            moveSpeed: 0.03 // Velocidad de movimiento del teclado
         };
 
         let scene, camera, renderer, composer;
@@ -70,6 +75,18 @@
         const clock = new THREE.Clock();
         const v0 = new THREE.Vector3();
 
+        // Estado del teclado
+        const keys = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false,
+            w: false,
+            s: false,
+            W: false,
+            S: false
+        };
+
         init();
 
         async function init() {
@@ -78,17 +95,16 @@
             scene.fog = new THREE.FogExp2(0x050510, 0.03);
             scene.background = new THREE.Color(0x050510);
 
-            // 2. CÁMARA (Posición exacta fijada)
+            // 2. CÁMARA
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.001, 5000);
             camera.position.copy(CONFIG.camPos);
 
-            // 3. LUCES (Valores exactos fijados)
+            // 3. LUCES
             const ambientLight = new THREE.AmbientLight(0x222222);
             scene.add(ambientLight);
 
-            // Luz de Orbe (Cian)
+            // Luz de Orbe (Cian) - Se añade luego al objeto
             const orbLight = new THREE.PointLight(CONFIG.orbColor, CONFIG.orbIntensity, 5);
-            // Nota: Se añade a la escena o al objeto más adelante, aquí la creamos.
 
             // Luz de Contra (Magenta)
             const rimLight = new THREE.SpotLight(CONFIG.rimColor, CONFIG.rimIntensity);
@@ -96,7 +112,7 @@
             rimLight.lookAt(0, 1, 0);
             scene.add(rimLight);
 
-            // 4. RENDERER & POST-PROCESADO
+            // 4. RENDERER
             renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -104,12 +120,10 @@
             document.body.appendChild(renderer.domElement);
 
             const renderScene = new RenderPass(scene, camera);
-            
-            // Bloom Configurado
             const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
             bloomPass.threshold = 0;
-            bloomPass.strength = CONFIG.bloomStrength; // 0 según tu config
-            bloomPass.radius = CONFIG.bloomRadius;     // 0.306 según tu config
+            bloomPass.strength = CONFIG.bloomStrength;
+            bloomPass.radius = CONFIG.bloomRadius;
 
             composer = new EffectComposer(renderer);
             composer.addPass(renderScene);
@@ -145,9 +159,8 @@
                 OOI.hand_l.attach(OOI.sphere);
                 const orbMaterial = new THREE.MeshBasicMaterial({ color: CONFIG.orbColor, wireframe: true });
                 OOI.sphere.material = orbMaterial;
-                OOI.sphere.add(orbLight); // Añadimos la luz al orbe
+                OOI.sphere.add(orbLight);
 
-                // Core blanco del orbe
                 const coreGeo = new THREE.IcosahedronGeometry(0.05, 0);
                 const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
                 const core = new THREE.Mesh(coreGeo, coreMat);
@@ -165,31 +178,28 @@
                 }];
                 IKSolver = new CCDIKSolver(OOI.kira, iks);
 
-                // SETUP CONTROLES
+                // Setup Controles Cámara
                 orbitControls = new OrbitControls(camera, renderer.domElement);
                 orbitControls.minDistance = 0.1;
                 orbitControls.maxDistance = 10;
                 orbitControls.enableDamping = true;
-                
-                // *** APLICAR TARGET DE CÁMARA (HEAD) ***
                 orbitControls.target.copy(CONFIG.camTarget);
                 orbitControls.update();
 
-                // Flechas de control (TransformControls) - Mantenemos esto para interactividad
+                // Setup Controles Objeto (Visualizador)
                 transformControls = new TransformControls(camera, renderer.domElement);
                 transformControls.size = 0.4;
-                transformControls.showX = true; // Solo mostrar ejes necesarios para limpiar visualmente
-                transformControls.showY = true;
-                transformControls.showZ = true;
                 transformControls.space = 'world';
                 transformControls.attach(OOI.target_hand_l);
+                // Ocultamos el gizmo visual si queremos que se vea más limpio, o lo dejamos:
                 scene.add(transformControls);
 
-                // Eventos de control
+                // Listener para desactivar órbita al arrastrar
                 transformControls.addEventListener('mouseDown', () => orbitControls.enabled = false);
                 transformControls.addEventListener('mouseUp', () => orbitControls.enabled = true);
 
                 createFloatingParticles();
+                setupKeyboard(); // Inicializamos el teclado
                 
                 window.addEventListener('resize', onWindowResize, false);
                 renderer.setAnimationLoop(animate);
@@ -203,11 +213,7 @@
             const geometry = new THREE.BufferGeometry();
             const vertices = [];
             for (let i = 0; i < 400; i++) {
-                vertices.push(
-                    (Math.random() - 0.5) * 4,
-                    (Math.random() - 0.5) * 4 + 1,
-                    (Math.random() - 0.5) * 4
-                );
+                vertices.push( (Math.random()-0.5)*4, (Math.random()-0.5)*4+1, (Math.random()-0.5)*4 );
             }
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
             const material = new THREE.PointsMaterial({ color: CONFIG.rimColor, size: 0.015, transparent: true, opacity: 0.5 });
@@ -215,31 +221,64 @@
             scene.add(particlesMesh);
         }
 
+        // --- LÓGICA DE TECLADO ---
+        function setupKeyboard() {
+            window.addEventListener('keydown', (e) => {
+                if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) {
+                    keys[e.key] = true;
+                }
+            });
+            window.addEventListener('keyup', (e) => {
+                if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) {
+                    keys[e.key] = false;
+                }
+            });
+        }
+
+        function processKeyboardMovement() {
+            if (!OOI.target_hand_l) return;
+
+            const target = OOI.target_hand_l;
+            const speed = CONFIG.moveSpeed;
+
+            // X axis (Izquierda / Derecha)
+            if (keys.ArrowRight) target.position.x += speed;
+            if (keys.ArrowLeft) target.position.x -= speed;
+
+            // Y axis (Arriba / Abajo)
+            if (keys.ArrowUp) target.position.y += speed;
+            if (keys.ArrowDown) target.position.y -= speed;
+
+            // Z axis (Profundidad con W/S)
+            if (keys.w || keys.W) target.position.z -= speed;
+            if (keys.s || keys.S) target.position.z += speed;
+        }
+
         function animate() {
             const time = clock.getElapsedTime();
 
-            // Animación sutil de partículas
+            // 1. Procesar Movimiento de Teclado
+            processKeyboardMovement();
+
+            // 2. Animaciones Ambientales
             if (particlesMesh) {
                 particlesMesh.rotation.y = time * 0.03;
                 particlesMesh.position.y = Math.sin(time * 0.2) * 0.05;
             }
-
-            // Latido del Orbe
             if (OOI.sphere) {
                 const s = 1 + Math.sin(time * 2.5) * 0.1;
                 OOI.sphere.scale.set(s, s, s);
             }
 
-            // Lógica: Cabeza sigue al orbe
+            // 3. Cabeza sigue al orbe
             if (OOI.head && OOI.sphere) {
                 OOI.sphere.getWorldPosition(v0);
                 OOI.head.lookAt(v0);
                 OOI.head.rotation.set(OOI.head.rotation.x, OOI.head.rotation.y + Math.PI, OOI.head.rotation.z);
             }
 
+            // 4. Actualizar IK
             if (IKSolver) IKSolver.update();
-
-            // Actualizar helper de huesos
             scene.traverse(o => { if (o.isSkinnedMesh) o.computeBoundingSphere(); });
 
             orbitControls.update();
