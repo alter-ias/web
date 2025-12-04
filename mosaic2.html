@@ -1,326 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>Kira en el Mundo Onírico - Three.js</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-        <style>
-            body { 
-                margin: 0; 
-                background-color: #000; 
-                color: #fff; 
-                font-family: monospace; 
-                overflow: hidden; 
-            }
-            #info {
-                position: absolute;
-                top: 10px;
-                width: 100%;
-                text-align: center;
-                z-index: 100;
-                pointer-events: none;
-            }
-            #info a { color: #ff00ff; pointer-events: auto; }
-        </style>
-    </head>
-    <body>
-        <div id="info">
-            Kira: Dream Sequence <br/>
-            <span style="font-size: 0.8em">Post-processing + Inverse Kinematics</span>
-        </div>
+<head>
+    <title>Three.js - Fix Import Map</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+    </style>
 
-        <script type="importmap">
+    <script type="importmap">
         {
             "imports": {
-                "three": "../build/three.module.js",
-                "three/addons/": "./jsm/"
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
             }
         }
-        </script>
+    </script>
+</head>
 
-        <script type="module">
+<body>
+    <div id="container"></div>
+
+    <script type="module">
+        // --------------------------------------------------------
+        // IMPORTACIONES CORREGIDAS (Ya no usan rutas locales ./)
+        // --------------------------------------------------------
         import * as THREE from 'three';
-
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { TransformControls } from 'three/addons/controls/TransformControls.js';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-        import { CCDIKSolver, CCDIKHelper } from 'three/addons/animation/CCDIKSolver.js';
-        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-
-        // IMPORTAMOS POST-PROCESSING
+        
+        // Loaders y Animación (Vistos en tu error log)
+        import { MMDLoader } from 'three/addons/loaders/MMDLoader.js';
+        import { CCDIKSolver } from 'three/addons/animation/CCDIKSolver.js';
+        
+        // Post-procesado (Vistos en tu error log)
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
         import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        let scene, camera, renderer, orbitControls, transformControls;
-        let mirrorSphereCamera;
-        let composer; // Para los efectos visuales
-        let dreamObjects = []; // Array para animar el mundo
+        // --------------------------------------------------------
+        // AQUÍ EMPIEZA TU LÓGICA
+        // Pega aquí abajo el resto de tu código (init, animate, etc.)
+        // --------------------------------------------------------
 
-        const OOI = {};
-        let IKSolver;
-
-        let conf;
-        const v0 = new THREE.Vector3();
-        const clock = new THREE.Clock();
+        let scene, camera, renderer, composer;
 
         init();
+        animate();
 
-        async function init() {
-
-            conf = {
-                followSphere: false,
-                turnHead: true,
-                ik_solver: true,
-                visualTrip: true // Switch para activar/desactivar el efecto loco
-            };
-
-            // 1. CONFIGURACIÓN DE ESCENA ONÍRICA
-            scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2( 0x000000, 0.02 ); // Niebla negra densa
-            scene.background = new THREE.Color( 0x050505 );
-
-            camera = new THREE.PerspectiveCamera( 55, window.innerWidth / window.innerHeight, 0.01, 5000 );
-            camera.position.set( 0.9, 1.1, 1.5 );
-            camera.lookAt( scene.position );
-
-            // Luces de colores (Cyberpunk/Vaporwave)
-            const ambientLight = new THREE.AmbientLight( 0x444444 ); 
-            scene.add( ambientLight );
-
-            const light1 = new THREE.PointLight( 0xff00ff, 2, 10 ); // Magenta
-            light1.position.set( 2, 2, 2 );
-            scene.add( light1 );
+        function init() {
+            // Configuración básica para probar que funciona
+            const container = document.getElementById( 'container' );
             
-            const light2 = new THREE.PointLight( 0x00ffff, 2, 10 ); // Cyan
-            light2.position.set( -2, 1, -2 );
-            scene.add( light2 );
+            camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 2000 );
+            camera.position.z = 30;
 
-            // 2. CREACIÓN DEL MUNDO (GEOMETRÍA ABSTRACTA)
-            createDreamWorld();
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color( 0x000000 );
 
-            // 3. CARGA DE MODELO (KIRA)
-            const dracoLoader = new DRACOLoader();
-            dracoLoader.setDecoderPath( 'jsm/libs/draco/' );
-            const gltfLoader = new GLTFLoader();
-            gltfLoader.setDRACOLoader( dracoLoader );
+            // Ejemplo: Una luz
+            const ambient = new THREE.AmbientLight( 0x666666 );
+            scene.add( ambient );
 
-            const gltf = await gltfLoader.loadAsync( 'models/gltf/kira.glb' );
-            gltf.scene.traverse( n => {
-                if ( n.name === 'head' ) OOI.head = n;
-                if ( n.name === 'lowerarm_l' ) OOI.lowerarm_l = n;
-                if ( n.name === 'Upperarm_l' ) OOI.Upperarm_l = n;
-                if ( n.name === 'hand_l' ) OOI.hand_l = n;
-                if ( n.name === 'target_hand_l' ) OOI.target_hand_l = n;
-                if ( n.name === 'boule' ) OOI.sphere = n;
-                if ( n.name === 'Kira_Shirt_left' ) OOI.kira = n;
-            } );
-            scene.add( gltf.scene );
-
-            // Configuración IK Original
-            const targetPosition = OOI.sphere.position.clone(); 
-            OOI.hand_l.attach( OOI.sphere );
-
-            // Esfera espejo (modificada para ser más psicodélica)
-            const cubeRenderTarget = new THREE.WebGLCubeRenderTarget( 512 );
-            mirrorSphereCamera = new THREE.CubeCamera( 0.05, 50, cubeRenderTarget );
-            scene.add( mirrorSphereCamera );
-            const mirrorSphereMaterial = new THREE.MeshBasicMaterial( { 
-                envMap: cubeRenderTarget.texture,
-                color: 0xffffff 
-            } );
-            OOI.sphere.material = mirrorSphereMaterial;
-
-            OOI.kira.add( OOI.kira.skeleton.bones[ 0 ] );
-            const iks = [
-                {
-                    target: 22, 
-                    effector: 6, 
-                    links: [
-                        { index: 5, rotationMin: new THREE.Vector3( 1.2, - 1.8, - .4 ), rotationMax: new THREE.Vector3( 1.7, - 1.1, .3 ) },
-                        { index: 4, rotationMin: new THREE.Vector3( 0.1, - 0.7, - 1.8 ), rotationMax: new THREE.Vector3( 1.1, 0, - 1.4 ) },
-                    ],
-                }
-            ];
-            IKSolver = new CCDIKSolver( OOI.kira, iks );
-            const ccdikhelper = new CCDIKHelper( OOI.kira, iks, 0.01 );
-            scene.add( ccdikhelper );
-
-            // 4. RENDERER & POST-PROCESSING
+            // Renderizador
             renderer = new THREE.WebGLRenderer( { antialias: true } );
             renderer.setPixelRatio( window.devicePixelRatio );
             renderer.setSize( window.innerWidth, window.innerHeight );
-            document.body.appendChild( renderer.domElement );
+            container.appendChild( renderer.domElement );
 
-            setupPostProcessing();
-
-            // GUI
-            gui = new GUI();
-            gui.add( conf, 'followSphere' ).name( 'Seguir Esfera' );
-            gui.add( conf, 'turnHead' ).name( 'Girar Cabeza' );
-            gui.add( conf, 'ik_solver' ).name( 'Activar IK' );
-            gui.add( conf, 'visualTrip' ).name( 'MODO ONÍRICO' ).onChange( toggleShader );
-            
-            // Controles
-            orbitControls = new OrbitControls( camera, renderer.domElement );
-            orbitControls.minDistance = 0.2;
-            orbitControls.maxDistance = 3.5; // Permitir alejarse más
-            orbitControls.enableDamping = true;
-            orbitControls.target.copy( targetPosition );
-
-            transformControls = new TransformControls( camera, renderer.domElement );
-            transformControls.size = 0.75;
-            transformControls.showX = false;
-            transformControls.space = 'world';
-            transformControls.attach( OOI.target_hand_l );
-            scene.add( transformControls.getHelper() );
-
-            transformControls.addEventListener( 'mouseDown', () => orbitControls.enabled = false );
-            transformControls.addEventListener( 'mouseUp', () => orbitControls.enabled = true );
-
-            window.addEventListener( 'resize', onWindowResize, false );
-            renderer.setAnimationLoop( animate );
-        }
-
-        // --- FUNCIONES NUEVAS PARA EL MUNDO ONÍRICO ---
-
-        function createDreamWorld() {
-            // Piso de Grid Infinito (estilo Tron/Vaporwave)
-            const gridHelper = new THREE.GridHelper( 20, 40, 0xff00ff, 0x222222 );
-            scene.add( gridHelper );
-
-            // Objetos flotantes abstractos
-            const geometry = new THREE.IcosahedronGeometry( 0.5, 0 );
-            const material = new THREE.MeshNormalMaterial({ wireframe: true }); 
-
-            for ( let i = 0; i < 20; i ++ ) {
-                const mesh = new THREE.Mesh( geometry, material );
-                mesh.position.x = ( Math.random() - 0.5 ) * 10;
-                mesh.position.y = ( Math.random() ) * 5;
-                mesh.position.z = ( Math.random() - 0.5 ) * 10;
-                mesh.rotation.x = Math.random() * Math.PI;
-                
-                // Escala aleatoria
-                const scale = Math.random() * 0.5 + 0.1;
-                mesh.scale.set(scale, scale, scale);
-
-                scene.add( mesh );
-                dreamObjects.push(mesh);
-            }
-        }
-
-        function setupPostProcessing() {
+            // Post-procesado básico (para probar las importaciones)
             composer = new EffectComposer( renderer );
             const renderPass = new RenderPass( scene, camera );
             composer.addPass( renderPass );
 
-            // 1. Bloom (Resplandor neón)
-            const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
-            bloomPass.threshold = 0;
-            bloomPass.strength = 1.2; // Intensidad del brillo
-            bloomPass.radius = 0.5;
-            composer.addPass( bloomPass );
-
-            // 2. Custom Shader (Inversión psicodélica)
-            // Este shader simula lo que hacía el Dark Reader: invierte colores y aumenta saturación
-            const psychedelicShader = {
-                uniforms: {
-                    "tDiffuse": { value: null },
-                    "amount": { value: 1.0 },
-                    "time": { value: 0.0 }
-                },
-                vertexShader: `
-                    varying vec2 vUv;
-                    void main() {
-                        vUv = uv;
-                        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-                    }
-                `,
-                fragmentShader: `
-                    uniform sampler2D tDiffuse;
-                    uniform float amount;
-                    uniform float time;
-                    varying vec2 vUv;
-
-                    void main() {
-                        vec4 color = texture2D( tDiffuse, vUv );
-                        
-                        if (amount > 0.5) {
-                            // Invertir colores
-                            color.rgb = 1.0 - color.rgb;
-                            
-                            // Aumentar contraste
-                            color.rgb = (color.rgb - 0.5) * 1.5 + 0.5;
-
-                            // Tinte cíclico basado en el tiempo (efecto arcoiris sutil)
-                            color.r += sin(time * 0.5) * 0.1;
-                            color.b += cos(time * 0.5) * 0.1;
-                        }
-
-                        gl_FragColor = color;
-                    }
-                `
-            };
-
-            const shaderPass = new ShaderPass( psychedelicShader );
-            shaderPass.uniforms[ "amount" ].value = 1.0; 
-            composer.addPass( shaderPass );
+            // Aquí iría tu carga de MMD...
+            // const loader = new MMDLoader();
+            // ...
             
-            // Guardamos referencia para animar el tiempo
-            window.customPass = shaderPass;
-        }
-
-        function toggleShader() {
-            if(window.customPass) {
-                window.customPass.uniforms["amount"].value = conf.visualTrip ? 1.0 : 0.0;
-            }
-        }
-
-        function animate( ) {
-            const time = clock.getElapsedTime();
-
-            // Animar objetos del fondo
-            dreamObjects.forEach((obj, i) => {
-                obj.rotation.x += 0.01;
-                obj.rotation.y += 0.02;
-                // Movimiento flotante
-                obj.position.y += Math.sin(time + i) * 0.005;
-            });
-
-            // Actualizar shader time
-            if(window.customPass) window.customPass.uniforms["time"].value = time;
-
-            if ( OOI.sphere && mirrorSphereCamera ) {
-                OOI.sphere.visible = false;
-                OOI.sphere.getWorldPosition( mirrorSphereCamera.position );
-                mirrorSphereCamera.update( renderer, scene );
-                OOI.sphere.visible = true;
-            }
-
-            if ( OOI.sphere && conf.followSphere ) {
-                OOI.sphere.getWorldPosition( v0 );
-                orbitControls.target.lerp( v0, 0.1 );
-            }
-
-            if ( OOI.head && OOI.sphere && conf.turnHead ) {
-                OOI.sphere.getWorldPosition( v0 );
-                OOI.head.lookAt( v0 );
-                OOI.head.rotation.set( OOI.head.rotation.x, OOI.head.rotation.y + Math.PI, OOI.head.rotation.z );
-            }
-
-            if ( conf.ik_solver ) {
-                if ( IKSolver ) IKSolver.update();
-                scene.traverse( function ( object ) {
-                    if ( object.isSkinnedMesh ) object.computeBoundingSphere();
-                } );
-            }
-
-            orbitControls.update();
-            
-            // USAR EL COMPOSER EN LUGAR DEL RENDERER STANDARD
-            composer.render();
+            window.addEventListener( 'resize', onWindowResize );
         }
 
         function onWindowResize() {
@@ -329,6 +85,12 @@
             renderer.setSize( window.innerWidth, window.innerHeight );
             composer.setSize( window.innerWidth, window.innerHeight );
         }
-        </script>
-    </body>
+
+        function animate() {
+            requestAnimationFrame( animate );
+            // renderer.render( scene, camera ); // Usar composer si hay efectos
+            composer.render();
+        }
+    </script>
+</body>
 </html>
