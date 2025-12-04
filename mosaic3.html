@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Kira: Restricted Range (No Glitch)</title>
+    <title>Kira: Free Range (Safe Back)</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <style>
@@ -26,7 +26,7 @@
 
 <body>
     <div id="info">
-        RANGO LIMITADO (SIN LOOP)<br/>
+        RANGO LIBRE (PROTECCIÓN TRASERA)<br/>
         <span class="key">FLECHAS</span>: Mover &bull; <span class="key">W/S</span>: Profundidad &bull; <span class="key">H</span>: Ver Gizmo
     </div>
 
@@ -51,19 +51,21 @@
             camTarget: new THREE.Vector3(2.14, 1.11, -0.24),
             
             // FÍSICA
-            moveSpeed: 0.03,     
+            moveSpeed: 0.04,     
             smoothFactor: 0.08,   
             
-            // --- LÍMITES AJUSTADOS (PARED VIRTUAL) ---
+            // --- LÍMITES INTELIGENTES ---
             limits: {
-                // xMin: 0.1 evita que cruce el cuerpo hacia la izquierda (causa del loop)
-                xMin: 0.1, xMax: 1.0,  
+                // X: Permitimos ir muy a la derecha (2.5), pero limitamos cruzar el pecho (-0.2)
+                xMin: -0.2, xMax: 2.5,  
                 
-                // yMin: 0.6 evita que atraviese su propia pierna/sillón
-                yMin: 0.6,  yMax: 1.6,  
+                // Y: Permitimos ir muy alto (2.5), pero no atravesar el asiento (0.5)
+                yMin: 0.5,  yMax: 2.5,  
                 
-                // zMin: -0.2 evita que vaya detrás del respaldo (la causa principal del glitch)
-                zMin: -0.2, zMax: 0.8   
+                // Z (Profundidad): ¡AQUÍ ESTÁ EL TRUCO!
+                // zMax (2.5): Libertad total hacia adelante.
+                // zMin (-0.15): La pared invisible justo en la espalda para evitar el glitch.
+                zMin: -0.15, zMax: 2.5   
             }
         };
 
@@ -197,7 +199,7 @@
             if (keys.w || keys.W) targetPos.z -= speed;
             if (keys.s || keys.S) targetPos.z += speed;
 
-            // APLICAR LÍMITES AJUSTADOS
+            // LÍMITES ASIMÉTRICOS (Libertad + Seguridad)
             targetPos.x = THREE.MathUtils.clamp(targetPos.x, CONFIG.limits.xMin, CONFIG.limits.xMax);
             targetPos.y = THREE.MathUtils.clamp(targetPos.y, CONFIG.limits.yMin, CONFIG.limits.yMax);
             targetPos.z = THREE.MathUtils.clamp(targetPos.z, CONFIG.limits.zMin, CONFIG.limits.zMax);
