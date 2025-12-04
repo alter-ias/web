@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Kira: Limited Range</title>
+    <title>Kira: Restricted Range (No Glitch)</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <style>
@@ -26,7 +26,7 @@
 
 <body>
     <div id="info">
-        RANGO LIMITADO<br/>
+        RANGO LIMITADO (SIN LOOP)<br/>
         <span class="key">FLECHAS</span>: Mover &bull; <span class="key">W/S</span>: Profundidad &bull; <span class="key">H</span>: Ver Gizmo
     </div>
 
@@ -50,15 +50,20 @@
             camPos: new THREE.Vector3(0.92, 1.41, -1.64),
             camTarget: new THREE.Vector3(2.14, 1.11, -0.24),
             
-            // AJUSTE DE MOVIMIENTO
-            moveSpeed: 0.04,     // Más rápido para sentir control
-            smoothFactor: 0.1,   // Más responsivo
+            // FÍSICA
+            moveSpeed: 0.03,     
+            smoothFactor: 0.08,   
             
-            // --- AQUÍ ESTÁN LOS LÍMITES DE LA CAJA ---
+            // --- LÍMITES AJUSTADOS (PARED VIRTUAL) ---
             limits: {
-                xMin: -0.5, xMax: 1.2,  // Izquierda / Derecha
-                yMin: 0.5,  yMax: 1.8,  // Suelo / Techo (No bajar de 0.5 para no atravesar la silla)
-                zMin: -0.8, zMax: 0.8   // Profundidad
+                // xMin: 0.1 evita que cruce el cuerpo hacia la izquierda (causa del loop)
+                xMin: 0.1, xMax: 1.0,  
+                
+                // yMin: 0.6 evita que atraviese su propia pierna/sillón
+                yMin: 0.6,  yMax: 1.6,  
+                
+                // zMin: -0.2 evita que vaya detrás del respaldo (la causa principal del glitch)
+                zMin: -0.2, zMax: 0.8   
             }
         };
 
@@ -182,11 +187,9 @@
             });
         }
 
-        // --- AQUÍ ESTÁ LA LÓGICA DE LÍMITES ---
         function updateMovementTarget() {
             const speed = CONFIG.moveSpeed;
             
-            // 1. Calcular nueva posición teórica
             if (keys.ArrowRight) targetPos.x += speed;
             if (keys.ArrowLeft) targetPos.x -= speed;
             if (keys.ArrowUp) targetPos.y += speed;
@@ -194,8 +197,7 @@
             if (keys.w || keys.W) targetPos.z -= speed;
             if (keys.s || keys.S) targetPos.z += speed;
 
-            // 2. APLICAR LÍMITES (CLAMP)
-            // Esto obliga al valor a mantenerse entre Min y Max
+            // APLICAR LÍMITES AJUSTADOS
             targetPos.x = THREE.MathUtils.clamp(targetPos.x, CONFIG.limits.xMin, CONFIG.limits.xMax);
             targetPos.y = THREE.MathUtils.clamp(targetPos.y, CONFIG.limits.yMin, CONFIG.limits.yMax);
             targetPos.z = THREE.MathUtils.clamp(targetPos.z, CONFIG.limits.zMin, CONFIG.limits.zMax);
