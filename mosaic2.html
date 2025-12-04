@@ -1,11 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <title>Three.js - Fix Import Map</title>
+    <title>Kira: Dream Sequence - Procedural Core</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #050505; /* Fondo casi negro */
+            font-family: monospace;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            text-align: center;
+            color: #ffffff;
+            pointer-events: none;
+            text-shadow: 0 0 10px #ff00de;
+            opacity: 0.7;
+        }
     </style>
 
     <script type="importmap">
@@ -19,76 +34,171 @@
 </head>
 
 <body>
+    <div id="info">KIRA: DREAM SEQUENCE | Generative Core</div>
     <div id="container"></div>
 
     <script type="module">
-        // --------------------------------------------------------
-        // IMPORTACIONES CORREGIDAS (Ya no usan rutas locales ./)
-        // --------------------------------------------------------
         import * as THREE from 'three';
-        
-        // Loaders y Animación (Vistos en tu error log)
-        import { MMDLoader } from 'three/addons/loaders/MMDLoader.js';
-        import { CCDIKSolver } from 'three/addons/animation/CCDIKSolver.js';
-        
-        // Post-procesado (Vistos en tu error log)
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-        import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --------------------------------------------------------
-        // AQUÍ EMPIEZA TU LÓGICA
-        // Pega aquí abajo el resto de tu código (init, animate, etc.)
-        // --------------------------------------------------------
-
         let scene, camera, renderer, composer;
+        let controls;
+        let coreMesh, particlesMesh;
+        const clock = new THREE.Clock();
+
+        // Parámetros artísticos
+        const params = {
+            bloomStrength: 2.5,  // Intensidad del brillo
+            bloomRadius: 0.4,    // Radio del resplandor
+            bloomThreshold: 0,   // Umbral (0 = todo brilla)
+            rotationSpeed: 0.2
+        };
 
         init();
         animate();
 
         function init() {
-            // Configuración básica para probar que funciona
-            const container = document.getElementById( 'container' );
-            
-            camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 2000 );
-            camera.position.z = 30;
+            const container = document.getElementById('container');
 
+            // 1. ESCENA Y CÁMARA
             scene = new THREE.Scene();
-            scene.background = new THREE.Color( 0x000000 );
+            // Niebla para dar profundidad onírica
+            scene.fog = new THREE.FogExp2(0x050505, 0.02);
 
-            // Ejemplo: Una luz
-            const ambient = new THREE.AmbientLight( 0x666666 );
-            scene.add( ambient );
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 40);
 
-            // Renderizador
-            renderer = new THREE.WebGLRenderer( { antialias: true } );
-            renderer.setPixelRatio( window.devicePixelRatio );
-            renderer.setSize( window.innerWidth, window.innerHeight );
-            container.appendChild( renderer.domElement );
+            // 2. RENDERIZADOR
+            renderer = new THREE.WebGLRenderer({ antialias: false }); // False para mejor performance con Bloom
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ReinhardToneMapping;
+            container.appendChild(renderer.domElement);
 
-            // Post-procesado básico (para probar las importaciones)
-            composer = new EffectComposer( renderer );
-            const renderPass = new RenderPass( scene, camera );
-            composer.addPass( renderPass );
+            // 3. CONTROLES
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 1.0;
 
-            // Aquí iría tu carga de MMD...
-            // const loader = new MMDLoader();
-            // ...
+            // 4. CREACIÓN DE OBJETOS (Arte Generativo)
+            createDreamCore();
+            createFloatingParticles();
+
+            // 5. POST-PROCESADO (El efecto "Glow")
+            const renderScene = new RenderPass(scene, camera);
+
+            // Efecto Bloom (Brillo irreal tipo anime/sueño)
+            const bloomPass = new UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                params.bloomStrength,
+                params.bloomRadius,
+                params.bloomThreshold
+            );
+
+            composer = new EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+
+            // Eventos
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createDreamCore() {
+            // Geometría compleja: Icosaedro con detalle
+            const geometry = new THREE.IcosahedronGeometry(8, 2); // Radio 8, Detalle 2
             
-            window.addEventListener( 'resize', onWindowResize );
+            // Material Wireframe (alambre) brillante
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0xff00aa, // Magenta neón
+                wireframe: true,
+                transparent: true,
+                opacity: 0.15
+            });
+
+            coreMesh = new THREE.Mesh(geometry, material);
+            scene.add(coreMesh);
+
+            // Núcleo interno sólido
+            const innerGeo = new THREE.IcosahedronGeometry(4, 0);
+            const innerMat = new THREE.MeshBasicMaterial({ 
+                color: 0x00ffff, // Cyan neón
+                wireframe: true 
+            });
+            const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+            coreMesh.add(innerMesh); // Hacemos que sea hijo para que roten juntos
+        }
+
+        function createFloatingParticles() {
+            // Creamos 1000 partículas flotantes
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            
+            for (let i = 0; i < 2000; i++) {
+                // Posición aleatoria en una esfera
+                const r = 20 + Math.random() * 30; // Radio entre 20 y 50
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+
+                const x = r * Math.sin(phi) * Math.cos(theta);
+                const y = r * Math.sin(phi) * Math.sin(theta);
+                const z = r * Math.cos(phi);
+
+                vertices.push(x, y, z);
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+            const material = new THREE.PointsMaterial({ 
+                color: 0xaa00ff, // Violeta
+                size: 0.4,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending // Mezcla de luz aditiva
+            });
+
+            particlesMesh = new THREE.Points(geometry, material);
+            scene.add(particlesMesh);
         }
 
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize( window.innerWidth, window.innerHeight );
-            composer.setSize( window.innerWidth, window.innerHeight );
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
         }
 
         function animate() {
-            requestAnimationFrame( animate );
-            // renderer.render( scene, camera ); // Usar composer si hay efectos
+            requestAnimationFrame(animate);
+
+            const time = clock.getElapsedTime();
+            const delta = clock.getDelta();
+
+            // --- ANIMACIÓN PROCEDURAL ---
+            
+            // 1. El núcleo respira (escala senoidal)
+            const scale = 1 + Math.sin(time * 1.5) * 0.1;
+            coreMesh.scale.set(scale, scale, scale);
+
+            // 2. Rotación compleja
+            coreMesh.rotation.x = time * 0.2;
+            coreMesh.rotation.y = time * 0.15;
+
+            // 3. Las partículas ondulan suavemente
+            particlesMesh.rotation.y = -time * 0.05;
+            
+            // Cambiar color dinámicamente con el tiempo (Hue shift)
+            // Esto crea el efecto psicodélico suave
+            const hue = (time * 0.05) % 1; 
+            const color = new THREE.Color().setHSL(hue, 1, 0.5);
+            coreMesh.material.color.lerp(color, 0.01);
+
+            controls.update();
+
+            // Usamos composer.render() en lugar de renderer.render() para ver el Bloom
             composer.render();
         }
     </script>
