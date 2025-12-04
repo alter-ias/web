@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Kira: Dream Sequence (Fixed)</title>
+    <title>Kira: Lab Mode (Debug)</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <style>
@@ -21,7 +21,6 @@
             pointer-events: none;
             text-shadow: 0 0 5px #00ffff;
         }
-        a { color: #00ffff; text-decoration: none; pointer-events: auto; }
     </style>
 
     <script type="importmap">
@@ -35,47 +34,67 @@
 </head>
 
 <body>
-    <div id="info">
-        KIRA: DREAM SEQUENCE | <a href="#" id="toggleIK">Toggle IK</a><br/>
-        Mueve el orbe de energía con las flechas
-    </div>
+    <div id="info">MODO LABORATORIO: Ajusta los valores en el panel derecho</div>
 
     <script type="module">
         import * as THREE from 'three';
-
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { TransformControls } from 'three/addons/controls/TransformControls.js';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-        import { CCDIKSolver, CCDIKHelper } from 'three/addons/animation/CCDIKSolver.js';
-        
-        // Post-procesado
+        import { CCDIKSolver } from 'three/addons/animation/CCDIKSolver.js';
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
         let scene, camera, renderer, composer;
         let orbitControls, transformControls;
+        let bloomPass;
         
-        // Objeto "Of Interest" (OOI)
+        // Luces para controlar
+        let orbLight, rimLight, ambientLight;
+
         const OOI = {};
         let IKSolver;
         let particlesMesh; 
-
-        const conf = {
-            followSphere: false,
-            turnHead: true,
-            ik_solver: true,
-            update: updateIK
-        };
         
         const v0 = new THREE.Vector3();
         const clock = new THREE.Clock();
 
+        // PARÁMETROS EDITABLES
+        const params = {
+            // Bloom
+            bloomStrength: 1.2,
+            bloomRadius: 0.5,
+            bloomThreshold: 0,
+            // Luces
+            orbIntensity: 2.0,
+            rimIntensity: 5.0,
+            rimColor: '#ff00ff',
+            orbColor: '#00ffff',
+            // Cámara
+            targetBone: 'Orb', // 'Orb' o 'Head'
+            // Acciones
+            printSettings: function() {
+                console.log("--- TUS AJUSTES FAVORITOS ---");
+                console.log(JSON.stringify({
+                    bloomStrength: params.bloomStrength,
+                    bloomRadius: params.bloomRadius,
+                    orbIntensity: params.orbIntensity,
+                    rimIntensity: params.rimIntensity,
+                    rimColor: params.rimColor,
+                    orbColor: params.orbColor,
+                    cameraPosition: camera.position,
+                    cameraTarget: orbitControls.target
+                }, null, 2));
+                alert("¡Ajustes impresos en la Consola (F12)!");
+            }
+        };
+
         init();
 
         async function init() {
-
             // 1. ESCENA
             scene = new THREE.Scene();
             scene.fog = new THREE.FogExp2( 0x050510, 0.03 ); 
@@ -83,39 +102,38 @@
 
             camera = new THREE.PerspectiveCamera( 55, window.innerWidth / window.innerHeight, 0.001, 5000 );
             camera.position.set( 0.9, 1.1, 1.5 ); 
-            camera.lookAt( scene.position );
 
             // 2. LUCES
-            const ambientLight = new THREE.AmbientLight( 0x222222 ); 
+            ambientLight = new THREE.AmbientLight( 0x222222 ); 
             scene.add( ambientLight );
 
-            const orbLight = new THREE.PointLight( 0x00ffff, 2, 5 );
+            orbLight = new THREE.PointLight( params.orbColor, params.orbIntensity, 5 );
             scene.add( orbLight ); 
 
-            const rimLight = new THREE.SpotLight( 0xff00ff, 5 );
+            rimLight = new THREE.SpotLight( params.rimColor, params.rimIntensity );
             rimLight.position.set( -2, 2, -2 );
             rimLight.lookAt(0,1,0);
             scene.add( rimLight );
 
-            // 3. RENDERIZADOR
+            // 3. RENDER
             renderer = new THREE.WebGLRenderer( { antialias: false, powerPreference: "high-performance" } );
             renderer.setPixelRatio( window.devicePixelRatio );
             renderer.setSize( window.innerWidth, window.innerHeight );
             renderer.toneMapping = THREE.ReinhardToneMapping;
             document.body.appendChild( renderer.domElement );
 
-            // 4. POST-PROCESADO (BLOOM)
+            // 4. POST-PROCESADO
             const renderScene = new RenderPass( scene, camera );
-            const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
-            bloomPass.threshold = 0;
-            bloomPass.strength = 1.2;
-            bloomPass.radius = 0.5;
+            bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
+            bloomPass.threshold = params.bloomThreshold;
+            bloomPass.strength = params.bloomStrength;
+            bloomPass.radius = params.bloomRadius;
 
             composer = new EffectComposer( renderer );
             composer.addPass( renderScene );
             composer.addPass( bloomPass );
 
-            // 5. CARGAR MODELO
+            // 5. CARGA MODELO
             const dracoLoader = new DRACOLoader();
             dracoLoader.setDecoderPath( 'https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/' ); 
             const gltfLoader = new GLTFLoader();
@@ -141,18 +159,19 @@
                 } );
                 scene.add( gltf.scene );
 
-                // 6. ORBE
+                // Orbe
                 OOI.hand_l.attach( OOI.sphere );
-                const orbMaterial = new THREE.MeshBasicMaterial( { color: 0x00ffff, wireframe: true } );
+                const orbMaterial = new THREE.MeshBasicMaterial( { color: params.orbColor, wireframe: true } );
                 OOI.sphere.material = orbMaterial;
                 OOI.sphere.add(orbLight); 
 
+                // Core sólido
                 const coreGeo = new THREE.IcosahedronGeometry( 0.05, 0 );
                 const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
                 const core = new THREE.Mesh(coreGeo, coreMat);
                 OOI.sphere.add(core);
 
-                // 7. IK SETUP
+                // IK
                 OOI.kira.add( OOI.kira.skeleton.bones[ 0 ] );
                 const iks = [
                     {
@@ -166,36 +185,71 @@
                 ];
                 IKSolver = new CCDIKSolver( OOI.kira, iks );
 
-                // 8. CONTROLES
-                orbitControls = new OrbitControls( camera, renderer.domElement );
-                orbitControls.minDistance = 0.2;
-                orbitControls.maxDistance = 1.5;
-                orbitControls.enableDamping = true;
-                
-                transformControls = new TransformControls( camera, renderer.domElement );
-                transformControls.size = 0.5;
-                transformControls.showX = true;
-                transformControls.space = 'world';
-                transformControls.attach( OOI.target_hand_l );
-                
-                // --- CORRECCIÓN AQUÍ ---
-                // En versiones nuevas, añadimos el control directamente, NO .getHelper()
-                scene.add( transformControls ); 
-                // -----------------------
-
-                transformControls.addEventListener( 'mouseDown', () => orbitControls.enabled = false );
-                transformControls.addEventListener( 'mouseUp', () => orbitControls.enabled = true );
-
-                // 9. PARTÍCULAS
+                setupControls();
+                setupGUI();
                 createFloatingParticles();
-
-                window.addEventListener( 'resize', onWindowResize, false );
                 
-                // INICIAR ANIMACIÓN
+                window.addEventListener( 'resize', onWindowResize, false );
                 renderer.setAnimationLoop( animate );
 
             } catch ( error ) {
-                console.error("Error cargando el modelo:", error);
+                console.error("Error cargando modelo:", error);
+            }
+        }
+
+        function setupControls() {
+            orbitControls = new OrbitControls( camera, renderer.domElement );
+            orbitControls.minDistance = 0.1; // PERMITE ACERCARSE MUCHO
+            orbitControls.maxDistance = 5;
+            orbitControls.enableDamping = true;
+            
+            transformControls = new TransformControls( camera, renderer.domElement );
+            transformControls.size = 0.5;
+            transformControls.showX = true;
+            transformControls.space = 'world';
+            transformControls.attach( OOI.target_hand_l );
+            scene.add( transformControls );
+
+            transformControls.addEventListener( 'mouseDown', () => orbitControls.enabled = false );
+            transformControls.addEventListener( 'mouseUp', () => orbitControls.enabled = true );
+        }
+
+        function setupGUI() {
+            const gui = new GUI();
+            
+            const f1 = gui.addFolder('CÁMARA / FOCO');
+            f1.add(params, 'targetBone', ['Orb', 'Head']).name('Mirar a:').onChange( updateCameraTarget );
+            f1.open();
+
+            const f2 = gui.addFolder('NEÓN & GLOW');
+            f2.add(params, 'bloomStrength', 0, 3).onChange( v => bloomPass.strength = v );
+            f2.add(params, 'bloomRadius', 0, 1).onChange( v => bloomPass.radius = v );
+            f2.open();
+
+            const f3 = gui.addFolder('LUCES');
+            f3.addColor(params, 'orbColor').name('Color Orbe').onChange( v => {
+                orbLight.color.set(v);
+                OOI.sphere.material.color.set(v);
+            });
+            f3.add(params, 'orbIntensity', 0, 10).name('Intensidad Orbe').onChange( v => orbLight.intensity = v );
+            
+            f3.addColor(params, 'rimColor').name('Color Silueta').onChange( v => rimLight.color.set(v) );
+            f3.add(params, 'rimIntensity', 0, 20).name('Intensidad Silueta').onChange( v => rimLight.intensity = v );
+
+            gui.add(params, 'printSettings').name('💾 IMPRIMIR DATOS');
+        }
+
+        function updateCameraTarget() {
+            // Esta función cambia suavemente a dónde mira la cámara
+            if(params.targetBone === 'Head' && OOI.head) {
+                // Obtenemos posición de la cabeza
+                const headPos = new THREE.Vector3();
+                OOI.head.getWorldPosition(headPos);
+                orbitControls.target.copy(headPos);
+            } else if (params.targetBone === 'Orb' && OOI.sphere) {
+                const orbPos = new THREE.Vector3();
+                OOI.sphere.getWorldPosition(orbPos);
+                orbitControls.target.copy(orbPos);
             }
         }
 
@@ -203,11 +257,7 @@
             const geometry = new THREE.BufferGeometry();
             const vertices = [];
             for (let i = 0; i < 500; i++) {
-                vertices.push(
-                    (Math.random() - 0.5) * 4,
-                    (Math.random() - 0.5) * 4 + 1,
-                    (Math.random() - 0.5) * 4
-                );
+                vertices.push( (Math.random()-0.5)*4, (Math.random()-0.5)*4+1, (Math.random()-0.5)*4 );
             }
             geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
             const material = new THREE.PointsMaterial({ color: 0xff00ff, size: 0.02, transparent: true, opacity: 0.6 });
@@ -218,35 +268,35 @@
         function animate() {
             const time = clock.getElapsedTime();
 
+            // Animaciones
             if(particlesMesh) {
                 particlesMesh.rotation.y = time * 0.05;
                 particlesMesh.position.y = Math.sin(time * 0.5) * 0.1;
             }
-
             if(OOI.sphere) {
                 const s = 1 + Math.sin(time * 3) * 0.2;
                 OOI.sphere.scale.set(s, s, s);
             }
 
-            if ( OOI.head && OOI.sphere && conf.turnHead ) {
+            // Lógica IK (cabeza sigue esfera)
+            if ( OOI.head && OOI.sphere ) {
                 OOI.sphere.getWorldPosition( v0 );
                 OOI.head.lookAt( v0 );
                 OOI.head.rotation.set( OOI.head.rotation.x, OOI.head.rotation.y + Math.PI, OOI.head.rotation.z );
             }
 
-            if ( conf.ik_solver ) {
-                updateIK();
+            if ( IKSolver ) IKSolver.update();
+            scene.traverse( o => { if (o.isSkinnedMesh) o.computeBoundingSphere(); } );
+
+            // Si estamos en modo "Orb", seguimos actualizando el target dinámicamente
+            // Si estamos en modo "Head", el target se queda fijo en la cabeza
+            if(params.targetBone === 'Orb' && OOI.sphere) {
+                // Opcional: Si quieres que la cámara persiga la mano mientras se mueve
+                // OOI.sphere.getWorldPosition( orbitControls.target );
             }
 
             orbitControls.update();
             composer.render();
-        }
-
-        function updateIK() {
-            if ( IKSolver ) IKSolver.update();
-            scene.traverse( function ( object ) {
-                if ( object.isSkinnedMesh ) object.computeBoundingSphere();
-            } );
         }
 
         function onWindowResize() {
