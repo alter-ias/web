@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cine Mosaico Generativo: Escenario 1</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000040; /* Midnight Void  */
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
+            color: #00ffe5; /* Electric Cyan  */
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Capa de atmósfera "Volumetric Fog" simulada con CSS */
+        .atmosphere {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, transparent 0%, #000040 90%);
+            z-index: 2;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* Interfaz UI Holográfica */
+        .ui-layer {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            z-index: 3;
+            text-shadow: 0 0 10px #00ffe5;
+            pointer-events: none;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin: 0;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border-bottom: 2px solid #ff2158; /* Deep Magenta  */
+            display: inline-block;
+            padding-bottom: 5px;
+        }
+
+        p {
+            font-size: 12px;
+            color: #9afff7; /* Biolum. Green  */
+            margin-top: 10px;
+        }
+
+        .params {
+            font-size: 10px;
+            color: #7d2cff; /* Ethereal Violet  */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div class="atmosphere"></div>
+
+    <div class="ui-layer">
+        <h1>Mosaico Tecnológico</h1>
+        <p>SIMULACIÓN: REACCIÓN-DIFUSIÓN (GRAY-SCOTT)</p>
+        <p class="params">F: 0.0545 | K: 0.0620 | PATRÓN: CORAL</p>
+        <p>Interacciona con el mouse para sembrar la "floración".</p>
+    </div>
+
+    <script>
+        // Configuración basada en el documento "Creación Película Mosaico Tecnológico"
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let grid = [];
+        let next = [];
+
+        // Parámetros del modelo Gray-Scott para patrón "Coral" 
+        const feed = 0.0545;
+        const k = 0.062;
+        
+        // Tasas de difusión
+        const dA = 1.0;
+        const dB = 0.5;
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            initGrid();
+        }
+
+        function initGrid() {
+            grid = [];
+            next = [];
+            for (let x = 0; x < width; x++) {
+                grid[x] = [];
+                next[x] = [];
+                for (let y = 0; y < height; y++) {
+                    // Inicializar: A=1, B=0
+                    grid[x][y] = { a: 1, b: 0 };
+                    next[x][y] = { a: 1, b: 0 };
+                }
+            }
+            
+            // Sembrar "La Floración" inicial en el centro
+            seedArea(Math.floor(width / 2), Math.floor(height / 2), 20);
+        }
+
+        function seedArea(centerX, centerY, radius) {
+            for (let i = centerX - radius; i < centerX + radius; i++) {
+                for (let j = centerY - radius; j < centerY + radius; j++) {
+                    if (i >= 0 && i < width && j >= 0 && j < height) {
+                        if (Math.sqrt((i-centerX)**2 + (j-centerY)**2) < radius) {
+                            grid[i][j].b = 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Algoritmo de Reacción-Difusión (Gray-Scott)
+        function update() {
+            for (let x = 1; x < width - 1; x++) {
+                for (let y = 1; y < height - 1; y++) {
+                    let a = grid[x][y].a;
+                    let b = grid[x][y].b;
+
+                    // Función Laplaciana (difusión simple)
+                    let laplaceA = 
+                        (grid[x-1][y].a + grid[x+1][y].a + grid[x][y-1].a + grid[x][y+1].a) * 0.2 +
+                        (grid[x-1][y-1].a + grid[x+1][y-1].a + grid[x-1][y+1].a + grid[x+1][y+1].a) * 0.05 - 
+                        a;
+                        
+                    let laplaceB = 
+                        (grid[x-1][y].b + grid[x+1][y].b + grid[x][y-1].b + grid[x][y+1].b) * 0.2 +
+                        (grid[x-1][y-1].b + grid[x+1][y-1].b + grid[x-1][y+1].b + grid[x+1][y+1].b) * 0.05 - 
+                        b;
+
+                    // Ecuaciones Gray-Scott
+                    let newA = a + (dA * laplaceA - a * b * b + feed * (1 - a));
+                    let newB = b + (dB * laplaceB + a * b * b - (k + feed) * b);
+
+                    // Constrain (Clamp)
+                    next[x][y].a = Math.min(Math.max(newA, 0), 1);
+                    next[x][y].b = Math.min(Math.max(newB, 0), 1);
+                }
+            }
+            
+            // Intercambiar buffers
+            let temp = grid;
+            grid = next;
+            next = temp;
+        }
+
+        // Renderizado con los colores del documento
+        function draw() {
+            // Crear imagen para dibujar píxeles directamente (más rápido)
+            let imgData = ctx.createImageData(width, height);
+            let data = imgData.data;
+
+            for (let x = 0; x < width; x++) {
+                for (let y = 0; y < height; y++) {
+                    let cell = grid[x][y];
+                    let index = (x + y * width) * 4;
+                    
+                    // Visualización:
+                    // A = Sustancia base (Fondo/Aire)
+                    // B = Sustancia activa (El "Coral" o "Virus")
+                    
+                    let val = cell.a - cell.b;
+                    
+                    // Mapeo de colores "Bioluminiscencia Urbana"
+                    // Si hay mucha sustancia B, usamos Magenta y Cyan
+                    
+                    // R (Rojo) - Mezcla para Deep Magenta (#ff2158)
+                    data[index + 0] = Math.floor(cell.b * 255 * 2); 
+                    // G (Verde) - Mezcla para Electric Cyan (#00ffe5)
+                    data[index + 1] = Math.floor(cell.b * 255 * 0.8 + cell.a * 20); 
+                    // B (Azul) - Base Midnight Void (#000040)
+                    data[index + 2] = Math.floor(64 + cell.b * 200); 
+                    // Alpha
+                    data[index + 3] = 255;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        function loop() {
+            // Actualizar varias veces por frame para acelerar la simulación
+            for(let i=0; i<5; i++) update(); 
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Interacción: Agregar "químico B" con el mouse
+        canvas.addEventListener('mousemove', function(e) {
+            seedArea(e.clientX, e.clientY, 10);
+        });
+
+        canvas.addEventListener('touchmove', function(e) {
+             let touch = e.touches[0];
+             seedArea(Math.floor(touch.clientX), Math.floor(touch.clientY), 10);
+        });
+
+        // Inicio
+        window.addEventListener('resize', resize);
+        resize();
+        loop();
+
+    </script>
+</body>
+</html>
