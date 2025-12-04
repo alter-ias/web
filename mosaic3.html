@@ -1,17 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Kira: Calibration Tool</title>
+    <title>Kira: Calibrated Cinematic</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <style>
         body { margin: 0; overflow: hidden; background-color: #000; font-family: monospace; }
         #info {
             position: absolute; top: 20px; width: 100%; text-align: center; z-index: 100;
-            pointer-events: none; color: #fff; text-shadow: 0 0 4px #000;
+            pointer-events: none; color: #aaa; text-shadow: 0 0 4px #000;
             letter-spacing: 1px; font-size: 14px;
         }
-        .key { color: #ffff00; font-weight: bold; }
+        .key { color: #00ffff; font-weight: bold; }
     </style>
 
     <script type="importmap">
@@ -26,8 +26,8 @@
 
 <body>
     <div id="info">
-        MODO CALIBRACIÓN<br/>
-        Usa el panel derecho para ajustar la <span class="key">CAJA AMARILLA</span>
+        RANGO CALIBRADO (FINAL)<br/>
+        <span class="key">FLECHAS</span>: Mover &bull; <span class="key">W/S</span>: Profundidad &bull; <span class="key">H</span>: Ver Gizmo
     </div>
 
     <script type="module">
@@ -37,59 +37,75 @@
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
         import { CCDIKSolver } from 'three/addons/animation/CCDIKSolver.js';
-        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- CONFIGURACIÓN INICIAL ---
+        // --- CONFIGURACIÓN ---
         const CONFIG = {
+            bloomStrength: 0, 
+            bloomRadius: 0.3,
+            orbColor: 0x00ffff,
+            rimColor: 0xff00ff,
             camPos: new THREE.Vector3(0.92, 1.41, -1.64),
             camTarget: new THREE.Vector3(2.14, 1.11, -0.24),
+            
+            // FÍSICA
             moveSpeed: 0.04,     
-            smoothFactor: 0.1,   
+            smoothFactor: 0.08,   
+            
+            // --- TUS LÍMITES CALIBRADOS ---
+            limits: {
+                xMin: -1, 
+                xMax: 1.902,
+                yMin: 0,
+                yMax: 3,
+                zMin: -2,
+                zMax: 1.458
+            }
         };
 
-        // VALORES INICIALES (MUY ABIERTOS PARA QUE TÚ LOS CIERRES)
-        const LIMITS = {
-            xMin: -1.0, xMax: 2.5,
-            yMin: 0.0,  yMax: 2.5,
-            zMin: -1.0, zMax: 2.5, // zMin es la pared de la espalda
-            showBox: true
-        };
-
-        let scene, camera, renderer;
+        let scene, camera, renderer, composer;
         let orbitControls, transformControls;
-        let limitBoxMesh; // La caja visual
+        let particlesMesh;
         const OOI = {};
         let IKSolver;
         const clock = new THREE.Clock();
         const v0 = new THREE.Vector3();
-        const targetPos = new THREE.Vector3(); 
-        let isGizmovisible = true; 
 
-        // Teclado
-        const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, w: false, s: false, W: false, S: false };
+        const targetPos = new THREE.Vector3(); 
+        let isGizmovisible = false; 
+
+        const keys = {
+            ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false,
+            w: false, s: false, W: false, S: false
+        };
 
         init();
 
         async function init() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x111111); // Fondo gris para ver mejor
+            scene.fog = new THREE.FogExp2(0x050510, 0.02);
+            scene.background = new THREE.Color(0x050510);
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.001, 5000);
             camera.position.copy(CONFIG.camPos);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+            renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ReinhardToneMapping;
             document.body.appendChild(renderer.domElement);
 
-            // Luces simples para trabajar
-            const ambient = new THREE.AmbientLight(0xffffff, 2.5); 
-            scene.add(ambient);
+            const renderScene = new RenderPass(scene, camera);
+            const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+            bloomPass.threshold = 0;
+            bloomPass.strength = CONFIG.bloomStrength;
+            bloomPass.radius = CONFIG.bloomRadius;
 
-            // VISUALIZADOR DE LÍMITES (CAJA AMARILLA)
-            const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-            const boxMat = new THREE.MeshBasicMaterial({ color: 0xffff00, wireframe: true });
-            limitBoxMesh = new THREE.Mesh(boxGeo, boxMat);
-            scene.add(limitBoxMesh);
+            composer = new EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
 
             const dracoLoader = new DRACOLoader();
             dracoLoader.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
@@ -105,12 +121,17 @@
                     if (n.name === 'target_hand_l') OOI.target_hand_l = n;
                     if (n.name === 'boule') OOI.sphere = n;
                     if (n.name === 'Kira_Shirt_left') OOI.kira = n;
+                    if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
                 });
                 scene.add(gltf.scene);
 
                 OOI.hand_l.attach(OOI.sphere);
-                const orbMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true });
+                const orbMaterial = new THREE.MeshBasicMaterial({ color: CONFIG.orbColor, wireframe: true, transparent: true, opacity: 0.8 });
                 OOI.sphere.material = orbMaterial;
+                
+                const orbLight = new THREE.PointLight(CONFIG.orbColor, 0.8, 4);
+                OOI.sphere.add(orbLight);
+
                 targetPos.copy(OOI.sphere.position);
 
                 OOI.kira.add(OOI.kira.skeleton.bones[0]);
@@ -124,69 +145,40 @@
                 IKSolver = new CCDIKSolver(OOI.kira, iks);
 
                 orbitControls = new OrbitControls(camera, renderer.domElement);
+                orbitControls.enableDamping = true;
+                orbitControls.dampingFactor = 0.05;
                 orbitControls.target.copy(CONFIG.camTarget);
                 
                 transformControls = new TransformControls(camera, renderer.domElement);
                 transformControls.size = 0.5;
                 transformControls.space = 'world';
                 transformControls.attach(OOI.target_hand_l);
+                transformControls.visible = isGizmovisible;
                 scene.add(transformControls);
 
-                transformControls.addEventListener('mouseDown', () => orbitControls.enabled = false);
-                transformControls.addEventListener('mouseUp', () => orbitControls.enabled = true);
+                const ambient = new THREE.AmbientLight(0x404040, 1.5); 
+                scene.add(ambient);
+                const rimLight = new THREE.SpotLight(CONFIG.rimColor, 8);
+                rimLight.position.set(-2, 3, -2);
+                rimLight.lookAt(0,0,0);
+                scene.add(rimLight);
 
+                createParticles();
                 setupInputs();
-                setupGUI(); // <--- AQUÍ ESTÁ LA MAGIA
-                updateBoxVisuals(); // Inicializar caja
-
+                
                 window.addEventListener('resize', onWindowResize, false);
                 renderer.setAnimationLoop(animate);
 
             } catch (e) { console.error(e); }
         }
 
-        function setupGUI() {
-            const gui = new GUI();
-            const folder = gui.addFolder('LÍMITES DE MOVIMIENTO');
-            
-            // Sliders para ajustar la caja en tiempo real
-            folder.add(LIMITS, 'xMin', -2, 2).onChange(updateBoxVisuals).name('X Min (Izq)');
-            folder.add(LIMITS, 'xMax', -2, 4).onChange(updateBoxVisuals).name('X Max (Der)');
-            folder.add(LIMITS, 'yMin', 0, 3).onChange(updateBoxVisuals).name('Y Min (Suelo)');
-            folder.add(LIMITS, 'yMax', 0, 3).onChange(updateBoxVisuals).name('Y Max (Techo)');
-            folder.add(LIMITS, 'zMin', -2, 2).onChange(updateBoxVisuals).name('Z Min (ESPALDA)');
-            folder.add(LIMITS, 'zMax', -2, 4).onChange(updateBoxVisuals).name('Z Max (Frente)');
-            
-            folder.add(LIMITS, 'showBox').name('Ver Caja').onChange(v => limitBoxMesh.visible = v);
-            
-            const printBtn = { print: () => {
-                console.log("--- COPIA ESTOS VALORES ---");
-                console.log(JSON.stringify(LIMITS, null, 2));
-                alert("Valores impresos en Consola (F12)");
-            }};
-            gui.add(printBtn, 'print').name('💾 IMPRIMIR EN CONSOLA');
-            
-            folder.open();
-        }
-
-        function updateBoxVisuals() {
-            // Calcula el centro y el tamaño de la caja basándose en los Min/Max
-            const width = LIMITS.xMax - LIMITS.xMin;
-            const height = LIMITS.yMax - LIMITS.yMin;
-            const depth = LIMITS.zMax - LIMITS.zMin;
-
-            const x = (LIMITS.xMax + LIMITS.xMin) / 2;
-            const y = (LIMITS.yMax + LIMITS.yMin) / 2;
-            const z = (LIMITS.zMax + LIMITS.zMin) / 2;
-
-            limitBoxMesh.position.set(x, y, z);
-            limitBoxMesh.scale.set(width, height, depth);
-        }
-
         function setupInputs() {
             window.addEventListener('keydown', (e) => {
                 if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key] = true;
-                if(e.key.toLowerCase() === 'h') transformControls.visible = !transformControls.visible;
+                if(e.key.toLowerCase() === 'h') {
+                    isGizmovisible = !isGizmovisible;
+                    transformControls.visible = isGizmovisible;
+                }
             });
             window.addEventListener('keyup', (e) => {
                 if(keys.hasOwnProperty(e.key) || keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key] = false;
@@ -196,7 +188,6 @@
         function updateMovementTarget() {
             const speed = CONFIG.moveSpeed;
             
-            // Movimiento libre
             if (keys.ArrowRight) targetPos.x += speed;
             if (keys.ArrowLeft) targetPos.x -= speed;
             if (keys.ArrowUp) targetPos.y += speed;
@@ -204,13 +195,24 @@
             if (keys.w || keys.W) targetPos.z -= speed;
             if (keys.s || keys.S) targetPos.z += speed;
 
-            // APLICAR LOS LÍMITES DEL GUI
-            targetPos.x = THREE.MathUtils.clamp(targetPos.x, LIMITS.xMin, LIMITS.xMax);
-            targetPos.y = THREE.MathUtils.clamp(targetPos.y, LIMITS.yMin, LIMITS.yMax);
-            targetPos.z = THREE.MathUtils.clamp(targetPos.z, LIMITS.zMin, LIMITS.zMax);
+            // LÍMITES ASIMÉTRICOS (Con tus valores)
+            targetPos.x = THREE.MathUtils.clamp(targetPos.x, CONFIG.limits.xMin, CONFIG.limits.xMax);
+            targetPos.y = THREE.MathUtils.clamp(targetPos.y, CONFIG.limits.yMin, CONFIG.limits.yMax);
+            targetPos.z = THREE.MathUtils.clamp(targetPos.z, CONFIG.limits.zMin, CONFIG.limits.zMax);
+        }
+
+        function createParticles() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            for (let i = 0; i < 300; i++) vertices.push((Math.random()-0.5)*5, (Math.random()-0.5)*5+2, (Math.random()-0.5)*5);
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            particlesMesh = new THREE.Points(geometry, new THREE.PointsMaterial({ color: CONFIG.rimColor, size: 0.02, transparent: true, opacity: 0.4 }));
+            scene.add(particlesMesh);
         }
 
         function animate() {
+            const time = clock.getElapsedTime();
+
             if (OOI.target_hand_l) {
                 updateMovementTarget();
                 OOI.target_hand_l.position.lerp(targetPos, CONFIG.smoothFactor);
@@ -223,14 +225,20 @@
             }
             if (IKSolver) IKSolver.update();
 
+            if (particlesMesh) {
+                particlesMesh.rotation.y = time * 0.02;
+                particlesMesh.position.y = Math.sin(time * 0.3) * 0.1;
+            }
+
             orbitControls.update();
-            renderer.render(scene, camera);
+            composer.render();
         }
 
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
         }
     </script>
 </body>
