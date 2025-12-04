@@ -2,229 +2,298 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Cine Mosaico Generativo: Escenario 1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo-Tokyo: Enlace Espacio-Temporal</title>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #000040; /* Midnight Void  */
-            overflow: hidden;
-            font-family: 'Courier New', Courier, monospace;
-            color: #00ffe5; /* Electric Cyan  */
-        }
-
-        #canvas-container {
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', Courier, monospace; }
+        canvas { display: block; }
+        #ui {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-
-        /* Capa de atmósfera "Volumetric Fog" simulada con CSS */
-        .atmosphere {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle at center, transparent 0%, #000040 90%);
-            z-index: 2;
+            top: 20px;
+            left: 20px;
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff;
             pointer-events: none;
-            opacity: 0.6;
+            z-index: 10;
         }
-
-        /* Interfaz UI Holográfica */
-        .ui-layer {
+        h1 { margin: 0; font-size: 1.5rem; letter-spacing: 3px; }
+        p { font-size: 0.8rem; opacity: 0.7; }
+        .loading {
             position: absolute;
-            bottom: 30px;
-            left: 30px;
-            z-index: 3;
-            text-shadow: 0 0 10px #00ffe5;
-            pointer-events: none;
-        }
-
-        h1 {
-            font-size: 24px;
-            margin: 0;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            border-bottom: 2px solid #ff2158; /* Deep Magenta  */
-            display: inline-block;
-            padding-bottom: 5px;
-        }
-
-        p {
-            font-size: 12px;
-            color: #9afff7; /* Biolum. Green  */
-            margin-top: 10px;
-        }
-
-        .params {
-            font-size: 10px;
-            color: #7d2cff; /* Ethereal Violet  */
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 20px;
+            transition: opacity 1s;
         }
     </style>
 </head>
 <body>
 
-    <div id="canvas-container">
-        <canvas id="simCanvas"></canvas>
+    <div id="ui">
+        <h1>NEURAL CITY 3.0</h1>
+        <p>NAVEGANDO FLUJO DE DATOS // MOUSE PARA EXPLORAR</p>
     </div>
+    <div id="loader" class="loading">INICIANDO SISTEMAS...</div>
 
-    <div class="atmosphere"></div>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
 
-    <div class="ui-layer">
-        <h1>Mosaico Tecnológico</h1>
-        <p>SIMULACIÓN: REACCIÓN-DIFUSIÓN (GRAY-SCOTT)</p>
-        <p class="params">F: 0.0545 | K: 0.0620 | PATRÓN: CORAL</p>
-        <p>Interacciona con el mouse para sembrar la "floración".</p>
-    </div>
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-    <script>
-        // Configuración basada en el documento "Creación Película Mosaico Tecnológico"
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
+        // --- CONFIGURACIÓN BÁSICA ---
+        const scene = new THREE.Scene();
+        // Niebla densa para ocultar el horizonte y crear profundidad
+        scene.fog = new THREE.FogExp2(0x000510, 0.0025); 
 
-        let width, height;
-        let grid = [];
-        let next = [];
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 2000);
+        camera.position.set(0, 20, 100);
 
-        // Parámetros del modelo Gray-Scott para patrón "Coral" 
-        const feed = 0.0545;
-        const k = 0.062;
+        const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimización
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        document.body.appendChild(renderer.domElement);
+
+        // --- ILUMINACIÓN ---
+        const ambientLight = new THREE.AmbientLight(0x404040, 15); // Luz base fuerte
+        scene.add(ambientLight);
+
+        // Luz direccional "Sol/Luna cyberpunk"
+        const sunLight = new THREE.DirectionalLight(0xff00ff, 2);
+        sunLight.position.set(-1, 0.5, -1);
+        scene.add(sunLight);
+
+        // --- CIUDAD PROCEDURAL (INSTANCED MESH PARA RENDIMIENTO) ---
+        const boxGeometry = new THREE.BoxGeometry(1, 1, 1);
+        boxGeometry.translate(0, 0.5, 0); // Pivote en la base
+
+        // Material de los edificios: Negro brillante con bordes de luz
+        const buildingMaterial = new THREE.MeshStandardMaterial({
+            color: 0x111111,
+            roughness: 0.1,
+            metalness: 0.8,
+            emissive: 0x000000
+        });
+
+        const count = 800; // Número de edificios
+        const mesh = new THREE.InstancedMesh(boxGeometry, buildingMaterial, count);
+        scene.add(mesh);
+
+        // Generamos posiciones aleatorias para los edificios
+        const dummy = new THREE.Object3D();
+        const buildingData = []; // Para guardar velocidad/posición extra
+
+        for (let i = 0; i < count; i++) {
+            resetBuilding(dummy, i, true);
+        }
+
+        function resetBuilding(dummy, index, initial = false) {
+            // Posición aleatoria: Evitar el centro (la carretera)
+            let x = (Math.random() - 0.5) * 600;
+            // Zona muerta en el centro
+            if (Math.abs(x) < 20) x += (x > 0 ? 20 : -20);
+            
+            // Z posición: Si es inicial, dispersar. Si no, poner al fondo.
+            let z = initial ? (Math.random() - 0.5) * 2000 - 500 : -1500;
+            
+            const scaleY = Math.random() * 80 + 10; // Altura aleatoria
+            const scaleXZ = Math.random() * 15 + 5; // Ancho aleatorio
+
+            dummy.position.set(x, 0, z);
+            dummy.scale.set(scaleXZ, scaleY, scaleXZ);
+            dummy.updateMatrix();
+            mesh.setMatrixAt(index, dummy.matrix);
+
+            // Guardamos datos para colores de neón aleatorios después
+            buildingData[index] = {
+                zSpeed: 2 + Math.random() * 1, // Velocidad variable para efecto parallax
+                baseZ: z
+            };
+        }
+
+        // --- SUELO DE REJILLA (GRID) ---
+        const gridHelper = new THREE.GridHelper(2000, 100, 0xff00ff, 0x0044ff);
+        gridHelper.position.y = 0.1;
+        scene.add(gridHelper);
         
-        // Tasas de difusión
-        const dA = 1.0;
-        const dB = 0.5;
+        // Suelo reflectante plano debajo de la rejilla
+        const planeGeo = new THREE.PlaneGeometry(2000, 2000);
+        const planeMat = new THREE.MeshStandardMaterial({ 
+            color: 0x000000, roughness: 0.05, metalness: 0.9 
+        });
+        const plane = new THREE.Mesh(planeGeo, planeMat);
+        plane.rotation.x = -Math.PI / 2;
+        scene.add(plane);
 
-        function resize() {
-            width = window.innerWidth;
-            height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
-            initGrid();
+        // --- CIELO / RED DE PARTÍCULAS ---
+        const particlesCount = 1500;
+        const posArray = new Float32Array(particlesCount * 3);
+        
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 800; // Dispersión
+            if ((i+2) % 3 === 0) posArray[i] = Math.random() * 200 + 50; // Solo altura (Y) positiva
         }
 
-        function initGrid() {
-            grid = [];
-            next = [];
-            for (let x = 0; x < width; x++) {
-                grid[x] = [];
-                next[x] = [];
-                for (let y = 0; y < height; y++) {
-                    // Inicializar: A=1, B=0
-                    grid[x][y] = { a: 1, b: 0 };
-                    next[x][y] = { a: 1, b: 0 };
-                }
-            }
-            
-            // Sembrar "La Floración" inicial en el centro
-            seedArea(Math.floor(width / 2), Math.floor(height / 2), 20);
-        }
-
-        function seedArea(centerX, centerY, radius) {
-            for (let i = centerX - radius; i < centerX + radius; i++) {
-                for (let j = centerY - radius; j < centerY + radius; j++) {
-                    if (i >= 0 && i < width && j >= 0 && j < height) {
-                        if (Math.sqrt((i-centerX)**2 + (j-centerY)**2) < radius) {
-                            grid[i][j].b = 1;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Algoritmo de Reacción-Difusión (Gray-Scott)
-        function update() {
-            for (let x = 1; x < width - 1; x++) {
-                for (let y = 1; y < height - 1; y++) {
-                    let a = grid[x][y].a;
-                    let b = grid[x][y].b;
-
-                    // Función Laplaciana (difusión simple)
-                    let laplaceA = 
-                        (grid[x-1][y].a + grid[x+1][y].a + grid[x][y-1].a + grid[x][y+1].a) * 0.2 +
-                        (grid[x-1][y-1].a + grid[x+1][y-1].a + grid[x-1][y+1].a + grid[x+1][y+1].a) * 0.05 - 
-                        a;
-                        
-                    let laplaceB = 
-                        (grid[x-1][y].b + grid[x+1][y].b + grid[x][y-1].b + grid[x][y+1].b) * 0.2 +
-                        (grid[x-1][y-1].b + grid[x+1][y-1].b + grid[x-1][y+1].b + grid[x+1][y+1].b) * 0.05 - 
-                        b;
-
-                    // Ecuaciones Gray-Scott
-                    let newA = a + (dA * laplaceA - a * b * b + feed * (1 - a));
-                    let newB = b + (dB * laplaceB + a * b * b - (k + feed) * b);
-
-                    // Constrain (Clamp)
-                    next[x][y].a = Math.min(Math.max(newA, 0), 1);
-                    next[x][y].b = Math.min(Math.max(newB, 0), 1);
-                }
-            }
-            
-            // Intercambiar buffers
-            let temp = grid;
-            grid = next;
-            next = temp;
-        }
-
-        // Renderizado con los colores del documento
-        function draw() {
-            // Crear imagen para dibujar píxeles directamente (más rápido)
-            let imgData = ctx.createImageData(width, height);
-            let data = imgData.data;
-
-            for (let x = 0; x < width; x++) {
-                for (let y = 0; y < height; y++) {
-                    let cell = grid[x][y];
-                    let index = (x + y * width) * 4;
-                    
-                    // Visualización:
-                    // A = Sustancia base (Fondo/Aire)
-                    // B = Sustancia activa (El "Coral" o "Virus")
-                    
-                    let val = cell.a - cell.b;
-                    
-                    // Mapeo de colores "Bioluminiscencia Urbana"
-                    // Si hay mucha sustancia B, usamos Magenta y Cyan
-                    
-                    // R (Rojo) - Mezcla para Deep Magenta (#ff2158)
-                    data[index + 0] = Math.floor(cell.b * 255 * 2); 
-                    // G (Verde) - Mezcla para Electric Cyan (#00ffe5)
-                    data[index + 1] = Math.floor(cell.b * 255 * 0.8 + cell.a * 20); 
-                    // B (Azul) - Base Midnight Void (#000040)
-                    data[index + 2] = Math.floor(64 + cell.b * 200); 
-                    // Alpha
-                    data[index + 3] = 255;
-                }
-            }
-            ctx.putImageData(imgData, 0, 0);
-        }
-
-        function loop() {
-            // Actualizar varias veces por frame para acelerar la simulación
-            for(let i=0; i<5; i++) update(); 
-            draw();
-            requestAnimationFrame(loop);
-        }
-
-        // Interacción: Agregar "químico B" con el mouse
-        canvas.addEventListener('mousemove', function(e) {
-            seedArea(e.clientX, e.clientY, 10);
+        const particlesGeo = new THREE.BufferGeometry();
+        particlesGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        
+        const particlesMat = new THREE.PointsMaterial({
+            size: 2,
+            color: 0x00ffff,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
         });
 
-        canvas.addEventListener('touchmove', function(e) {
-             let touch = e.touches[0];
-             seedArea(Math.floor(touch.clientX), Math.floor(touch.clientY), 10);
+        const particlesMesh = new THREE.Points(particlesGeo, particlesMat);
+        scene.add(particlesMesh);
+
+        // --- LÍNEAS DE CONEXIÓN (La "Red") ---
+        // Usaremos un truco visual: Rayos láser que salen del suelo
+        const laserCount = 20;
+        const laserGeo = new THREE.BufferGeometry();
+        const laserPos = new Float32Array(laserCount * 6); // 2 puntos por línea (x,y,z) * 3
+        laserGeo.setAttribute('position', new THREE.BufferAttribute(laserPos, 3));
+        const laserMat = new THREE.LineBasicMaterial({ color: 0xff00aa });
+        const lasers = new THREE.LineSegments(laserGeo, laserMat);
+        scene.add(lasers);
+
+
+        // --- POST-PROCESADO (BLOOM / RESPLANDOR) ---
+        const renderScene = new RenderPass(scene, camera);
+        
+        // Resolución, fuerza, radio, umbral
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0;
+        bloomPass.strength = 1.2; // Intensidad del brillo
+        bloomPass.radius = 0.5;
+
+        const composer = new THREE.EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- INTERACCIÓN MOUSE ---
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX) * 0.5;
+            mouseY = (event.clientY - windowHalfY) * 0.5;
         });
 
-        // Inicio
-        window.addEventListener('resize', resize);
-        resize();
-        loop();
+        document.addEventListener('scroll', () => {
+            // Acelerar con scroll (visual feedback)
+            speedOffset += 0.5;
+        });
 
+        // --- ANIMACIÓN ---
+        let speedOffset = 0;
+        const clock = new THREE.Clock();
+
+        // Eliminar pantalla de carga
+        document.getElementById('loader').style.opacity = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = clock.getElapsedTime();
+            const delta = clock.getDelta();
+
+            // 1. Mover edificios hacia la cámara (Efecto túnel)
+            // Necesitamos acceder a la matriz de instancia para moverlos
+            // Nota: Para optimización en JS puro simple, simularemos movimiento moviendo el suelo y la cámara
+            // Pero para el efecto "infinito" real, movemos la cámara y reseteamos el entorno, 
+            // o movemos los objetos. Vamos a mover los objetos Z hacia positivo.
+            
+            // Movimiento suave de cámara basado en mouse
+            targetX = mouseX * 0.2;
+            targetY = mouseY * 0.2;
+            
+            camera.position.x += (targetX - camera.position.x) * 0.05;
+            camera.position.y += (-targetY + 50 - camera.position.y) * 0.05; // +50 altura base
+            camera.lookAt(0, 20, -100); // Mirar hacia el horizonte lejano
+
+            // Animar el grid del suelo para sensación de velocidad
+            gridHelper.position.z = (time * 50) % 100;
+            
+            // Re-renderizar edificios para simular movimiento infinito
+            // (En una app real compleja usaríamos shaders para esto, aquí lo hacemos en CPU por simplicidad)
+            for (let i = 0; i < count; i++) {
+                mesh.getMatrixAt(i, dummy.matrix);
+                dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
+                
+                dummy.position.z += 2 + (speedOffset > 0 ? speedOffset : 0);
+                
+                // Si el edificio pasa la cámara, reiniciarlo al fondo
+                if (dummy.position.z > 200) {
+                    resetBuilding(dummy, i, false);
+                    dummy.position.z = -1500; // Reset lejos
+                }
+                
+                dummy.updateMatrix();
+                mesh.setMatrixAt(i, dummy.matrix);
+            }
+            mesh.instanceMatrix.needsUpdate = true;
+            if(speedOffset > 0) speedOffset -= 0.05;
+
+            // Animar cielo (Partículas)
+            particlesMesh.rotation.y = time * 0.05;
+            particlesMesh.position.z = (time * 20) % 200;
+
+            // Animar Láseres (Red que responde)
+            // Hacemos que los láseres apunten cerca de donde "mira" el mouse en el horizonte
+            const positions = lasers.geometry.attributes.position.array;
+            for(let k=0; k < laserCount; k++) {
+                // Origen (suelo aleatorio)
+                // x
+                // positions[k*6 + 0] no cambia mucho
+                // y es 0
+                // z
+                
+                // Destino (cielo dinámico basado en mouse)
+                // x destino
+                positions[k*6 + 3] += (Math.sin(time + k) * 2); 
+                // y destino (hacia arriba)
+                positions[k*6 + 4] = 100 + Math.sin(time * 2 + k) * 20; 
+                // z destino
+                positions[k*6 + 5] = -200;
+
+                // Hacer que reaccionen al mouse violentamente
+                if (k % 2 === 0) {
+                     positions[k*6 + 3] = (mouseX * 2) + Math.cos(time * 5 + k)*50;
+                }
+            }
+            lasers.geometry.attributes.position.needsUpdate = true;
+
+            // Render final con Bloom
+            composer.render();
+        }
+
+        // Manejo de redimensionado
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
     </script>
 </body>
 </html>
