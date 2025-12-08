@@ -2,19 +2,46 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Level 7: Sonic Resonance</title>
+    <title>Artimotion - AlterLabGen Edition</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; user-select: none; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
         
-        #loading { 
-            position: absolute; top: 50%; left: 50%; 
-            transform: translate(-50%, -50%);
-            color: #0ff; font-size: 14px; letter-spacing: 2px;
-            background: rgba(0, 10, 20, 0.9); padding: 20px 40px; border-radius: 4px;
-            border: 1px solid #0ff; box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
-            pointer-events: none; z-index: 10;
-            text-align: center;
+        /* Pantalla de Bienvenida / Overlay */
+        #overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 5, 10, 0.95);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 100; transition: opacity 0.8s ease;
+        }
+
+        #overlay.hidden { opacity: 0; pointer-events: none; }
+
+        .title-container {
+            text-align: center; color: #0ff; margin-bottom: 30px;
+        }
+
+        .main-title {
+            font-size: 24px; letter-spacing: 4px; font-weight: bold;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+            margin-bottom: 10px;
+        }
+
+        .sub-title {
+            font-size: 14px; color: #88c; letter-spacing: 2px;
+        }
+
+        #start-btn {
+            background: transparent; color: #0ff; 
+            border: 2px solid #0ff; padding: 15px 40px;
+            font-size: 16px; letter-spacing: 3px; cursor: pointer;
+            text-transform: uppercase; border-radius: 30px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        #start-btn:hover {
+            background: #0ff; color: #000; box-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
         }
 
         #bottom-menu {
@@ -22,6 +49,7 @@
             display: flex; gap: 10px; z-index: 5;
             background: rgba(0, 0, 0, 0.5); padding: 10px; border-radius: 15px;
             border-top: 1px solid rgba(255,255,255,0.1);
+            transition: opacity 0.5s; opacity: 0; /* Oculto al inicio */
         }
 
         .mode-btn {
@@ -34,10 +62,10 @@
         .mode-btn:hover { background: #333; color: #fff; border-color: #fff; }
         .mode-btn.active { background: #0ff; color: #000; border-color: #0ff; box-shadow: 0 0 15px #0ff; }
         
-        /* Indicador de Audio */
         #audio-hint {
             position: absolute; top: 20px; right: 20px; 
             color: rgba(255,255,255,0.5); font-size: 10px; z-index: 5;
+            opacity: 0; transition: opacity 0.5s;
         }
 
         .lil-gui { --background-color: rgba(5, 5, 10, 0.9); --text-color: #ddd; --title-background-color: #111; }
@@ -54,6 +82,9 @@
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
+        // --- ESTADO DEL SISTEMA ---
+        let isRunning = false;
+
         // --- PARÁMETROS GLOBALES ---
         const params = {
             trailStyle: 'Ribbon', 
@@ -66,11 +97,11 @@
             particleSize: 1.0, 
             mode: 'Spectral',
             inputSensitivity: 1.5,
-            soundEnabled: true, // Nuevo switch de sonido
+            soundEnabled: true,
             reset: () => resetCanvas()
         };
 
-        // --- NUEVO: MOTOR DE AUDIO (SYNTH) ---
+        // --- MOTOR DE AUDIO (SYNTH) ---
         class AudioEngine {
             constructor() {
                 this.ctx = null;
@@ -86,50 +117,37 @@
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AudioContext();
 
-                // 1. Osciladores (El sonido base)
                 this.osc1 = this.ctx.createOscillator();
-                this.osc1.type = 'sine'; // Suave
+                this.osc1.type = 'sine';
                 
                 this.osc2 = this.ctx.createOscillator();
-                this.osc2.type = 'triangle'; // Un poco más brillante
-                this.osc2.detune.value = 10; // Leve desafinación para grosor
+                this.osc2.type = 'triangle';
+                this.osc2.detune.value = 10;
 
-                // 2. Filtro (Para suavizar)
                 this.filter = this.ctx.createBiquadFilter();
                 this.filter.type = 'lowpass';
                 this.filter.frequency.value = 1000;
 
-                // 3. Efecto Delay (Eco espacial)
                 const delay = this.ctx.createDelay();
                 delay.delayTime.value = 0.3;
                 const delayFeedback = this.ctx.createGain();
                 delayFeedback.gain.value = 0.4;
                 const delayFilter = this.ctx.createBiquadFilter();
-                delayFilter.frequency.value = 800; // Ecos opacos
+                delayFilter.frequency.value = 800;
 
-                // 4. Master Gain (Volumen)
                 this.gainNode = this.ctx.createGain();
-                this.gainNode.gain.value = 0; // Empieza en silencio
+                this.gainNode.gain.value = 0; 
 
-                // --- CONEXIONES ---
-                // Osciladores -> Filtro
                 this.osc1.connect(this.filter);
                 this.osc2.connect(this.filter);
-
-                // Filtro -> Gain Principal
                 this.filter.connect(this.gainNode);
-
-                // Gain Principal -> Salida (Altavoces)
                 this.gainNode.connect(this.ctx.destination);
-
-                // Gain Principal -> Delay -> Feedback -> Delay (Loop de eco)
                 this.gainNode.connect(delay);
                 delay.connect(delayFilter);
                 delayFilter.connect(delayFeedback);
                 delayFeedback.connect(delay);
-                delay.connect(this.ctx.destination); // El eco también va a la salida
+                delay.connect(this.ctx.destination);
 
-                // Arrancar motores (pero volumen 0)
                 this.osc1.start();
                 this.osc2.start();
                 this.isInit = true;
@@ -140,25 +158,18 @@
             update(normX, normY, hasHand) {
                 if (!this.isInit || !params.soundEnabled) return;
 
-                if (hasHand) {
-                    // Mapear Posición a Sonido
-                    // X (0 a 1) -> Frecuencia (150Hz a 600Hz)
+                if (hasHand && isRunning) {
                     const minFreq = 150;
                     const maxFreq = 600;
                     const freq = minFreq + (normX * (maxFreq - minFreq));
-
-                    // Y (0 a 1) -> Volumen (0 a 0.3) - Invertido: arriba es 0 en pantalla pero queremos volumen
-                    // En pantalla Y=0 es arriba. Queremos volumen alto arriba.
                     const vol = Math.max(0, (1.0 - normY) * 0.3);
 
-                    // Transición suave (Rampas) para evitar "clics"
                     const t = this.ctx.currentTime;
                     this.osc1.frequency.setTargetAtTime(freq, t, 0.1);
-                    this.osc2.frequency.setTargetAtTime(freq * 1.5, t, 0.1); // Armónico (quinta)
+                    this.osc2.frequency.setTargetAtTime(freq * 1.5, t, 0.1);
                     this.gainNode.gain.setTargetAtTime(vol, t, 0.1);
-                    this.filter.frequency.setTargetAtTime(freq * 2, t, 0.1); // El filtro abre con la nota
+                    this.filter.frequency.setTargetAtTime(freq * 2, t, 0.1);
                 } else {
-                    // Si no hay mano, silencio suave (fade out)
                     const t = this.ctx.currentTime;
                     this.gainNode.gain.setTargetAtTime(0, t, 0.5);
                 }
@@ -167,7 +178,7 @@
         
         const audioSys = new AudioEngine();
 
-        // --- GENERADOR DE TEXTURAS (Para Humo/Partículas) ---
+        // --- TEXTURAS ---
         function createSoftTexture() {
             const canvas = document.createElement('canvas');
             canvas.width = 32; canvas.height = 32;
@@ -177,12 +188,11 @@
             grad.addColorStop(1, 'rgba(255,255,255,0)');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, 32, 32);
-            const tex = new THREE.CanvasTexture(canvas);
-            return tex;
+            return new THREE.CanvasTexture(canvas);
         }
         const particleTexture = createSoftTexture();
 
-        // --- 1. SETUP ESCENA ---
+        // --- THREE.JS SETUP ---
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x000000, 0.02);
 
@@ -202,7 +212,7 @@
         }
         updateVisibleArea();
 
-        // --- 2. POST-PROCESAMIENTO ---
+        // --- POST-PROCESAMIENTO ---
         const composer = new EffectComposer(renderer);
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
@@ -212,7 +222,7 @@
         bloomPass.radius = params.bloomRadius;
         composer.addPass(bloomPass);
 
-        // --- 3. OBJETOS DE FONDO ---
+        // --- BACKGROUNDS ---
         const bgGroup = new THREE.Group();
         scene.add(bgGroup);
         let gridHelper, starField;
@@ -224,8 +234,9 @@
             bgGroup.add(gridHelper);
             
             const gridTop = gridHelper.clone();
-            gridTop.position.y = 10;
-            gridHelper.add(gridTop);
+            gridTop.position.y = 20; // Ajustado para que esté arriba relativo al padre si fuera necesario, pero clone no copia hijos.
+            gridTop.rotation.x = Math.PI; // Espejo
+            bgGroup.add(gridTop); // Agregamos al grupo, no al helper
 
             const starGeo = new THREE.BufferGeometry();
             const starCount = 2000;
@@ -245,7 +256,8 @@
             scene.background = new THREE.Color(0x000000);
             scene.fog.color.setHex(0x000000);
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`btn-${name.toLowerCase()}`).classList.add('active');
+            const btn = document.getElementById(`btn-${name.toLowerCase()}`);
+            if(btn) btn.classList.add('active');
 
             if (name === 'Grid') {
                 gridHelper.visible = true;
@@ -257,7 +269,7 @@
             }
         }
 
-        // --- 4. CLASES VISUALES (Ribbon & Particles) ---
+        // --- CLASES VISUALES ---
         class RibbonTrail {
             constructor(idx) {
                 this.idx = idx;
@@ -279,13 +291,16 @@
                 }
                 geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
                 geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+                
+                // CORRECCIÓN DE DEPRECATION: Usamos StreamDrawUsage en lugar de dynamic = true
+                geometry.attributes.position.usage = THREE.StreamDrawUsage;
+
                 const indices = [];
                 for(let i=0; i < this.length - 1; i++) {
                     const v = i * 2;
                     indices.push(v, v+1, v+2); indices.push(v+2, v+1, v+3);
                 }
                 geometry.setIndex(indices);
-                geometry.attributes.position.dynamic = true;
 
                 this.material = new THREE.MeshBasicMaterial({
                     color: 0xffffff, side: THREE.DoubleSide, transparent: true,
@@ -353,6 +368,11 @@
                 this.geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
                 this.geometry.setAttribute('size', new THREE.BufferAttribute(sizeArray, 1));
                 this.geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
+                
+                // Corrección deprecation
+                this.geometry.attributes.position.usage = THREE.StreamDrawUsage;
+                this.geometry.attributes.size.usage = THREE.StreamDrawUsage;
+                this.geometry.attributes.color.usage = THREE.StreamDrawUsage;
 
                 this.material = new THREE.PointsMaterial({
                     size: 1.0, map: particleTexture, transparent: true,
@@ -440,27 +460,25 @@
             particles.forEach(p => p.reset());
         }
 
-        // --- 5. MEDIAPIPE CON AUDIO ---
+        // --- MEDIAPIPE ---
         const videoElement = document.createElement('video');
         const fingerIndices = [4, 8, 12, 16, 20];
         let handDetected = false;
 
         function onResults(results) {
-            document.getElementById('loading').innerHTML = "CLIC EN PANTALLA PARA INICIAR AUDIO<br><span style='font-size:10px'>Sistema visual activo</span>";
-            
-            // Lógica de detección para el audio
+            // Solo procesamos lógica visual si el sistema está corriendo
+            if (!isRunning) return;
+
             handDetected = false;
             let mainFingerX = 0; 
             let mainFingerY = 0;
 
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 handDetected = true;
-                document.getElementById('loading').style.display = 'none'; // Ocultar al detectar mano
-
+                
                 results.multiHandLandmarks.forEach((landmarks, handIndex) => {
                     if (handIndex > 1) return;
                     
-                    // Usamos el dedo índice (Index = 8) de la primera mano para controlar el tono
                     if (handIndex === 0) {
                         mainFingerX = landmarks[8].x;
                         mainFingerY = landmarks[8].y;
@@ -473,14 +491,12 @@
                         const z = -lm.z * 20; 
                         
                         const globalIdx = (handIndex * 5) + i;
-                        ribbons[globalIdx].setTarget(x, y, z);
-                        particles[globalIdx].setTarget(x, y, z);
+                        if(ribbons[globalIdx]) ribbons[globalIdx].setTarget(x, y, z);
+                        if(particles[globalIdx]) particles[globalIdx].setTarget(x, y, z);
                     });
                 });
             }
 
-            // ACTUALIZAR AUDIO
-            // Le pasamos las coordenadas normalizadas (0 a 1) directamente de landmarks
             audioSys.update(mainFingerX, mainFingerY, handDetected);
         }
 
@@ -494,7 +510,7 @@
         });
         cameraFeed.start();
 
-        // --- 6. GUI & CONTROL ---
+        // --- GUI ---
         const gui = new GUI({ title: 'System Core' });
         
         const folderStyle = gui.addFolder('Estilo de Trazo');
@@ -522,24 +538,38 @@
             if(e.key.toLowerCase() === 'r') resetCanvas();
         });
 
-        // Eventos de Interacción (Necesario para Audio)
-        function initAudioContext() {
-            audioSys.init();
-            if(audioSys.ctx && audioSys.ctx.state === 'suspended') {
-                audioSys.ctx.resume();
-            }
-        }
-        window.addEventListener('click', initAudioContext);
-        window.addEventListener('touchstart', initAudioContext);
-
         document.getElementById('btn-void').onclick = () => setScenario('Void');
         document.getElementById('btn-grid').onclick = () => setScenario('Grid');
         document.getElementById('btn-warp').onclick = () => setScenario('Warp');
 
+        // --- INICIO DE EXPERIENCIA (Lógica del Botón) ---
+        const startBtn = document.getElementById('start-btn');
+        const overlay = document.getElementById('overlay');
+        const bottomMenu = document.getElementById('bottom-menu');
+        const audioHint = document.getElementById('audio-hint');
+
+        startBtn.addEventListener('click', () => {
+            // 1. Iniciar Audio (Debe ser en evento de usuario)
+            audioSys.init();
+            if(audioSys.ctx && audioSys.ctx.state === 'suspended') {
+                audioSys.ctx.resume();
+            }
+
+            // 2. Ocultar Overlay
+            overlay.classList.add('hidden');
+            
+            // 3. Mostrar UI
+            bottomMenu.style.opacity = 1;
+            audioHint.style.opacity = 1;
+
+            // 4. Activar Lógica Visual
+            isRunning = true;
+        });
+
         ribbons.forEach(r => r.visible = true);
         particles.forEach(p => p.visible = false);
 
-        // --- 7. LOOP PRINCIPAL ---
+        // --- ANIMATE ---
         function animate() {
             requestAnimationFrame(animate);
             const time = performance.now() * 0.001;
@@ -549,8 +579,8 @@
                 else particles[i].tick(time);
             }
 
-            if(gridHelper.visible) gridHelper.position.z = (time * 2) % 10;
-            if(starField.visible) {
+            if(gridHelper && gridHelper.visible) gridHelper.position.z = (time * 2) % 10;
+            if(starField && starField.visible) {
                 starField.rotation.z = time * 0.1;
                 starField.rotation.x = Math.sin(time * 0.2) * 0.2;
             }
@@ -570,8 +600,15 @@
         setScenario('Void');
     </script>
 
-    <div id="loading">INICIALIZANDO SISTEMA...<br>Permite el acceso a la cámara</div>
-    <div id="audio-hint">CLICK PARA ACTIVAR AUDIO</div>
+    <div id="overlay">
+        <div class="title-container">
+            <div class="main-title">EL MUNDO EN TUS MANOS</div>
+            <div class="sub-title">Un proyecto de AlterLabGen</div>
+        </div>
+        <button id="start-btn">INICIAR EXPERIENCIA</button>
+    </div>
+
+    <div id="audio-hint">AUDIO: ESPERANDO...</div>
     
     <div id="bottom-menu">
         <div id="btn-void" class="mode-btn active">Void</div>
