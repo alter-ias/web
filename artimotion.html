@@ -2,12 +2,17 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Hand Tracking Visuals</title>
+    <title>Artimotion - Level 2</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; }
-        video { display: none; }
+        body { margin: 0; overflow: hidden; background: #050505; } /* Fondo casi negro, no negro total */
         canvas { display: block; }
-        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: monospace; }
+        #loading { 
+            position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%); 
+            color: #00ffff; font-family: 'Courier New', monospace; 
+            letter-spacing: 2px; font-size: 14px;
+            text-shadow: 0 0 10px #00ffff;
+        }
     </style>
     
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -21,152 +26,218 @@
         import { RenderPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
 
-        // NOTA: Ya no importamos Hands ni Camera aquí porque ya las cargamos arriba como scripts globales.
-
-        // --- CONFIGURACIÓN THREE.JS ---
+        // --- 1. ESCENA Y CÁMARA ---
         const scene = new THREE.Scene();
+        // Niebla para profundidad
+        scene.fog = new THREE.FogExp2(0x050505, 0.03);
+
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 5;
+        camera.position.z = 8; // Un poco más lejos para dar espacio
 
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio); // Importante para nitidez en pantallas retina
         document.body.appendChild(renderer.domElement);
 
+        // --- 2. POST-PROCESAMIENTO (GLOW / BLOOM) ---
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
+        
+        // Ajustamos el Bloom para que sea sutil pero "electrico"
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloomPass.strength = 2.0;
-        bloomPass.radius = 0.5;
+        bloomPass.strength = 1.8; 
+        bloomPass.radius = 0.8;
+        bloomPass.threshold = 0.1;
         composer.addPass(bloomPass);
 
-        // --- OBJETOS VISUALES ---
-        const jointGeometry = new THREE.SphereGeometry(0.05, 16, 16);
-        const jointMaterial = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-        const joints = [];
-        
-        for(let i=0; i<42; i++) {
-            const sphere = new THREE.Mesh(jointGeometry, jointMaterial);
-            scene.add(sphere);
-            joints.push(sphere);
-            sphere.visible = false;
+        // --- 3. SISTEMA DE ESTELAS (TRAILS) SUAVES ---
+        // Usamos una clase simple para gestionar cada estela
+        class SmoothTrail {
+            constructor(colorOffset) {
+                this.historySize = 40; // Qué tan larga es la cola
+                this.history = [];
+                this.currentPos = new THREE.Vector3(0, -10, 0); // Posición suavizada actual
+                this.targetPos = new THREE.Vector3(0, -10, 0);  // Dónde está realmente el dedo
+                
+                // Geometría de la línea
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(this.historySize * 3);
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                
+                // Material dinámico
+                const material = new THREE.LineBasicMaterial({
+                    color: 0xffffff,
+                    opacity: 0.6,
+                    transparent: true,
+                    linewidth: 1 // Nota: WebGL limita el grosor a 1 en la mayoría de browsers, el "grosor" lo daremos con el Bloom
+                });
+
+                this.mesh = new THREE.Line(geometry, material);
+                scene.add(this.mesh);
+
+                // Llenar historial inicial
+                for(let i=0; i<this.historySize; i++) this.history.push(new THREE.Vector3(0,-10,0));
+                
+                this.colorOffset = colorOffset;
+            }
+
+            update(x, y, z, time) {
+                // 1. FÍSICA: Interpolación (Lerp) para suavizar el movimiento
+                // Nos movemos un 20% hacia el objetivo en cada frame. Esto elimina el "temblor".
+                this.targetPos.set(x, y, z);
+                this.currentPos.lerp(this.targetPos, 0.2); 
+
+                // 2. Actualizar historial (Cola de serpiente)
+                this.history.shift(); // Sacamos el viejo
+                this.history.push(this.currentPos.clone()); // Metemos el nuevo suavizado
+
+                // 3. Actualizar geometría visual
+                const positions = this.mesh.geometry.attributes.position.array;
+                for (let i = 0; i < this.historySize; i++) {
+                    const p = this.history[i];
+                    positions[i * 3] = p.x;
+                    positions[i * 3 + 1] = p.y;
+                    positions[i * 3 + 2] = p.z;
+                }
+                this.mesh.geometry.attributes.position.needsUpdate = true;
+
+                // 4. Color Ciclante (Efecto Neón)
+                // Cicla entre Cian y Magenta/Purpura
+                const hue = (time * 0.2 + this.colorOffset) % 1; 
+                this.mesh.material.color.setHSL(hue, 1.0, 0.6);
+            }
         }
 
-        // Estelas (Trails)
-        const TRAIL_LENGTH = 30;
-        const trailGeometries = [];
+        // Creamos estelas para los dedos índice (4), corazón (8), anular (12), meñique (16) y pulgar (20) de 2 manos
         const trails = [];
-        const fingerTips = [4, 8, 12, 16, 20, 25, 29, 33, 37, 41]; 
-        
-        for (let i = 0; i < fingerTips.length; i++) {
-            const geometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(TRAIL_LENGTH * 3);
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            
-            const color = new THREE.Color();
-            color.setHSL(i / fingerTips.length, 1.0, 0.5);
-            
-            const material = new THREE.LineBasicMaterial({ 
-                color: color, 
-                opacity: 0.8, 
-                transparent: true,
-                linewidth: 2 
-            });
-            
-            const line = new THREE.Line(geometry, material);
-            scene.add(line);
-            
-            trails.push({
-                mesh: line,
-                positions: [],
-                targetIndex: -1
-            });
-            trailGeometries.push(geometry);
+        for(let i=0; i<10; i++) {
+            trails.push(new SmoothTrail(i * 0.1));
         }
 
-        // --- LÓGICA DE MEDIAPIPE ---
+
+        // --- 4. SISTEMA DE PARTÍCULAS (EL "POLVO") ---
+        const particleCount = 200;
+        const particlesGeom = new THREE.BufferGeometry();
+        const particlePositions = new Float32Array(particleCount * 3);
+        const particleVelocities = []; // Para guardar velocidad individual
+        
+        for(let i=0; i<particleCount; i++) {
+            particlePositions[i*3] = (Math.random() - 0.5) * 20;
+            particlePositions[i*3+1] = (Math.random() - 0.5) * 10;
+            particlePositions[i*3+2] = (Math.random() - 0.5) * 5;
+            
+            particleVelocities.push({
+                x: (Math.random() - 0.5) * 0.05,
+                y: (Math.random() - 0.5) * 0.05,
+                z: (Math.random() - 0.5) * 0.05
+            });
+        }
+        
+        particlesGeom.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+        
+        const particleMaterial = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 0.15,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending // Hace que brillen al superponerse
+        });
+        
+        const particleSystem = new THREE.Points(particlesGeom, particleMaterial);
+        scene.add(particleSystem);
+
+
+        // --- MEDIAPIPE LOGIC ---
         const videoElement = document.createElement('video');
         
+        // Mapeo de índices de Mediapipe a nuestros trails
+        // Mano 1: 4,8,12,16,20 -> Trails 0-4
+        // Mano 2: 4,8,12,16,20 -> Trails 5-9
+        const fingerIndices = [4, 8, 12, 16, 20];
+
         function onResults(results) {
             document.getElementById('loading').style.display = 'none';
-            joints.forEach(j => j.visible = false);
 
             if (results.multiHandLandmarks) {
-                let handIndex = 0;
-                for (const landmarks of results.multiHandLandmarks) {
-                    for (let i = 0; i < landmarks.length; i++) {
-                        const idx = handIndex * 21 + i;
-                        if (idx >= joints.length) break;
+                // Atraer partículas a las manos (Gravedad interactiva)
+                let handCenters = [];
 
-                        const joint = joints[idx];
-                        const x = (landmarks[i].x - 0.5) * -10;
-                        const y = (landmarks[i].y - 0.5) * -6; 
-                        const z = -landmarks[i].z * 10;
+                results.multiHandLandmarks.forEach((landmarks, handIndex) => {
+                    if (handIndex > 1) return; // Solo 2 manos
+                    
+                    // Calculamos centro aproximado de la mano
+                    const cx = (landmarks[9].x - 0.5) * -12;
+                    const cy = (landmarks[9].y - 0.5) * -8;
+                    const cz = -landmarks[9].z * 10;
+                    handCenters.push(new THREE.Vector3(cx, cy, cz));
 
-                        joint.position.set(x, y, z);
-                        joint.visible = true;
-
-                        if ([4,8,12,16,20].includes(i)) {
-                            const trailIdx = (handIndex * 5) + ([4,8,12,16,20].indexOf(i));
-                            updateTrail(trailIdx, x, y, z);
+                    // Actualizar estelas de los dedos
+                    fingerIndices.forEach((fingerIdx, i) => {
+                        const lm = landmarks[fingerIdx];
+                        const x = (lm.x - 0.5) * -12; // Ampliamos rango de movimiento
+                        const y = (lm.y - 0.5) * -8;
+                        const z = -lm.z * 15;
+                        
+                        // Determinar cual trail usar
+                        const trailIdx = (handIndex * 5) + i;
+                        if(trails[trailIdx]) {
+                            // Pasamos el tiempo para el color
+                            trails[trailIdx].update(x, y, z, performance.now() * 0.001);
                         }
+                    });
+                });
+
+                // Lógica de partículas: Se mueven suavemente y son atraídas por las manos
+                const positions = particleSystem.geometry.attributes.position.array;
+                for(let i=0; i<particleCount; i++) {
+                    // Moverse según su velocidad
+                    positions[i*3] += particleVelocities[i].x;
+                    positions[i*3+1] += particleVelocities[i].y;
+                    positions[i*3+2] += particleVelocities[i].z;
+                    
+                    let px = positions[i*3];
+                    let py = positions[i*3+1];
+                    let pz = positions[i*3+2];
+
+                    // Si se salen de la pantalla, vuelven al centro suavemente
+                    if(Math.abs(px) > 15 || Math.abs(py) > 10) {
+                        positions[i*3] = (Math.random()-0.5)*2;
+                        positions[i*3+1] = (Math.random()-0.5)*2;
                     }
-                    handIndex++;
+
+                    // Interacción: Las manos "empujan" o "atraen" partículas
+                    handCenters.forEach(center => {
+                        const dist = Math.sqrt((px-center.x)**2 + (py-center.y)**2);
+                        if (dist < 3) {
+                            // Si está cerca, agitar un poco (turbulencia)
+                            positions[i*3] += (Math.random()-0.5) * 0.1;
+                            positions[i*3+1] += (Math.random()-0.5) * 0.1;
+                        }
+                    });
                 }
+                particleSystem.geometry.attributes.position.needsUpdate = true;
             }
         }
 
-        function updateTrail(index, x, y, z) {
-            if(index >= trails.length) return;
-            const trail = trails[index];
-            trail.positions.push({x, y, z});
-            if (trail.positions.length > TRAIL_LENGTH) trail.positions.shift();
-
-            const positions = trail.mesh.geometry.attributes.position.array;
-            let posIdx = 0;
-            
-            for (let i = 0; i < trail.positions.length; i++) {
-                positions[posIdx++] = trail.positions[i].x;
-                positions[posIdx++] = trail.positions[i].y;
-                positions[posIdx++] = trail.positions[i].z;
-            }
-            
-            const lastPos = trail.positions[trail.positions.length - 1];
-            if(lastPos){
-                while (posIdx < positions.length) {
-                    positions[posIdx++] = lastPos.x;
-                    positions[posIdx++] = lastPos.y;
-                    positions[posIdx++] = lastPos.z;
-                }
-            }
-            trail.mesh.geometry.attributes.position.needsUpdate = true;
-        }
-
-        // Inicializamos Hands (ahora es una variable global gracias a los scripts de arriba)
-        const hands = new Hands({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }});
-
+        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
         hands.setOptions({
             maxNumHands: 2,
             modelComplexity: 1,
             minDetectionConfidence: 0.5,
             minTrackingConfidence: 0.5
         });
-
         hands.onResults(onResults);
 
-        // Inicializamos Camera (también global)
         const cameraFeed = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({image: videoElement});
-            },
-            width: 1280,
-            height: 720
+            onFrame: async () => { await hands.send({image: videoElement}); },
+            width: 1280, height: 720
         });
         cameraFeed.start();
 
         function animate() {
             requestAnimationFrame(animate);
+            // Rotar levemente el sistema de partículas para dar vida
+            particleSystem.rotation.y += 0.001;
             composer.render();
         }
         animate();
@@ -177,8 +248,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
             composer.setSize(window.innerWidth, window.innerHeight);
         });
-
     </script>
-    <div id="loading">Cargando modelo de IA... (Acepta los permisos de cámara)</div>
+    <div id="loading">INICIANDO SISTEMA VISUAL...</div>
 </body>
 </html>
