@@ -2,9 +2,8 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Harmonic Loop Station</title>
+    <title>Artimotion - Split Brain Loop Station</title>
     <style>
-        /* --- ESTILOS GENERALES Y VISUALES --- */
         body { margin: 0; overflow: hidden; background: #000; user-select: none; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
         
@@ -17,27 +16,25 @@
             pointer-events: none; z-index: 10; text-align: center;
         }
 
-        /* --- UI DE FONDO (Escenarios) --- */
-        #bottom-menu {
-            position: absolute; bottom: 20px; right: 20px; /* Movido a la derecha para dejar sitio a pedales */
-            display: flex; gap: 10px; z-index: 5;
-            background: rgba(0, 0, 0, 0.5); padding: 10px; border-radius: 15px;
-            border-top: 1px solid rgba(255,255,255,0.1);
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        /* Divisor de pantalla visual */
+        #screen-divider {
+            position: absolute; top: 0; bottom: 0; left: 50%; width: 1px;
+            background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.2), transparent);
+            z-index: 1;
         }
-
-        .mode-btn {
-            background: rgba(20, 20, 20, 0.8); color: #888; border: 1px solid #444;
-            padding: 8px 15px; border-radius: 8px; cursor: pointer;
-            font-weight: bold; text-transform: uppercase; font-size: 10px;
-            transition: all 0.3s ease;
+        .zone-label {
+            position: absolute; top: 20px; color: rgba(255,255,255,0.3);
+            font-size: 12px; font-weight: bold; letter-spacing: 4px;
         }
-        .mode-btn:hover { background: #333; color: #fff; border-color: #fff; }
-        .mode-btn.active { background: #0ff; color: #000; border-color: #0ff; box-shadow: 0 0 15px #0ff; }
+        #label-chords { left: 25%; transform: translateX(-50%); }
+        #label-melody { right: 25%; transform: translateX(50%); }
 
-        /* --- PEDALERA VIRTUAL (NUEVO) --- */
+        /* Pedalera */
         #pedalboard {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 20px; z-index: 10;
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 20px; z-index: 10; pointer-events: auto;
         }
 
         .pedal {
@@ -59,25 +56,20 @@
         .pedal-label { color: #888; font-size: 9px; font-weight: bold; text-transform: uppercase; }
         .pedal-key { color: #555; font-size: 8px; margin-top: 3px; }
 
-        /* Estados de los pedales */
-        #pedal-sustain.active .pedal-light { background: #0f0; box-shadow: 0 0 10px #0f0; }
+        #pedal-sustain.active .pedal-light { background: #0f0; box-shadow: 0 0 10px #0f0; border-color: #0f0; }
         #pedal-sustain.active { border-color: #0f0; }
-
+        
         #pedal-loop.recording .pedal-light { background: #f00; box-shadow: 0 0 10px #f00; }
         #pedal-loop.playing .pedal-light { background: #0f0; box-shadow: 0 0 10px #0f0; }
         #pedal-loop.recording { border-color: #f00; }
         #pedal-loop.playing { border-color: #0f0; }
 
-        #pedal-clear:hover { border-color: #f80; }
-        #pedal-clear:hover .pedal-light { background: #f80; }
-
-        /* HUD Superior */
-        #top-ui {
-            position: absolute; top: 20px; left: 20px; pointer-events: none; z-index: 5;
+        #hud-status {
+            position: absolute; top: 50px; left: 50%; transform: translateX(-50%);
+            color: #0ff; font-size: 10px; font-family: monospace;
         }
-        .hud-text { color: rgba(255,255,255,0.7); font-size: 11px; font-family: monospace; text-shadow: 0 0 5px black; }
 
-        .lil-gui { --background-color: rgba(5, 5, 10, 0.9); --text-color: #ddd; --title-background-color: #111; }
+        .lil-gui { --background-color: rgba(5, 5, 10, 0.9); }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -91,72 +83,69 @@
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // --- PARÁMETROS GLOBALES ---
+        // --- CONFIG ---
         const params = {
             key: 'A',
-            trailStyle: 'Ribbon', 
-            lineWidth: 0.8,
-            bloomStrength: 1.5,
-            bloomRadius: 0.5,
-            relaxation: 0.15,
-            colorSpeed: 1.5,
-            opacity: 0.85,
-            particleSize: 1.0, 
-            mode: 'Spectral',
-            inputSensitivity: 1.5,
+            bloomStrength: 1.2,
+            opacity: 0.8,
             soundEnabled: true,
-            reset: () => resetCanvas()
+            sensitivity: 1.5
         };
 
         // --- TEORÍA MUSICAL ---
         const NOTES = { 'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13, 'E': 329.63, 'F': 349.23, 'F#': 369.99, 'G': 392.00, 'G#': 415.30, 'A': 440.00, 'A#': 466.16, 'B': 493.88 };
+        // Intervalos Pentatónica Menor para Melodía
         const PENTA_INTERVALS = [0, 3, 5, 7, 10]; 
 
         function getFrequency(baseFreq, semitones) { return baseFreq * Math.pow(2, semitones / 12); }
 
         function generateScale(rootKey) {
-            const base = NOTES[rootKey] / 2;
+            const base = NOTES[rootKey] / 2; // Empezar grave
             const scale = [];
+            // 3 octavas para la mano derecha
             for (let oct = 0; oct < 3; oct++) {
                 PENTA_INTERVALS.forEach(interval => scale.push(getFrequency(base * Math.pow(2, oct), interval)));
             }
             return scale;
         }
 
+        // Acordes funcionales para la mano izquierda (i - VI - VII)
         function generateChords(rootKey) {
-            const base = NOTES[rootKey] / 4;
-            // Usamos acordes espaciados (Root, 5ta, 10ma) para mejor fondo
-            const chord1 = [getFrequency(base, 0), getFrequency(base, 7), getFrequency(base, 15)];
-            const chord2 = [getFrequency(base, 8), getFrequency(base, 15), getFrequency(base, 24)];
-            const chord3 = [getFrequency(base, 10), getFrequency(base, 17), getFrequency(base, 26)];
+            const base = NOTES[rootKey] / 4; // Bajo profundo
+            // i (Menor)
+            const chord1 = [getFrequency(base, 0), getFrequency(base, 3), getFrequency(base, 7), getFrequency(base, 12)];
+            // VI (Mayor) - Movimiento cromático interesante en pentatónica menor
+            const chord2 = [getFrequency(base, 8), getFrequency(base, 12), getFrequency(base, 15), getFrequency(base, 20)];
+            // VII (Mayor)
+            const chord3 = [getFrequency(base, 10), getFrequency(base, 14), getFrequency(base, 17), getFrequency(base, 22)];
             return [chord1, chord2, chord3];
         }
 
         let currentScale = generateScale(params.key);
         let currentChords = generateChords(params.key);
 
-        // --- MOTOR DE AUDIO (SYNTH + LOOPER + SUSTAIN) ---
+        // --- AUDIO ENGINE ---
         class AudioEngine {
             constructor() {
                 this.ctx = null;
-                this.masterGain = null;
-                this.destNode = null; // Para grabar el loop
+                this.master = null;
+                this.dest = null;
+                
+                // Melodía
+                this.melOsc = null;
+                this.melGain = null;
 
-                // Synths
-                this.melodyOsc = null;
+                // Acordes
                 this.chordOscs = [];
-                this.gainMelody = null;
-                this.gainChord = null;
-                this.delay = null;
-                this.filter = null;
+                this.chordGain = null;
+                this.chordFilter = null;
 
-                // Estado
                 this.isInit = false;
-                this.sustainActive = false;
-                this.lastChordIndex = -1;
+                this.sustain = false;
+                this.lastChordIdx = -1;
 
                 // Looper
-                this.mediaRecorder = null;
+                this.recorder = null;
                 this.chunks = [];
                 this.loopBuffer = null;
                 this.loopSource = null;
@@ -164,152 +153,147 @@
             }
 
             init() {
-                if (this.isInit) return;
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                this.ctx = new AudioContext();
-
-                // RUTEO PRINCIPAL: Todo va al Master, el Master va a las bocinas Y al grabador
-                this.masterGain = this.ctx.createGain();
-                this.masterGain.gain.value = 0.8;
-                this.masterGain.connect(this.ctx.destination);
-
-                this.destNode = this.ctx.createMediaStreamDestination();
-                this.masterGain.connect(this.destNode);
-
-                // CANAL MELODÍA
-                this.melodyOsc = this.ctx.createOscillator();
-                this.melodyOsc.type = 'triangle';
-                this.gainMelody = this.ctx.createGain();
-                this.gainMelody.gain.value = 0;
+                if(this.isInit) return;
+                const AC = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AC();
+                this.master = this.ctx.createGain();
+                this.master.gain.value = 0.8;
+                this.master.connect(this.ctx.destination);
                 
-                this.delay = this.ctx.createDelay();
-                this.delay.delayTime.value = 0.3;
-                const delayFeedback = this.ctx.createGain();
-                delayFeedback.gain.value = 0.4;
+                // Grabador
+                this.dest = this.ctx.createMediaStreamDestination();
+                this.master.connect(this.dest);
+
+                // --- CANAL MELODÍA (Derecha) ---
+                this.melOsc = this.ctx.createOscillator();
+                this.melOsc.type = 'triangle';
+                this.melGain = this.ctx.createGain();
+                this.melGain.gain.value = 0;
                 
-                this.melodyOsc.connect(this.gainMelody);
-                this.gainMelody.connect(this.masterGain);
-                this.gainMelody.connect(this.delay);
-                this.delay.connect(delayFeedback);
-                delayFeedback.connect(this.delay);
-                this.delay.connect(this.masterGain);
-                this.melodyOsc.start();
+                // Delay Melodía
+                const d = this.ctx.createDelay();
+                d.delayTime.value = 0.3;
+                const dF = this.ctx.createGain();
+                dF.gain.value = 0.4;
+                
+                this.melOsc.connect(this.melGain);
+                this.melGain.connect(this.master);
+                this.melGain.connect(d);
+                d.connect(dF); dF.connect(d); d.connect(this.master);
+                this.melOsc.start();
 
-                // CANAL ACORDES (Sawtooth + Lowpass para Pads ricos)
-                this.gainChord = this.ctx.createGain();
-                this.gainChord.gain.value = 0;
-                this.filter = this.ctx.createBiquadFilter();
-                this.filter.type = 'lowpass';
-                this.filter.frequency.value = 600; 
-                this.gainChord.connect(this.filter);
-                this.filter.connect(this.masterGain);
+                // --- CANAL ACORDES (Izquierda) ---
+                this.chordGain = this.ctx.createGain();
+                this.chordGain.gain.value = 0;
+                this.chordFilter = this.ctx.createBiquadFilter();
+                this.chordFilter.type = 'lowpass';
+                this.chordFilter.frequency.value = 800;
+                this.chordGain.connect(this.chordFilter);
+                this.chordFilter.connect(this.master);
 
-                for(let i=0; i<3; i++) {
+                // 4 osciladores para acordes densos
+                for(let i=0; i<4; i++) {
                     const osc = this.ctx.createOscillator();
-                    osc.type = 'sawtooth'; // Cambio a Sawtooth para mejor "cuerpo" al sostener
-                    osc.connect(this.gainChord);
+                    osc.type = 'sawtooth';
+                    osc.detune.value = (Math.random()-0.5)*10; // Chorus natural
+                    osc.connect(this.chordGain);
                     osc.start();
                     this.chordOscs.push(osc);
                 }
 
                 this.isInit = true;
-                updateHud(`AUDIO ACTIVO | ${params.key} Menor`);
+                this.updateUI();
             }
 
-            setKey(newKey) {
-                params.key = newKey;
-                currentScale = generateScale(newKey);
-                currentChords = generateChords(newKey);
-                updateHud(`${newKey} Menor`);
+            setKey(k) {
+                params.key = k;
+                currentScale = generateScale(k);
+                currentChords = generateChords(k);
+                this.updateUI();
             }
 
-            updateMelody(normX, normY, active) {
-                if (!this.isInit || !params.soundEnabled) return;
+            updateUI() {
+                if(this.isInit) document.getElementById('hud-status').innerText = `TONALIDAD: ${params.key} MENOR`;
+            }
+
+            // Input normalizado 0-1
+            handleMelody(x, y, active) {
+                if(!this.isInit || !params.soundEnabled) return;
                 const t = this.ctx.currentTime;
-                if (active) {
-                    const index = Math.floor(normX * currentScale.length);
-                    const safeIndex = Math.min(Math.max(index, 0), currentScale.length - 1);
-                    this.melodyOsc.frequency.setTargetAtTime(currentScale[safeIndex], t, 0.05);
-                    this.gainMelody.gain.setTargetAtTime(Math.max(0, (1.0 - normY) * 0.3), t, 0.1);
+                
+                if(active) {
+                    // Mapear X (0.5 a 1.0) a escala
+                    // Normalizar X de 0.5-1.0 a 0.0-1.0
+                    const localX = (x - 0.5) * 2; 
+                    const idx = Math.floor(localX * currentScale.length);
+                    const safeIdx = Math.min(Math.max(idx, 0), currentScale.length - 1);
+                    
+                    this.melOsc.frequency.setTargetAtTime(currentScale[safeIdx], t, 0.05);
+                    this.melGain.gain.setTargetAtTime(Math.max(0, (1-y)*0.3), t, 0.1);
                 } else {
-                    this.gainMelody.gain.setTargetAtTime(0, t, 0.1);
+                    this.melGain.gain.setTargetAtTime(0, t, 0.1);
                 }
             }
 
-            updateChords(normX, normY, active) {
-                if (!this.isInit || !params.soundEnabled) return;
+            handleChords(x, y, active) {
+                if(!this.isInit || !params.soundEnabled) return;
                 const t = this.ctx.currentTime;
 
-                if (active) {
-                    let chordIndex = 0;
-                    if (normX < 0.33) chordIndex = 0;
-                    else if (normX < 0.66) chordIndex = 1;
-                    else chordIndex = 2;
+                if(active) {
+                    // Mapear X (0.0 a 0.5) a acordes
+                    // Normalizar X de 0.0-0.5 a 0.0-1.0
+                    const localX = x * 2;
+                    let cIdx = 0;
+                    if(localX < 0.33) cIdx = 0;      // i
+                    else if(localX < 0.66) cIdx = 1; // VI
+                    else cIdx = 2;                   // VII
 
-                    // Si cambiamos de acorde, actualizamos frecuencias
-                    if (chordIndex !== this.lastChordIndex || this.gainChord.gain.value < 0.01) {
-                         const targetChord = currentChords[chordIndex];
-                         this.chordOscs.forEach((osc, i) => {
-                             osc.frequency.setTargetAtTime(targetChord[i], t, 0.1);
-                         });
-                         this.lastChordIndex = chordIndex;
+                    if(cIdx !== this.lastChordIdx || this.chordGain.gain.value < 0.01) {
+                        const chord = currentChords[cIdx];
+                        this.chordOscs.forEach((o, i) => o.frequency.setTargetAtTime(chord[i], t, 0.1));
+                        this.lastChordIdx = cIdx;
                     }
-                    
-                    const vol = Math.max(0, (1.0 - normY) * 0.25);
-                    this.gainChord.gain.setTargetAtTime(vol, t, 0.3);
+                    this.chordGain.gain.setTargetAtTime(Math.max(0, (1-y)*0.2), t, 0.2);
+                    // Abrir filtro si la mano sube
+                    this.chordFilter.frequency.setTargetAtTime(400 + (1-y)*1000, t, 0.2);
                 } else {
-                    // LÓGICA DE SUSTAIN
-                    if (this.sustainActive) {
-                        // Mantener volumen (Pad de fondo)
-                        if(this.gainChord.gain.value < 0.15) {
-                            this.gainChord.gain.setTargetAtTime(0.15, t, 0.5);
-                        }
+                    if(this.sustain) {
+                        if(this.chordGain.gain.value < 0.15) this.chordGain.gain.setTargetAtTime(0.15, t, 0.5);
                     } else {
-                        // Silenciar
-                        this.gainChord.gain.setTargetAtTime(0, t, 0.5);
+                        this.chordGain.gain.setTargetAtTime(0, t, 0.5);
                     }
                 }
             }
 
             toggleSustain() {
-                this.sustainActive = !this.sustainActive;
-                const el = document.getElementById('pedal-sustain');
-                if(this.sustainActive) el.classList.add('active');
-                else {
-                    el.classList.remove('active');
-                    // Si apagamos sustain y no hay mano, cortar sonido
-                    this.gainChord.gain.setTargetAtTime(0, this.ctx.currentTime, 0.5);
-                }
+                this.sustain = !this.sustain;
+                document.getElementById('pedal-sustain').classList.toggle('active', this.sustain);
+                if(!this.sustain) this.chordGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.5);
             }
 
-            // --- LOOPER ---
             toggleLoop() {
                 if(!this.isInit) return;
-                if (this.loopState === 'IDLE' || this.loopState === 'PLAYING') this.startRecording();
-                else if (this.loopState === 'RECORDING') this.stopRecordingAndPlay();
-            }
-
-            startRecording() {
-                this.clearLoop(false); 
-                this.chunks = [];
-                this.mediaRecorder = new MediaRecorder(this.destNode.stream);
-                this.mediaRecorder.ondataavailable = (e) => this.chunks.push(e.data);
-                this.mediaRecorder.start();
-                this.loopState = 'RECORDING';
-                updatePedalUI('loop', 'recording');
-                updateHud("GRABANDO...");
-            }
-
-            stopRecordingAndPlay() {
-                if(this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-                    this.mediaRecorder.stop();
-                    this.mediaRecorder.onstop = async () => {
-                        const blob = new Blob(this.chunks, { 'type' : 'audio/ogg; codecs=opus' });
-                        const arrayBuffer = await blob.arrayBuffer();
-                        const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
-                        this.loopBuffer = audioBuffer;
+                const p = document.getElementById('pedal-loop');
+                
+                if(this.loopState === 'IDLE' || this.loopState === 'PLAYING') {
+                    // Grabar
+                    if(this.loopSource) { this.loopSource.stop(); this.loopSource = null; }
+                    this.chunks = [];
+                    this.recorder = new MediaRecorder(this.dest.stream);
+                    this.recorder.ondataavailable = e => this.chunks.push(e.data);
+                    this.recorder.start();
+                    this.loopState = 'RECORDING';
+                    p.className = 'pedal recording';
+                } else {
+                    // Play
+                    this.recorder.stop();
+                    this.recorder.onstop = async () => {
+                        const blob = new Blob(this.chunks, {'type': 'audio/ogg; codecs=opus'});
+                        const arr = await blob.arrayBuffer();
+                        this.loopBuffer = await this.ctx.decodeAudioData(arr);
                         this.playLoop();
                     };
+                    p.className = 'pedal playing';
                 }
             }
 
@@ -318,356 +302,261 @@
                 this.loopSource = this.ctx.createBufferSource();
                 this.loopSource.buffer = this.loopBuffer;
                 this.loopSource.loop = true;
-                this.loopSource.connect(this.masterGain);
+                this.loopSource.connect(this.master);
                 this.loopSource.start();
                 this.loopState = 'PLAYING';
-                updatePedalUI('loop', 'playing');
-                updateHud("LOOP PLAYING");
             }
 
-            clearLoop(updateUI = true) {
-                if (this.loopSource) {
-                    this.loopSource.stop();
-                    this.loopSource.disconnect();
-                    this.loopSource = null;
-                }
+            clearLoop() {
+                if(this.loopSource) { this.loopSource.stop(); this.loopSource = null; }
                 this.loopBuffer = null;
                 this.loopState = 'IDLE';
-                if(updateUI) {
-                    updatePedalUI('loop', 'idle');
-                    updateHud("LOOP BORRADO");
-                }
+                document.getElementById('pedal-loop').className = 'pedal';
             }
         }
-        
-        const audioSys = new AudioEngine();
 
-        // --- VISUALES AVANZADOS (CÓDIGO 1: RIBBONS & PARTICLES) ---
-        function createSoftTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 32; canvas.height = 32;
-            const ctx = canvas.getContext('2d');
-            const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-            grad.addColorStop(0, 'rgba(255,255,255,1)');
-            grad.addColorStop(1, 'rgba(255,255,255,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, 32, 32);
-            return new THREE.CanvasTexture(canvas);
-        }
-        const particleTexture = createSoftTexture();
+        const audio = new AudioEngine();
 
+        // --- VISUAL ENGINE (Dual System) ---
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.02);
-
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 100);
         camera.position.z = 12;
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
-        let visibleWidth, visibleHeight;
-        function updateVisibleArea() {
-            const vFOV = camera.fov * Math.PI / 180;
-            visibleHeight = 2 * Math.tan(vFOV / 2) * camera.position.z;
-            visibleWidth = visibleHeight * camera.aspect;
-        }
-        updateVisibleArea();
-
-        // Post-Processing
         const composer = new EffectComposer(renderer);
-        const renderPass = new RenderPass(scene, camera);
-        composer.addPass(renderPass);
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloomPass.strength = params.bloomStrength;
-        bloomPass.radius = params.bloomRadius;
-        composer.addPass(bloomPass);
+        composer.addPass(new RenderPass(scene, camera));
+        const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloom.strength = params.bloomStrength;
+        composer.addPass(bloom);
 
-        // Backgrounds
-        const bgGroup = new THREE.Group();
-        scene.add(bgGroup);
-        let gridHelper, starField;
-        
-        function initBackgrounds() {
-            gridHelper = new THREE.GridHelper(100, 40, 0x00ffff, 0x222222);
-            gridHelper.position.y = -10; gridHelper.visible = false; bgGroup.add(gridHelper);
-            const gridTop = gridHelper.clone(); gridTop.position.y = 10; gridHelper.add(gridTop);
-
-            const starGeo = new THREE.BufferGeometry();
-            const starCount = 2000;
-            const posArray = new Float32Array(starCount * 3);
-            for(let i=0; i<starCount*3; i++) posArray[i] = (Math.random() - 0.5) * 100;
-            starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-            const starMat = new THREE.PointsMaterial({size: 0.2, color: 0xffffff, transparent: true, opacity: 0.8});
-            starField = new THREE.Points(starGeo, starMat);
-            starField.visible = false; bgGroup.add(starField);
+        // Texture Gen
+        function createTex() {
+            const c = document.createElement('canvas'); c.width=32; c.height=32;
+            const x = c.getContext('2d');
+            const g = x.createRadialGradient(16,16,0,16,16,16);
+            g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(1,'rgba(255,255,255,0)');
+            x.fillStyle=g; x.fillRect(0,0,32,32);
+            return new THREE.CanvasTexture(c);
         }
-        initBackgrounds();
+        const tex = createTex();
 
-        function setScenario(name) {
-            gridHelper.visible = false; starField.visible = false;
-            scene.background = new THREE.Color(0x000000); scene.fog.color.setHex(0x000000);
-            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`btn-${name.toLowerCase()}`).classList.add('active');
-            if (name === 'Grid') { gridHelper.visible = true; scene.background = new THREE.Color(0x050510); scene.fog.color.setHex(0x050510); }
-            else if (name === 'Warp') { starField.visible = true; scene.background = new THREE.Color(0x000010); }
-        }
+        // Objects
+        const trails = []; 
+        const particles = [];
 
-        // --- CLASSES VISUALES ---
-        class RibbonTrail {
-            constructor(idx) {
-                this.idx = idx; this.length = 50; this.points = []; this.visible = true;
-                this.target = new THREE.Vector3(0,-1000,0); this.current = new THREE.Vector3(0,-1000,0);
-                for(let i=0; i<this.length; i++) this.points.push(new THREE.Vector3(0,-1000,0));
-
-                const geometry = new THREE.BufferGeometry();
-                const positions = new Float32Array(this.length * 6);
-                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        // Clase Ribbon (Para Derecha/Melodía) - Preciso y afilado
+        class Ribbon {
+            constructor(color) {
+                this.len = 20; this.pts = []; this.target = new THREE.Vector3(0,-100,0);
+                for(let i=0;i<this.len;i++) this.pts.push(new THREE.Vector3(0,-100,0));
                 
-                this.material = new THREE.MeshBasicMaterial({
-                    color: 0xffffff, side: THREE.DoubleSide, transparent: true,
-                    opacity: params.opacity, blending: THREE.AdditiveBlending
-                });
-                this.mesh = new THREE.Mesh(geometry, this.material);
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.len*6), 3));
+                this.mat = new THREE.MeshBasicMaterial({color:color, transparent:true, opacity:0.8, side:THREE.DoubleSide, blending:THREE.AdditiveBlending});
+                this.mesh = new THREE.Mesh(geo, this.mat);
                 scene.add(this.mesh);
             }
-            setTarget(x, y, z) { this.target.set(x, y, z); }
-            reset() { this.target.set(0,-1000,0); this.current.set(0,-1000,0); }
-            tick(time) {
-                if(!this.visible) { this.mesh.visible = false; return; }
-                this.mesh.visible = true;
-                this.current.lerp(this.target, params.relaxation);
-                this.points.shift(); this.points.push(this.current.clone());
+            update(t) {
+                // Lerp head
+                this.pts.shift(); 
+                const head = this.pts[this.pts.length-1].clone().lerp(this.target, 0.3);
+                this.pts.push(head);
 
-                const curve = new THREE.CatmullRomCurve3(this.points, false, 'catmullrom', 0.5);
-                const spline = curve.getPoints(this.length - 1);
+                const curve = new THREE.CatmullRomCurve3(this.pts, false, 'catmullrom', 0.5);
+                const p = curve.getPoints(this.len-1);
                 const pos = this.mesh.geometry.attributes.position.array;
-                const widthBase = params.lineWidth;
-
-                for(let i=0; i < spline.length; i++) {
-                    let w = widthBase * Math.pow(i / this.length, 0.5);
-                    pos[i*6+0]=spline[i].x-w; pos[i*6+1]=spline[i].y; pos[i*6+2]=spline[i].z;
-                    pos[i*6+3]=spline[i].x+w; pos[i*6+4]=spline[i].y; pos[i*6+5]=spline[i].z;
+                
+                for(let i=0; i<this.len; i++) {
+                    const w = (i/this.len)*0.4;
+                    pos[i*6]=p[i].x-w; pos[i*6+1]=p[i].y; pos[i*6+2]=p[i].z;
+                    pos[i*6+3]=p[i].x+w; pos[i*6+4]=p[i].y; pos[i*6+5]=p[i].z;
                 }
                 this.mesh.geometry.attributes.position.needsUpdate = true;
-                
-                let hue = 0;
-                if(params.mode === 'Spectral') hue = (time * params.colorSpeed * 0.1 + (this.idx * 0.05)) % 1;
-                else if(params.mode === 'Fire') hue = (0.0 + (Math.sin(time)*0.05));
-                else if(params.mode === 'Ocean') hue = (0.6 + (Math.sin(time)*0.1));
-                this.material.color.setHSL(hue, 1.0, 0.5);
+                this.mesh.visible = (this.target.y > -50);
             }
         }
 
-        class ParticleEmitter {
-            constructor(idx) {
-                this.idx = idx; this.visible = false; this.particles = []; this.maxParticles = 50;
-                this.target = new THREE.Vector3(0,-1000,0); this.lastPos = new THREE.Vector3(0,-1000,0);
-                
-                const geometry = new THREE.BufferGeometry();
-                const posArray = new Float32Array(this.maxParticles * 3);
-                const sizeArray = new Float32Array(this.maxParticles);
-                const colorArray = new Float32Array(this.maxParticles * 3);
-                geometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-                geometry.setAttribute('size', new THREE.BufferAttribute(sizeArray, 1));
-                geometry.setAttribute('color', new THREE.BufferAttribute(colorArray, 3));
-
-                this.material = new THREE.PointsMaterial({ size: 1.0, map: particleTexture, transparent: true, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false });
-                this.mesh = new THREE.Points(geometry, this.material);
+        // Clase Particle (Para Izquierda/Acordes) - Etéreo y suave
+        class Cloud {
+            constructor(color) {
+                this.max = 30; this.target = new THREE.Vector3(0,-100,0);
+                this.parts = [];
+                const geo = new THREE.BufferGeometry();
+                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.max*3), 3));
+                geo.setAttribute('size', new THREE.BufferAttribute(new Float32Array(this.max), 1));
+                this.mat = new THREE.PointsMaterial({color:color, size:1, map:tex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false});
+                this.mesh = new THREE.Points(geo, this.mat);
                 scene.add(this.mesh);
-
-                for(let i=0; i<this.maxParticles; i++) this.particles.push({ pos: new THREE.Vector3(0,-1000,0), vel: new THREE.Vector3(), life: 0, baseColor: new THREE.Color() });
+                for(let i=0;i<this.max;i++) this.parts.push({p:new THREE.Vector3(0,-100,0), v:new THREE.Vector3(), l:0});
             }
-            setTarget(x,y,z) { this.target.set(x,y,z); }
-            reset() { this.target.set(0,-1000,0); this.lastPos.set(0,-1000,0); }
-            tick(time) {
-                if(!this.visible) { this.mesh.visible = false; return; }
-                this.mesh.visible = true;
-                const currentPos = new THREE.Vector3().lerpVectors(this.lastPos, this.target, 0.3);
-                const dist = this.target.distanceTo(this.lastPos);
-                const isSmoke = params.trailStyle === 'Smoke';
-                
-                if (dist > 0.01 || Math.random() < 0.1) {
-                    const p = this.particles.find(p => p.life <= 0);
-                    if (p) {
-                        p.life = 1.0; p.pos.copy(currentPos);
-                        p.vel.set((Math.random()-0.5)*0.2, (isSmoke ? 0.02 : -0.05), (Math.random()-0.5)*0.2);
-                        let hue = (params.mode === 'Spectral') ? (time * 0.1 + (this.idx * 0.05)) % 1 : (params.mode === 'Fire' ? 0.05 : 0.6);
-                        p.baseColor.setHSL(hue, 1.0, 0.5);
+            update(t) {
+                // Emit
+                if(this.target.y > -50 && Math.random()>0.5) {
+                    const p = this.parts.find(x => x.l <= 0);
+                    if(p) {
+                        p.l = 1; p.p.copy(this.target);
+                        p.p.x += (Math.random()-0.5); p.p.y += (Math.random()-0.5);
+                        p.v.set((Math.random()-0.5)*0.1, 0.05, (Math.random()-0.5)*0.1);
                     }
                 }
-                this.lastPos.copy(currentPos);
-
-                const positions = this.mesh.geometry.attributes.position.array;
-                const sizes = this.mesh.geometry.attributes.size.array;
-                const colors = this.mesh.geometry.attributes.color.array;
-
-                this.particles.forEach((p, i) => {
-                    if (p.life > 0) {
-                        p.life -= 0.02; p.pos.add(p.vel);
-                        positions[i*3]=p.pos.x; positions[i*3+1]=p.pos.y; positions[i*3+2]=p.pos.z;
-                        sizes[i] = (isSmoke ? params.particleSize*3 : params.particleSize) * p.life;
-                        colors[i*3]=p.baseColor.r; colors[i*3+1]=p.baseColor.g; colors[i*3+2]=p.baseColor.b;
-                    } else sizes[i] = 0;
+                const pos = this.mesh.geometry.attributes.position.array;
+                const size = this.mesh.geometry.attributes.size.array;
+                this.parts.forEach((p,i) => {
+                    if(p.l > 0) {
+                        p.l -= 0.02; p.p.add(p.v);
+                        pos[i*3]=p.p.x; pos[i*3+1]=p.p.y; pos[i*3+2]=p.p.z;
+                        size[i] = p.l * 2.0;
+                    } else size[i] = 0;
                 });
                 this.mesh.geometry.attributes.position.needsUpdate = true;
                 this.mesh.geometry.attributes.size.needsUpdate = true;
-                this.mesh.geometry.attributes.color.needsUpdate = true;
             }
         }
 
-        // Init Visual Objects
-        const ribbons = Array(10).fill().map((_,i) => new RibbonTrail(i));
-        const particles = Array(10).fill().map((_,i) => new ParticleEmitter(i));
+        // Crear instancias visuales (5 dedos x 2 manos = 10 slots)
+        // Pero ahora los asignamos dinámicamente. 
+        // Vamos a crear 10 Clouds y 10 Ribbons y usar el que corresponda según la zona.
+        const clouds = Array(10).fill().map(() => new Cloud(0x00ffff)); // Cyan para acordes
+        const ribbons = Array(10).fill().map(() => new Ribbon(0xff00ff)); // Magenta para melodía
 
-        function resetCanvas() {
-            ribbons.forEach(t => t.reset());
-            particles.forEach(p => p.reset());
-        }
+        // --- MEDIAPIPE LOGIC ---
+        const video = document.createElement('video');
+        let vw = 10, vh = 10;
 
-        // --- MEDIAPIPE ---
-        const videoElement = document.createElement('video');
-        const fingerIndices = [4, 8, 12, 16, 20];
-        
-        function onResults(results) {
+        function onResults(res) {
             document.getElementById('loading').style.display = 'none';
-            let melodyActive = false, chordActive = false;
+            let hasMelody = false;
+            let hasChords = false;
 
-            if (results.multiHandLandmarks) {
-                results.multiHandLandmarks.forEach((landmarks, index) => {
-                    if (index > 1) return;
+            if(res.multiHandLandmarks) {
+                res.multiHandLandmarks.forEach((lm, hIdx) => {
+                    if(hIdx > 1) return; // Max 2 manos
                     
+                    // Determinar Zona basado en la posición X de la muñeca (landmark 0) o dedo (8)
+                    // MediaPipe X: 0 (Izq) -> 1 (Der).
+                    const xPos = lm[8].x;
+                    const isLeftZone = xPos < 0.5; // Zona Acordes
+                    const isRightZone = xPos >= 0.5; // Zona Melodía
+
                     // Visual Update
-                    fingerIndices.forEach((fid, i) => {
-                        const lm = landmarks[fid];
-                        const x = (lm.x - 0.5) * -visibleWidth * params.inputSensitivity;
-                        const y = (lm.y - 0.5) * -visibleHeight * params.inputSensitivity;
-                        const z = -lm.z * 20;
-                        const globalIdx = (index * 5) + i;
+                    [4,8,12,16,20].forEach((fid, i) => {
+                        const tip = lm[fid];
+                        const globalIdx = hIdx*5 + i;
                         
-                        if(params.trailStyle === 'Ribbon') {
-                            ribbons[globalIdx].setTarget(x,y,z);
-                            particles[globalIdx].setTarget(0,-1000,0);
+                        // Convertir a coordenadas 3D mundo
+                        const wx = (tip.x - 0.5) * -vw * params.sensitivity;
+                        const wy = (tip.y - 0.5) * -vh * params.sensitivity;
+                        const wz = -tip.z * 20;
+
+                        if (isLeftZone) {
+                            // Usar nubes, esconder cintas
+                            clouds[globalIdx].target.set(wx, wy, wz);
+                            ribbons[globalIdx].target.set(0, -1000, 0);
                         } else {
-                            particles[globalIdx].setTarget(x,y,z);
-                            ribbons[globalIdx].setTarget(0,-1000,0);
+                            // Usar cintas, esconder nubes
+                            ribbons[globalIdx].target.set(wx, wy, wz);
+                            clouds[globalIdx].target.set(0, -1000, 0);
                         }
                     });
 
-                    // Audio Update
-                    const idxFinger = landmarks[8];
-                    if (index === 0) {
-                        melodyActive = true;
-                        audioSys.updateMelody(idxFinger.x, idxFinger.y, true);
+                    // Audio Trigger (Solo dedo índice)
+                    if (isLeftZone) {
+                        hasChords = true;
+                        audio.handleChords(lm[8].x, lm[8].y, true);
                     } else {
-                        chordActive = true;
-                        audioSys.updateChords(idxFinger.x, idxFinger.y, true);
+                        hasMelody = true;
+                        audio.handleMelody(lm[8].x, lm[8].y, true);
                     }
                 });
             }
-            if(!melodyActive) audioSys.updateMelody(0,0,false);
-            if(!chordActive) audioSys.updateChords(0,0,false);
+
+            // Cleanup si no hay manos en las zonas
+            if(!hasMelody) {
+                audio.handleMelody(0,0,false);
+                // Esconder ribbons inactivos
+                // (Ya se maneja en el loop visual si el target está lejos)
+            }
+            if(!hasChords) {
+                audio.handleChords(0,0,false);
+            }
+            
+            // Si no se detectan manos en absoluto, resetear targets visuales
+            if(!res.multiHandLandmarks || res.multiHandLandmarks.length === 0) {
+                clouds.forEach(c => c.target.set(0,-1000,0));
+                ribbons.forEach(r => r.target.set(0,-1000,0));
+            }
         }
 
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
         hands.setOptions({maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5});
         hands.onResults(onResults);
-        const cameraFeed = new Camera(videoElement, { onFrame: async () => await hands.send({image: videoElement}), width: 1280, height: 720 });
-        cameraFeed.start();
-
-        // --- CONTROLES ---
-        function updateHud(text) { document.getElementById('hud-status').innerText = text; }
-        function updatePedalUI(pedal, state) {
-            const p = document.getElementById(`pedal-${pedal}`);
-            p.className = `pedal ${state}`;
-            if(state === 'idle') p.className = 'pedal';
-        }
-
-        // GUI
-        const gui = new GUI({ title: 'Configuracion' });
-        const fVisual = gui.addFolder('Visual');
-        fVisual.add(params, 'trailStyle', ['Ribbon', 'Particles', 'Smoke']).onChange(v => {
-            ribbons.forEach(r => r.visible = (v === 'Ribbon'));
-            particles.forEach(p => p.visible = (v !== 'Ribbon'));
-        });
-        fVisual.add(params, 'particleSize', 0.1, 5.0);
-        fVisual.add(params, 'mode', ['Spectral', 'Fire', 'Ocean']);
         
-        const fAudio = gui.addFolder('Audio Band');
-        fAudio.add(params, 'key', Object.keys(NOTES)).onChange(v => audioSys.setKey(v));
-        fAudio.add(params, 'soundEnabled');
+        const cam = new Camera(video, {onFrame: async()=>{await hands.send({image:video})}, width:1280, height:720});
+        cam.start();
 
-        // Eventos
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') { e.preventDefault(); audioSys.toggleLoop(); }
-            if (e.key.toLowerCase() === 's') audioSys.toggleSustain();
-            if (e.key.toLowerCase() === 'x') audioSys.clearLoop();
-            if (e.key.toLowerCase() === 'r') resetCanvas();
-        });
-
-        document.getElementById('pedal-sustain').onclick = () => audioSys.toggleSustain();
-        document.getElementById('pedal-loop').onclick = () => audioSys.toggleLoop();
-        document.getElementById('pedal-clear').onclick = () => audioSys.clearLoop();
-        document.getElementById('btn-void').onclick = () => setScenario('Void');
-        document.getElementById('btn-grid').onclick = () => setScenario('Grid');
-        document.getElementById('btn-warp').onclick = () => setScenario('Warp');
-
-        window.addEventListener('click', () => { if(!audioSys.isInit) audioSys.init(); if(audioSys.ctx.state === 'suspended') audioSys.ctx.resume(); });
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
-            updateVisibleArea();
-        });
-
-        // Inicialización
-        ribbons.forEach(r => r.visible = true);
-        particles.forEach(p => p.visible = false);
-        setScenario('Void');
-
+        // --- LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             const t = performance.now()*0.001;
-            for(let i=0; i<10; i++) {
-                if(params.trailStyle === 'Ribbon') ribbons[i].tick(t);
-                else particles[i].tick(t);
-            }
-            if(gridHelper.visible) gridHelper.position.z = (t * 2) % 10;
-            if(starField.visible) starField.rotation.z = t * 0.1;
+            clouds.forEach(c => c.update(t));
+            ribbons.forEach(r => r.update(t));
             composer.render();
         }
         animate();
+
+        // --- UTILS ---
+        window.addEventListener('resize', ()=>{
+            camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
+            const fov = camera.fov * Math.PI/180;
+            vh = 2 * Math.tan(fov/2) * camera.position.z; vw = vh * camera.aspect;
+        });
+        const fov = camera.fov * Math.PI/180; vh = 2 * Math.tan(fov/2) * camera.position.z; vw = vh * camera.aspect;
+
+        // Controls
+        window.addEventListener('keydown', e => {
+            if(e.code==='Space') audio.toggleLoop();
+            if(e.key.toLowerCase()==='s') audio.toggleSustain();
+            if(e.key.toLowerCase()==='x') audio.clearLoop();
+        });
+        document.getElementById('pedal-sustain').onclick = () => audio.toggleSustain();
+        document.getElementById('pedal-loop').onclick = () => audio.toggleLoop();
+        document.getElementById('pedal-clear').onclick = () => audio.clearLoop();
+        window.addEventListener('click', () => { if(!audio.isInit) audio.init(); if(audio.ctx.state==='suspended') audio.ctx.resume(); });
+
+        // GUI
+        const gui = new GUI({title:'Panel de Control'});
+        gui.add(params, 'key', Object.keys(NOTES)).onChange(k => audio.setKey(k));
+        gui.add(params, 'soundEnabled').name('Audio Master');
+        gui.add(params, 'bloomStrength', 0, 3).onChange(v => bloom.strength = v);
     </script>
 
-    <div id="loading">INICIALIZANDO SISTEMA...</div>
-    
-    <div id="top-ui">
-        <div class="hud-text" style="font-size:14px; font-weight:bold; color:#0ff;">ARTIMOTION LOOP STATION</div>
-        <div id="hud-status" class="hud-text">CLICK PARA INICIAR</div>
+    <div id="loading">CARGANDO SISTEMA HÍBRIDO...</div>
+    <div id="ui-layer">
+        <div id="screen-divider"></div>
+        <div id="label-chords" class="zone-label">ZONA ACORDES (PADS)</div>
+        <div id="label-melody" class="zone-label">ZONA MELODÍA (LEAD)</div>
+        <div id="hud-status">CLICK PARA ACTIVAR</div>
     </div>
-
+    
     <div id="pedalboard">
         <div id="pedal-sustain" class="pedal">
             <div class="pedal-light"></div>
             <div class="pedal-label">Sustain</div>
-            <div class="pedal-key">[ Tecla S ]</div>
+            <div class="pedal-key">[ S ]</div>
         </div>
         <div id="pedal-loop" class="pedal">
             <div class="pedal-light"></div>
             <div class="pedal-label">Looper</div>
-            <div class="pedal-key">[ Espacio ]</div>
+            <div class="pedal-key">[ SPACE ]</div>
         </div>
         <div id="pedal-clear" class="pedal">
             <div class="pedal-light" style="background:#555"></div>
             <div class="pedal-label">Clear</div>
-            <div class="pedal-key">[ Tecla X ]</div>
+            <div class="pedal-key">[ X ]</div>
         </div>
-    </div>
-
-    <div id="bottom-menu">
-        <div id="btn-void" class="mode-btn active">Void</div>
-        <div id="btn-grid" class="mode-btn">Grid</div>
-        <div id="btn-warp" class="mode-btn">Warp</div>
     </div>
 </body>
 </html>
