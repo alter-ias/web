@@ -2,22 +2,21 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Level 3: Liquid Flow</title>
+    <title>Artimotion - Level 4: Organic Ribbons</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; }
+        body { margin: 0; overflow: hidden; background: #000; user-select: none; }
         canvas { display: block; }
-        #ui-layer { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            pointer-events: none; display: flex; justify-content: center; align-items: center;
-        }
         #loading { 
-            color: #00ffff; font-family: 'Courier New', monospace; 
-            font-size: 16px; letter-spacing: 3px; text-transform: uppercase;
-            text-shadow: 0 0 20px #00ffff;
-            background: rgba(0,0,0,0.8); padding: 20px; border: 1px solid #00ffff;
+            position: absolute; top: 50%; left: 50%; 
+            transform: translate(-50%, -50%);
+            color: #fff; font-family: sans-serif; font-size: 14px; 
+            background: rgba(0,0,0,0.8); padding: 15px 30px; border-radius: 30px;
+            border: 1px solid #444; pointer-events: none;
         }
+        /* Estilo para el panel de control */
+        .lil-gui { --background-color: rgba(10, 10, 10, 0.9); --text-color: #eee; }
     </style>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
@@ -27,305 +26,189 @@
         import { EffectComposer } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/EffectComposer.js';
         import { RenderPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
-        import { AfterimagePass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/AfterimagePass.js';
+        import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // --- CONFIGURACIÓN VISUAL ---
-        const VISUALS = {
-            trailLength: 25,     // Longitud de la estela
-            trailWidth: 200,     // Cantidad de puntos en la curva suavizada
-            bloomStrength: 2.5,  // Intensidad del brillo
-            particleCount: 400   // Partículas por mano
+        // --- PARÁMETROS GLOBALES (CONTROLABLES) ---
+        const params = {
+            lineWidth: 0.6,
+            trailLength: 40,
+            bloomStrength: 1.5,
+            bloomRadius: 0.6,
+            relaxation: 0.2, // Qué tan rápido sigue al dedo (menor = más 'gomoso')
+            colorSpeed: 1.0,
+            opacity: 0.8,
+            mode: 'Spectral' // Preset de color
         };
 
-        // --- 1. ESCENA ---
+        // --- 1. SETUP ESCENA ---
         const scene = new THREE.Scene();
-        // Fondo sutilmente estrellado o nebuloso se logra mejor con partículas, pero usaremos color sólido + post-proceso
-        scene.fog = new THREE.FogExp2(0x000000, 0.02);
-
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 10;
+        camera.position.z = 12;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: "high-performance" });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limitar pixel ratio para rendimiento
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
-        // --- 2. POST-PROCESAMIENTO (LA MAGIA VISUAL) ---
+        // --- 2. POST-PROCESAMIENTO ---
         const composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
 
-        // Afterimage: Crea ese rastro fantasma que se desvanece suavemente
-        const afterimagePass = new AfterimagePass();
-        afterimagePass.uniforms["damp"].value = 0.85; // 0.9 = rastro muy largo, 0.7 = corto
-        composer.addPass(afterimagePass);
-
-        // Bloom: El brillo neón
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloomPass.strength = VISUALS.bloomStrength;
-        bloomPass.radius = 0.5;
-        bloomPass.threshold = 0.1;
+        bloomPass.threshold = 0;
+        bloomPass.strength = params.bloomStrength;
+        bloomPass.radius = params.bloomRadius;
         composer.addPass(bloomPass);
 
-        // --- 3. CLASE: SPLINE TRAIL (Estela Líquida) ---
-        // Usa curvas matemáticas para suavizar movimientos bruscos
-        class LiquidTrail {
-            constructor(hueOffset) {
-                this.points = []; // Puntos reales de la mano
-                this.maxPoints = VISUALS.trailLength;
-                this.hueOffset = hueOffset;
+        // --- 3. CLASE: RIBBON TRAIL (LA CINTA ORGÁNICA) ---
+        // Genera una malla (Mesh) en lugar de una línea, permitiendo grosor real.
+        class RibbonTrail {
+            constructor(idx) {
+                this.idx = idx;
+                this.length = 50; // Capacidad máxima del buffer
+                this.points = []; // Puntos de control para el spline
                 
-                // Geometría para la línea suavizada
-                // Usamos muchos más vértices que puntos de control para que sea curva
+                // Inicializar puntos fuera de pantalla
+                for(let i=0; i<this.length; i++) {
+                    this.points.push(new THREE.Vector3(0,-100,0));
+                }
+
+                // Geometría: Una tira de triángulos (Triangle Strip)
+                // Cada segmento del trail necesita 2 vértices (izquierda y derecha)
                 const geometry = new THREE.BufferGeometry();
-                const positions = new Float32Array(VISUALS.trailWidth * 3);
+                const positions = new Float32Array(this.length * 2 * 3); // 2 verts por punto * 3 coords (xyz)
+                const uvs = new Float32Array(this.length * 2 * 2);
+                
+                // Generar UVs para texturizado/gradientes
+                for(let i=0; i<this.length; i++) {
+                    const u = i / (this.length - 1);
+                    uvs[i*4 + 0] = u; uvs[i*4 + 1] = 0; // Vertice abajo
+                    uvs[i*4 + 2] = u; uvs[i*4 + 3] = 1; // Vertice arriba
+                }
+
                 geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-                
-                // Material que permite colores por vértice (gradiente)
-                const material = new THREE.LineBasicMaterial({
-                    vertexColors: true,
-                    blending: THREE.AdditiveBlending,
-                    transparent: true,
-                    opacity: 0.8,
-                    linewidth: 2
-                });
+                geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
 
-                this.mesh = new THREE.Line(geometry, material);
-                
-                // Inicializar colores del gradiente
-                const colors = new Float32Array(VISUALS.trailWidth * 3);
-                this.mesh.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-                
-                scene.add(this.mesh);
-                
-                // Inicializar fuera de pantalla
-                for(let i=0; i<this.maxPoints; i++) this.points.push(new THREE.Vector3(0, -50, 0));
-            }
-
-            update(targetPos, time) {
-                // 1. Agregar nuevo punto al historial (cola de serpiente)
-                this.points.shift();
-                this.points.push(targetPos.clone());
-
-                // 2. Crear la curva CatmullRom (Matemática de fluidos)
-                const curve = new THREE.CatmullRomCurve3(this.points, false, 'catmullrom', 0.5);
-                
-                // 3. Obtener puntos suavizados a lo largo de la curva
-                const smoothPoints = curve.getPoints(VISUALS.trailWidth - 1);
-                
-                // 4. Actualizar geometría y colores
-                const positions = this.mesh.geometry.attributes.position.array;
-                const colors = this.mesh.geometry.attributes.color.array;
-                const colorObj = new THREE.Color();
-
-                for (let i = 0; i < VISUALS.trailWidth; i++) {
-                    const p = smoothPoints[i];
-                    positions[i * 3] = p.x;
-                    positions[i * 3 + 1] = p.y;
-                    positions[i * 3 + 2] = p.z;
-
-                    // Gradiente de color: Cabeza brillante, cola oscura
-                    // Ciclo de color basado en tiempo + índice
-                    const hue = (time * 0.1 + this.hueOffset + (i * 0.002)) % 1;
-                    const lightness = (i / VISUALS.trailWidth); // 0 en la cola, 1 en la cabeza
-                    
-                    colorObj.setHSL(hue, 1.0, lightness * 0.6); // * 0.6 para no saturar al blanco
-                    
-                    colors[i * 3] = colorObj.r;
-                    colors[i * 3 + 1] = colorObj.g;
-                    colors[i * 3 + 2] = colorObj.b;
+                // Indices para formar triángulos
+                const indices = [];
+                for(let i=0; i < this.length - 1; i++) {
+                    const v = i * 2;
+                    indices.push(v, v+1, v+2);
+                    indices.push(v+2, v+1, v+3);
                 }
+                geometry.setIndex(indices);
+                geometry.attributes.position.dynamic = true;
 
-                this.mesh.geometry.attributes.position.needsUpdate = true;
-                this.mesh.geometry.attributes.color.needsUpdate = true;
-            }
-        }
-
-        // --- 4. CLASE: EMISOR DE PARTÍCULAS (Chispas) ---
-        class ParticleEmitter {
-            constructor() {
-                this.poolSize = 1000;
-                this.geometry = new THREE.BufferGeometry();
-                this.positions = new Float32Array(this.poolSize * 3);
-                this.velocities = []; 
-                this.lifetimes = new Float32Array(this.poolSize); // 0 = muerta, 1 = viva
-                
-                for(let i=0; i<this.poolSize; i++) {
-                    this.velocities.push({x:0, y:0, z:0});
-                    this.lifetimes[i] = 0;
-                    this.positions[i*3+1] = -100; // Esconder
-                }
-
-                this.geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
-                
-                const material = new THREE.PointsMaterial({
+                // Material Shader simple para colores suaves
+                this.material = new THREE.MeshBasicMaterial({
                     color: 0xffffff,
-                    size: 0.15,
+                    side: THREE.DoubleSide,
                     transparent: true,
-                    opacity: 0.9,
+                    opacity: params.opacity,
                     blending: THREE.AdditiveBlending,
-                    sizeAttenuation: true
+                    depthTest: false // Para que se vean unos sobre otros sin cortes feos
                 });
 
-                this.mesh = new THREE.Points(this.geometry, material);
+                this.mesh = new THREE.Mesh(geometry, this.material);
+                this.mesh.frustumCulled = false; // Siempre dibujar
                 scene.add(this.mesh);
-                
-                this.nextIdx = 0;
+
+                this.target = new THREE.Vector3(0,-100,0);
+                this.current = new THREE.Vector3(0,-100,0);
             }
 
-            emit(pos, velocity) {
-                // Emitir varias partículas por frame para densidad
-                for(let k=0; k<2; k++) {
-                    const idx = this.nextIdx;
-                    this.nextIdx = (this.nextIdx + 1) % this.poolSize;
+            update(x, y, z, time) {
+                // 1. Física suave (Lerp)
+                this.target.set(x, y, z);
+                this.current.lerp(this.target, params.relaxation);
 
-                    this.positions[idx*3] = pos.x + (Math.random()-0.5)*0.2;
-                    this.positions[idx*3+1] = pos.y + (Math.random()-0.5)*0.2;
-                    this.positions[idx*3+2] = pos.z + (Math.random()-0.5)*0.2;
+                // 2. Gestión del historial (Cola)
+                // En lugar de shift/push (que es lento para arrays grandes), usamos un ciclo
+                // pero por simplicidad de lectura usaremos shift/push en el array de control
+                this.points.shift();
+                this.points.push(this.current.clone());
 
-                    // La partícula hereda velocidad de la mano + turbulencia aleatoria
-                    this.velocities[idx].x = velocity.x * 0.5 + (Math.random()-0.5) * 0.1;
-                    this.velocities[idx].y = velocity.y * 0.5 + (Math.random()-0.5) * 0.1;
-                    this.velocities[idx].z = velocity.z * 0.5 + (Math.random()-0.5) * 0.1;
+                // 3. Generar la curva suave (Spline)
+                const curve = new THREE.CatmullRomCurve3(this.points, false, 'catmullrom', 0.5);
+                // Tomamos menos puntos para la geometría que para el historial si queremos optimizar,
+                // pero aquí mapeamos 1 a 1 para suavidad máxima.
+                const splinePoints = curve.getPoints(this.length - 1);
 
-                    this.lifetimes[idx] = 1.0; // Vida llena
+                // 4. Construir la cinta (Expandir vértices)
+                const pos = this.mesh.geometry.attributes.position.array;
+                const widthBase = params.lineWidth;
+
+                for(let i=0; i < splinePoints.length; i++) {
+                    let p = splinePoints[i];
+                    let nextP = splinePoints[Math.min(i+1, splinePoints.length-1)];
+                    
+                    // Calculamos la dirección del segmento
+                    let dir = new THREE.Vector3().subVectors(nextP, p).normalize();
+                    // Vector "Derecha" relativo a la cámara (Cross product con eje Z)
+                    // Esto hace que la cinta siempre mire a la cámara (Billboarding)
+                    let right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,0,1)).normalize();
+
+                    // Grosor variable: Delgado al final (cola), grueso al inicio (cabeza)
+                    // i=0 es la cola (viejo), i=length es la cabeza (nuevo)
+                    let scale = (i / this.length); 
+                    // Función de forma: Tapering
+                    scale = Math.pow(scale, 0.5); // Raíz cuadrada hace que se mantenga grueso más tiempo
+                    
+                    let w = widthBase * scale;
+
+                    // Vertice 1 (Izquierda)
+                    pos[i*6 + 0] = p.x - right.x * w;
+                    pos[i*6 + 1] = p.y - right.y * w;
+                    pos[i*6 + 2] = p.z;
+
+                    // Vertice 2 (Derecha)
+                    pos[i*6 + 3] = p.x + right.x * w;
+                    pos[i*6 + 4] = p.y + right.y * w;
+                    pos[i*6 + 5] = p.z;
                 }
-            }
-
-            update(time) {
-                const posAttr = this.mesh.geometry.attributes.position.array;
                 
-                for(let i=0; i<this.poolSize; i++) {
-                    if(this.lifetimes[i] > 0) {
-                        // Física simple
-                        this.velocities[i].x *= 0.96; // Fricción
-                        this.velocities[i].y *= 0.96;
-                        this.velocities[i].z *= 0.96;
-                        
-                        // Gravedad leve hacia arriba (como fuego/humo)
-                        this.velocities[i].y += 0.002; 
-
-                        posAttr[i*3] += this.velocities[i].x;
-                        posAttr[i*3+1] += this.velocities[i].y;
-                        posAttr[i*3+2] += this.velocities[i].z;
-
-                        this.lifetimes[i] -= 0.015; // Decaer
-                    } else {
-                        posAttr[i*3] = 0;
-                        posAttr[i*3+1] = -100; // Ocultar lejos
-                    }
-                }
                 this.mesh.geometry.attributes.position.needsUpdate = true;
-                
-                // Color cíclico general para las partículas
-                const hue = (time * 0.2) % 1;
-                this.mesh.material.color.setHSL(hue, 0.8, 0.6);
+
+                // 5. Color Dinámico
+                let hue = 0;
+                if(params.mode === 'Spectral') hue = (time * params.colorSpeed * 0.1 + (this.idx * 0.05)) % 1;
+                if(params.mode === 'Fire') hue = (0.0 + (Math.sin(time + this.idx)*0.05)) % 1; // Rojo/Naranja
+                if(params.mode === 'Ocean') hue = (0.6 + (Math.sin(time + this.idx)*0.1)) % 1; // Azules
+
+                this.material.color.setHSL(hue, 1.0, 0.5);
+                this.material.opacity = params.opacity;
             }
         }
 
-        // --- INICIALIZACIÓN DE OBJETOS ---
+        // --- 4. INICIALIZACIÓN ---
         const trails = [];
-        // Creamos 10 estelas (5 dedos x 2 manos)
-        for(let i=0; i<10; i++) {
-            trails.push(new LiquidTrail(i * 0.1));
-        }
+        for(let i=0; i<10; i++) trails.push(new RibbonTrail(i));
 
-        const emitter = new ParticleEmitter();
-
-        // Líneas de conexión (Red neuronal entre dedos)
-        const connectionsMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending });
-        const connectionsGeo = new THREE.BufferGeometry();
-        // Reserva para 20 líneas posibles
-        connectionsGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(20 * 2 * 3), 3)); 
-        const connectionsMesh = new THREE.LineSegments(connectionsGeo, connectionsMat);
-        scene.add(connectionsMesh);
-
-        // --- MEDIAPIPE LOGIC ---
+        // --- 5. MEDIAPIPE ---
         const videoElement = document.createElement('video');
-        const fingerIndices = [4, 8, 12, 16, 20]; // Puntas de los dedos
-        
-        // Almacenar posiciones anteriores para calcular velocidad
-        let prevHandPositions = Array(10).fill(new THREE.Vector3(0,0,0));
+        const fingerIndices = [4, 8, 12, 16, 20];
 
         function onResults(results) {
             document.getElementById('loading').style.display = 'none';
+            const time = performance.now();
 
-            // Limpiar conexiones si no hay manos
-            if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-                connectionsMesh.visible = false;
-                return;
-            }
-            connectionsMesh.visible = true;
-
-            const time = performance.now() * 0.001;
-            let currentFingerPoints = [];
-
-            results.multiHandLandmarks.forEach((landmarks, handIndex) => {
-                if (handIndex > 1) return;
-
-                fingerIndices.forEach((fingerIdx, i) => {
-                    const lm = landmarks[fingerIdx];
-                    // Mapeo de coordenadas (invertimos X para modo espejo)
-                    const x = (lm.x - 0.5) * -16; 
-                    const y = (lm.y - 0.5) * -10;
-                    const z = -lm.z * 20;
+            if (results.multiHandLandmarks) {
+                results.multiHandLandmarks.forEach((landmarks, handIndex) => {
+                    if (handIndex > 1) return;
                     
-                    const currentPos = new THREE.Vector3(x, y, z);
-                    const globalIdx = (handIndex * 5) + i;
-
-                    // 1. Actualizar Trail Líquido
-                    trails[globalIdx].update(currentPos, time);
-
-                    // 2. Calcular Velocidad para partículas
-                    const velocity = currentPos.clone().sub(prevHandPositions[globalIdx]);
-                    
-                    // Solo emitir si se mueve rápido
-                    if(velocity.length() > 0.05) {
-                        emitter.emit(currentPos, velocity);
-                    }
-
-                    // Guardar para siguiente frame
-                    prevHandPositions[globalIdx].copy(currentPos);
-                    
-                    // Guardar para calcular conexiones
-                    currentFingerPoints.push(currentPos);
+                    fingerIndices.forEach((fingerIdx, i) => {
+                        const lm = landmarks[fingerIdx];
+                        // Mapeo más amplio
+                        const x = (lm.x - 0.5) * -18; 
+                        const y = (lm.y - 0.5) * -12;
+                        const z = -lm.z * 15;
+                        
+                        const globalIdx = (handIndex * 5) + i;
+                        trails[globalIdx].update(x, y, z, time);
+                    });
                 });
-            });
-
-            // 3. Actualizar Emisor
-            emitter.update(time);
-
-            // 4. Dibujar Conexiones (Red)
-            // Conecta puntos que estén cerca entre sí dinámicamente
-            let linePositions = connectionsMesh.geometry.attributes.position.array;
-            let lineIdx = 0;
-            
-            for(let i=0; i<currentFingerPoints.length; i++) {
-                for(let j=i+1; j<currentFingerPoints.length; j++) {
-                    const p1 = currentFingerPoints[i];
-                    const p2 = currentFingerPoints[j];
-                    const dist = p1.distanceTo(p2);
-
-                    // Si están cerca (ej. pellizco, o manos juntas) dibujamos línea
-                    if(dist < 4) { // Umbral de distancia
-                        if(lineIdx < linePositions.length - 6) {
-                            linePositions[lineIdx++] = p1.x;
-                            linePositions[lineIdx++] = p1.y;
-                            linePositions[lineIdx++] = p1.z;
-                            
-                            linePositions[lineIdx++] = p2.x;
-                            linePositions[lineIdx++] = p2.y;
-                            linePositions[lineIdx++] = p2.z;
-                        }
-                    }
-                }
             }
-            
-            // Limpiar el resto del buffer de líneas
-            for(let k=lineIdx; k<linePositions.length; k++) linePositions[k] = 0;
-            
-            connectionsMesh.geometry.attributes.position.needsUpdate = true;
-            // Color pulsante para la red
-            connectionsMesh.material.color.setHSL((time * 0.5)%1, 0.9, 0.5);
         }
 
         const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
@@ -343,12 +226,28 @@
         });
         cameraFeed.start();
 
-        // Loop de renderizado
+        // --- 6. GUI (PANEL DE CONTROL) ---
+        const gui = new GUI({ title: 'Control Panel' });
+        
+        const folderVisuals = gui.addFolder('Visuals');
+        folderVisuals.add(params, 'lineWidth', 0.1, 2.0).name('Grosor Línea');
+        folderVisuals.add(params, 'opacity', 0.1, 1.0).name('Opacidad');
+        folderVisuals.add(params, 'bloomStrength', 0.0, 3.0).onChange(v => bloomPass.strength = v).name('Brillo (Glow)');
+        folderVisuals.add(params, 'bloomRadius', 0.0, 1.5).onChange(v => bloomPass.radius = v).name('Difusión');
+        
+        const folderPhysics = gui.addFolder('Physics');
+        folderPhysics.add(params, 'relaxation', 0.01, 0.5).name('Fluidez (Lag)');
+        
+        const folderColors = gui.addFolder('Colors');
+        folderColors.add(params, 'mode', ['Spectral', 'Fire', 'Ocean']).name('Paleta');
+        folderColors.add(params, 'colorSpeed', 0.0, 5.0).name('Velocidad Color');
+
+        // --- 7. ANIMACIÓN ---
         function animate() {
             requestAnimationFrame(animate);
-            // Rotación sutil de la cámara para dar dinamismo 3D
-            const t = performance.now() * 0.0001;
-            camera.position.x = Math.sin(t) * 1; 
+            // Sutil movimiento de cámara
+            camera.position.x = Math.sin(performance.now() * 0.0005) * 0.5;
+            camera.position.y = Math.cos(performance.now() * 0.0005) * 0.5;
             camera.lookAt(0,0,0);
             
             composer.render();
@@ -362,9 +261,6 @@
             composer.setSize(window.innerWidth, window.innerHeight);
         });
     </script>
-
-    <div id="ui-layer">
-        <div id="loading">Inicializando Núcleo Visual...</div>
-    </div>
+    <div id="loading">CARGANDO MOTOR GRÁFICO...</div>
 </body>
 </html>
