@@ -2,25 +2,37 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Corrected Split Brain</title>
+    <title>Artimotion - Auto Visual Split</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; user-select: none; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
         
-        /* Capa de Interfaz */
+        /* Capa UI */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
+        /* Divisor */
         #screen-divider {
             position: absolute; top: 0; bottom: 0; left: 50%; width: 2px;
             background: linear-gradient(to bottom, transparent, rgba(0,255,255,0.1), transparent);
             border-left: 1px dashed rgba(255,255,255,0.1);
         }
+        
+        /* Etiquetas de Zona */
         .zone-label {
-            position: absolute; top: 30px; color: rgba(255,255,255,0.2);
+            position: absolute; top: 30px; 
             font-size: 14px; font-weight: 900; letter-spacing: 6px; text-transform: uppercase;
         }
-        #label-left { left: 25%; transform: translateX(-50%); text-shadow: 0 0 10px rgba(0,255,255,0.2); }
-        #label-right { right: 25%; transform: translateX(50%); text-shadow: 0 0 10px rgba(255,0,255,0.2); }
+        #label-left { 
+            left: 25%; transform: translateX(-50%); 
+            color: rgba(0, 255, 255, 0.4); text-shadow: 0 0 15px rgba(0,255,255,0.3);
+        }
+        #label-right { 
+            right: 25%; transform: translateX(50%); 
+            color: rgba(255, 0, 255, 0.4); text-shadow: 0 0 15px rgba(255,0,255,0.3);
+        }
+        .sub-label {
+            display: block; font-size: 10px; font-weight: normal; letter-spacing: 2px; opacity: 0.7; margin-top: 5px; text-align: center;
+        }
 
         /* Loading */
         #loading { 
@@ -100,11 +112,10 @@
             relaxation: 0.15,
             colorSpeed: 1.5,
             opacity: 0.85,
-            particleSize: 1.0, 
+            particleSize: 1.2, 
             mode: 'Spectral',
             inputSensitivity: 1.6,
             soundEnabled: true,
-            trailStyle: 'Ribbon',
             reset: () => resetCanvas()
         };
 
@@ -139,68 +150,39 @@
                 this.ctx = null;
                 this.master = null;
                 this.loopDest = null;
-                this.melOsc = null;
-                this.melGain = null;
-                this.chordOscs = [];
-                this.chordGain = null;
-                this.chordFilter = null;
-                this.isInit = false;
-                this.sustain = false;
-                this.lastChordIdx = -1;
-                this.recorder = null;
-                this.chunks = [];
-                this.loopBuffer = null;
-                this.loopSource = null;
-                this.loopState = 'IDLE';
+                this.melOsc = null; this.melGain = null;
+                this.chordOscs = []; this.chordGain = null; this.chordFilter = null;
+                this.isInit = false; this.sustain = false; this.lastChordIdx = -1;
+                this.recorder = null; this.chunks = []; this.loopBuffer = null; this.loopSource = null; this.loopState = 'IDLE';
             }
 
             init() {
                 if(this.isInit) return;
                 const AC = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AC();
-                this.master = this.ctx.createGain();
-                this.master.gain.value = 0.8;
-                this.master.connect(this.ctx.destination);
-                this.loopDest = this.ctx.createMediaStreamDestination();
-                this.master.connect(this.loopDest);
+                this.master = this.ctx.createGain(); this.master.gain.value = 0.8; this.master.connect(this.ctx.destination);
+                this.loopDest = this.ctx.createMediaStreamDestination(); this.master.connect(this.loopDest);
 
-                this.melOsc = this.ctx.createOscillator();
-                this.melOsc.type = 'triangle';
-                this.melGain = this.ctx.createGain();
-                this.melGain.gain.value = 0;
-                
+                this.melOsc = this.ctx.createOscillator(); this.melOsc.type = 'triangle';
+                this.melGain = this.ctx.createGain(); this.melGain.gain.value = 0;
                 const d = this.ctx.createDelay(); d.delayTime.value = 0.3;
                 const df = this.ctx.createGain(); df.gain.value = 0.4;
-                
-                this.melOsc.connect(this.melGain);
-                this.melGain.connect(this.master);
+                this.melOsc.connect(this.melGain); this.melGain.connect(this.master);
                 this.melGain.connect(d); d.connect(df); df.connect(d); d.connect(this.master);
                 this.melOsc.start();
 
-                this.chordGain = this.ctx.createGain();
-                this.chordGain.gain.value = 0;
-                this.chordFilter = this.ctx.createBiquadFilter();
-                this.chordFilter.type = 'lowpass';
-                this.chordFilter.frequency.value = 600;
-                this.chordGain.connect(this.chordFilter);
-                this.chordFilter.connect(this.master);
+                this.chordGain = this.ctx.createGain(); this.chordGain.gain.value = 0;
+                this.chordFilter = this.ctx.createBiquadFilter(); this.chordFilter.type = 'lowpass'; this.chordFilter.frequency.value = 600;
+                this.chordGain.connect(this.chordFilter); this.chordFilter.connect(this.master);
 
                 for(let i=0; i<4; i++) {
-                    const o = this.ctx.createOscillator();
-                    o.type = 'sawtooth';
-                    o.detune.value = (Math.random()-0.5)*15;
-                    o.connect(this.chordGain);
-                    o.start();
-                    this.chordOscs.push(o);
+                    const o = this.ctx.createOscillator(); o.type = 'sawtooth'; o.detune.value = (Math.random()-0.5)*15;
+                    o.connect(this.chordGain); o.start(); this.chordOscs.push(o);
                 }
                 this.isInit = true;
             }
 
-            setKey(k) {
-                params.key = k;
-                currentScale = generateScale(k);
-                currentChords = generateChords(k);
-            }
+            setKey(k) { params.key = k; currentScale = generateScale(k); currentChords = generateChords(k); }
 
             handleMelody(x, y, active) {
                 if(!this.isInit || !params.soundEnabled) return;
@@ -220,15 +202,7 @@
                 if(!this.isInit || !params.soundEnabled) return;
                 const t = this.ctx.currentTime;
                 if(active) {
-                    // El x aquí entra como 0.5 -> 1.0 (invertido visualmente pero raw)
-                    // Necesitamos normalizarlo de 0 a 1 para seleccionar el acorde
-                    // Si x entra de 0.5 a 1.0 -> (x - 0.5) * 2
-                    // Si x entra de 0.0 a 0.5 -> x * 2
-                    // Ajustaremos esto en la llamada onResults para mayor claridad
-                    
-                    let cIdx = 0;
-                    if(x < 0.33) cIdx = 0; else if(x < 0.66) cIdx = 1; else cIdx = 2;
-
+                    let cIdx = 0; if(x < 0.33) cIdx = 0; else if(x < 0.66) cIdx = 1; else cIdx = 2;
                     if(cIdx !== this.lastChordIdx || this.chordGain.gain.value < 0.01) {
                         const chord = currentChords[cIdx];
                         this.chordOscs.forEach((o, i) => o.frequency.setTargetAtTime(chord[i], t, 0.1));
@@ -237,11 +211,8 @@
                     this.chordGain.gain.setTargetAtTime(Math.max(0, (1-y)*0.25), t, 0.3);
                     this.chordFilter.frequency.setTargetAtTime(400 + (1-y)*1000, t, 0.2);
                 } else {
-                    if(this.sustain) {
-                        if(this.chordGain.gain.value < 0.15) this.chordGain.gain.setTargetAtTime(0.15, t, 0.5);
-                    } else {
-                        this.chordGain.gain.setTargetAtTime(0, t, 0.5);
-                    }
+                    if(this.sustain) { if(this.chordGain.gain.value < 0.15) this.chordGain.gain.setTargetAtTime(0.15, t, 0.5); } 
+                    else { this.chordGain.gain.setTargetAtTime(0, t, 0.5); }
                 }
             }
 
@@ -255,13 +226,11 @@
                 if(!this.isInit) return;
                 const p = document.getElementById('pedal-loop');
                 if(this.loopState === 'IDLE' || this.loopState === 'PLAYING') {
-                    this.chunks = [];
-                    if(this.loopSource) { this.loopSource.stop(); this.loopSource = null; }
+                    this.chunks = []; if(this.loopSource) { this.loopSource.stop(); this.loopSource = null; }
                     this.recorder = new MediaRecorder(this.loopDest.stream);
                     this.recorder.ondataavailable = e => this.chunks.push(e.data);
                     this.recorder.start();
-                    this.loopState = 'RECORDING';
-                    p.className = 'pedal recording';
+                    this.loopState = 'RECORDING'; p.className = 'pedal recording';
                 } else {
                     this.recorder.stop();
                     this.recorder.onstop = async () => {
@@ -286,8 +255,7 @@
 
             clearLoop() {
                 if(this.loopSource) { this.loopSource.stop(); this.loopSource = null; }
-                this.loopBuffer = null;
-                this.loopState = 'IDLE';
+                this.loopBuffer = null; this.loopState = 'IDLE';
                 document.getElementById('pedal-loop').className = 'pedal';
             }
         }
@@ -304,8 +272,7 @@
         }
         const particleTexture = createSoftTexture();
 
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.02);
+        const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x000000, 0.02);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.z = 12;
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -350,6 +317,7 @@
             else if (name === 'Warp') { starField.visible = true; scene.background = new THREE.Color(0x000010); }
         }
 
+        // --- CINTAS (LÍNEAS) PARA MELODÍA ---
         class RibbonTrail {
             constructor(idx) {
                 this.idx = idx; this.length = 50; this.points = []; this.visible = true;
@@ -382,6 +350,7 @@
             }
         }
 
+        // --- HUMO (PARTÍCULAS) PARA ACORDES ---
         class ParticleEmitter {
             constructor(idx) {
                 this.idx = idx; this.visible = false; this.particles = []; this.maxParticles = 50;
@@ -406,24 +375,27 @@
                 const currentPos = new THREE.Vector3().lerpVectors(this.lastPos, this.target, 0.3);
                 const dist = this.target.distanceTo(this.lastPos);
                 
-                if (dist > 0.01 || Math.random() < 0.1) {
+                // Smoke logic hardcoded (flotar hacia arriba)
+                if (dist > 0.01 || Math.random() < 0.2) {
                     const p = this.particles.find(p => p.life <= 0);
                     if (p) {
                         p.life = 1.0; p.pos.copy(currentPos);
-                        p.vel.set((Math.random()-0.5)*0.2, 0.05, (Math.random()-0.5)*0.2);
+                        p.vel.set((Math.random()-0.5)*0.3, 0.06, (Math.random()-0.5)*0.3); // Gravedad invertida (humo sube)
                         let hue = (params.mode === 'Spectral') ? (time * 0.1 + (this.idx * 0.05)) % 1 : (params.mode === 'Fire' ? 0.05 : 0.6);
                         p.baseColor.setHSL(hue, 1.0, 0.5);
                     }
                 }
                 this.lastPos.copy(currentPos);
+                
                 const pos = this.mesh.geometry.attributes.position.array;
                 const size = this.mesh.geometry.attributes.size.array;
                 const col = this.mesh.geometry.attributes.color.array;
+                
                 this.particles.forEach((p, i) => {
                     if (p.life > 0) {
-                        p.life -= 0.02; p.pos.add(p.vel);
+                        p.life -= 0.015; p.pos.add(p.vel);
                         pos[i*3]=p.pos.x; pos[i*3+1]=p.pos.y; pos[i*3+2]=p.pos.z;
-                        size[i] = params.particleSize * 3 * Math.sin(p.life * Math.PI);
+                        size[i] = params.particleSize * 4 * Math.sin(p.life * Math.PI); // Más grandes para efecto humo
                         col[i*3]=p.baseColor.r; col[i*3+1]=p.baseColor.g; col[i*3+2]=p.baseColor.b;
                     } else size[i] = 0;
                 });
@@ -437,7 +409,7 @@
         const particles = Array(10).fill().map((_,i) => new ParticleEmitter(i));
         function resetCanvas() { ribbons.forEach(t => t.reset()); particles.forEach(p => p.reset()); }
 
-        // --- MEDIAPIPE LÓGICA CORREGIDA (ESPEJO) ---
+        // --- MEDIAPIPE LÓGICA AUTOMÁTICA ---
         const videoElement = document.createElement('video');
         const fingerIndices = [4, 8, 12, 16, 20];
 
@@ -450,24 +422,10 @@
                 results.multiHandLandmarks.forEach((landmarks, hIdx) => {
                     if(hIdx > 1) return;
 
-                    // CORRECCIÓN ESPEJO:
-                    // MediaPipe raw x: 0 (Izquierda Real) -> 1 (Derecha Real)
-                    // En pantalla (Espejo): 0 aparece a la DERECHA y 1 a la IZQUIERDA visualmente? 
-                    // NO. Normalmente:
-                    // Si levantas mano derecha física -> En espejo aparece en el lado DERECHO de la pantalla.
-                    // Para que aparezca a la derecha, x debe ser > 0.5 (si 0 es izq, 1 es der).
-                    // En tu video: Mano en lado DERECHO (texto LEAD) activaba PADS.
-                    // Código anterior decía: if (x < 0.5) PADS else LEAD.
-                    // Si mano en derecha activaba PADS, significa que en derecha x < 0.5.
-                    // POR TANTO: x=0 es DERECHA VISUAL, x=1 es IZQUIERDA VISUAL.
-                    
+                    // CALIBRACIÓN ESPEJO:
+                    // Zona Izquierda Visual (PADS) = rawX > 0.5
+                    // Zona Derecha Visual (LEAD) = rawX < 0.5
                     const rawX = landmarks[8].x;
-                    
-                    // Queremos:
-                    // VISUAL IZQUIERDA (Texto PADS) -> ACORDES. Esto ocurre cuando rawX > 0.5 (según deducción).
-                    // VISUAL DERECHA (Texto LEAD) -> MELODÍA. Esto ocurre cuando rawX < 0.5.
-
-                    // Definimos isVisualLeftZone basado en la deducción:
                     const isVisualLeftZone = rawX > 0.5; 
 
                     fingerIndices.forEach((fid, i) => {
@@ -478,11 +436,11 @@
                         const globalIdx = hIdx * 5 + i;
 
                         if (isVisualLeftZone) {
-                            // ZONA IZQUIERDA (PADS): Activar Partículas
+                            // ZONA IZQUIERDA: AUTOMÁTICAMENTE HUMO
                             particles[globalIdx].setTarget(x, y, z);
                             ribbons[globalIdx].setTarget(0, -1000, 0); 
                         } else {
-                            // ZONA DERECHA (LEAD): Activar Ribbons
+                            // ZONA DERECHA: AUTOMÁTICAMENTE CINTAS
                             ribbons[globalIdx].setTarget(x, y, z);
                             particles[globalIdx].setTarget(0, -1000, 0);
                         }
@@ -491,13 +449,10 @@
                     // Trigger Audio
                     if (isVisualLeftZone) {
                         chordActive = true;
-                        // Normalizar X para acordes (de 0.5 a 1.0 -> 0 a 1)
                         const normXChord = (rawX - 0.5) * 2;
                         audio.handleChords(normXChord, landmarks[8].y, true);
                     } else {
                         melodyActive = true;
-                        // Normalizar X para melodía (de 0.0 a 0.5 -> 0 a 1 invirtiendo para que sea intuitivo de centro a afuera? o lineal?)
-                        // Usaremos lineal de 0.5 hacia 0.0 (centro a derecha visual)
                         const normXMelody = (0.5 - rawX) * 2; 
                         audio.handleMelody(normXMelody, landmarks[8].y, true);
                     }
@@ -553,12 +508,18 @@
         animate();
     </script>
 
-    <div id="loading">SISTEMA INICIADO<br>Calibrado para Modo Espejo</div>
+    <div id="loading">SISTEMA VISUAL AUTOMÁTICO<br>Calibrado para Modo Espejo</div>
     
     <div id="ui-layer">
         <div id="screen-divider"></div>
-        <div id="label-left" class="zone-label">PADS & ATMÓSFERA</div>
-        <div id="label-right" class="zone-label">LEAD & MELODÍA</div>
+        <div id="label-left" class="zone-label">
+            PADS & ATMÓSFERA<br>
+            <span class="sub-label">(EFECTO HUMO)</span>
+        </div>
+        <div id="label-right" class="zone-label">
+            LEAD & MELODÍA<br>
+            <span class="sub-label">(EFECTO LÍNEAS)</span>
+        </div>
     </div>
 
     <div id="pedalboard">
