@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Final Band System</title>
+    <title>Artimotion - Beautiful Harmonics</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; user-select: none; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
@@ -106,18 +106,28 @@
         const PENTA_INTERVALS = [0, 3, 5, 7, 10]; 
 
         function getFrequency(baseFreq, semitones) { return baseFreq * Math.pow(2, semitones / 12); }
+        
         function generateScale(rootKey) {
             const base = NOTES[rootKey]; 
             const scale = [];
+            // Melodía: 3 octavas de pentatónica
             for (let oct = 0; oct < 3; oct++) PENTA_INTERVALS.forEach(i => scale.push(getFrequency(base * Math.pow(2, oct), i)));
             return scale;
         }
+
+        // NUEVO: Generador de Acordes "Lush" (Tétradas)
+        // Crea una progresión i7 - VI7 - III7 - VII basada en la tonalidad
         function generateChords(rootKey) {
-            const base = NOTES[rootKey] / 4;
+            const base = NOTES[rootKey] / 4; // Bajo profundo
             return [
-                [getFrequency(base,0), getFrequency(base,3), getFrequency(base,7), getFrequency(base,12)],
-                [getFrequency(base,8), getFrequency(base,12), getFrequency(base,15), getFrequency(base,20)],
-                [getFrequency(base,10), getFrequency(base,14), getFrequency(base,17), getFrequency(base,22)]
+                // Acorde 1: i min7 (Ej: Am7 -> A C E G) - Melancólico
+                [getFrequency(base,0), getFrequency(base,3), getFrequency(base,7), getFrequency(base,10)], 
+                // Acorde 2: VI maj7 (Ej: Fmaj7 -> F A C E) - Esperanzador
+                [getFrequency(base,8), getFrequency(base,12), getFrequency(base,15), getFrequency(base,19)],
+                // Acorde 3: III maj7 (Ej: Cmaj7 -> C E G B) - Brillante
+                [getFrequency(base,3), getFrequency(base,7), getFrequency(base,10), getFrequency(base,14)],
+                // Acorde 4: VII dom7 (Ej: G7 -> G B D F) - Resolución
+                [getFrequency(base,10), getFrequency(base,14), getFrequency(base,17), getFrequency(base,20)] // 7ma dominante modificada para pentatónica
             ];
         }
 
@@ -189,6 +199,8 @@
                 this.recorder=null; this.chunks=[]; this.loopBuffer=null; this.loopSource=null; this.loopState='IDLE';
                 this.sustain=false; this.lastChordIdx=-1;
                 this.melOsc=null; this.melGain=null; this.chordOscs=[]; this.chordGain=null;
+                this.chordFilter = null;
+                this.lfo = null; 
             }
             init() {
                 if(this.isInit) return;
@@ -199,6 +211,7 @@
                 
                 this.drums = new DrumMachine(this.ctx, this.master);
 
+                // --- MELODÍA (Derecha) ---
                 this.melOsc = this.ctx.createOscillator(); this.melOsc.type = 'triangle';
                 this.melGain = this.ctx.createGain(); this.melGain.gain.value = 0;
                 const d = this.ctx.createDelay(); d.delayTime.value=0.25;
@@ -207,16 +220,37 @@
                 this.melGain.connect(d); d.connect(df); df.connect(d); d.connect(this.master);
                 this.melOsc.start();
 
-                this.chordGain = this.ctx.createGain(); this.chordGain.gain.value = 0;
-                const cf = this.ctx.createBiquadFilter(); cf.type='lowpass'; cf.frequency.value=800;
-                this.chordGain.connect(cf); cf.connect(this.master);
-                for(let i=0;i<3;i++) {
-                    const o = this.ctx.createOscillator(); o.type='sawtooth'; o.detune.value=(Math.random()-0.5)*10;
-                    o.connect(this.chordGain); o.start(); this.chordOscs.push(o);
+                // --- ACORDES (Izquierda - Lush Pads) ---
+                this.chordGain = this.ctx.createGain(); 
+                this.chordGain.gain.value = 0;
+                
+                // Filtro "vivo"
+                this.chordFilter = this.ctx.createBiquadFilter(); 
+                this.chordFilter.type='lowpass'; 
+                this.chordFilter.frequency.value=600; // Valor base
+                this.chordGain.connect(this.chordFilter); 
+                this.chordFilter.connect(this.master);
+
+                // LFO para hacer "respirar" el filtro del pad
+                this.lfo = this.ctx.createOscillator();
+                this.lfo.frequency.value = 0.2; // Muy lento (5 segundos por ciclo)
+                this.lfoGain = this.ctx.createGain();
+                this.lfoGain.gain.value = 300; // Cantidad de movimiento del filtro
+                this.lfo.connect(this.lfoGain);
+                this.lfoGain.connect(this.chordFilter.frequency);
+                this.lfo.start();
+
+                // 4 Osciladores para Tétradas (Acordes de 4 notas)
+                for(let i=0;i<4;i++) {
+                    const o = this.ctx.createOscillator(); 
+                    o.type='sawtooth'; // Diente de sierra rico
+                    o.detune.value=(Math.random()-0.5)*12; // Detune suave para efecto chorus
+                    o.connect(this.chordGain); 
+                    o.start(); 
+                    this.chordOscs.push(o);
                 }
                 this.isInit = true;
                 
-                // Actualizar interfaz
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('hud-status').innerText = "AUDIO ACTIVO - TOCAR PARA INICIAR";
             }
@@ -233,19 +267,41 @@
                 } else { this.melGain.gain.setTargetAtTime(0, t, 0.1); }
             }
             
+            // --- NUEVA LÓGICA DE ACORDES ARMÓNICOS ---
             handleChords(x, y, active) {
                 if(!this.isInit || !params.soundEnabled) return;
                 const t = this.ctx.currentTime;
+                
                 if(active) {
-                    let cIdx = 0; if(x < 0.33) cIdx = 0; else if(x < 0.66) cIdx = 1; else cIdx = 2;
+                    // Mapear X (0 a 1) a 4 Acordes distintos
+                    // 0.00 - 0.25: Acorde 1 (i7)
+                    // 0.25 - 0.50: Acorde 2 (VImaj7)
+                    // 0.50 - 0.75: Acorde 3 (IIImaj7)
+                    // 0.75 - 1.00: Acorde 4 (V7)
+                    
+                    let cIdx = Math.floor(x * 4);
+                    if(cIdx > 3) cIdx = 3; 
+                    if(cIdx < 0) cIdx = 0;
+
                     if(cIdx !== this.lastChordIdx || this.chordGain.gain.value < 0.01) {
                         const chord = currentChords[cIdx];
-                        this.chordOscs.forEach((o, i) => { if(chord[i]) o.frequency.setTargetAtTime(chord[i], t, 0.1); });
+                        // Actualizar los 4 osciladores a las notas de la tétrada
+                        this.chordOscs.forEach((o, i) => { 
+                            if(chord[i]) o.frequency.setTargetAtTime(chord[i], t, 0.15); // Transición suave (glissando leve)
+                        });
                         this.lastChordIdx = cIdx;
                     }
-                    this.chordGain.gain.setTargetAtTime(Math.max(0, (1-y)*0.3), t, 0.2);
+                    
+                    // Volumen controlado por altura (Y)
+                    // Más arriba (Y=0) = Más fuerte
+                    const targetVol = Math.max(0, (1.0 - y) * 0.35);
+                    this.chordGain.gain.setTargetAtTime(targetVol, t, 0.3);
+                    
+                    // El filtro se abre más si subes la mano
+                    this.chordFilter.frequency.setTargetAtTime(500 + (1-y)*1500, t, 0.2); 
+
                 } else {
-                    if(!this.sustain) this.chordGain.gain.setTargetAtTime(0, t, 0.5);
+                    if(!this.sustain) this.chordGain.gain.setTargetAtTime(0, t, 0.8); // Release largo
                     else if(this.chordGain.gain.value < 0.2) this.chordGain.gain.setTargetAtTime(0.2, t, 0.5);
                 }
             }
@@ -435,10 +491,7 @@
         }
 
         window.addEventListener('keydown', e => {
-            // Asegurar que el audio inicie si no lo ha hecho
             if(!audio.isInit) { audio.init(); if(audio.ctx) audio.ctx.resume(); }
-            
-            // Atajos
             switch(e.code) {
                 case 'Space': 
                     e.preventDefault(); audio.toggleLoop(); animatePedal('pedal-loop'); break;
@@ -453,7 +506,6 @@
             }
         });
 
-        // Click Capture (Importante para foco)
         window.addEventListener('click', () => { 
             if(!audio.isInit) audio.init(); 
             if(audio.ctx && audio.ctx.state==='suspended') audio.ctx.resume(); 
@@ -498,12 +550,12 @@
         animate();
     </script>
 
-    <div id="loading">SISTEMA FINAL CARGADO<br>Haz click para iniciar</div>
+    <div id="loading">SISTEMA ARMONICO LISTO<br>Haz click para iniciar</div>
     
     <div id="ui-layer">
         <div id="screen-divider"></div>
         <div id="label-left" class="zone-label">PADS (CYAN)</div>
-        <div id="label-right" class="zone-label">LEAD (ORANGE)</div>
+        <div id="label-right" class="zone-label">LEAD (GOLD)</div>
         <div id="hud-status" style="position:absolute; top:60px; width:100%; text-align:center; color:#888; font-family:monospace; font-size:10px;">
             [ESPACIO]=Grabar Loop | [S]=Sustain | [D]=Ritmos
         </div>
