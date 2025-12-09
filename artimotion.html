@@ -2,15 +2,14 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Ultimate Fusion Loop Station</title>
+    <title>Artimotion - Corrected Split Brain</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; user-select: none; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
         
-        /* --- UI LAYER --- */
+        /* Capa de Interfaz */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
 
-        /* Divisor Visual de Zonas */
         #screen-divider {
             position: absolute; top: 0; bottom: 0; left: 50%; width: 2px;
             background: linear-gradient(to bottom, transparent, rgba(0,255,255,0.1), transparent);
@@ -32,7 +31,7 @@
             pointer-events: none; z-index: 20; text-align: center;
         }
 
-        /* --- PEDALERA (Interactiva) --- */
+        /* Pedalera */
         #pedalboard {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
             display: flex; gap: 15px; z-index: 10; pointer-events: auto;
@@ -54,7 +53,6 @@
         .pedal-label { color: #666; font-size: 10px; font-weight: bold; text-transform: uppercase; }
         .pedal-key { color: #444; font-size: 9px; margin-top: 4px; font-family: monospace; }
 
-        /* Estados de Pedales */
         #pedal-sustain.active { border-color: #0f0; box-shadow: 0 0 15px rgba(0,255,0,0.2); }
         #pedal-sustain.active .pedal-light { background: #0f0; box-shadow: 0 0 8px #0f0; }
 
@@ -65,7 +63,6 @@
 
         #pedal-clear:hover { border-color: #f80; }
         
-        /* Menú de Escenarios */
         #bottom-menu {
             position: absolute; bottom: 30px; right: 30px;
             display: flex; gap: 8px; z-index: 10; pointer-events: auto;
@@ -95,10 +92,8 @@
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // --- PARÁMETROS ---
         const params = {
             key: 'A',
-            trailStyle: 'Ribbon', // Aunque ahora es dinámico por zona
             lineWidth: 0.8,
             bloomStrength: 1.6,
             bloomRadius: 0.5,
@@ -109,16 +104,17 @@
             mode: 'Spectral',
             inputSensitivity: 1.6,
             soundEnabled: true,
+            trailStyle: 'Ribbon',
             reset: () => resetCanvas()
         };
 
-        // --- TEORÍA MUSICAL ---
+        // --- AUDIO ---
         const NOTES = { 'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13, 'E': 329.63, 'F': 349.23, 'F#': 369.99, 'G': 392.00, 'G#': 415.30, 'A': 440.00, 'A#': 466.16, 'B': 493.88 };
         const PENTA_INTERVALS = [0, 3, 5, 7, 10]; 
 
         function getFrequency(baseFreq, semitones) { return baseFreq * Math.pow(2, semitones / 12); }
 
-        function generateScale(rootKey) { // Para melodía (Derecha)
+        function generateScale(rootKey) {
             const base = NOTES[rootKey] / 2;
             const scale = [];
             for (let oct = 0; oct < 3; oct++) {
@@ -127,40 +123,30 @@
             return scale;
         }
 
-        function generateChords(rootKey) { // Para Pads (Izquierda)
+        function generateChords(rootKey) {
             const base = NOTES[rootKey] / 4;
-            // Acordes Tríadas extendidas para atmósfera
-            const chord1 = [getFrequency(base, 0), getFrequency(base, 7), getFrequency(base, 12), getFrequency(base, 15)]; // i
-            const chord2 = [getFrequency(base, 8), getFrequency(base, 15), getFrequency(base, 20), getFrequency(base, 24)]; // VI
-            const chord3 = [getFrequency(base, 10), getFrequency(base, 17), getFrequency(base, 22), getFrequency(base, 26)]; // VII
+            const chord1 = [getFrequency(base, 0), getFrequency(base, 7), getFrequency(base, 12), getFrequency(base, 15)];
+            const chord2 = [getFrequency(base, 8), getFrequency(base, 15), getFrequency(base, 20), getFrequency(base, 24)];
+            const chord3 = [getFrequency(base, 10), getFrequency(base, 17), getFrequency(base, 22), getFrequency(base, 26)];
             return [chord1, chord2, chord3];
         }
 
         let currentScale = generateScale(params.key);
         let currentChords = generateChords(params.key);
 
-        // --- MOTOR DE AUDIO (Synth + Looper) ---
         class AudioEngine {
             constructor() {
                 this.ctx = null;
                 this.master = null;
                 this.loopDest = null;
-                
-                // Synth Melodía
                 this.melOsc = null;
                 this.melGain = null;
-                
-                // Synth Acordes
                 this.chordOscs = [];
                 this.chordGain = null;
                 this.chordFilter = null;
-
-                // Estados
                 this.isInit = false;
                 this.sustain = false;
                 this.lastChordIdx = -1;
-
-                // Looper
                 this.recorder = null;
                 this.chunks = [];
                 this.loopBuffer = null;
@@ -172,17 +158,12 @@
                 if(this.isInit) return;
                 const AC = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AC();
-                
-                // Master Setup
                 this.master = this.ctx.createGain();
                 this.master.gain.value = 0.8;
                 this.master.connect(this.ctx.destination);
-                
-                // Destino para grabar (captura todo lo que va al master)
                 this.loopDest = this.ctx.createMediaStreamDestination();
                 this.master.connect(this.loopDest);
 
-                // --- Canal MELODÍA ---
                 this.melOsc = this.ctx.createOscillator();
                 this.melOsc.type = 'triangle';
                 this.melGain = this.ctx.createGain();
@@ -196,7 +177,6 @@
                 this.melGain.connect(d); d.connect(df); df.connect(d); d.connect(this.master);
                 this.melOsc.start();
 
-                // --- Canal ACORDES ---
                 this.chordGain = this.ctx.createGain();
                 this.chordGain.gain.value = 0;
                 this.chordFilter = this.ctx.createBiquadFilter();
@@ -205,16 +185,14 @@
                 this.chordGain.connect(this.chordFilter);
                 this.chordFilter.connect(this.master);
 
-                // 4 osciladores para acordes ricos
                 for(let i=0; i<4; i++) {
                     const o = this.ctx.createOscillator();
-                    o.type = 'sawtooth'; // Sawtooth para pads cálidos
-                    o.detune.value = (Math.random()-0.5)*15; // Unison effect
+                    o.type = 'sawtooth';
+                    o.detune.value = (Math.random()-0.5)*15;
                     o.connect(this.chordGain);
                     o.start();
                     this.chordOscs.push(o);
                 }
-
                 this.isInit = true;
             }
 
@@ -224,12 +202,10 @@
                 currentChords = generateChords(k);
             }
 
-            // --- Lógica de Control ---
             handleMelody(x, y, active) {
                 if(!this.isInit || !params.soundEnabled) return;
                 const t = this.ctx.currentTime;
                 if(active) {
-                    // Mapeo X (0.5 a 1.0) -> Escala
                     const normX = (x - 0.5) * 2; 
                     const idx = Math.floor(normX * currentScale.length);
                     const safeIdx = Math.min(Math.max(idx, 0), currentScale.length - 1);
@@ -244,10 +220,14 @@
                 if(!this.isInit || !params.soundEnabled) return;
                 const t = this.ctx.currentTime;
                 if(active) {
-                    // Mapeo X (0.0 a 0.5) -> 3 Acordes
-                    const normX = x * 2;
+                    // El x aquí entra como 0.5 -> 1.0 (invertido visualmente pero raw)
+                    // Necesitamos normalizarlo de 0 a 1 para seleccionar el acorde
+                    // Si x entra de 0.5 a 1.0 -> (x - 0.5) * 2
+                    // Si x entra de 0.0 a 0.5 -> x * 2
+                    // Ajustaremos esto en la llamada onResults para mayor claridad
+                    
                     let cIdx = 0;
-                    if(normX < 0.33) cIdx = 0; else if(normX < 0.66) cIdx = 1; else cIdx = 2;
+                    if(x < 0.33) cIdx = 0; else if(x < 0.66) cIdx = 1; else cIdx = 2;
 
                     if(cIdx !== this.lastChordIdx || this.chordGain.gain.value < 0.01) {
                         const chord = currentChords[cIdx];
@@ -255,10 +235,9 @@
                         this.lastChordIdx = cIdx;
                     }
                     this.chordGain.gain.setTargetAtTime(Math.max(0, (1-y)*0.25), t, 0.3);
-                    this.chordFilter.frequency.setTargetAtTime(400 + (1-y)*1000, t, 0.2); // Abrir filtro con altura
+                    this.chordFilter.frequency.setTargetAtTime(400 + (1-y)*1000, t, 0.2);
                 } else {
                     if(this.sustain) {
-                        // Mantener volumen pad
                         if(this.chordGain.gain.value < 0.15) this.chordGain.gain.setTargetAtTime(0.15, t, 0.5);
                     } else {
                         this.chordGain.gain.setTargetAtTime(0, t, 0.5);
@@ -272,13 +251,10 @@
                 if(!this.sustain) this.chordGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.5);
             }
 
-            // --- LOOPER ---
             toggleLoop() {
                 if(!this.isInit) return;
                 const p = document.getElementById('pedal-loop');
-                
                 if(this.loopState === 'IDLE' || this.loopState === 'PLAYING') {
-                    // RECORD
                     this.chunks = [];
                     if(this.loopSource) { this.loopSource.stop(); this.loopSource = null; }
                     this.recorder = new MediaRecorder(this.loopDest.stream);
@@ -287,7 +263,6 @@
                     this.loopState = 'RECORDING';
                     p.className = 'pedal recording';
                 } else {
-                    // PLAY
                     this.recorder.stop();
                     this.recorder.onstop = async () => {
                         const blob = new Blob(this.chunks, {'type': 'audio/ogg; codecs=opus'});
@@ -316,11 +291,9 @@
                 document.getElementById('pedal-loop').className = 'pedal';
             }
         }
-
         const audio = new AudioEngine();
 
-        // --- MOTOR VISUAL (COMPLETO DEL CÓDIGO 1) ---
-        // Generador de texturas
+        // --- VISUALES ---
         function createSoftTexture() {
             const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32;
             const ctx = canvas.getContext('2d');
@@ -331,7 +304,6 @@
         }
         const particleTexture = createSoftTexture();
 
-        // Setup Three.js
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x000000, 0.02);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -354,7 +326,6 @@
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         composer.addPass(bloomPass);
 
-        // Fondos
         const bgGroup = new THREE.Group(); scene.add(bgGroup);
         let gridHelper, starField;
         function initBackgrounds() {
@@ -379,7 +350,6 @@
             else if (name === 'Warp') { starField.visible = true; scene.background = new THREE.Color(0x000010); }
         }
 
-        // --- CLASES VISUALES AVANZADAS ---
         class RibbonTrail {
             constructor(idx) {
                 this.idx = idx; this.length = 50; this.points = []; this.visible = true;
@@ -397,7 +367,6 @@
             tick(time) {
                 this.current.lerp(this.target, params.relaxation);
                 this.points.shift(); this.points.push(this.current.clone());
-                // Suavizado CatmullRom
                 const curve = new THREE.CatmullRomCurve3(this.points, false, 'catmullrom', 0.5);
                 const spline = curve.getPoints(this.length - 1);
                 const pos = this.mesh.geometry.attributes.position.array;
@@ -441,22 +410,20 @@
                     const p = this.particles.find(p => p.life <= 0);
                     if (p) {
                         p.life = 1.0; p.pos.copy(currentPos);
-                        p.vel.set((Math.random()-0.5)*0.2, 0.05, (Math.random()-0.5)*0.2); // Flotar hacia arriba
+                        p.vel.set((Math.random()-0.5)*0.2, 0.05, (Math.random()-0.5)*0.2);
                         let hue = (params.mode === 'Spectral') ? (time * 0.1 + (this.idx * 0.05)) % 1 : (params.mode === 'Fire' ? 0.05 : 0.6);
                         p.baseColor.setHSL(hue, 1.0, 0.5);
                     }
                 }
                 this.lastPos.copy(currentPos);
-                
                 const pos = this.mesh.geometry.attributes.position.array;
                 const size = this.mesh.geometry.attributes.size.array;
                 const col = this.mesh.geometry.attributes.color.array;
-                
                 this.particles.forEach((p, i) => {
                     if (p.life > 0) {
                         p.life -= 0.02; p.pos.add(p.vel);
                         pos[i*3]=p.pos.x; pos[i*3+1]=p.pos.y; pos[i*3+2]=p.pos.z;
-                        size[i] = params.particleSize * 3 * Math.sin(p.life * Math.PI); // Efecto humo
+                        size[i] = params.particleSize * 3 * Math.sin(p.life * Math.PI);
                         col[i*3]=p.baseColor.r; col[i*3+1]=p.baseColor.g; col[i*3+2]=p.baseColor.b;
                     } else size[i] = 0;
                 });
@@ -470,7 +437,7 @@
         const particles = Array(10).fill().map((_,i) => new ParticleEmitter(i));
         function resetCanvas() { ribbons.forEach(t => t.reset()); particles.forEach(p => p.reset()); }
 
-        // --- MEDIAPIPE LOGIC (ZONAS) ---
+        // --- MEDIAPIPE LÓGICA CORREGIDA (ESPEJO) ---
         const videoElement = document.createElement('video');
         const fingerIndices = [4, 8, 12, 16, 20];
 
@@ -483,14 +450,26 @@
                 results.multiHandLandmarks.forEach((landmarks, hIdx) => {
                     if(hIdx > 1) return;
 
-                    // Determinar ZONA basado en la posición X de la mano
-                    // MediaPipe X: 0 (Izquierda) -> 1 (Derecha)
-                    // Zona Izquierda (Acordes) < 0.5
-                    // Zona Derecha (Melodía) >= 0.5
-                    const handX = landmarks[8].x;
-                    const isLeftZone = handX < 0.5;
+                    // CORRECCIÓN ESPEJO:
+                    // MediaPipe raw x: 0 (Izquierda Real) -> 1 (Derecha Real)
+                    // En pantalla (Espejo): 0 aparece a la DERECHA y 1 a la IZQUIERDA visualmente? 
+                    // NO. Normalmente:
+                    // Si levantas mano derecha física -> En espejo aparece en el lado DERECHO de la pantalla.
+                    // Para que aparezca a la derecha, x debe ser > 0.5 (si 0 es izq, 1 es der).
+                    // En tu video: Mano en lado DERECHO (texto LEAD) activaba PADS.
+                    // Código anterior decía: if (x < 0.5) PADS else LEAD.
+                    // Si mano en derecha activaba PADS, significa que en derecha x < 0.5.
+                    // POR TANTO: x=0 es DERECHA VISUAL, x=1 es IZQUIERDA VISUAL.
+                    
+                    const rawX = landmarks[8].x;
+                    
+                    // Queremos:
+                    // VISUAL IZQUIERDA (Texto PADS) -> ACORDES. Esto ocurre cuando rawX > 0.5 (según deducción).
+                    // VISUAL DERECHA (Texto LEAD) -> MELODÍA. Esto ocurre cuando rawX < 0.5.
 
-                    // Update Visuals & Audio
+                    // Definimos isVisualLeftZone basado en la deducción:
+                    const isVisualLeftZone = rawX > 0.5; 
+
                     fingerIndices.forEach((fid, i) => {
                         const lm = landmarks[fid];
                         const x = (lm.x - 0.5) * -visibleWidth * params.inputSensitivity;
@@ -498,24 +477,29 @@
                         const z = -lm.z * 20;
                         const globalIdx = hIdx * 5 + i;
 
-                        if (isLeftZone) {
-                            // ZONA IZQUIERDA: ACORDES + PARTÍCULAS
+                        if (isVisualLeftZone) {
+                            // ZONA IZQUIERDA (PADS): Activar Partículas
                             particles[globalIdx].setTarget(x, y, z);
-                            ribbons[globalIdx].setTarget(0, -1000, 0); // Ocultar ribbon
+                            ribbons[globalIdx].setTarget(0, -1000, 0); 
                         } else {
-                            // ZONA DERECHA: MELODÍA + CINTAS
+                            // ZONA DERECHA (LEAD): Activar Ribbons
                             ribbons[globalIdx].setTarget(x, y, z);
-                            particles[globalIdx].setTarget(0, -1000, 0); // Ocultar partículas
+                            particles[globalIdx].setTarget(0, -1000, 0);
                         }
                     });
 
-                    // Trigger Audio (Solo índice)
-                    if (isLeftZone) {
+                    // Trigger Audio
+                    if (isVisualLeftZone) {
                         chordActive = true;
-                        audio.handleChords(landmarks[8].x, landmarks[8].y, true);
+                        // Normalizar X para acordes (de 0.5 a 1.0 -> 0 a 1)
+                        const normXChord = (rawX - 0.5) * 2;
+                        audio.handleChords(normXChord, landmarks[8].y, true);
                     } else {
                         melodyActive = true;
-                        audio.handleMelody(landmarks[8].x, landmarks[8].y, true);
+                        // Normalizar X para melodía (de 0.0 a 0.5 -> 0 a 1 invirtiendo para que sea intuitivo de centro a afuera? o lineal?)
+                        // Usaremos lineal de 0.5 hacia 0.0 (centro a derecha visual)
+                        const normXMelody = (0.5 - rawX) * 2; 
+                        audio.handleMelody(normXMelody, landmarks[8].y, true);
                     }
                 });
             }
@@ -535,7 +519,6 @@
         gui.add(params, 'key', Object.keys(NOTES)).onChange(v => audio.setKey(v));
         gui.add(params, 'bloomStrength', 0, 3).onChange(v => bloomPass.strength = v);
         
-        // Inputs
         window.addEventListener('keydown', e => {
             if(e.code === 'Space') audio.toggleLoop();
             if(e.key.toLowerCase() === 's') audio.toggleSustain();
@@ -558,7 +541,6 @@
         });
         
         setScenario('Void');
-
         function animate() {
             requestAnimationFrame(animate);
             const t = performance.now()*0.001;
@@ -571,7 +553,7 @@
         animate();
     </script>
 
-    <div id="loading">INICIALIZANDO SISTEMA...</div>
+    <div id="loading">SISTEMA INICIADO<br>Calibrado para Modo Espejo</div>
     
     <div id="ui-layer">
         <div id="screen-divider"></div>
