@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Beautiful Harmonics</title>
+    <title>Artimotion - Band System (Smart Routing)</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; user-select: none; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
@@ -50,7 +50,6 @@
             box-shadow: 0 10px 20px rgba(0,0,0,0.8);
             transition: transform 0.1s, border-color 0.2s, box-shadow 0.2s;
         }
-        /* Clase para simular el click físico al presionar tecla */
         .pedal.pressed { transform: scale(0.95); box-shadow: 0 2px 10px rgba(0,0,0,1); }
 
         .pedal-light {
@@ -60,7 +59,7 @@
         .pedal-label { color: #666; font-size: 9px; font-weight: bold; text-transform: uppercase; text-align: center; }
         .pedal-key { color: #444; font-size: 8px; margin-top: 4px; font-family: monospace; }
 
-        /* Estados Lógicos */
+        /* Estados */
         .pedal.active .pedal-light { background: #0f0; box-shadow: 0 0 10px #0f0; }
         .pedal.recording .pedal-light { background: #f00; box-shadow: 0 0 10px #f00; }
         .pedal.rhythm-on .pedal-light { background: #ff00ff; box-shadow: 0 0 10px #ff00ff; }
@@ -106,28 +105,19 @@
         const PENTA_INTERVALS = [0, 3, 5, 7, 10]; 
 
         function getFrequency(baseFreq, semitones) { return baseFreq * Math.pow(2, semitones / 12); }
-        
         function generateScale(rootKey) {
             const base = NOTES[rootKey]; 
             const scale = [];
-            // Melodía: 3 octavas de pentatónica
             for (let oct = 0; oct < 3; oct++) PENTA_INTERVALS.forEach(i => scale.push(getFrequency(base * Math.pow(2, oct), i)));
             return scale;
         }
-
-        // NUEVO: Generador de Acordes "Lush" (Tétradas)
-        // Crea una progresión i7 - VI7 - III7 - VII basada en la tonalidad
         function generateChords(rootKey) {
-            const base = NOTES[rootKey] / 4; // Bajo profundo
+            const base = NOTES[rootKey] / 4;
             return [
-                // Acorde 1: i min7 (Ej: Am7 -> A C E G) - Melancólico
                 [getFrequency(base,0), getFrequency(base,3), getFrequency(base,7), getFrequency(base,10)], 
-                // Acorde 2: VI maj7 (Ej: Fmaj7 -> F A C E) - Esperanzador
                 [getFrequency(base,8), getFrequency(base,12), getFrequency(base,15), getFrequency(base,19)],
-                // Acorde 3: III maj7 (Ej: Cmaj7 -> C E G B) - Brillante
                 [getFrequency(base,3), getFrequency(base,7), getFrequency(base,10), getFrequency(base,14)],
-                // Acorde 4: VII dom7 (Ej: G7 -> G B D F) - Resolución
-                [getFrequency(base,10), getFrequency(base,14), getFrequency(base,17), getFrequency(base,20)] // 7ma dominante modificada para pentatónica
+                [getFrequency(base,10), getFrequency(base,14), getFrequency(base,17), getFrequency(base,20)] 
             ];
         }
 
@@ -200,51 +190,60 @@
                 this.sustain=false; this.lastChordIdx=-1;
                 this.melOsc=null; this.melGain=null; this.chordOscs=[]; this.chordGain=null;
                 this.chordFilter = null;
-                this.lfo = null; 
+                this.instBus = null; // NUEVO: Bus solo para instrumentos
             }
             init() {
                 if(this.isInit) return;
                 const AC = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AC();
-                this.master = this.ctx.createGain(); this.master.gain.value = 0.8; this.master.connect(this.ctx.destination);
-                this.loopDest = this.ctx.createMediaStreamDestination(); this.master.connect(this.loopDest);
                 
+                // 1. Master Gain (Salida General)
+                this.master = this.ctx.createGain(); 
+                this.master.gain.value = 0.8; 
+                this.master.connect(this.ctx.destination);
+
+                // 2. Bus de Instrumentos (Para grabar solo música, sin batería)
+                this.instBus = this.ctx.createGain();
+                this.instBus.connect(this.master); // Escuchamos los instrumentos
+
+                // 3. Looper Destination (Graba del Bus de Instrumentos)
+                this.loopDest = this.ctx.createMediaStreamDestination();
+                this.instBus.connect(this.loopDest);
+                
+                // 4. Batería (Va directo al Master, salta la grabación)
                 this.drums = new DrumMachine(this.ctx, this.master);
 
-                // --- MELODÍA (Derecha) ---
+                // --- MELODÍA (Al Bus de Instrumentos) ---
                 this.melOsc = this.ctx.createOscillator(); this.melOsc.type = 'triangle';
                 this.melGain = this.ctx.createGain(); this.melGain.gain.value = 0;
                 const d = this.ctx.createDelay(); d.delayTime.value=0.25;
                 const df = this.ctx.createGain(); df.gain.value=0.4;
-                this.melOsc.connect(this.melGain); this.melGain.connect(this.master);
-                this.melGain.connect(d); d.connect(df); df.connect(d); d.connect(this.master);
+                
+                this.melOsc.connect(this.melGain); 
+                this.melGain.connect(this.instBus); // -> InstBus
+                this.melGain.connect(d); d.connect(df); df.connect(d); 
+                d.connect(this.instBus); // -> InstBus
                 this.melOsc.start();
 
-                // --- ACORDES (Izquierda - Lush Pads) ---
+                // --- ACORDES (Al Bus de Instrumentos) ---
                 this.chordGain = this.ctx.createGain(); 
                 this.chordGain.gain.value = 0;
                 
-                // Filtro "vivo"
                 this.chordFilter = this.ctx.createBiquadFilter(); 
                 this.chordFilter.type='lowpass'; 
-                this.chordFilter.frequency.value=600; // Valor base
+                this.chordFilter.frequency.value=600;
+                
                 this.chordGain.connect(this.chordFilter); 
-                this.chordFilter.connect(this.master);
+                this.chordFilter.connect(this.instBus); // -> InstBus
 
-                // LFO para hacer "respirar" el filtro del pad
-                this.lfo = this.ctx.createOscillator();
-                this.lfo.frequency.value = 0.2; // Muy lento (5 segundos por ciclo)
-                this.lfoGain = this.ctx.createGain();
-                this.lfoGain.gain.value = 300; // Cantidad de movimiento del filtro
-                this.lfo.connect(this.lfoGain);
-                this.lfoGain.connect(this.chordFilter.frequency);
-                this.lfo.start();
+                const lfo = this.ctx.createOscillator(); lfo.frequency.value = 0.2;
+                const lfoGain = this.ctx.createGain(); lfoGain.gain.value = 300;
+                lfo.connect(lfoGain); lfoGain.connect(this.chordFilter.frequency); lfo.start();
 
-                // 4 Osciladores para Tétradas (Acordes de 4 notas)
                 for(let i=0;i<4;i++) {
                     const o = this.ctx.createOscillator(); 
-                    o.type='sawtooth'; // Diente de sierra rico
-                    o.detune.value=(Math.random()-0.5)*12; // Detune suave para efecto chorus
+                    o.type='sawtooth'; 
+                    o.detune.value=(Math.random()-0.5)*12; 
                     o.connect(this.chordGain); 
                     o.start(); 
                     this.chordOscs.push(o);
@@ -267,41 +266,21 @@
                 } else { this.melGain.gain.setTargetAtTime(0, t, 0.1); }
             }
             
-            // --- NUEVA LÓGICA DE ACORDES ARMÓNICOS ---
             handleChords(x, y, active) {
                 if(!this.isInit || !params.soundEnabled) return;
                 const t = this.ctx.currentTime;
-                
                 if(active) {
-                    // Mapear X (0 a 1) a 4 Acordes distintos
-                    // 0.00 - 0.25: Acorde 1 (i7)
-                    // 0.25 - 0.50: Acorde 2 (VImaj7)
-                    // 0.50 - 0.75: Acorde 3 (IIImaj7)
-                    // 0.75 - 1.00: Acorde 4 (V7)
-                    
-                    let cIdx = Math.floor(x * 4);
-                    if(cIdx > 3) cIdx = 3; 
-                    if(cIdx < 0) cIdx = 0;
-
+                    let cIdx = Math.floor(x * 4); if(cIdx>3) cIdx=3; if(cIdx<0) cIdx=0;
                     if(cIdx !== this.lastChordIdx || this.chordGain.gain.value < 0.01) {
                         const chord = currentChords[cIdx];
-                        // Actualizar los 4 osciladores a las notas de la tétrada
-                        this.chordOscs.forEach((o, i) => { 
-                            if(chord[i]) o.frequency.setTargetAtTime(chord[i], t, 0.15); // Transición suave (glissando leve)
-                        });
+                        this.chordOscs.forEach((o, i) => { if(chord[i]) o.frequency.setTargetAtTime(chord[i], t, 0.15); });
                         this.lastChordIdx = cIdx;
                     }
-                    
-                    // Volumen controlado por altura (Y)
-                    // Más arriba (Y=0) = Más fuerte
                     const targetVol = Math.max(0, (1.0 - y) * 0.35);
                     this.chordGain.gain.setTargetAtTime(targetVol, t, 0.3);
-                    
-                    // El filtro se abre más si subes la mano
                     this.chordFilter.frequency.setTargetAtTime(500 + (1-y)*1500, t, 0.2); 
-
                 } else {
-                    if(!this.sustain) this.chordGain.gain.setTargetAtTime(0, t, 0.8); // Release largo
+                    if(!this.sustain) this.chordGain.gain.setTargetAtTime(0, t, 0.8);
                     else if(this.chordGain.gain.value < 0.2) this.chordGain.gain.setTargetAtTime(0.2, t, 0.5);
                 }
             }
@@ -325,7 +304,7 @@
                 const p = document.getElementById('pedal-loop');
                 if(this.loopState === 'IDLE' || this.loopState === 'PLAYING') {
                     this.chunks = []; if(this.loopSource) { this.loopSource.stop(); this.loopSource = null; }
-                    this.recorder = new MediaRecorder(this.loopDest.stream);
+                    this.recorder = new MediaRecorder(this.loopDest.stream); // GRABA DEL BUS DE INSTRUMENTOS
                     this.recorder.ondataavailable = e => this.chunks.push(e.data);
                     this.recorder.start();
                     this.loopState = 'RECORDING'; p.classList.add('recording'); p.classList.remove('active');
@@ -344,7 +323,7 @@
                 this.loopSource = this.ctx.createBufferSource();
                 this.loopSource.buffer = this.loopBuffer;
                 this.loopSource.loop = true;
-                this.loopSource.connect(this.master);
+                this.loopSource.connect(this.master); // Reproduce al master
                 this.loopSource.start();
                 this.loopState = 'PLAYING';
             }
@@ -550,7 +529,7 @@
         animate();
     </script>
 
-    <div id="loading">SISTEMA ARMONICO LISTO<br>Haz click para iniciar</div>
+    <div id="loading">SISTEMA CORRECTO CARGADO<br>Audio ruteado y Pads enriquecidos</div>
     
     <div id="ui-layer">
         <div id="screen-divider"></div>
