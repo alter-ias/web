@@ -60,6 +60,14 @@
         
         @keyframes pulse-cyan { 0% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(0, 229, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); } }
         .playing-pulse { animation: pulse-cyan 2s infinite; }
+
+        /* Range Slider Styling */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #00E5FF; cursor: pointer; margin-top: -6px; box-shadow: 0 0 10px rgba(0,229,255,0.5); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255,255,255,0.2); border-radius: 2px; }
+        input[type=range]:focus { outline: none; }
+        
+        .loop-active { background-color: #00E5FF !important; color: #000 !important; font-weight: bold; box-shadow: 0 0 10px #00E5FF; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between">
@@ -104,15 +112,62 @@
             </div>
 
             <div id="analysis-output" class="hidden space-y-6">
+                <!-- REPRODUCTOR AVANZADO -->
                 <div class="glass-card rounded-xl overflow-hidden animate-fade-in">
-                    <div class="glass-card-header p-4 flex justify-between items-center">
+                    <!-- Cabecera del reproductor -->
+                    <div class="glass-card-header p-4 flex justify-between items-center bg-black/40">
                         <div class="flex items-center gap-4">
-                            <h2 class="text-lg font-bold text-white tracking-widest uppercase"><i class="bi bi-cpu-fill mr-2"></i>Análisis Armónico</h2>
-                            <button id="play-btn" onclick="toggleAudio()" class="w-10 h-10 rounded-full bg-alter-cyan text-black flex items-center justify-center hover:scale-110 hover:bg-white transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.6)] group"><i id="play-icon" class="bi bi-play-fill text-2xl group-hover:text-alter-bg"></i></button>
+                            <h2 class="text-lg font-bold text-white tracking-widest uppercase"><i class="bi bi-cpu-fill mr-2"></i>Reproductor & Análisis</h2>
                         </div>
                         <span id="instrument-display" class="text-xs font-mono bg-alter-cyan text-black px-2 py-1 rounded font-bold shadow-[0_0_10px_#00E5FF]">CONCERT</span>
                     </div>
-                    <div class="p-6 md:p-8">
+
+                    <!-- Controles del reproductor -->
+                    <div class="p-6 bg-gradient-to-b from-black/20 to-transparent">
+                        <!-- Barra de progreso -->
+                        <div class="flex items-center gap-3 mb-4">
+                            <span id="current-time" class="text-xs font-mono text-alter-cyan w-10 text-right">0:00</span>
+                            <input type="range" id="seek-bar" value="0" step="0.1" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                            <span id="total-duration" class="text-xs font-mono text-gray-400 w-10">0:00</span>
+                        </div>
+
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-8">
+                            <!-- Controles Principales (Play/Skip) -->
+                            <div class="flex items-center gap-4">
+                                <button onclick="skipTime(-5)" class="text-gray-400 hover:text-white transition-colors" title="-5s"><i class="bi bi-rewind-fill text-xl"></i></button>
+                                
+                                <button id="play-btn" onclick="toggleAudio()" class="w-12 h-12 rounded-full bg-alter-cyan text-black flex items-center justify-center hover:scale-110 hover:bg-white transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.6)] group">
+                                    <i id="play-icon" class="bi bi-play-fill text-3xl ml-1 group-hover:text-alter-bg"></i>
+                                </button>
+                                
+                                <button onclick="skipTime(5)" class="text-gray-400 hover:text-white transition-colors" title="+5s"><i class="bi bi-fast-forward-fill text-xl"></i></button>
+                            </div>
+
+                            <!-- Sección Loop -->
+                            <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded-lg border border-gray-700">
+                                <span class="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Loop</span>
+                                <button id="loop-a-btn" onclick="setLoopA()" class="px-3 py-1 text-xs font-bold rounded border border-gray-600 text-gray-300 hover:border-alter-cyan hover:text-alter-cyan transition-all">A</button>
+                                <button id="loop-b-btn" onclick="setLoopB()" class="px-3 py-1 text-xs font-bold rounded border border-gray-600 text-gray-300 hover:border-alter-cyan hover:text-alter-cyan transition-all disabled:opacity-50" disabled>B</button>
+                                <button onclick="clearLoop()" class="text-red-400 hover:text-red-300 px-2" title="Borrar Loop"><i class="bi bi-x-lg"></i></button>
+                            </div>
+
+                            <!-- Control de Velocidad -->
+                            <div class="flex items-center gap-3 bg-gray-900/50 p-2 rounded-lg border border-gray-700 w-full md:w-auto">
+                                <i class="bi bi-speedometer2 text-gray-400"></i>
+                                <div class="flex flex-col w-32">
+                                    <div class="flex justify-between text-[10px] text-gray-400 mb-1">
+                                        <span>Lento (33%)</span>
+                                        <span id="speed-val">1.0x</span>
+                                    </div>
+                                    <input type="range" id="speed-control" min="0.33" max="1" step="0.05" value="1" oninput="updateSpeed(this.value)" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="loop-status-msg" class="text-center mt-2 h-4 text-xs font-mono text-alter-cyan opacity-0 transition-opacity">Loop Activo: <span id="loop-times">0:00 - 0:00</span></div>
+                    </div>
+
+                    <!-- Datos del Análisis -->
+                    <div class="p-6 md:p-8 border-t border-gray-800">
                         <div class="mb-8 text-center">
                             <p class="text-xs text-gray-400 uppercase tracking-[0.3em] mb-2">Tonalidad Transpuesta</p>
                             <p id="transposed-key" class="text-6xl md:text-8xl font-black text-white filter drop-shadow-[0_0_15px_rgba(0,229,255,0.4)] transition-all hover:scale-105 duration-300"></p>
@@ -143,7 +198,6 @@
                     </div>
                 </div>
                 
-                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in" style="animation-delay: 0.2s;">
                     <div class="glass-card rounded-xl p-6 border-l-4 border-l-alter-cyan">
                         <h3 class="text-lg font-bold text-white mb-2 flex items-center"><i class="bi bi-guitar mr-2"></i>Acorde Tónica (Guitarra)</h3>
@@ -156,8 +210,6 @@
                         <div class="w-full max-w-sm mx-auto py-2"><svg id="piano-diagram-svg" viewBox="0 0 350 120" class="w-full h-auto drop-shadow-[0_0_10px_rgba(0,229,255,0.2)]" xmlns="http://www.w3.org/2000/svg"></svg></div>
                     </div>
                 </div>
-                
-                                
                 
                 <div class="glass-card rounded-xl p-6 md:p-8 border-l-4 border-l-yellow-500 animate-fade-in" style="animation-delay: 0.25s;">
                     <h3 class="text-lg font-bold mb-3 text-yellow-500 uppercase tracking-wider"><i class="bi bi-lightbulb-fill mr-2"></i>Data de Ejecución</h3>
@@ -203,7 +255,7 @@
             'get-back': { title: 'Get Back', concertKey: 'A', improvScale: 'A Mixolidia', advice: 'El ritmo de batería "gallop" y el G (bVII) son clave.', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735878/The_Beatles_-_Get_Back_Remastered_2009_hlcyh6.flac', lyrics: `Verso 1\n[A]Jojo was a man who [A7]thought he was a loner\n[D]But he knew it wouldn't [A]last\n[A]Jojo left his home in [A7]Tucson, Arizona\n[D]For some California [A]grass\nEstribillo\n[A]Get back, [A7]get back\n[D]Get back to where you once be[A]longed [G] [D]\n[A]Get back, [A7]get back\n[D]Get back to where you once be[A]longed\nVerso 2\n[A]Sweet Loretta Martin [A7]thought she was a woman\n[D]But she was another [A]man\n[A]All the girls around her [A7]say she's got it coming\n[D]But she gets it while she [A]can\nEstribillo\n[A]Get back, [A7]get back... (Get back Loretta)` },
             'golden-slumbers': { title: 'Golden Slumbers', concertKey: 'Am / C', improvScale: 'C Jónica', advice: 'Balada de piano muy lírica.', chordType: 'M', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735861/The_Beatles_-_Golden_Slumbers_Remastered_2009_eoqjzx.flac', lyrics: `Verso\n[Am7]Once there was a way [Dm]to get back homeward\n[G7]Once there was a way [C]to get back home\n[E7]Sleep pretty darling, [Am]do not [Dm]cry\n[G7]And I will sing a lulla[C]by\nEstribillo\n[C]Golden [F]slumbers [C]fill your [E7]eyes\n[Am]Smiles a[Dm]wake you [G7]when you [C]rise\n[E7]Sleep pretty darling, [Am]do not [Dm]cry\n[G7]And I will sing a lulla[C]by\nCierre\n[Am7]Once there was a way [Dm]to get back homeward\n[G7]Once there was a way [C]to get back home\n[E7]Sleep pretty darling, [Am]do not [Dm]cry\n[G7]And I will sing a lulla[C]by` },
             'gypsy-queen': { title: 'Gypsy Queen', concertKey: 'Dm', improvScale: 'D Armónica', advice: 'Principalmente instrumental. Improvisación modal.', chordType: 'm', steps: SCALE_STEPS['Armónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735878/Santana_-_Black_Magic_Woman___Gypsy_Queen_xlslzw.flac', lyrics: `Intro / Instrumental Jam\n[Am] [Dm] (Vamping principal)\nCanto (Final)\n[Dm]Gypsy [Am]Queen\n[Gm]She's a [Dm]gypsy [A7]queen\n[Dm]She's a [Am]gypsy [Gm]queen [Dm]\n[Dm]Got a [Am]spell on [Gm]me [Dm]\n[Dm]Got a [Am]spell on [Gm]me [Dm]` },
-            'here-today': { title: 'Here Today', concertKey: 'G', improvScale: 'G Jónica', advice: 'Acústica. Cambios sutiles entre mayor y relativo menor.', chordType: 'maj7', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735862/Paul_McCartney_-_Here_Today_Remixed_2015_r0bchh.flac', lyrics: `Verso 1\n[G]And if I [Bm]say I really [Em]knew you well, [A7]what would your answer be?\n[G]If you were [Bm]here to[C]day [D] [G]\n[Cm]Here to[G]day\nVerso 2\n[G]And if I [Bm]say I really [Em]loved you [A7]and I'm glad you came along\n[G]If you were [Bm]here to[C]day [D] [G]\n[Cm]For you were in my [G]song [G]\n[Cm]Here to[G]day\nPuente\n[Am7]Well, knowing you, [Bm7]you'd probably laugh\nAnd [Cmaj7]say that we were worlds a[Fmaj7]part\n[Am7]If you were here to[Bm7]day\n[Cmaj7]But as for me [D7sus4]I still remember [G]how it was before\n[A7]And I am holding back the [C]tears no [Cm]more\nVerso 3\n[G]I love [Bm]you, [Em]oooh... [A7]\n[G]If you were [Bm]here to[C]day [D] [G]\n[Cm]Here to[G]day` },
+            'here-today': { title: 'Here Today', concertKey: 'G', improvScale: 'G Jónica', advice: 'Acústica. Cambios sutiles entre mayor y relativo menor.', chordType: 'maj7', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735862/Paul_McCartney_-_Here_Today_Remixed_2009_r0bchh.flac', lyrics: `Verso 1\n[G]And if I [Bm]say I really [Em]knew you well, [A7]what would your answer be?\n[G]If you were [Bm]here to[C]day [D] [G]\n[Cm]Here to[G]day\nVerso 2\n[G]And if I [Bm]say I really [Em]loved you [A7]and I'm glad you came along\n[G]If you were [Bm]here to[C]day [D] [G]\n[Cm]For you were in my [G]song [G]\n[Cm]Here to[G]day\nPuente\n[Am7]Well, knowing you, [Bm7]you'd probably laugh\nAnd [Cmaj7]say that we were worlds a[Fmaj7]part\n[Am7]If you were here to[Bm7]day\n[Cmaj7]But as for me [D7sus4]I still remember [G]how it was before\n[A7]And I am holding back the [C]tears no [Cm]more\nVerso 3\n[G]I love [Bm]you, [Em]oooh... [A7]\n[G]If you were [Bm]here to[C]day [D] [G]\n[Cm]Here to[G]day` },
             'hold-the-line': { title: 'Hold the Line', concertKey: 'F#m', improvScale: 'F# Menor', advice: 'Riff de piano en tresillos. Acordes con bajos descendentes.', chordType: 'm', steps: SCALE_STEPS['Eólica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735879/TOTO_-_Hold_the_Line_ojsxff.flac', lyrics: `Verso 1\n[F#m]It's not in the way that you [C#m]hold me\n[F#m]It's not in the way you [D]say you [E]care\n[F#m]It's not in the way you've [C#m]been treating my friends\n[F#m]It's not in the way that you [D]stayed 'till the [E]end\n[F#m]It's not in the way you [C#m]look or the things that you say that you'll [D]do [E]\nEstribillo\n[F#m]Hold the line, [A]love isn't [D]always on [E]time\n[F#m]Hold the line, [A]love isn't [D]always on [E]time\n[F#m]Hold the line, [A]love isn't [D]always on [E]time\nVerso 2\n[F#m]It's not in the words that you [C#m]told me\n[F#m]It's not in the way you [D]say you're [E]mine\n[F#m]It's not in the way that you [C#m]came back to me\n[F#m]It's not in the way that your [D]love set me [E]free\nEstribillo\n[F#m]Hold the line...` },
             'hotel-california': { title: 'Hotel California', concertKey: 'Bm', improvScale: 'B Armónica', advice: 'Progresión icónica. El F#7 (V) usa A#.', chordType: 'm', steps: SCALE_STEPS['Armónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735875/Eagles_-_Hotel_California_2013_Remaster_u1bdcw.flac', lyrics: `Verso 1\n[Bm]On a dark desert [F#7]highway, cool wind in my [A]hair\n[E]Warm smell of co[G]litas, rising up through the [D]air\n[Em]Up ahead in the [F#7]distance, I saw a shimmering [Bm]light\n[Bm]My head grew heavy and my [F#7]sight grew dim, I had to stop for the [A]night\nVerso 2\n[A]There she stood in the [E]doorway; I heard the mission [G]bell\n[G]And I was thinking to my[D]self, this could be heaven or this could be [Em]hell\n[Em]Then she lit up a [F#7]candle and she showed me the [Bm]way\n[Bm]There were voices down the [F#7]corridor, I thought I heard them [A]say\nEstribillo\n[G]Welcome to the [D]Hotel Cali[F#7]fornia\nSuch a [Bm]lovely place (such a lovely place), such a [Bm7]lovely face\n[G]Plenty of room at the [D]Hotel Cali[Em]fornia\nAny [F#7]time of year (any time of year), you can find it [Bm]here\nVerso 3\n[Bm]Her mind is Tiffany-[F#7]twisted, she got the Mercedes [A]bends\n[E]She got a lot of pretty, [G]pretty boys, that she calls [D]friends\n[Em]How they dance in the [F#7]courtyard, sweet summer [Bm]sweat\n[Bm]Some dance to re[F#7]member, some dance to for[A]get\nVerso 4\n[A]So I called up the [E]Captain, "Please bring me my [G]wine"\nHe said, "[D]We haven't had that spirit here since nineteen sixty [Em]nine"\n[Em]And still those voices are [F#7]calling from far a[Bm]way\n[Bm]Wake you up in the [F#7]middle of the night just to hear them [A]say...\nEstribillo\n[G]Welcome to the [D]Hotel Cali[F#7]fornia...\nVerso 5\n[Bm]Mirrors on the [F#7]ceiling, the pink champagne on [A]ice\nAnd she said, "[E]We are all just prisoners here, of our [G]own de[D]vice"\n[Em]And in the master's [F#7]chambers, they gathered for the [Bm]feast\n[Bm]They stab it with their [F#7]steely knives, but they just can't kill the [A]beast\nVerso 6\n[A]Last thing I re[E]member, I was running for the [G]door\n[G]I had to find the [D]passage back to the place I was be[Em]fore\n[Em]"Relax," said the [F#7]night man, "We are programmed to re[Bm]ceive.\n[Bm]You can check out any [F#7]time you like, but you can never [A]leave!"\nSolo de Guitarra Épico\n[Bm] [F#7] [A] [E] [G] [D] [Em] [F#7] (Repetir hasta fade out)` },
             'in-my-life': { title: 'In my life', concertKey: 'A', improvScale: 'A Jónica', advice: 'El Dm (iv) prestado en el coro es la firma armónica.', chordType: 'M', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735861/The_Beatles_-_In_My_Life_Remastered_2009_snplpd.flac', lyrics: `Verso 1\n[A]There are [E]places [F#m]I'll re[A7]member\n[D]All my [Dm]life, though [A]some have changed\n[A]Some forever, [E]not for [F#m]better [A7]\n[D]Some have [Dm]gone and [A]some remain\nEstribillo\n[F#m]All these [D]places had their [G]moments\n[A]With lovers and friends I [F#m]still can recall\n[F#m]Some are [B7]dead and some are [D]living\n[Dm]In my [A]life, I've [E]loved them [A]all\nVerso 2\n[A]But of [E]all these [F#m]friends and [A7]lovers\n[D]There is [Dm]no one com[A]pares with you\n[A]And these mem'ries [E]lose their [F#m]meaning [A7]\n[D]When I [Dm]think of love [A]as something new\nEstribillo\n[F#m]Though I [D]know I'll never [G]lose affection\n[A]For people and things that [F#m]went before\n[F#m]I know I'll [B7]often stop and think a[D]bout them\n[Dm]In my [A]life, I [E]love you [A]more\nSolo de Teclado (Barroco)\n[A] [E] [F#m] [A7] [D] [Dm] [A]\nFinal\n[Dm]In my [A]life, I [E]love you [A]more` },
@@ -273,11 +325,9 @@
             return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeNote(chord, semitones)}]</span>`);
         }
         
-        // Extracción automática de acordes base de la letra
         function extractBaseChords(lyrics) {
             const matches = lyrics.match(/\[(.*?)\]/g);
             if (!matches) return "N/A";
-            // Extraer, limpiar corchetes y tomar los primeros 4 únicos
             const chords = matches.map(m => m.replace(/[\[\]]/g, ''));
             const uniqueChords = [...new Set(chords)].slice(0, 4);
             return uniqueChords.join(' – ');
@@ -291,7 +341,6 @@
             const trKey = data.concertKey.split('/').map(trNote).join(' / ');
             const rootKey = data.concertKey.split('/')[0].replace(/m(aj)?\d*/, '').trim();
             
-            // Generar acordes base dinámicamente si no existen
             let baseChordsStr = data.baseChords || extractBaseChords(data.lyrics);
             let trChords = baseChordsStr.replace(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g, (m) => trNote(m));
             
@@ -309,11 +358,101 @@
             };
         }
 
-        const audioPlayer = document.getElementById('audio-player'), playBtn = document.getElementById('play-btn'), playIcon = document.getElementById('play-icon');
-        function toggleAudio() {
-            if (audioPlayer.paused) { audioPlayer.play(); playIcon.classList.replace('bi-play-fill', 'bi-pause-fill'); playBtn.classList.add('playing-pulse'); }
-            else { audioPlayer.pause(); playIcon.classList.replace('bi-pause-fill', 'bi-play-fill'); playBtn.classList.remove('playing-pulse'); }
+        /* --- LOGICA DEL REPRODUCTOR --- */
+        const audioPlayer = document.getElementById('audio-player');
+        const playBtn = document.getElementById('play-btn');
+        const playIcon = document.getElementById('play-icon');
+        const seekBar = document.getElementById('seek-bar');
+        const currentTimeEl = document.getElementById('current-time');
+        const totalDurationEl = document.getElementById('total-duration');
+        
+        // Variables para Loop
+        let loopStart = null;
+        let loopEnd = null;
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
         }
+
+        function toggleAudio() {
+            if (audioPlayer.paused) { 
+                audioPlayer.play(); 
+                playIcon.classList.replace('bi-play-fill', 'bi-pause-fill'); 
+                playBtn.classList.add('playing-pulse'); 
+            } else { 
+                audioPlayer.pause(); 
+                playIcon.classList.replace('bi-pause-fill', 'bi-play-fill'); 
+                playBtn.classList.remove('playing-pulse'); 
+            }
+        }
+
+        function skipTime(seconds) {
+            audioPlayer.currentTime += seconds;
+        }
+
+        function updateSpeed(val) {
+            audioPlayer.playbackRate = val;
+            document.getElementById('speed-val').textContent = val + "x";
+        }
+
+        // Loop Functions
+        function setLoopA() {
+            loopStart = audioPlayer.currentTime;
+            document.getElementById('loop-a-btn').classList.add('loop-active');
+            document.getElementById('loop-b-btn').disabled = false;
+        }
+
+        function setLoopB() {
+            if (loopStart !== null) {
+                loopEnd = audioPlayer.currentTime;
+                // Asegurar que B es después de A
+                if (loopEnd <= loopStart) { 
+                    loopEnd = loopStart + 1; // Mínimo 1 seg
+                }
+                document.getElementById('loop-b-btn').classList.add('loop-active');
+                
+                // Mostrar estado
+                const statusDiv = document.getElementById('loop-status-msg');
+                document.getElementById('loop-times').textContent = `${formatTime(loopStart)} - ${formatTime(loopEnd)}`;
+                statusDiv.classList.remove('opacity-0');
+            }
+        }
+
+        function clearLoop() {
+            loopStart = null;
+            loopEnd = null;
+            document.getElementById('loop-a-btn').classList.remove('loop-active');
+            document.getElementById('loop-b-btn').classList.remove('loop-active');
+            document.getElementById('loop-b-btn').disabled = true;
+            document.getElementById('loop-status-msg').classList.add('opacity-0');
+        }
+
+        // Event Listeners de Audio
+        audioPlayer.addEventListener('loadedmetadata', () => {
+            seekBar.max = audioPlayer.duration;
+            totalDurationEl.textContent = formatTime(audioPlayer.duration);
+        });
+
+        audioPlayer.addEventListener('timeupdate', () => {
+            // Lógica de Loop
+            if (loopStart !== null && loopEnd !== null) {
+                if (audioPlayer.currentTime >= loopEnd || audioPlayer.currentTime < loopStart) {
+                    audioPlayer.currentTime = loopStart;
+                }
+            }
+
+            // Actualizar UI
+            seekBar.value = audioPlayer.currentTime;
+            currentTimeEl.textContent = formatTime(audioPlayer.currentTime);
+        });
+
+        seekBar.addEventListener('input', () => {
+            audioPlayer.currentTime = seekBar.value;
+        });
+
+        /* --- FIN LOGICA REPRODUCTOR --- */
 
         function updateAnalysis() {
             const songKey = document.getElementById('song-selector').value, instrument = document.querySelector('input[name="instrument"]:checked').value;
@@ -339,9 +478,19 @@
             document.getElementById('piano-diagram-svg').innerHTML = generatePianoDiagram(data.tonicChordNotes);
             
             if (originalData.audioUrl && audioPlayer.src !== originalData.audioUrl) {
-                audioPlayer.src = originalData.audioUrl; audioPlayer.load();
-                playIcon.classList.replace('bi-pause-fill', 'bi-play-fill'); playBtn.classList.remove('playing-pulse', 'hidden');
-            } else if (!originalData.audioUrl) { audioPlayer.pause(); playBtn.classList.add('hidden'); }
+                audioPlayer.src = originalData.audioUrl; 
+                audioPlayer.load();
+                // Resetear controles al cambiar canción
+                clearLoop();
+                updateSpeed(1);
+                document.getElementById('speed-control').value = 1;
+                
+                playIcon.classList.replace('bi-pause-fill', 'bi-play-fill'); 
+                playBtn.classList.remove('playing-pulse', 'hidden');
+            } else if (!originalData.audioUrl) { 
+                audioPlayer.pause(); 
+                playBtn.classList.add('hidden'); 
+            }
         }
 
         document.addEventListener('DOMContentLoaded', () => {
