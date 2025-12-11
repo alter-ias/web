@@ -196,7 +196,7 @@
                                 <div class="font-mono text-lg md:text-xl text-gray-200 overflow-x-auto whitespace-nowrap pb-2"><span id="transposed-chords"></span></div>
                             </div>
                             <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50 hover:border-alter-cyan/30 transition-colors">
-                                <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Escala Improvisación</p>
+                                <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Escala Improvisación (Sugerida)</p>
                                 <div class="font-mono text-lg md:text-xl text-gray-200"><span id="transposed-scale"></span></div>
                             </div>
                         </div>
@@ -261,8 +261,8 @@
         const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbSwkQHV4pqULt-IhsUUJpC95YzLr6WpPqpHvcwBRfbjlO06DG1di5MF6CbclXtgT2BultwEIJgN-m/pub?output=csv';
 
         let SONGS_DATA = {};
-        let player; // Variable para el reproductor de YouTube
-        let updateInterval; // Intervalo para actualizar la barra de progreso
+        let player; 
+        let updateInterval; 
 
         /* --- CARGA DE API DE YOUTUBE --- */
         var tag = document.createElement('script');
@@ -275,15 +275,8 @@
                 height: '100%',
                 width: '100%',
                 playerVars: { 'playsinline': 1, 'controls': 1, 'modestbranding': 1, 'rel': 0 },
-                events: {
-                    'onStateChange': onPlayerStateChange,
-                    'onReady': onPlayerReady
-                }
+                events: { 'onStateChange': onPlayerStateChange }
             });
-        }
-
-        function onPlayerReady(event) {
-            // El reproductor está listo
         }
 
         function onPlayerStateChange(event) {
@@ -301,11 +294,20 @@
             }
         }
 
-        /* --- EXTRACTOR DE ID DE YOUTUBE --- */
-        function extractVideoID(url) {
-            var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-            var match = url.match(regExp);
-            return (match && match[7].length == 11) ? match[7] : false;
+        /* --- LOGICA AUTOMATICA DE ESCALAS --- */
+        function deriveScaleData(concertKey) {
+            if (!concertKey) return { name: "N/A", type: "Natural" };
+            
+            let key = concertKey.trim();
+            // Determinar si es Menor o Mayor
+            if (key.includes('m') && !key.includes('maj')) {
+                // Caso Menor (ej: Am, C#m) -> Asumir Eólica (Menor Natural)
+                let root = key.replace('m', '').trim();
+                return { name: `${root} Menor Natural`, type: 'Eólica' };
+            } else {
+                // Caso Mayor (ej: C, F#, Bb) -> Asumir Jónica (Mayor Natural)
+                return { name: `${key} Mayor Natural`, type: 'Jónica' };
+            }
         }
 
         /* --- PARSER CSV --- */
@@ -317,7 +319,6 @@
                 let cc = str[c], nc = str[c+1];
                 arr[row] = arr[row] || [];
                 arr[row][col] = arr[row][col] || '';
-                
                 if (cc == '"' && quote && nc == '"') { arr[row][col] += cc; ++c; continue; }
                 if (cc == '"') { quote = !quote; continue; }
                 if (cc == ',' && !quote) { ++col; continue; }
@@ -343,11 +344,17 @@
                     if(row.length < headers.length) continue;
                     
                     const songObj = {};
-                    headers.forEach((header, index) => {
-                        songObj[header] = row[index];
-                    });
+                    headers.forEach((header, index) => { songObj[header] = row[index]; });
 
                     if(songObj.id) {
+                        // AUTO-COMPLETADO INTELIGENTE DE ESCALAS
+                        if (!songObj.improvScale || !songObj.scaleType) {
+                            const derived = deriveScaleData(songObj.concertKey);
+                            songObj.improvScale = derived.name;
+                            songObj.scaleType = derived.type;
+                        }
+
+                        // Asignar los intervalos matemáticos según el tipo de escala
                         songObj.steps = SCALE_STEPS[songObj.scaleType] || SCALE_STEPS['Natural'];
                         SONGS_DATA[songObj.id] = songObj;
                     }
@@ -370,7 +377,7 @@
             }
         }
 
-        /* --- FUNCIONES TEORIA MUSICAL (MISMAS) --- */
+        /* --- FUNCIONES TEORIA MUSICAL --- */
         function getNoteIndex(note) { let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim().replace('♭', 'b').replace('♯', '#'); baseNote = {'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'}[baseNote] || baseNote; return NOTES.indexOf(baseNote); }
         function transposeNote(note, semitones) { 
             const baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim(); 
@@ -424,13 +431,20 @@
             if(!lyrics) return "Letra no disponible.";
             return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeNote(chord, semitones)}]</span>`);
         }
+        
+        // EXTRACCION DE ACORDES MEJORADA (FILTRA COROS/VERSOS)
         function extractBaseChords(lyrics) {
             if(!lyrics) return "N/A";
             const matches = lyrics.match(/\[(.*?)\]/g);
             if (!matches) return "N/A";
-            const chords = matches.map(m => m.replace(/[\[\]]/g, ''));
-            const uniqueChords = [...new Set(chords)].slice(0, 4);
-            return uniqueChords.join(' – ');
+            
+            // Filtro: Solo acordes que empiecen con A-G y sean cortos (evitar [Estribillo], [Solo de Guitarra])
+            const validChords = matches
+                .map(m => m.replace(/[\[\]]/g, ''))
+                .filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10);
+                
+            const uniqueChords = [...new Set(validChords)].slice(0, 4);
+            return uniqueChords.length > 0 ? uniqueChords.join(' – ') : "N/A";
         }
         
         function getTransposedData(data, instrument) {
@@ -443,9 +457,12 @@
             
             let baseChordsStr = data.baseChords || extractBaseChords(data.lyrics);
             let trChords = baseChordsStr.replace(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g, (m) => trNote(m));
-            let trScale = data.improvScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
             
-            const scaleNotes = generateScaleNotes(data.improvScale.match(/(\w[#♭b]?)\s/)?.[1] || 'C', data.steps || SCALE_STEPS['Natural'], semitones);
+            // Aseguramos que data.improvScale tenga un valor válido antes de procesar
+            let rawScale = data.improvScale || (data.concertKey + " Natural");
+            let trScale = rawScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
+            
+            const scaleNotes = generateScaleNotes(rawScale.match(/(\w[#♭b]?)\s/)?.[1] || 'C', data.steps || SCALE_STEPS['Natural'], semitones);
             const tonicNotes = generateChordNotes(rootKey, data.chordType || 'M', semitones);
             
             return {
@@ -457,13 +474,18 @@
             };
         }
 
-        /* --- CONTROLES YOUTUBE --- */
+        /* --- CONTROLES YOUTUBE Y LOOP --- */
+        function extractVideoID(url) {
+            var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+            var match = url.match(regExp);
+            return (match && match[7].length == 11) ? match[7] : false;
+        }
+
         const playBtn = document.getElementById('play-btn');
         const playIcon = document.getElementById('play-icon');
         const seekBar = document.getElementById('seek-bar');
         const currentTimeEl = document.getElementById('current-time');
         const totalDurationEl = document.getElementById('total-duration');
-        
         let loopStart = null, loopEnd = null;
 
         function formatTime(seconds) {
@@ -473,26 +495,12 @@
         }
 
         function toggleAudio() {
-            if (player && player.getPlayerState() === YT.PlayerState.PLAYING) {
-                player.pauseVideo();
-            } else if (player) {
-                player.playVideo();
-            }
+            if (player && player.getPlayerState() === YT.PlayerState.PLAYING) { player.pauseVideo(); } else if (player) { player.playVideo(); }
         }
 
-        function skipTime(seconds) { 
-            if(player) {
-                let current = player.getCurrentTime();
-                player.seekTo(current + seconds, true);
-            }
-        }
+        function skipTime(seconds) { if(player) { let current = player.getCurrentTime(); player.seekTo(current + seconds, true); } }
 
-        function updateSpeed(val) {
-            if(player) {
-                player.setPlaybackRate(parseFloat(val));
-                document.getElementById('speed-val').textContent = val + "x";
-            }
-        }
+        function updateSpeed(val) { if(player) { player.setPlaybackRate(parseFloat(val)); document.getElementById('speed-val').textContent = val + "x"; } }
 
         function setLoopA() {
             if(player) {
@@ -521,37 +529,24 @@
             document.getElementById('loop-status-msg').classList.add('opacity-0');
         }
 
-        // Ticker manual para actualizar barra y checar loop (YouTube no tiene evento timeupdate fiable)
         function startProgressLoop() {
             stopProgressLoop();
             updateInterval = setInterval(() => {
                 if(!player) return;
                 let current = player.getCurrentTime();
                 let duration = player.getDuration();
-
-                seekBar.max = duration;
-                seekBar.value = current;
+                seekBar.max = duration; seekBar.value = current;
                 currentTimeEl.textContent = formatTime(current);
                 totalDurationEl.textContent = formatTime(duration);
-
-                // Lógica de Loop
                 if (loopStart !== null && loopEnd !== null) {
-                    if (current >= loopEnd || current < loopStart) {
-                        player.seekTo(loopStart, true);
-                    }
+                    if (current >= loopEnd || current < loopStart) { player.seekTo(loopStart, true); }
                 }
             }, 500);
         }
 
-        function stopProgressLoop() {
-            if(updateInterval) clearInterval(updateInterval);
-        }
+        function stopProgressLoop() { if(updateInterval) clearInterval(updateInterval); }
+        seekBar.addEventListener('input', () => { if(player) player.seekTo(seekBar.value, true); });
 
-        seekBar.addEventListener('input', () => { 
-            if(player) player.seekTo(seekBar.value, true); 
-        });
-
-        /* --- ACTUALIZAR DATOS --- */
         function updateAnalysis() {
             const songKey = document.getElementById('song-selector').value, instrument = document.querySelector('input[name="instrument"]:checked').value;
             if (!songKey) return;
@@ -575,14 +570,11 @@
             document.getElementById('guitar-diagram-svg').innerHTML = generateGuitarDiagram(data.tonicChordNotes);
             document.getElementById('piano-diagram-svg').innerHTML = generatePianoDiagram(data.tonicChordNotes);
             
-            // Cargar Video de YouTube
             if (originalData.audioUrl && player) {
                 const videoId = extractVideoID(originalData.audioUrl);
                 if(videoId) {
                     player.loadVideoById(videoId);
-                    clearLoop();
-                    updateSpeed(1);
-                    document.getElementById('speed-control').value = 1;
+                    clearLoop(); updateSpeed(1); document.getElementById('speed-control').value = 1;
                 }
             }
         }
