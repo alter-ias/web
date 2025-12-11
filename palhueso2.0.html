@@ -359,7 +359,7 @@
 
         function setInstrument(inst) { currentInstrument = inst; updateInstrumentButtons(); renderUI(); }
 
-        /* --- IA ESTRICTA PARA CORCHETES --- */
+        /* --- IA ESTRICTA PARA CORCHETES Y ALINEACIÓN --- */
         async function enhanceWithAI() {
             if(!currentSongId) return;
             const btn = document.getElementById('ai-enhance-btn');
@@ -372,13 +372,15 @@
             spinner.classList.remove('hidden');
 
             try {
-                // PROMPT ESTRICTO: Solo corchetes para acordes válidos. Parentesis para etiquetas.
-                const systemPrompt = `Act as a music editor. Format the lyrics below.
+                // PROMPT CORREGIDO: Pide los acordes en LÍNEA SEPARADA, pero con corchetes.
+                const systemPrompt = `Act as a music transcriber. Format the lyrics as a Chord Sheet.
                 
                 RULES:
-                1. Musical Chords (A-G, Am, Cmaj7, etc.) must go in BRACKETS [ ] right before the word.
-                2. Section labels (Chorus, Verse, Intro, etc.) must go in PARENTHESES ( ) or be plain text. NEVER use brackets [ ] for non-chords.
-                3. Return ONLY the formatted text.
+                1. Place Musical Chords (A-G, Am, etc.) in BRACKETS [ ] on a SEPARATE LINE directly ABOVE the lyrics they belong to.
+                2. Use spaces to align the chord vertically with the correct syllable of the lyrics below.
+                3. Do NOT put chords on the same line as the lyrics (e.g. NOT "[C]Hello").
+                4. Section labels (Chorus, Verse, etc.) must go in PARENTHESES ( ) on their own line.
+                5. Return ONLY the formatted text.
                 
                 Input: ${data.lyrics.substring(0, 3000)}`;
 
@@ -561,10 +563,19 @@
         function generateGuitarDiagram(chordNotes) { const SVG_WIDTH = 200, SVG_HEIGHT = 150, NUM_STRINGS = 6, NUM_FRETS = 4; const FRET_WIDTH = SVG_WIDTH / (NUM_FRETS + 1), STRING_SPACING = (SVG_HEIGHT - 20) / (NUM_STRINGS - 1); let svgContent = `<rect x="5" y="10" width="${FRET_WIDTH/2}" height="${SVG_HEIGHT - 20}" class="nut" />`; for (let i = 0; i <= NUM_FRETS; i++) svgContent += `<line x1="${5+(FRET_WIDTH/2)+i*FRET_WIDTH}" y1="10" x2="${5+(FRET_WIDTH/2)+i*FRET_WIDTH}" y2="${SVG_HEIGHT - 10}" class="fret-line" />`; for (let i = 0; i < NUM_STRINGS; i++) svgContent += `<line x1="5" y1="${10+i*STRING_SPACING}" x2="${SVG_WIDTH-5}" y2="${10+i*STRING_SPACING}" class="string" />`; for (let s = 0; s < NUM_STRINGS; s++) { const openIdx = GUITAR_TUNING[s], sY = 10 + s * STRING_SPACING; for (let f = 1; f <= NUM_FRETS; f++) { const fretNote = NOTES[(openIdx + f) % 12]; if (chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(fretNote))) svgContent += `<circle cx="${(f*FRET_WIDTH)+5}" cy="${sY}" r="6" class="note-dot" />`; } } return svgContent; }
         function generatePianoDiagram(chordNotes) { const pianoMap = [{n:'C',t:'w'},{n:'C#',t:'b'},{n:'D',t:'w'},{n:'D#',t:'b'},{n:'E',t:'w'},{n:'F',t:'w'},{n:'F#',t:'b'},{n:'G',t:'w'},{n:'G#',t:'b'},{n:'A',t:'w'},{n:'A#',t:'b'},{n:'B',t:'w'},{n:'C',t:'w'},{n:'C#',t:'b'}]; let svgContent = '', wIdx = 0; pianoMap.forEach(k => { if(k.t==='w') { svgContent += `<rect x="${wIdx*25}" y="0" width="25" height="100" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'white-key'}" />`; wIdx++; } }); wIdx = 0; pianoMap.forEach(k => { if(k.t==='w') wIdx++; else svgContent += `<rect x="${(wIdx-1)*25+17.5}" y="0" width="15" height="70" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'black-key'}" />`; }); return svgContent; }
         function generateScaleNotes(rootNote, steps, semitones) { const rootIndex = getNoteIndex(rootNote); if (rootIndex === -1) return { main:[], passing:[] }; const transposedNotes = NOTES.map((n, i) => NOTES[(i + semitones) % 12]); const mainNotes = steps.map(step => transposedNotes[(rootIndex + step + semitones) % 12]); return { main: mainNotes, passing: transposedNotes.filter(n => !mainNotes.includes(n)) }; }
-        function transposeLyrics(lyrics, semitones) { if(!lyrics) return "Letra no disponible."; return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeChord(chord, semitones)}]</span>`); }
+        
+        // MODIFICADO: TransposeLyrics ahora elimina visualmente los corchetes [] del HTML final
+        function transposeLyrics(lyrics, semitones) { 
+            if(!lyrics) return "Letra no disponible."; 
+            return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">${transposeChord(chord, semitones)}</span>`); 
+        }
+        
         function extractBaseChords(lyrics) { if(!lyrics) return "N/A"; const matches = lyrics.match(/\[(.*?)\]/g); if (!matches) return "N/A"; const validChords = matches.map(m => m.replace(/[\[\]]/g, '')).filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10); const uniqueChords = [...new Set(validChords)].slice(0, 4); return uniqueChords.length > 0 ? uniqueChords.join(' – ') : "N/A"; }
 
-        var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; var firstScriptTag = document.getElementsByTagName('script')[0]; firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        var tag = document.createElement('script'); 
+        tag.src = "https://www.youtube.com/iframe_api"; // CORREGIDO: URL DE YOUTUBE AGREGADA
+        var firstScriptTag = document.getElementsByTagName('script')[0]; firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        
         function onYouTubeIframeAPIReady() { player = new YT.Player('youtube-player', { height: '100%', width: '100%', playerVars: { 'playsinline': 1, 'controls': 1, 'modestbranding': 1, 'rel': 0 }, events: { 'onStateChange': onPlayerStateChange } }); }
         function onPlayerStateChange(event) { const playIcon = document.getElementById('play-icon'); const playBtn = document.getElementById('play-btn'); if (event.data == YT.PlayerState.PLAYING) { playIcon.classList.replace('bi-play-fill', 'bi-pause-fill'); playBtn.classList.add('playing-pulse'); startProgressLoop(); } else { playIcon.classList.replace('bi-pause-fill', 'bi-play-fill'); playBtn.classList.remove('playing-pulse'); stopProgressLoop(); } }
         function extractVideoID(url) { if(!url) return false; var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/; var match = url.match(regExp); return (match && match[7].length == 11) ? match[7] : false; }
