@@ -44,6 +44,31 @@
         .main-note { background-color: rgba(0, 229, 255, 0.1); color: #00E5FF; border: 1px solid rgba(0, 229, 255, 0.5); text-shadow: 0 0 5px rgba(0, 229, 255, 0.5); }
         .passing-note { background-color: rgba(255, 171, 0, 0.1); color: #ffab00; border: 1px dashed #ffab00; }
         
+        /* ESTILOS CRÍTICOS PARA ACORDES FLOTANTES */
+        .lyrics-container { line-height: 2.8rem; } /* Espacio para el acorde arriba */
+        .chord-anchor {
+            display: inline-block;
+            position: relative;
+            width: 0;
+            white-space: pre;
+            overflow: visible;
+            vertical-align: top;
+        }
+        .chord-float {
+            position: absolute;
+            bottom: 0.8em; /* Sube el acorde */
+            left: 0;
+            color: #00E5FF;
+            font-weight: 700;
+            font-family: 'Inter', monospace;
+            font-size: 0.9em;
+            background: rgba(15, 18, 27, 0.8); /* Fondo opaco pequeño para legibilidad */
+            padding: 0 2px;
+            z-index: 10;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
         /* SVG Styles */
         .chord-card svg .fret-line { stroke: #4b5563; stroke-width: 2; }
         .chord-card svg .string { stroke: rgba(255, 255, 255, 0.3); stroke-width: 1; }
@@ -63,7 +88,6 @@
         @keyframes pulse-cyan { 0% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(0, 229, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); } }
         .playing-pulse { animation: pulse-cyan 2s infinite; }
 
-        /* Range Slider */
         input[type=range] { -webkit-appearance: none; background: transparent; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #00E5FF; cursor: pointer; margin-top: -6px; box-shadow: 0 0 10px rgba(0,229,255,0.5); }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255,255,255,0.2); border-radius: 2px; }
@@ -71,19 +95,12 @@
         
         .loop-active { background-color: #00E5FF !important; color: #000 !important; font-weight: bold; box-shadow: 0 0 10px #00E5FF; }
         .loading-overlay { position: absolute; inset: 0; background: rgba(15,18,27,0.8); z-index: 50; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); border-radius: 0.75rem; flex-direction: column; }
-        
-        /* YouTube Player Wrapper */
         #youtube-container { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 0.5rem; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.1); background: #000; }
         #youtube-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        
         .ai-processing { pointer-events: none; opacity: 0.7; cursor: wait; }
-
-        /* Instrument Buttons */
         .inst-btn { padding: 4px 12px; border: 1px solid #333; border-radius: 20px; font-size: 0.75rem; font-family: 'Inter', monospace; color: #888; transition: all 0.3s; }
         .inst-btn:hover { border-color: #00E5FF; color: white; }
         .inst-btn.active { background: #00E5FF; color: black; border-color: #00E5FF; font-weight: bold; box-shadow: 0 0 10px rgba(0,229,255,0.4); }
-
-        /* Chord Carousel */
         .chord-scroll { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; scroll-behavior: smooth; }
         .chord-card { min-width: 280px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.5rem; padding: 1rem; display: flex; flex-direction: column; align-items: center; }
     </style>
@@ -227,7 +244,7 @@
                     <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in">
                         <h3 class="text-xl font-bold text-white mb-6 flex items-center"><i class="bi bi-mic-fill mr-3 text-alter-cyan"></i>Letra & Progresión</h3>
                         <div class="bg-gray-900/40 rounded-lg p-6 border border-gray-700/50 overflow-x-auto max-h-[600px] overflow-y-auto custom-scrollbar">
-                            <pre id="lyrics-content" class="font-mono text-sm md:text-base text-gray-300 whitespace-pre-wrap leading-relaxed"></pre>
+                            <pre id="lyrics-content" class="lyrics-container font-mono text-sm md:text-base text-gray-300 whitespace-pre-wrap leading-relaxed"></pre>
                         </div>
                         
                         <!-- SECCION: DIAGRAMAS DE PROGRESION COMPLETA -->
@@ -372,21 +389,23 @@
             spinner.classList.remove('hidden');
 
             try {
-                // MODIFICADO: Instrucción estricta para mantener acordes en líneas separadas encima de la letra
-                const systemPrompt = `Act as a music editor. Format the lyrics below.
-                
+                // MODIFICADO: Prompt para que la IA NO separe líneas, sino que incruste acordes.
+                // Esto permite que nuestro script de renderizado maneje la posición vertical.
+                const systemPrompt = `Act as a professional music transcriber. 
+                Task: Insert chords into the lyrics.
                 RULES:
-                1. Musical Chords (A-G, Am, Cmaj7, etc.) must go in BRACKETS [ ].
-                2. IMPORTANT: Keep chords on a separate line ABOVE the lyrics (standard lead sheet format). Do NOT merge chords into the lyrics line.
-                3. Section labels (Chorus, Verse, etc.) in PARENTHESES ( ) or plain text.
-                4. Return ONLY the formatted text.
+                1. Place chords in brackets [ ] IMMEDIATELY BEFORE the word where the change happens. 
+                2. DO NOT create separate lines for chords. Keep the chord on the SAME line as the lyrics.
+                3. Example Input: "I see the bad moon" -> Example Output: "[D]I see the [A]bad moon".
+                4. For instrumental sections, just list the chords [D] [G] [A].
+                5. Return ONLY the formatted text.
                 
                 Input: ${data.lyrics.substring(0, 3000)}`;
 
                 const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt)}`);
                 const formattedLyrics = await response.text();
 
-                // Detección Local de Tonalidad
+                // Detección Local de Tonalidad - Mejorada para capturar acordes incluso si están en formato raro
                 const chordsFound = extractBaseChords(formattedLyrics).split(/[\s–-]+/);
                 const detectedKey = detectKeyFromChords(chordsFound) || "C";
                 const derivedScale = inferScaleFromKey(detectedKey);
@@ -418,9 +437,7 @@
             // Limpiar acordes de basura
             const cleanChords = chords.filter(c => /^[A-G]/.test(c));
             if (cleanChords.length === 0) return "C";
-            // Primer acorde suele ser la tonalidad
             let first = cleanChords[0];
-            // Si el primer acorde es Xdim o Xaug, buscamos el siguiente estable
             if (first.includes('dim') || first.includes('aug')) {
                 return cleanChords[1] || "C";
             }
@@ -479,6 +496,7 @@
                 mainDiv.innerHTML = scaleNotes.main.map(n => `<span class="note-chip main-note">${n}</span>`).join('');
                 passDiv.innerHTML = scaleNotes.passing.map(n => `<span class="note-chip passing-note">${n}</span>`).join('');
                 
+                // RESTAURADO: Se asegura de usar la lista transpuesta correcta
                 renderProgressionDiagrams(trChords);
             }
         }
@@ -497,18 +515,15 @@
         function renderProgressionDiagrams(chordString) {
             const container = document.getElementById('progression-diagrams');
             container.innerHTML = ''; 
-            if (!chordString || chordString.includes("Pendiente")) return;
+            if (!chordString || chordString.includes("Pendiente") || chordString === "N/A") return;
 
             const rawChords = chordString.split(/[\s–-]+/).filter(c => c.length > 0);
             const uniqueChords = [...new Set(rawChords)]; 
 
             uniqueChords.forEach(chordName => {
-                // --- FILTRO FINAL DE ETIQUETAS ---
-                // LISTA NEGRA: Si el "acorde" contiene estas palabras, lo ignoramos.
-                const labelsToIgnore = ['Chorus', 'Coro', 'Bridge', 'Puente', 'Intro', 'Verse', 'Verso', 'Outro', 'Final', 'Solo', 'Instrumental', 'Pre', 'x2', 'x4'];
+                const labelsToIgnore = ['Chorus', 'Coro', 'Bridge', 'Intro', 'Verse', 'Outro', 'x2', 'x4'];
                 if (labelsToIgnore.some(l => chordName.toLowerCase().includes(l.toLowerCase()))) return;
-
-                // Además, debe empezar con una nota válida (A-G)
+                // Validación laxa para permitir acordes complejos, pero debe empezar con Nota
                 if (!/^[A-G]/.test(chordName)) return;
 
                 const match = chordName.match(/^([A-G][#b]?)(.*)$/);
@@ -563,13 +578,30 @@
         function generatePianoDiagram(chordNotes) { const pianoMap = [{n:'C',t:'w'},{n:'C#',t:'b'},{n:'D',t:'w'},{n:'D#',t:'b'},{n:'E',t:'w'},{n:'F',t:'w'},{n:'F#',t:'b'},{n:'G',t:'w'},{n:'G#',t:'b'},{n:'A',t:'w'},{n:'A#',t:'b'},{n:'B',t:'w'},{n:'C',t:'w'},{n:'C#',t:'b'}]; let svgContent = '', wIdx = 0; pianoMap.forEach(k => { if(k.t==='w') { svgContent += `<rect x="${wIdx*25}" y="0" width="25" height="100" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'white-key'}" />`; wIdx++; } }); wIdx = 0; pianoMap.forEach(k => { if(k.t==='w') wIdx++; else svgContent += `<rect x="${(wIdx-1)*25+17.5}" y="0" width="15" height="70" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'black-key'}" />`; }); return svgContent; }
         function generateScaleNotes(rootNote, steps, semitones) { const rootIndex = getNoteIndex(rootNote); if (rootIndex === -1) return { main:[], passing:[] }; const transposedNotes = NOTES.map((n, i) => NOTES[(i + semitones) % 12]); const mainNotes = steps.map(step => transposedNotes[(rootIndex + step + semitones) % 12]); return { main: mainNotes, passing: transposedNotes.filter(n => !mainNotes.includes(n)) }; }
         
-        // MODIFICADO: Elimina los corchetes visualmente para un look más limpio, manteniendo el color cyan
+        // MODIFICADO: Solución visual CSS para poner acordes ENCIMA de la letra sin romper la línea
         function transposeLyrics(lyrics, semitones) { 
             if(!lyrics) return "Letra no disponible."; 
-            return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">${transposeChord(chord, semitones)}</span>`); 
+            return lyrics.replace(/\[(.*?)\]/g, (match, chord) => {
+                const transposed = transposeChord(chord, semitones);
+                // Crea un contenedor de ancho 0 para no empujar la letra, pero muestra el acorde flotando arriba
+                return `<span class="chord-anchor"><span class="chord-float">${transposed}</span></span>`;
+            }); 
         }
         
-        function extractBaseChords(lyrics) { if(!lyrics) return "N/A"; const matches = lyrics.match(/\[(.*?)\]/g); if (!matches) return "N/A"; const validChords = matches.map(m => m.replace(/[\[\]]/g, '')).filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10); const uniqueChords = [...new Set(validChords)].slice(0, 4); return uniqueChords.length > 0 ? uniqueChords.join(' – ') : "N/A"; }
+        // MODIFICADO: Regex más robusto para encontrar acordes dentro de texto denso
+        function extractBaseChords(lyrics) { 
+            if(!lyrics) return "N/A"; 
+            // Busca cualquier cosa entre corchetes, pero filtra para que parezcan acordes reales
+            const matches = lyrics.match(/\[([A-G][#b]?[^\]]*)\]/g); 
+            if (!matches) return "N/A"; 
+            
+            const validChords = matches
+                .map(m => m.replace(/[\[\]]/g, '').trim())
+                .filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10);
+                
+            const uniqueChords = [...new Set(validChords)].slice(0, 8); // Tomamos hasta 8 acordes únicos para los diagramas
+            return uniqueChords.length > 0 ? uniqueChords.join(' – ') : "N/A"; 
+        }
 
         var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; var firstScriptTag = document.getElementsByTagName('script')[0]; firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
         function onYouTubeIframeAPIReady() { player = new YT.Player('youtube-player', { height: '100%', width: '100%', playerVars: { 'playsinline': 1, 'controls': 1, 'modestbranding': 1, 'rel': 0 }, events: { 'onStateChange': onPlayerStateChange } }); }
