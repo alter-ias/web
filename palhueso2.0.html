@@ -1,500 +1,594 @@
-<div id="canvas-container"></div>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pa'l Hueso | Herramienta de Ensayo - Alter.Lab</title>
+    
+    <!-- Fuentes y Librerías -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<header class="w-full py-6 z-10 relative">
-    <div class="container mx-auto px-4 flex flex-col items-center">
-        <a href="#" class="flex items-center gap-3 mb-2 animate-fade-in hover:opacity-80 transition-opacity group">
-            <svg class="w-8 h-8 text-alter-cyan filter drop-shadow-[0_0_8px_rgba(0,229,255,0.8)] group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
-            <span class="logo-text font-bold text-xl md:text-2xl text-white tracking-[0.2em]">ALTER.LAB</span>
-        </a>
-        <div class="h-0.5 w-24 bg-alter-cyan shadow-[0_0_15px_#00E5FF] rounded-full"></div>
-    </div>
-</header>
+    <!-- Configuración Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        alter: { bg: '#0F121B', cyan: '#00E5FF', dark: '#1a1d26', glass: 'rgba(255, 255, 255, 0.05)' }
+                    },
+                    fontFamily: { sans: ['Montserrat', 'sans-serif'], mono: ['Inter', 'monospace'] },
+                    animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'spin-slow': 'spin 3s linear infinite', 'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
+                    }
+                }
+            }
+        }
+    </script>
 
-<main class="container mx-auto px-4 py-8 z-10 relative flex-grow max-w-5xl">
-    <div class="text-center mb-12 animate-fade-in">
-        <h1 class="text-5xl md:text-7xl font-bold mb-4 tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-alter-cyan to-gray-400" style="text-shadow: 0 0 30px rgba(0,229,255,0.2);">Pa'l Hueso</h1>
-        <p class="text-gray-400 text-lg md:text-xl font-light tracking-widest uppercase">La herramienta para no perder más tiempo en los ensayos</p>
-    </div>
+    <style>
+        :root { --background-color: #0F121B; --text-color: #FFFFFF; --accent-color: #00E5FF; }
+        body { background-color: var(--background-color); color: var(--text-color); font-family: 'Montserrat', sans-serif; overflow-x: hidden; }
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; }
+        .glass-card { background: rgba(15, 18, 27, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(0, 229, 255, 0.15); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        .glass-card-header { background: linear-gradient(90deg, rgba(0,229,255,0.15) 0%, rgba(0,0,0,0) 100%); border-bottom: 1px solid rgba(0, 229, 255, 0.1); }
+        select { background-color: rgba(0, 0, 0, 0.6); color: white; border: 1px solid rgba(255, 255, 255, 0.2); }
+        select:focus { outline: none; border-color: var(--accent-color); box-shadow: 0 0 15px rgba(0, 229, 255, 0.25); }
+        select option { background-color: #0F121B; }
+        .note-chip { display: inline-block; padding: 0.35rem 0.85rem; margin: 0.25rem; border-radius: 9999px; font-size: 0.95rem; font-weight: 600; transition: all 0.3s ease; }
+        .main-note { background-color: rgba(0, 229, 255, 0.1); color: #00E5FF; border: 1px solid rgba(0, 229, 255, 0.5); text-shadow: 0 0 5px rgba(0, 229, 255, 0.5); }
+        .passing-note { background-color: rgba(255, 171, 0, 0.1); color: #ffab00; border: 1px dashed #ffab00; }
+        
+        /* SVG Styles */
+        .chord-card svg .fret-line { stroke: #4b5563; stroke-width: 2; }
+        .chord-card svg .string { stroke: rgba(255, 255, 255, 0.3); stroke-width: 1; }
+        .chord-card svg .nut { fill: #00E5FF; opacity: 0.3; }
+        .chord-card svg .note-dot { fill: #00E5FF; stroke: #fff; stroke-width: 1px; filter: drop-shadow(0 0 3px #00E5FF); }
+        .chord-card svg .white-key { fill: rgba(255, 255, 255, 0.05); stroke: rgba(255, 255, 255, 0.2); stroke-width: 1; }
+        .chord-card svg .black-key { fill: #0F121B; stroke: rgba(255, 255, 255, 0.1); stroke-width: 1; }
+        .chord-card svg .highlight-key { fill: #00E5FF; filter: drop-shadow(0 0 5px #00E5FF); }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0F121B; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00E5FF; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 4px; }
+        
+        @keyframes pulse-cyan { 0% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(0, 229, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 229, 255, 0); } }
+        .playing-pulse { animation: pulse-cyan 2s infinite; }
 
-    <div class="space-y-8">
-        <!-- SELECCIONADOR -->
-        <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in relative" style="animation-delay: 0.1s;">
-            <div id="loader-overlay" class="loading-overlay">
-                <div id="loader-spinner">
-                    <div class="w-8 h-8 border-4 border-alter-cyan border-t-transparent rounded-full animate-spin-slow mb-2 mx-auto"></div>
-                    <span class="text-xs text-alter-cyan uppercase tracking-widest">Conectando Base de Datos...</span>
-                </div>
-                <div id="loader-error" class="hidden text-center px-4">
-                    <i class="bi bi-exclamation-triangle text-3xl text-red-500 mb-2"></i>
-                    <p class="text-red-400 font-bold mb-1">Error de Conexión</p>
-                    <p class="text-xs text-gray-400">No se pudo cargar el archivo CSV. Verifica la URL o tu conexión.</p>
-                    <button onclick="location.reload()" class="mt-4 px-4 py-2 text-xs border border-white/20 rounded hover:bg-white/10">Reintentar</button>
-                </div>
-            </div>
-            
-            <div class="w-full">
-                <label for="song-selector" class="block text-sm font-bold text-alter-cyan mb-2 uppercase tracking-wider"><i class="bi bi-music-note-beamed mr-2"></i>Selecciona la Pieza</label>
-                <select id="song-selector" onchange="loadSong()" class="w-full p-3 rounded-lg text-white focus:ring-2 focus:ring-alter-cyan transition-all cursor-pointer">
-                    <option value="" disabled selected>-- Cargando Repertorio... --</option>
-                </select>
-            </div>
+        /* Range Slider */
+        input[type=range] { -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #00E5FF; cursor: pointer; margin-top: -6px; box-shadow: 0 0 10px rgba(0,229,255,0.5); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255,255,255,0.2); border-radius: 2px; }
+        input[type=range]:focus { outline: none; }
+        
+        .loop-active { background-color: #00E5FF !important; color: #000 !important; font-weight: bold; box-shadow: 0 0 10px #00E5FF; }
+        .loading-overlay { position: absolute; inset: 0; background: rgba(15,18,27,0.8); z-index: 50; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); border-radius: 0.75rem; flex-direction: column; }
+        
+        /* YouTube Player Wrapper */
+        #youtube-container { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 0.5rem; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.1); background: #000; }
+        #youtube-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        
+        .ai-processing { pointer-events: none; opacity: 0.7; cursor: wait; }
+
+        /* Instrument Buttons */
+        .inst-btn { padding: 4px 12px; border: 1px solid #333; border-radius: 20px; font-size: 0.75rem; font-family: 'Inter', monospace; color: #888; transition: all 0.3s; }
+        .inst-btn:hover { border-color: #00E5FF; color: white; }
+        .inst-btn.active { background: #00E5FF; color: black; border-color: #00E5FF; font-weight: bold; box-shadow: 0 0 10px rgba(0,229,255,0.4); }
+
+        /* Chord Carousel */
+        .chord-scroll { display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 1rem; scroll-behavior: smooth; }
+        .chord-card { min-width: 280px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 0.5rem; padding: 1rem; display: flex; flex-direction: column; align-items: center; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <div id="canvas-container"></div>
+
+    <header class="w-full py-6 z-10 relative">
+        <div class="container mx-auto px-4 flex flex-col items-center">
+            <a href="#" class="flex items-center gap-3 mb-2 animate-fade-in hover:opacity-80 transition-opacity group">
+                <svg class="w-8 h-8 text-alter-cyan filter drop-shadow-[0_0_8px_rgba(0,229,255,0.8)] group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                <span class="logo-text font-bold text-xl md:text-2xl text-white tracking-[0.2em]">ALTER.LAB</span>
+            </a>
+            <div class="h-0.5 w-24 bg-alter-cyan shadow-[0_0_15px_#00E5FF] rounded-full"></div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 z-10 relative flex-grow max-w-5xl">
+        <div class="text-center mb-12 animate-fade-in">
+            <h1 class="text-5xl md:text-7xl font-bold mb-4 tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-alter-cyan to-gray-400" style="text-shadow: 0 0 30px rgba(0,229,255,0.2);">Pa'l Hueso</h1>
+            <p class="text-gray-400 text-lg md:text-xl font-light tracking-widest uppercase">La herramienta para no perder más tiempo en los ensayos</p>
         </div>
 
-        <div id="analysis-output" class="hidden space-y-6">
-            <!-- REPRODUCTOR -->
-            <div class="glass-card rounded-xl overflow-hidden animate-fade-in">
-                <div class="glass-card-header p-4 flex justify-between items-center bg-black/40">
-                    <div class="flex items-center gap-4">
-                        <h2 class="text-lg font-bold text-white tracking-widest uppercase"><i class="bi bi-youtube mr-2"></i>Reproductor YouTube</h2>
+        <div class="space-y-8">
+            <!-- SELECCIONADOR -->
+            <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in relative" style="animation-delay: 0.1s;">
+                <div id="loader-overlay" class="loading-overlay">
+                    <div id="loader-spinner">
+                        <div class="w-8 h-8 border-4 border-alter-cyan border-t-transparent rounded-full animate-spin-slow mb-2 mx-auto"></div>
+                        <span class="text-xs text-alter-cyan uppercase tracking-widest">Conectando Base de Datos...</span>
                     </div>
-                    <span id="instrument-display" class="text-xs font-mono bg-alter-cyan text-black px-2 py-1 rounded font-bold shadow-[0_0_10px_#00E5FF]">CONCERT</span>
-                </div>
-
-                <div class="p-6 bg-gradient-to-b from-black/20 to-transparent">
-                    <div id="youtube-container"><div id="youtube-player"></div></div>
-
-                    <div class="flex items-center gap-3 mb-4">
-                        <span id="current-time" class="text-xs font-mono text-alter-cyan w-10 text-right">0:00</span>
-                        <input type="range" id="seek-bar" value="0" step="1" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-                        <span id="total-duration" class="text-xs font-mono text-gray-400 w-10">0:00</span>
-                    </div>
-
-                    <div class="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-8">
-                        <div class="flex items-center gap-4">
-                            <button onclick="skipTime(-5)" class="text-gray-400 hover:text-white transition-colors" title="-5s"><i class="bi bi-rewind-fill text-xl"></i></button>
-                            <button id="play-btn" onclick="toggleAudio()" class="w-12 h-12 rounded-full bg-alter-cyan text-black flex items-center justify-center hover:scale-110 hover:bg-white transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.6)] group">
-                                <i id="play-icon" class="bi bi-play-fill text-3xl ml-1 group-hover:text-alter-bg"></i>
-                            </button>
-                            <button onclick="skipTime(5)" class="text-gray-400 hover:text-white transition-colors" title="+5s"><i class="bi bi-fast-forward-fill text-xl"></i></button>
-                        </div>
-
-                        <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded-lg border border-gray-700">
-                            <span class="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Loop</span>
-                            <button id="loop-a-btn" onclick="setLoopA()" class="px-3 py-1 text-xs font-bold rounded border border-gray-600 text-gray-300 hover:border-alter-cyan hover:text-alter-cyan transition-all">A</button>
-                            <button id="loop-b-btn" onclick="setLoopB()" class="px-3 py-1 text-xs font-bold rounded border border-gray-600 text-gray-300 hover:border-alter-cyan hover:text-alter-cyan transition-all disabled:opacity-50" disabled>B</button>
-                            <button onclick="clearLoop()" class="text-red-400 hover:text-red-300 px-2" title="Borrar Loop"><i class="bi bi-x-lg"></i></button>
-                        </div>
-
-                        <div class="flex items-center gap-3 bg-gray-900/50 p-2 rounded-lg border border-gray-700 w-full md:w-auto">
-                            <i class="bi bi-speedometer2 text-gray-400"></i>
-                            <div class="flex flex-col w-32">
-                                <div class="flex justify-between text-[10px] text-gray-400 mb-1">
-                                    <span>Lento (0.25x)</span>
-                                    <span id="speed-val">1.0x</span>
-                                </div>
-                                <input type="range" id="speed-control" min="0.25" max="1" step="0.25" value="1" oninput="updateSpeed(this.value)" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
-                            </div>
-                        </div>
-                    </div>
-                    <div id="loop-status-msg" class="text-center mt-2 h-4 text-xs font-mono text-alter-cyan opacity-0 transition-opacity">Loop Activo: <span id="loop-times">0:00 - 0:00</span></div>
-                </div>
-
-                <!-- Datos del Análisis -->
-                <div class="p-6 md:p-8 border-t border-gray-800">
-                    <div class="mb-8 text-center">
-                        <p class="text-xs text-gray-400 uppercase tracking-[0.3em] mb-2">Tonalidad Transpuesta</p>
-                        <p id="transposed-key" class="text-6xl md:text-8xl font-black text-white filter drop-shadow-[0_0_15px_rgba(0,229,255,0.4)] transition-all hover:scale-105 duration-300">?</p>
-                        
-                        <div class="flex justify-center gap-3 mt-4">
-                            <button onclick="setInstrument('Concert')" class="inst-btn active" id="btn-Concert">Concierto (C)</button>
-                            <button onclick="setInstrument('Bb')" class="inst-btn" id="btn-Bb">Sax Tenor (B♭)</button>
-                            <button onclick="setInstrument('Eb')" class="inst-btn" id="btn-Eb">Sax Alto (E♭)</button>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50 hover:border-alter-cyan/30 transition-colors">
-                            <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Progresión Base (Detectada)</p>
-                            <div class="font-mono text-lg md:text-xl text-gray-200 overflow-x-auto whitespace-nowrap pb-2"><span id="transposed-chords">--</span></div>
-                        </div>
-                        <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50 hover:border-alter-cyan/30 transition-colors">
-                            <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Escala Improvisación (Sugerida)</p>
-                            <div class="font-mono text-lg md:text-xl text-gray-200"><span id="transposed-scale">--</span></div>
-                        </div>
-                    </div>
-                    
-                    <!-- BOTÓN DE INTELIGENCIA ARTIFICIAL -->
-                    <div id="ai-section" class="mt-8 text-center">
-                        <button id="ai-enhance-btn" onclick="enhanceWithAI()" class="group relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-bold rounded-lg border border-alter-cyan text-alter-cyan hover:bg-alter-cyan hover:text-black transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.2)] hover:shadow-[0_0_25px_rgba(0,229,255,0.6)] focus:outline-none">
-                            <i class="bi bi-stars mr-2"></i>
-                            <span id="ai-btn-text">Iniciar Análisis Musical</span>
-                            <div id="ai-spinner" class="hidden absolute right-4 w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Paneles Informativos -->
-            <div id="data-panels" class="hidden space-y-6">
-                <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in">
-                    <h3 class="text-xl font-bold text-white mb-6 flex items-center"><i class="bi bi-music-note-list mr-3 text-alter-cyan"></i>Mapa de Notas</h3>
-                    <div class="mb-6"><p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Notas de Escala (Seguras)</p><div id="main-notes" class="flex flex-wrap gap-2"></div></div>
-                    <div><p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Cromatismos / Paso (Tensión)</p><div id="passing-notes" class="flex flex-wrap gap-2"></div></div>
-                </div>
-
-                <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in">
-                    <h3 class="text-xl font-bold text-white mb-6 flex items-center"><i class="bi bi-mic-fill mr-3 text-alter-cyan"></i>Letra & Progresión</h3>
-                    <div class="bg-gray-900/40 rounded-lg p-6 border border-gray-700/50 overflow-x-auto max-h-[600px] overflow-y-auto custom-scrollbar">
-                        <pre id="lyrics-content" class="font-mono text-sm md:text-base text-gray-300 whitespace-pre-wrap leading-relaxed"></pre>
-                    </div>
-                    
-                    <!-- SECCION: DIAGRAMAS DE PROGRESION COMPLETA -->
-                    <div class="mt-8 border-t border-gray-700/50 pt-6">
-                        <h4 class="text-sm font-bold text-alter-cyan uppercase tracking-wider mb-4">Esquemas de la Progresión</h4>
-                        <div id="progression-diagrams" class="chord-scroll custom-scrollbar">
-                            <!-- Se llena dinámicamente -->
-                        </div>
+                    <div id="loader-error" class="hidden text-center px-4">
+                        <i class="bi bi-exclamation-triangle text-3xl text-red-500 mb-2"></i>
+                        <p class="text-red-400 font-bold mb-1">Error de Conexión</p>
+                        <p class="text-xs text-gray-400">No se pudo cargar el archivo CSV. Verifica la URL o tu conexión.</p>
+                        <button onclick="location.reload()" class="mt-4 px-4 py-2 text-xs border border-white/20 rounded hover:bg-white/10">Reintentar</button>
                     </div>
                 </div>
                 
-                <div class="glass-card rounded-xl p-6 md:p-8 border-l-4 border-l-yellow-500 animate-fade-in">
-                    <h3 class="text-lg font-bold mb-3 text-yellow-500 uppercase tracking-wider"><i class="bi bi-lightbulb-fill mr-2"></i>Data de Ejecución (AI Advice)</h3>
-                    <p id="execution-advice" class="text-gray-300 leading-relaxed font-mono text-sm md:text-base"></p>
+                <div class="w-full">
+                    <label for="song-selector" class="block text-sm font-bold text-alter-cyan mb-2 uppercase tracking-wider"><i class="bi bi-music-note-beamed mr-2"></i>Selecciona la Pieza</label>
+                    <select id="song-selector" onchange="loadSong()" class="w-full p-3 rounded-lg text-white focus:ring-2 focus:ring-alter-cyan transition-all cursor-pointer">
+                        <option value="" disabled selected>-- Cargando Repertorio... --</option>
+                    </select>
                 </div>
             </div>
+
+            <div id="analysis-output" class="hidden space-y-6">
+                <!-- REPRODUCTOR -->
+                <div class="glass-card rounded-xl overflow-hidden animate-fade-in">
+                    <div class="glass-card-header p-4 flex justify-between items-center bg-black/40">
+                        <div class="flex items-center gap-4">
+                            <h2 class="text-lg font-bold text-white tracking-widest uppercase"><i class="bi bi-youtube mr-2"></i>Reproductor YouTube</h2>
+                        </div>
+                        <span id="instrument-display" class="text-xs font-mono bg-alter-cyan text-black px-2 py-1 rounded font-bold shadow-[0_0_10px_#00E5FF]">CONCERT</span>
+                    </div>
+
+                    <div class="p-6 bg-gradient-to-b from-black/20 to-transparent">
+                        <div id="youtube-container"><div id="youtube-player"></div></div>
+
+                        <div class="flex items-center gap-3 mb-4">
+                            <span id="current-time" class="text-xs font-mono text-alter-cyan w-10 text-right">0:00</span>
+                            <input type="range" id="seek-bar" value="0" step="1" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                            <span id="total-duration" class="text-xs font-mono text-gray-400 w-10">0:00</span>
+                        </div>
+
+                        <div class="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-8">
+                            <div class="flex items-center gap-4">
+                                <button onclick="skipTime(-5)" class="text-gray-400 hover:text-white transition-colors" title="-5s"><i class="bi bi-rewind-fill text-xl"></i></button>
+                                <button id="play-btn" onclick="toggleAudio()" class="w-12 h-12 rounded-full bg-alter-cyan text-black flex items-center justify-center hover:scale-110 hover:bg-white transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.6)] group">
+                                    <i id="play-icon" class="bi bi-play-fill text-3xl ml-1 group-hover:text-alter-bg"></i>
+                                </button>
+                                <button onclick="skipTime(5)" class="text-gray-400 hover:text-white transition-colors" title="+5s"><i class="bi bi-fast-forward-fill text-xl"></i></button>
+                            </div>
+
+                            <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded-lg border border-gray-700">
+                                <span class="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Loop</span>
+                                <button id="loop-a-btn" onclick="setLoopA()" class="px-3 py-1 text-xs font-bold rounded border border-gray-600 text-gray-300 hover:border-alter-cyan hover:text-alter-cyan transition-all">A</button>
+                                <button id="loop-b-btn" onclick="setLoopB()" class="px-3 py-1 text-xs font-bold rounded border border-gray-600 text-gray-300 hover:border-alter-cyan hover:text-alter-cyan transition-all disabled:opacity-50" disabled>B</button>
+                                <button onclick="clearLoop()" class="text-red-400 hover:text-red-300 px-2" title="Borrar Loop"><i class="bi bi-x-lg"></i></button>
+                            </div>
+
+                            <div class="flex items-center gap-3 bg-gray-900/50 p-2 rounded-lg border border-gray-700 w-full md:w-auto">
+                                <i class="bi bi-speedometer2 text-gray-400"></i>
+                                <div class="flex flex-col w-32">
+                                    <div class="flex justify-between text-[10px] text-gray-400 mb-1">
+                                        <span>Lento (0.25x)</span>
+                                        <span id="speed-val">1.0x</span>
+                                    </div>
+                                    <input type="range" id="speed-control" min="0.25" max="1" step="0.25" value="1" oninput="updateSpeed(this.value)" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="loop-status-msg" class="text-center mt-2 h-4 text-xs font-mono text-alter-cyan opacity-0 transition-opacity">Loop Activo: <span id="loop-times">0:00 - 0:00</span></div>
+                    </div>
+
+                    <!-- Datos del Análisis -->
+                    <div class="p-6 md:p-8 border-t border-gray-800">
+                        <div class="mb-8 text-center">
+                            <p class="text-xs text-gray-400 uppercase tracking-[0.3em] mb-2">Tonalidad Transpuesta</p>
+                            <p id="transposed-key" class="text-6xl md:text-8xl font-black text-white filter drop-shadow-[0_0_15px_rgba(0,229,255,0.4)] transition-all hover:scale-105 duration-300">?</p>
+                            
+                            <div class="flex justify-center gap-3 mt-4">
+                                <button onclick="setInstrument('Concert')" class="inst-btn active" id="btn-Concert">Concierto (C)</button>
+                                <button onclick="setInstrument('Bb')" class="inst-btn" id="btn-Bb">Sax Tenor (B♭)</button>
+                                <button onclick="setInstrument('Eb')" class="inst-btn" id="btn-Eb">Sax Alto (E♭)</button>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50 hover:border-alter-cyan/30 transition-colors">
+                                <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Progresión Base (Detectada)</p>
+                                <div class="font-mono text-lg md:text-xl text-gray-200 overflow-x-auto whitespace-nowrap pb-2"><span id="transposed-chords">--</span></div>
+                            </div>
+                            <div class="bg-gray-900/40 rounded-lg p-4 border border-gray-700/50 hover:border-alter-cyan/30 transition-colors">
+                                <p class="text-xs text-alter-cyan uppercase tracking-wider mb-3 font-bold">Escala Improvisación (Sugerida)</p>
+                                <div class="font-mono text-lg md:text-xl text-gray-200"><span id="transposed-scale">--</span></div>
+                            </div>
+                        </div>
+                        
+                        <!-- BOTÓN DE INTELIGENCIA ARTIFICIAL -->
+                        <div id="ai-section" class="mt-8 text-center">
+                            <button id="ai-enhance-btn" onclick="enhanceWithAI()" class="group relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-bold rounded-lg border border-alter-cyan text-alter-cyan hover:bg-alter-cyan hover:text-black transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.2)] hover:shadow-[0_0_25px_rgba(0,229,255,0.6)] focus:outline-none">
+                                <i class="bi bi-stars mr-2"></i>
+                                <span id="ai-btn-text">Iniciar Análisis Musical</span>
+                                <div id="ai-spinner" class="hidden absolute right-4 w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paneles Informativos -->
+                <div id="data-panels" class="hidden space-y-6">
+                    <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in">
+                        <h3 class="text-xl font-bold text-white mb-6 flex items-center"><i class="bi bi-music-note-list mr-3 text-alter-cyan"></i>Mapa de Notas</h3>
+                        <div class="mb-6"><p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Notas de Escala (Seguras)</p><div id="main-notes" class="flex flex-wrap gap-2"></div></div>
+                        <div><p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Cromatismos / Paso (Tensión)</p><div id="passing-notes" class="flex flex-wrap gap-2"></div></div>
+                    </div>
+
+                    <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in">
+                        <h3 class="text-xl font-bold text-white mb-6 flex items-center"><i class="bi bi-mic-fill mr-3 text-alter-cyan"></i>Letra & Progresión</h3>
+                        <div class="bg-gray-900/40 rounded-lg p-6 border border-gray-700/50 overflow-x-auto max-h-[600px] overflow-y-auto custom-scrollbar">
+                            <pre id="lyrics-content" class="font-mono text-sm md:text-base text-gray-300 whitespace-pre-wrap leading-relaxed"></pre>
+                        </div>
+                        
+                        <!-- SECCION: DIAGRAMAS DE PROGRESION COMPLETA -->
+                        <div class="mt-8 border-t border-gray-700/50 pt-6">
+                            <h4 class="text-sm font-bold text-alter-cyan uppercase tracking-wider mb-4">Esquemas de la Progresión</h4>
+                            <div id="progression-diagrams" class="chord-scroll custom-scrollbar">
+                                <!-- Se llena dinámicamente -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-card rounded-xl p-6 md:p-8 border-l-4 border-l-yellow-500 animate-fade-in">
+                        <h3 class="text-lg font-bold mb-3 text-yellow-500 uppercase tracking-wider"><i class="bi bi-lightbulb-fill mr-2"></i>Data de Ejecución (AI Advice)</h3>
+                        <p id="execution-advice" class="text-gray-300 leading-relaxed font-mono text-sm md:text-base"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="initial-message" class="glass-card p-12 text-center text-gray-500 rounded-xl animate-fade-in">
+                <i class="bi bi-vinyl-fill text-6xl mb-6 block text-gray-700/50"></i>
+                <p class="text-lg font-medium">Selecciona una canción para comenzar el ensayo.</p>
+            </div>
         </div>
+    </main>
 
-        <div id="initial-message" class="glass-card p-12 text-center text-gray-500 rounded-xl animate-fade-in">
-            <i class="bi bi-vinyl-fill text-6xl mb-6 block text-gray-700/50"></i>
-            <p class="text-lg font-medium">Selecciona una canción para comenzar el ensayo.</p>
+    <footer class="relative z-10 py-8 mt-12 border-t border-gray-800 bg-gray-900/80 backdrop-blur-md">
+        <div class="container mx-auto text-center space-y-2">
+            <p class="text-gray-500 text-xs">Si la música no suena, verifica que no tengas bloqueadores de anuncios activos.</p>
+            <p class="text-gray-600 text-xs uppercase tracking-widest">© 2025 Alter.Lab | Generative Art & Code</p>
         </div>
-    </div>
-</main>
+    </footer>
 
-<footer class="relative z-10 py-8 mt-12 border-t border-gray-800 bg-gray-900/80 backdrop-blur-md">
-    <div class="container mx-auto text-center space-y-2">
-        <p class="text-gray-500 text-xs">Si la música no suena, verifica que no tengas bloqueadores de anuncios activos.</p>
-        <p class="text-gray-600 text-xs uppercase tracking-widest">© 2025 Alter.Lab | Generative Art & Code</p>
-    </div>
-</footer>
+    <script>
+        // --- CONSTANTES ---
+        const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const SCALE_STEPS = { 'Jónica':[0,2,4,5,7,9,11], 'Eólica':[0,2,3,5,7,8,10], 'Dórica':[0,2,3,5,7,9,10], 'Armónica':[0,2,3,5,7,8,11], 'Pentatónica':[0,3,5,7,10], 'Mayor':[0,2,4,5,7,9,11], 'Mixolidia':[0,2,4,5,7,9,10], 'Blues':[0,3,5,6,7,10], 'Natural':[0,2,4,5,7,9,11], 'Lidia':[0,2,4,6,7,9,11] };
+        // DICCIONARIO DE INTERVALOS EXTENDIDO PARA DIAGRAMAS
+        const CHORD_INTERVALS = { 
+            'm':[0,3,7], 'maj7':[0,4,7,11], 'm7':[0,3,7,10], '7':[0,4,7,10], 'M':[0,4,7], 'dim':[0,3,6], 
+            'sus4':[0,5,7], 'sus2':[0,2,7], 'add9':[0,4,7,14], '6':[0,4,7,9], 'm6':[0,3,7,9], '9':[0,4,7,10,14],
+            'dim7':[0,3,6,9], 'aug':[0,4,8]
+        };
+        const GUITAR_TUNING = [4, 9, 2, 7, 11, 4];
+        const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbSwkQHV4pqULt-IhsUUJpC95YzLr6WpPqpHvcwBRfbjlO06DG1di5MF6CbclXtgT2BultwEIJgN-m/pub?output=csv';
 
-<script>
-    // --- CONSTANTES ---
-    const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-    const SCALE_STEPS = { 'Jónica':[0,2,4,5,7,9,11], 'Eólica':[0,2,3,5,7,8,10], 'Dórica':[0,2,3,5,7,9,10], 'Armónica':[0,2,3,5,7,8,11], 'Pentatónica':[0,3,5,7,10], 'Mayor':[0,2,4,5,7,9,11], 'Mixolidia':[0,2,4,5,7,9,10], 'Blues':[0,3,5,6,7,10], 'Natural':[0,2,4,5,7,9,11], 'Lidia':[0,2,4,6,7,9,11] };
-    // DICCIONARIO DE INTERVALOS EXTENDIDO PARA DIAGRAMAS
-    const CHORD_INTERVALS = { 
-        'm':[0,3,7], 'maj7':[0,4,7,11], 'm7':[0,3,7,10], '7':[0,4,7,10], 'M':[0,4,7], 'dim':[0,3,6], 
-        'sus4':[0,5,7], 'sus2':[0,2,7], 'add9':[0,4,7,14], '6':[0,4,7,9], 'm6':[0,3,7,9], '9':[0,4,7,10,14],
-        'dim7':[0,3,6,9], 'aug':[0,4,8]
-    };
-    const GUITAR_TUNING = [4, 9, 2, 7, 11, 4];
-    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbSwkQHV4pqULt-IhsUUJpC95YzLr6WpPqpHvcwBRfbjlO06DG1di5MF6CbclXtgT2BultwEIJgN-m/pub?output=csv';
+        // --- ESTADO GLOBAL ---
+        let SONGS_DATA = {}; 
+        let currentSongId = null; 
+        let currentInstrument = 'Concert'; 
+        let hasBeenAnalyzed = false; 
+        
+        let player; 
+        let updateInterval; 
+        let loopStart = null, loopEnd = null;
 
-    // --- ESTADO GLOBAL ---
-    let SONGS_DATA = {}; 
-    let currentSongId = null; 
-    let currentInstrument = 'Concert'; 
-    let hasBeenAnalyzed = false; 
-    
-    let player; 
-    let updateInterval; 
-    let loopStart = null, loopEnd = null;
-
-    /* --- 1. CARGA DE BASE DE DATOS (CSV) --- */
-    function parseCSV(str) {
-        const arr = []; let quote = false; let col = 0, row = 0;
-        for (let c = 0; c < str.length; c++) {
-            let cc = str[c], nc = str[c+1];
-            arr[row] = arr[row] || []; arr[row][col] = arr[row][col] || '';
-            if (cc == '"' && quote && nc == '"') { arr[row][col] += cc; ++c; continue; }
-            if (cc == '"') { quote = !quote; continue; }
-            if (cc == ',' && !quote) { ++col; continue; }
-            if (cc == '\r' && nc == '\n' && !quote) { ++row; col = 0; ++c; continue; }
-            if (cc == '\n' && !quote) { ++row; col = 0; continue; }
-            if (cc == '\r' && !quote) { ++row; col = 0; continue; }
-            arr[row][col] += cc;
-        }
-        return arr;
-    }
-
-    async function fetchSongs() {
-        try {
-            const response = await fetch(SHEET_CSV_URL);
-            if(!response.ok) throw new Error("Error HTTP");
-            const text = await response.text();
-            const rawData = parseCSV(text);
-            const headers = rawData[0].map(h => h.trim());
-            for(let i=1; i<rawData.length; i++) {
-                const row = rawData[i]; if(row.length < headers.length) continue;
-                const songObj = {}; headers.forEach((header, index) => { songObj[header] = row[index]; });
-                if(songObj.id) {
-                    songObj.concertKey = songObj.concertKey || "C";
-                    songObj.lyrics = songObj.lyrics || "";
-                    SONGS_DATA[songObj.id] = songObj;
-                }
+        /* --- 1. CARGA DE BASE DE DATOS (CSV) --- */
+        function parseCSV(str) {
+            const arr = []; let quote = false; let col = 0, row = 0;
+            for (let c = 0; c < str.length; c++) {
+                let cc = str[c], nc = str[c+1];
+                arr[row] = arr[row] || []; arr[row][col] = arr[row][col] || '';
+                if (cc == '"' && quote && nc == '"') { arr[row][col] += cc; ++c; continue; }
+                if (cc == '"') { quote = !quote; continue; }
+                if (cc == ',' && !quote) { ++col; continue; }
+                if (cc == '\r' && nc == '\n' && !quote) { ++row; col = 0; ++c; continue; }
+                if (cc == '\n' && !quote) { ++row; col = 0; continue; }
+                if (cc == '\r' && !quote) { ++row; col = 0; continue; }
+                arr[row][col] += cc;
             }
-            const selector = document.getElementById('song-selector');
-            selector.innerHTML = '<option value="" disabled selected>-- Selecciona Pieza --</option>';
-            Object.keys(SONGS_DATA).sort().forEach(key => {
-                const option = document.createElement('option'); option.value = key; option.textContent = SONGS_DATA[key].title; selector.appendChild(option);
-            });
-            document.getElementById('loader-overlay').style.display = 'none';
-        } catch (error) {
-            console.error("Error CSV:", error);
-            document.getElementById('loader-spinner').style.display = 'none';
-            document.getElementById('loader-error').classList.remove('hidden');
+            return arr;
         }
-    }
 
-    /* --- CONTROL DE FLUJO --- */
-    function loadSong() {
-        const songKey = document.getElementById('song-selector').value;
-        if(!songKey) return;
-        currentSongId = songKey;
-        currentInstrument = 'Concert';
-        hasBeenAnalyzed = false;
-        
-        const btn = document.getElementById('ai-enhance-btn');
-        btn.classList.remove('ai-processing', 'hidden');
-        document.getElementById('ai-btn-text').textContent = "Iniciar Análisis Musical";
-        document.getElementById('ai-spinner').classList.add('hidden');
-
-        const data = SONGS_DATA[currentSongId];
-        document.getElementById('initial-message').classList.add('hidden');
-        document.getElementById('analysis-output').classList.remove('hidden');
-        document.getElementById('data-panels').classList.add('hidden');
-        document.getElementById('lyrics-content').innerHTML = "";
-        
-        updateInstrumentButtons();
-
-        if (data.audioUrl && player) {
-            const videoId = extractVideoID(data.audioUrl);
-            if(videoId) { player.loadVideoById(videoId); clearLoop(); updateSpeed(1); document.getElementById('speed-control').value = 1; }
+        async function fetchSongs() {
+            try {
+                const response = await fetch(SHEET_CSV_URL);
+                if(!response.ok) throw new Error("Error HTTP");
+                const text = await response.text();
+                const rawData = parseCSV(text);
+                const headers = rawData[0].map(h => h.trim());
+                for(let i=1; i<rawData.length; i++) {
+                    const row = rawData[i]; if(row.length < headers.length) continue;
+                    const songObj = {}; headers.forEach((header, index) => { songObj[header] = row[index]; });
+                    if(songObj.id) {
+                        songObj.concertKey = songObj.concertKey || "C";
+                        songObj.lyrics = songObj.lyrics || "";
+                        SONGS_DATA[songObj.id] = songObj;
+                    }
+                }
+                const selector = document.getElementById('song-selector');
+                selector.innerHTML = '<option value="" disabled selected>-- Selecciona Pieza --</option>';
+                Object.keys(SONGS_DATA).sort().forEach(key => {
+                    const option = document.createElement('option'); option.value = key; option.textContent = SONGS_DATA[key].title; selector.appendChild(option);
+                });
+                document.getElementById('loader-overlay').style.display = 'none';
+            } catch (error) {
+                console.error("Error CSV:", error);
+                document.getElementById('loader-spinner').style.display = 'none';
+                document.getElementById('loader-error').classList.remove('hidden');
+            }
         }
-        renderUI();
-    }
 
-    function setInstrument(inst) { currentInstrument = inst; updateInstrumentButtons(); renderUI(); }
-
-    /* --- IA ESTRICTA PARA CORCHETES --- */
-    async function enhanceWithAI() {
-        if(!currentSongId) return;
-        const btn = document.getElementById('ai-enhance-btn');
-        const btnText = document.getElementById('ai-btn-text');
-        const spinner = document.getElementById('ai-spinner');
-        const data = SONGS_DATA[currentSongId];
-
-        btn.classList.add('ai-processing');
-        btnText.textContent = "Analizando...";
-        spinner.classList.remove('hidden');
-
-        try {
-            // PROMPT ESTRICTO: Solo corchetes para acordes válidos. Parentesis para etiquetas.
-            const systemPrompt = `Act as a music editor. Format the lyrics below.
+        /* --- CONTROL DE FLUJO --- */
+        function loadSong() {
+            const songKey = document.getElementById('song-selector').value;
+            if(!songKey) return;
+            currentSongId = songKey;
+            currentInstrument = 'Concert';
+            hasBeenAnalyzed = false;
             
-            RULES:
-            1. Musical Chords (A-G, Am, Cmaj7, etc.) must go in BRACKETS [ ] right before the word.
-            2. Section labels (Chorus, Verse, Intro, etc.) must go in PARENTHESES ( ) or be plain text. NEVER use brackets [ ] for non-chords.
-            3. Return ONLY the formatted text.
+            const btn = document.getElementById('ai-enhance-btn');
+            btn.classList.remove('ai-processing', 'hidden');
+            document.getElementById('ai-btn-text').textContent = "Iniciar Análisis Musical";
+            document.getElementById('ai-spinner').classList.add('hidden');
+
+            const data = SONGS_DATA[currentSongId];
+            document.getElementById('initial-message').classList.add('hidden');
+            document.getElementById('analysis-output').classList.remove('hidden');
+            document.getElementById('data-panels').classList.add('hidden');
+            document.getElementById('lyrics-content').innerHTML = "";
             
-            Input: ${data.lyrics.substring(0, 3000)}`;
+            updateInstrumentButtons();
 
-            const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt)}`);
-            const formattedLyrics = await response.text();
-
-            // Detección Local de Tonalidad
-            const chordsFound = extractBaseChords(formattedLyrics).split(/[\s–-]+/);
-            const detectedKey = detectKeyFromChords(chordsFound) || "C";
-            const derivedScale = inferScaleFromKey(detectedKey);
-
-            SONGS_DATA[currentSongId].lyrics = formattedLyrics;
-            SONGS_DATA[currentSongId].concertKey = detectedKey;
-            SONGS_DATA[currentSongId].improvScale = derivedScale.name;
-            SONGS_DATA[currentSongId].scaleType = derivedScale.type;
-            SONGS_DATA[currentSongId].advice = "Análisis generado por IA Alter.Lab";
-            SONGS_DATA[currentSongId].steps = SCALE_STEPS[derivedScale.type];
-
-            hasBeenAnalyzed = true;
-            document.getElementById('data-panels').classList.remove('hidden');
-            document.getElementById('ai-enhance-btn').classList.add('hidden');
+            if (data.audioUrl && player) {
+                const videoId = extractVideoID(data.audioUrl);
+                if(videoId) { player.loadVideoById(videoId); clearLoop(); updateSpeed(1); document.getElementById('speed-control').value = 1; }
+            }
             renderUI();
-
-        } catch (error) {
-            console.error("Error AI:", error);
-            alert("La IA está ocupada. Intenta de nuevo.");
-            btn.classList.remove('ai-processing');
-            btnText.textContent = "Reintentar Análisis";
-            spinner.classList.add('hidden');
         }
-    }
 
-    /* --- LOGICA MUSICAL LOCAL --- */
-    function detectKeyFromChords(chords) {
-        if (!chords || chords.length === 0) return "C";
-        // Limpiar acordes de basura
-        const cleanChords = chords.filter(c => /^[A-G]/.test(c));
-        if (cleanChords.length === 0) return "C";
-        // Primer acorde suele ser la tonalidad
-        let first = cleanChords[0];
-        // Si el primer acorde es Xdim o Xaug, buscamos el siguiente estable
-        if (first.includes('dim') || first.includes('aug')) {
-            return cleanChords[1] || "C";
+        function setInstrument(inst) { currentInstrument = inst; updateInstrumentButtons(); renderUI(); }
+
+        /* --- IA ESTRICTA PARA CORCHETES --- */
+        async function enhanceWithAI() {
+            if(!currentSongId) return;
+            const btn = document.getElementById('ai-enhance-btn');
+            const btnText = document.getElementById('ai-btn-text');
+            const spinner = document.getElementById('ai-spinner');
+            const data = SONGS_DATA[currentSongId];
+
+            btn.classList.add('ai-processing');
+            btnText.textContent = "Analizando...";
+            spinner.classList.remove('hidden');
+
+            try {
+                // PROMPT ESTRICTO: Solo corchetes para acordes válidos. Parentesis para etiquetas.
+                const systemPrompt = `Act as a music editor. Format the lyrics below.
+                
+                RULES:
+                1. Musical Chords (A-G, Am, Cmaj7, etc.) must go in BRACKETS [ ] right before the word.
+                2. Section labels (Chorus, Verse, Intro, etc.) must go in PARENTHESES ( ) or be plain text. NEVER use brackets [ ] for non-chords.
+                3. Return ONLY the formatted text.
+                
+                Input: ${data.lyrics.substring(0, 3000)}`;
+
+                const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt)}`);
+                const formattedLyrics = await response.text();
+
+                // Detección Local de Tonalidad
+                const chordsFound = extractBaseChords(formattedLyrics).split(/[\s–-]+/);
+                const detectedKey = detectKeyFromChords(chordsFound) || "C";
+                const derivedScale = inferScaleFromKey(detectedKey);
+
+                SONGS_DATA[currentSongId].lyrics = formattedLyrics;
+                SONGS_DATA[currentSongId].concertKey = detectedKey;
+                SONGS_DATA[currentSongId].improvScale = derivedScale.name;
+                SONGS_DATA[currentSongId].scaleType = derivedScale.type;
+                SONGS_DATA[currentSongId].advice = "Análisis generado por IA Alter.Lab";
+                SONGS_DATA[currentSongId].steps = SCALE_STEPS[derivedScale.type];
+
+                hasBeenAnalyzed = true;
+                document.getElementById('data-panels').classList.remove('hidden');
+                document.getElementById('ai-enhance-btn').classList.add('hidden');
+                renderUI();
+
+            } catch (error) {
+                console.error("Error AI:", error);
+                alert("La IA está ocupada. Intenta de nuevo.");
+                btn.classList.remove('ai-processing');
+                btnText.textContent = "Reintentar Análisis";
+                spinner.classList.add('hidden');
+            }
         }
-        return first;
-    }
 
-    function inferScaleFromKey(key) {
-        if (key.includes('m') && !key.includes('maj')) {
-            return { name: key + " Natural Minor", type: 'Eólica' };
+        /* --- LOGICA MUSICAL LOCAL --- */
+        function detectKeyFromChords(chords) {
+            if (!chords || chords.length === 0) return "C";
+            // Limpiar acordes de basura
+            const cleanChords = chords.filter(c => /^[A-G]/.test(c));
+            if (cleanChords.length === 0) return "C";
+            // Primer acorde suele ser la tonalidad
+            let first = cleanChords[0];
+            // Si el primer acorde es Xdim o Xaug, buscamos el siguiente estable
+            if (first.includes('dim') || first.includes('aug')) {
+                return cleanChords[1] || "C";
+            }
+            return first;
         }
-        return { name: key + " Major", type: 'Jónica' };
-    }
 
-    /* --- VISUALIZACION --- */
-    function renderUI() {
-        if(!currentSongId) return;
-        const originalData = SONGS_DATA[currentSongId];
-        let semitones = currentInstrument === 'Bb' ? 2 : (currentInstrument === 'Eb' ? 9 : 0);
-        let instrumentName = currentInstrument === 'Bb' ? 'SAX TENOR (B♭)' : (currentInstrument === 'Eb' ? 'SAX ALTO (E♭)' : 'CONCIERTO (C)');
-        
-        const trNote = (n) => transposeNote(n.trim(), semitones);
-        
-        // Transposición Tonalidad
-        const rootNoteMatch = originalData.concertKey.match(/^([A-G][#b]?)/);
-        const rootNote = rootNoteMatch ? rootNoteMatch[1] : 'C'; 
-        const quality = originalData.concertKey.substring(rootNote.length);
-        const trRoot = transposeNote(rootNote, semitones);
-        const trKey = trRoot + quality; 
-        
-        // Transposición Acordes
-        let baseChordsStr = hasBeenAnalyzed ? extractBaseChords(originalData.lyrics) : "Pendiente...";
-        let chordList = baseChordsStr.split(/[\s–-]+/).filter(c => c.length > 0 && c !== "N/A");
-        let trChordList = chordList.map(chord => transposeChord(chord, semitones));
-        let trChords = trChordList.join(' – ');
-        
-        // Escala y Notas
-        let rawScale = originalData.improvScale || (originalData.concertKey + " Natural");
-        let trScale = rawScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
-        
-        const scaleRootMatch = rawScale.match(/^([A-G][#b]?)/);
-        const scaleRoot = scaleRootMatch ? scaleRootMatch[1] : 'C';
-        const scaleRootTr = transposeNote(scaleRoot, semitones);
-        const scaleType = originalData.scaleType || 'Jónica';
-        const scaleNotes = generateScaleNotes(scaleRootTr, SCALE_STEPS[scaleType], 0);
+        function inferScaleFromKey(key) {
+            if (key.includes('m') && !key.includes('maj')) {
+                return { name: key + " Natural Minor", type: 'Eólica' };
+            }
+            return { name: key + " Major", type: 'Jónica' };
+        }
 
-        document.getElementById('instrument-display').textContent = instrumentName;
-        document.getElementById('transposed-key').textContent = trKey;
-        document.getElementById('transposed-chords').textContent = trChords;
-        document.getElementById('transposed-scale').textContent = trScale;
-        
-        if(hasBeenAnalyzed) {
-            document.getElementById('lyrics-content').innerHTML = transposeLyrics(originalData.lyrics, semitones);
-            document.getElementById('execution-advice').innerHTML = originalData.advice;
+        /* --- VISUALIZACION --- */
+        function renderUI() {
+            if(!currentSongId) return;
+            const originalData = SONGS_DATA[currentSongId];
+            let semitones = currentInstrument === 'Bb' ? 2 : (currentInstrument === 'Eb' ? 9 : 0);
+            let instrumentName = currentInstrument === 'Bb' ? 'SAX TENOR (B♭)' : (currentInstrument === 'Eb' ? 'SAX ALTO (E♭)' : 'CONCIERTO (C)');
             
-            const mainDiv = document.getElementById('main-notes'); const passDiv = document.getElementById('passing-notes');
-            mainDiv.innerHTML = scaleNotes.main.map(n => `<span class="note-chip main-note">${n}</span>`).join('');
-            passDiv.innerHTML = scaleNotes.passing.map(n => `<span class="note-chip passing-note">${n}</span>`).join('');
+            const trNote = (n) => transposeNote(n.trim(), semitones);
             
-            renderProgressionDiagrams(trChords);
+            // Transposición Tonalidad
+            const rootNoteMatch = originalData.concertKey.match(/^([A-G][#b]?)/);
+            const rootNote = rootNoteMatch ? rootNoteMatch[1] : 'C'; 
+            const quality = originalData.concertKey.substring(rootNote.length);
+            const trRoot = transposeNote(rootNote, semitones);
+            const trKey = trRoot + quality; 
+            
+            // Transposición Acordes
+            let baseChordsStr = hasBeenAnalyzed ? extractBaseChords(originalData.lyrics) : "Pendiente...";
+            let chordList = baseChordsStr.split(/[\s–-]+/).filter(c => c.length > 0 && c !== "N/A");
+            let trChordList = chordList.map(chord => transposeChord(chord, semitones));
+            let trChords = trChordList.join(' – ');
+            
+            // Escala y Notas
+            let rawScale = originalData.improvScale || (originalData.concertKey + " Natural");
+            let trScale = rawScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
+            
+            const scaleRootMatch = rawScale.match(/^([A-G][#b]?)/);
+            const scaleRoot = scaleRootMatch ? scaleRootMatch[1] : 'C';
+            const scaleRootTr = transposeNote(scaleRoot, semitones);
+            const scaleType = originalData.scaleType || 'Jónica';
+            const scaleNotes = generateScaleNotes(scaleRootTr, SCALE_STEPS[scaleType], 0);
+
+            document.getElementById('instrument-display').textContent = instrumentName;
+            document.getElementById('transposed-key').textContent = trKey;
+            document.getElementById('transposed-chords').textContent = trChords;
+            document.getElementById('transposed-scale').textContent = trScale;
+            
+            if(hasBeenAnalyzed) {
+                document.getElementById('lyrics-content').innerHTML = transposeLyrics(originalData.lyrics, semitones);
+                document.getElementById('execution-advice').innerHTML = originalData.advice;
+                
+                const mainDiv = document.getElementById('main-notes'); const passDiv = document.getElementById('passing-notes');
+                mainDiv.innerHTML = scaleNotes.main.map(n => `<span class="note-chip main-note">${n}</span>`).join('');
+                passDiv.innerHTML = scaleNotes.passing.map(n => `<span class="note-chip passing-note">${n}</span>`).join('');
+                
+                renderProgressionDiagrams(trChords);
+            }
         }
-    }
 
-    // --- HERRAMIENTAS DE DIBUJO ---
-    function transposeChord(chord, semitones) {
-        if (chord.includes('/')) {
-            const parts = chord.split('/');
-            return transposeChord(parts[0], semitones) + '/' + transposeChord(parts[1], semitones);
+        // --- HERRAMIENTAS DE DIBUJO ---
+        function transposeChord(chord, semitones) {
+            if (chord.includes('/')) {
+                const parts = chord.split('/');
+                return transposeChord(parts[0], semitones) + '/' + transposeChord(parts[1], semitones);
+            }
+            const match = chord.match(/^([A-G][#b]?)(.*)$/);
+            if (!match) return chord;
+            return transposeNote(match[1], semitones) + match[2];
         }
-        const match = chord.match(/^([A-G][#b]?)(.*)$/);
-        if (!match) return chord;
-        return transposeNote(match[1], semitones) + match[2];
-    }
 
-    function renderProgressionDiagrams(chordString) {
-        const container = document.getElementById('progression-diagrams');
-        container.innerHTML = ''; 
-        if (!chordString || chordString.includes("Pendiente")) return;
+        function renderProgressionDiagrams(chordString) {
+            const container = document.getElementById('progression-diagrams');
+            container.innerHTML = ''; 
+            if (!chordString || chordString.includes("Pendiente")) return;
 
-        const rawChords = chordString.split(/[\s–-]+/).filter(c => c.length > 0);
-        const uniqueChords = [...new Set(rawChords)]; 
+            const rawChords = chordString.split(/[\s–-]+/).filter(c => c.length > 0);
+            const uniqueChords = [...new Set(rawChords)]; 
 
-        uniqueChords.forEach(chordName => {
-            // --- FILTRO FINAL DE ETIQUETAS ---
-            // Si la IA falló y puso [Chorus], esto lo atrapa porque NO es una nota válida.
-            if (!/^[A-G]/.test(chordName)) return;
+            uniqueChords.forEach(chordName => {
+                // --- FILTRO FINAL DE ETIQUETAS ---
+                // LISTA NEGRA: Si el "acorde" contiene estas palabras, lo ignoramos.
+                const labelsToIgnore = ['Chorus', 'Coro', 'Bridge', 'Puente', 'Intro', 'Verse', 'Verso', 'Outro', 'Final', 'Solo', 'Instrumental', 'Pre', 'x2', 'x4'];
+                if (labelsToIgnore.some(l => chordName.toLowerCase().includes(l.toLowerCase()))) return;
 
-            // Doble chequeo: palabras reservadas
-            const labelsToIgnore = ['Chorus', 'Coro', 'Bridge', 'Puente', 'Intro', 'Verse', 'Verso', 'x2', 'x4'];
-            if (labelsToIgnore.some(l => chordName.toLowerCase().includes(l.toLowerCase()))) return;
+                // Además, debe empezar con una nota válida (A-G)
+                if (!/^[A-G]/.test(chordName)) return;
 
-            const match = chordName.match(/^([A-G][#b]?)(.*)$/);
-            if (!match) return;
-            
-            const root = match[1];
-            const quality = match[2] || 'M';
-            
-            let typeKey = 'M';
-            if (quality.includes('m') && !quality.includes('maj')) typeKey = 'm';
-            if (quality.includes('7')) typeKey = '7';
-            if (quality.includes('maj7')) typeKey = 'maj7';
-            if (quality.includes('dim')) typeKey = 'dim';
+                const match = chordName.match(/^([A-G][#b]?)(.*)$/);
+                if (!match) return;
+                
+                const root = match[1];
+                const quality = match[2] || 'M';
+                
+                let typeKey = 'M';
+                if (quality.includes('m') && !quality.includes('maj')) typeKey = 'm';
+                if (quality.includes('7')) typeKey = '7';
+                if (quality.includes('maj7')) typeKey = 'maj7';
+                if (quality.includes('dim')) typeKey = 'dim';
 
-            const chordNotes = generateChordNotes(root, typeKey, 0); 
+                const chordNotes = generateChordNotes(root, typeKey, 0); 
 
-            const card = document.createElement('div');
-            card.className = "chord-card glass-card";
-            card.innerHTML = `
-                <div class="text-center mb-2"><span class="text-xl font-bold text-white">${chordName}</span></div>
-                <div class="flex gap-4">
-                    <div class="w-24">
-                        <div class="text-[10px] text-gray-400 text-center mb-1"><i class="bi bi-guitar"></i></div>
-                        <svg viewBox="0 0 200 150" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg">${generateGuitarDiagram(chordNotes)}</svg>
-                    </div>
-                    <div class="w-32">
-                        <div class="text-[10px] text-gray-400 text-center mb-1"><i class="bi bi-keyboard"></i></div>
-                        <svg viewBox="0 0 350 120" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg">${generatePianoDiagram(chordNotes)}</svg>
-                    </div>
-                </div>`;
-            container.appendChild(card);
-        });
-    }
+                const card = document.createElement('div');
+                card.className = "chord-card glass-card";
+                card.innerHTML = `
+                    <div class="text-center mb-2"><span class="text-xl font-bold text-white">${chordName}</span></div>
+                    <div class="flex gap-4">
+                        <div class="w-24">
+                            <div class="text-[10px] text-gray-400 text-center mb-1"><i class="bi bi-guitar"></i></div>
+                            <svg viewBox="0 0 200 150" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg">${generateGuitarDiagram(chordNotes)}</svg>
+                        </div>
+                        <div class="w-32">
+                            <div class="text-[10px] text-gray-400 text-center mb-1"><i class="bi bi-keyboard"></i></div>
+                            <svg viewBox="0 0 350 120" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg">${generatePianoDiagram(chordNotes)}</svg>
+                        </div>
+                    </div>`;
+                container.appendChild(card);
+            });
+        }
 
-    function updateInstrumentButtons() { ['Concert', 'Bb', 'Eb'].forEach(inst => { const btn = document.getElementById(`btn-${inst}`); if(inst === currentInstrument) btn.classList.add('active'); else btn.classList.remove('active'); }); }
-    
-    // --- UTILIDADES ---
-    function getNoteIndex(note) { if(!note) return -1; let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim().replace('♭', 'b').replace('♯', '#'); baseNote = {'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'}[baseNote] || baseNote; return NOTES.indexOf(baseNote); }
-    function transposeNote(note, semitones) { if(!note) return ""; const baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim(); const suffix = note.substring(baseNote.length); let startIndex = getNoteIndex(baseNote); if (startIndex === -1) return note; let newIndex = (startIndex + semitones) % 12; if (newIndex < 0) newIndex += 12; let newNote = NOTES[newIndex]; if (note.includes('b') || note.includes('♭') || ['F','Bb','Eb','Ab','Db'].includes(newNote)) { newNote = {'A#':'Bb','C#':'Db','D#':'Eb','F#':'Gb','G#':'Ab'}[newNote] || newNote; } return newNote + suffix; }
-    
-    function generateChordNotes(rootNote, chordType, semitonesTranspose) { 
-        const rootIndex = getNoteIndex(rootNote); 
-        const intervals = CHORD_INTERVALS[chordType] || CHORD_INTERVALS['M']; 
-        if (rootIndex === -1) return []; 
-        return intervals.map(interval => { 
-            const noteIndex = (rootIndex + interval + semitonesTranspose) % 12; 
-            return NOTES[noteIndex]; 
-        }); 
-    }
+        function updateInstrumentButtons() { ['Concert', 'Bb', 'Eb'].forEach(inst => { const btn = document.getElementById(`btn-${inst}`); if(inst === currentInstrument) btn.classList.add('active'); else btn.classList.remove('active'); }); }
+        
+        // --- UTILIDADES ---
+        function getNoteIndex(note) { if(!note) return -1; let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim().replace('♭', 'b').replace('♯', '#'); baseNote = {'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'}[baseNote] || baseNote; return NOTES.indexOf(baseNote); }
+        function transposeNote(note, semitones) { if(!note) return ""; const baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim(); const suffix = note.substring(baseNote.length); let startIndex = getNoteIndex(baseNote); if (startIndex === -1) return note; let newIndex = (startIndex + semitones) % 12; if (newIndex < 0) newIndex += 12; let newNote = NOTES[newIndex]; if (note.includes('b') || note.includes('♭') || ['F','Bb','Eb','Ab','Db'].includes(newNote)) { newNote = {'A#':'Bb','C#':'Db','D#':'Eb','F#':'Gb','G#':'Ab'}[newNote] || newNote; } return newNote + suffix; }
+        
+        function generateChordNotes(rootNote, chordType, semitonesTranspose) { 
+            const rootIndex = getNoteIndex(rootNote); 
+            const intervals = CHORD_INTERVALS[chordType] || CHORD_INTERVALS['M']; 
+            if (rootIndex === -1) return []; 
+            return intervals.map(interval => { 
+                const noteIndex = (rootIndex + interval + semitonesTranspose) % 12; 
+                return NOTES[noteIndex]; 
+            }); 
+        }
 
-    function generateGuitarDiagram(chordNotes) { const SVG_WIDTH = 200, SVG_HEIGHT = 150, NUM_STRINGS = 6, NUM_FRETS = 4; const FRET_WIDTH = SVG_WIDTH / (NUM_FRETS + 1), STRING_SPACING = (SVG_HEIGHT - 20) / (NUM_STRINGS - 1); let svgContent = `<rect x="5" y="10" width="${FRET_WIDTH/2}" height="${SVG_HEIGHT - 20}" class="nut" />`; for (let i = 0; i <= NUM_FRETS; i++) svgContent += `<line x1="${5+(FRET_WIDTH/2)+i*FRET_WIDTH}" y1="10" x2="${5+(FRET_WIDTH/2)+i*FRET_WIDTH}" y2="${SVG_HEIGHT - 10}" class="fret-line" />`; for (let i = 0; i < NUM_STRINGS; i++) svgContent += `<line x1="5" y1="${10+i*STRING_SPACING}" x2="${SVG_WIDTH-5}" y2="${10+i*STRING_SPACING}" class="string" />`; for (let s = 0; s < NUM_STRINGS; s++) { const openIdx = GUITAR_TUNING[s], sY = 10 + s * STRING_SPACING; for (let f = 1; f <= NUM_FRETS; f++) { const fretNote = NOTES[(openIdx + f) % 12]; if (chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(fretNote))) svgContent += `<circle cx="${(f*FRET_WIDTH)+5}" cy="${sY}" r="6" class="note-dot" />`; } } return svgContent; }
-    function generatePianoDiagram(chordNotes) { const pianoMap = [{n:'C',t:'w'},{n:'C#',t:'b'},{n:'D',t:'w'},{n:'D#',t:'b'},{n:'E',t:'w'},{n:'F',t:'w'},{n:'F#',t:'b'},{n:'G',t:'w'},{n:'G#',t:'b'},{n:'A',t:'w'},{n:'A#',t:'b'},{n:'B',t:'w'},{n:'C',t:'w'},{n:'C#',t:'b'}]; let svgContent = '', wIdx = 0; pianoMap.forEach(k => { if(k.t==='w') { svgContent += `<rect x="${wIdx*25}" y="0" width="25" height="100" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'white-key'}" />`; wIdx++; } }); wIdx = 0; pianoMap.forEach(k => { if(k.t==='w') wIdx++; else svgContent += `<rect x="${(wIdx-1)*25+17.5}" y="0" width="15" height="70" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'black-key'}" />`; }); return svgContent; }
-    function generateScaleNotes(rootNote, steps, semitones) { const rootIndex = getNoteIndex(rootNote); if (rootIndex === -1) return { main:[], passing:[] }; const transposedNotes = NOTES.map((n, i) => NOTES[(i + semitones) % 12]); const mainNotes = steps.map(step => transposedNotes[(rootIndex + step + semitones) % 12]); return { main: mainNotes, passing: transposedNotes.filter(n => !mainNotes.includes(n)) }; }
-    function transposeLyrics(lyrics, semitones) { if(!lyrics) return "Letra no disponible."; return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeChord(chord, semitones)}]</span>`); }
-    function extractBaseChords(lyrics) { if(!lyrics) return "N/A"; const matches = lyrics.match(/\[(.*?)\]/g); if (!matches) return "N/A"; const validChords = matches.map(m => m.replace(/[\[\]]/g, '')).filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10); const uniqueChords = [...new Set(validChords)].slice(0, 4); return uniqueChords.length > 0 ? uniqueChords.join(' – ') : "N/A"; }
+        function generateGuitarDiagram(chordNotes) { const SVG_WIDTH = 200, SVG_HEIGHT = 150, NUM_STRINGS = 6, NUM_FRETS = 4; const FRET_WIDTH = SVG_WIDTH / (NUM_FRETS + 1), STRING_SPACING = (SVG_HEIGHT - 20) / (NUM_STRINGS - 1); let svgContent = `<rect x="5" y="10" width="${FRET_WIDTH/2}" height="${SVG_HEIGHT - 20}" class="nut" />`; for (let i = 0; i <= NUM_FRETS; i++) svgContent += `<line x1="${5+(FRET_WIDTH/2)+i*FRET_WIDTH}" y1="10" x2="${5+(FRET_WIDTH/2)+i*FRET_WIDTH}" y2="${SVG_HEIGHT - 10}" class="fret-line" />`; for (let i = 0; i < NUM_STRINGS; i++) svgContent += `<line x1="5" y1="${10+i*STRING_SPACING}" x2="${SVG_WIDTH-5}" y2="${10+i*STRING_SPACING}" class="string" />`; for (let s = 0; s < NUM_STRINGS; s++) { const openIdx = GUITAR_TUNING[s], sY = 10 + s * STRING_SPACING; for (let f = 1; f <= NUM_FRETS; f++) { const fretNote = NOTES[(openIdx + f) % 12]; if (chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(fretNote))) svgContent += `<circle cx="${(f*FRET_WIDTH)+5}" cy="${sY}" r="6" class="note-dot" />`; } } return svgContent; }
+        function generatePianoDiagram(chordNotes) { const pianoMap = [{n:'C',t:'w'},{n:'C#',t:'b'},{n:'D',t:'w'},{n:'D#',t:'b'},{n:'E',t:'w'},{n:'F',t:'w'},{n:'F#',t:'b'},{n:'G',t:'w'},{n:'G#',t:'b'},{n:'A',t:'w'},{n:'A#',t:'b'},{n:'B',t:'w'},{n:'C',t:'w'},{n:'C#',t:'b'}]; let svgContent = '', wIdx = 0; pianoMap.forEach(k => { if(k.t==='w') { svgContent += `<rect x="${wIdx*25}" y="0" width="25" height="100" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'white-key'}" />`; wIdx++; } }); wIdx = 0; pianoMap.forEach(k => { if(k.t==='w') wIdx++; else svgContent += `<rect x="${(wIdx-1)*25+17.5}" y="0" width="15" height="70" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'black-key'}" />`; }); return svgContent; }
+        function generateScaleNotes(rootNote, steps, semitones) { const rootIndex = getNoteIndex(rootNote); if (rootIndex === -1) return { main:[], passing:[] }; const transposedNotes = NOTES.map((n, i) => NOTES[(i + semitones) % 12]); const mainNotes = steps.map(step => transposedNotes[(rootIndex + step + semitones) % 12]); return { main: mainNotes, passing: transposedNotes.filter(n => !mainNotes.includes(n)) }; }
+        function transposeLyrics(lyrics, semitones) { if(!lyrics) return "Letra no disponible."; return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeChord(chord, semitones)}]</span>`); }
+        function extractBaseChords(lyrics) { if(!lyrics) return "N/A"; const matches = lyrics.match(/\[(.*?)\]/g); if (!matches) return "N/A"; const validChords = matches.map(m => m.replace(/[\[\]]/g, '')).filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10); const uniqueChords = [...new Set(validChords)].slice(0, 4); return uniqueChords.length > 0 ? uniqueChords.join(' – ') : "N/A"; }
 
-    var tag = document.createElement('script'); tag.src = " var firstScriptTag = document.getElementsByTagName('script')[0]; firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-    function onYouTubeIframeAPIReady() { player = new YT.Player('youtube-player', { height: '100%', width: '100%', playerVars: { 'playsinline': 1, 'controls': 1, 'modestbranding': 1, 'rel': 0 }, events: { 'onStateChange': onPlayerStateChange } }); }
-    function onPlayerStateChange(event) { const playIcon = document.getElementById('play-icon'); const playBtn = document.getElementById('play-btn'); if (event.data == YT.PlayerState.PLAYING) { playIcon.classList.replace('bi-play-fill', 'bi-pause-fill'); playBtn.classList.add('playing-pulse'); startProgressLoop(); } else { playIcon.classList.replace('bi-pause-fill', 'bi-play-fill'); playBtn.classList.remove('playing-pulse'); stopProgressLoop(); } }
-    function extractVideoID(url) { if(!url) return false; var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/; var match = url.match(regExp); return (match && match[7].length == 11) ? match[7] : false; }
-    const playBtn = document.getElementById('play-btn'); const playIcon = document.getElementById('play-icon'); const seekBar = document.getElementById('seek-bar'); const currentTimeEl = document.getElementById('current-time'); const totalDurationEl = document.getElementById('total-duration');
-    function formatTime(seconds) { const mins = Math.floor(seconds / 60); const secs = Math.floor(seconds % 60); return `${mins}:${secs < 10 ? '0' : ''}${secs}`; }
-    function toggleAudio() { if (player && player.getPlayerState() === YT.PlayerState.PLAYING) { player.pauseVideo(); } else if (player) { player.playVideo(); } }
-    function skipTime(seconds) { if(player) { let current = player.getCurrentTime(); player.seekTo(current + seconds, true); } }
-    function updateSpeed(val) { if(player) { player.setPlaybackRate(parseFloat(val)); document.getElementById('speed-val').textContent = val + "x"; } }
-    function setLoopA() { if(player) { loopStart = player.getCurrentTime(); document.getElementById('loop-a-btn').classList.add('loop-active'); document.getElementById('loop-b-btn').disabled = false; } }
-    function setLoopB() { if (loopStart !== null && player) { loopEnd = player.getCurrentTime(); if (loopEnd <= loopStart) loopEnd = loopStart + 1; document.getElementById('loop-b-btn').classList.add('loop-active'); document.getElementById('loop-status-msg').classList.remove('opacity-0'); document.getElementById('loop-times').textContent = `${formatTime(loopStart)} - ${formatTime(loopEnd)}`; } }
-    function clearLoop() { loopStart = null; loopEnd = null; document.getElementById('loop-a-btn').classList.remove('loop-active'); document.getElementById('loop-b-btn').classList.remove('loop-active'); document.getElementById('loop-b-btn').disabled = true; document.getElementById('loop-status-msg').classList.add('opacity-0'); }
-    function startProgressLoop() { stopProgressLoop(); updateInterval = setInterval(() => { if(!player) return; let current = player.getCurrentTime(); let duration = player.getDuration(); seekBar.max = duration; seekBar.value = current; currentTimeEl.textContent = formatTime(current); totalDurationEl.textContent = formatTime(duration); if (loopStart !== null && loopEnd !== null) { if (current >= loopEnd || current < loopStart) { player.seekTo(loopStart, true); } } }, 500); }
-    function stopProgressLoop() { if(updateInterval) clearInterval(updateInterval); }
-    seekBar.addEventListener('input', () => { if(player) player.seekTo(seekBar.value, true); });
+        var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; var firstScriptTag = document.getElementsByTagName('script')[0]; firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        function onYouTubeIframeAPIReady() { player = new YT.Player('youtube-player', { height: '100%', width: '100%', playerVars: { 'playsinline': 1, 'controls': 1, 'modestbranding': 1, 'rel': 0 }, events: { 'onStateChange': onPlayerStateChange } }); }
+        function onPlayerStateChange(event) { const playIcon = document.getElementById('play-icon'); const playBtn = document.getElementById('play-btn'); if (event.data == YT.PlayerState.PLAYING) { playIcon.classList.replace('bi-play-fill', 'bi-pause-fill'); playBtn.classList.add('playing-pulse'); startProgressLoop(); } else { playIcon.classList.replace('bi-pause-fill', 'bi-play-fill'); playBtn.classList.remove('playing-pulse'); stopProgressLoop(); } }
+        function extractVideoID(url) { if(!url) return false; var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/; var match = url.match(regExp); return (match && match[7].length == 11) ? match[7] : false; }
+        const playBtn = document.getElementById('play-btn'); const playIcon = document.getElementById('play-icon'); const seekBar = document.getElementById('seek-bar'); const currentTimeEl = document.getElementById('current-time'); const totalDurationEl = document.getElementById('total-duration');
+        function formatTime(seconds) { const mins = Math.floor(seconds / 60); const secs = Math.floor(seconds % 60); return `${mins}:${secs < 10 ? '0' : ''}${secs}`; }
+        function toggleAudio() { if (player && player.getPlayerState() === YT.PlayerState.PLAYING) { player.pauseVideo(); } else if (player) { player.playVideo(); } }
+        function skipTime(seconds) { if(player) { let current = player.getCurrentTime(); player.seekTo(current + seconds, true); } }
+        function updateSpeed(val) { if(player) { player.setPlaybackRate(parseFloat(val)); document.getElementById('speed-val').textContent = val + "x"; } }
+        function setLoopA() { if(player) { loopStart = player.getCurrentTime(); document.getElementById('loop-a-btn').classList.add('loop-active'); document.getElementById('loop-b-btn').disabled = false; } }
+        function setLoopB() { if (loopStart !== null && player) { loopEnd = player.getCurrentTime(); if (loopEnd <= loopStart) loopEnd = loopStart + 1; document.getElementById('loop-b-btn').classList.add('loop-active'); document.getElementById('loop-status-msg').classList.remove('opacity-0'); document.getElementById('loop-times').textContent = `${formatTime(loopStart)} - ${formatTime(loopEnd)}`; } }
+        function clearLoop() { loopStart = null; loopEnd = null; document.getElementById('loop-a-btn').classList.remove('loop-active'); document.getElementById('loop-b-btn').classList.remove('loop-active'); document.getElementById('loop-b-btn').disabled = true; document.getElementById('loop-status-msg').classList.add('opacity-0'); }
+        function startProgressLoop() { stopProgressLoop(); updateInterval = setInterval(() => { if(!player) return; let current = player.getCurrentTime(); let duration = player.getDuration(); seekBar.max = duration; seekBar.value = current; currentTimeEl.textContent = formatTime(current); totalDurationEl.textContent = formatTime(duration); if (loopStart !== null && loopEnd !== null) { if (current >= loopEnd || current < loopStart) { player.seekTo(loopStart, true); } } }, 500); }
+        function stopProgressLoop() { if(updateInterval) clearInterval(updateInterval); }
+        seekBar.addEventListener('input', () => { if(player) player.seekTo(seekBar.value, true); });
 
-    document.addEventListener('DOMContentLoaded', fetchSongs);
+        document.addEventListener('DOMContentLoaded', fetchSongs);
 
-    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000), renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
-    renderer.setSize(window.innerWidth, window.innerHeight); document.getElementById('canvas-container').appendChild(renderer.domElement);
-    const particles = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(2700).map(()=>(Math.random()-0.5)*25), 3)), new THREE.PointsMaterial({size:0.035, color:0x00E5FF, transparent:true, opacity:0.7}));
-    scene.add(particles); scene.add(new THREE.Mesh(new THREE.IcosahedronGeometry(4,1), new THREE.MeshBasicMaterial({color:0x00E5FF, wireframe:true, transparent:true, opacity:0.07})));
-    camera.position.z = 6;
-    function animate() { requestAnimationFrame(animate); particles.rotation.y += 0.001; renderer.render(scene, camera); } animate();
-    window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
-</script>
+        const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000), renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
+        renderer.setSize(window.innerWidth, window.innerHeight); document.getElementById('canvas-container').appendChild(renderer.domElement);
+        const particles = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(2700).map(()=>(Math.random()-0.5)*25), 3)), new THREE.PointsMaterial({size:0.035, color:0x00E5FF, transparent:true, opacity:0.7}));
+        scene.add(particles); scene.add(new THREE.Mesh(new THREE.IcosahedronGeometry(4,1), new THREE.MeshBasicMaterial({color:0x00E5FF, wireframe:true, transparent:true, opacity:0.07})));
+        camera.position.z = 6;
+        function animate() { requestAnimationFrame(animate); particles.rotation.y += 0.001; renderer.render(scene, camera); } animate();
+        window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+    </script>
+</body>
+</html>
