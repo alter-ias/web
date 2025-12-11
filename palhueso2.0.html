@@ -392,7 +392,7 @@
             renderUI();
         }
 
-        // C. Análisis IA (Sobrescribe datos y desbloquea paneles)
+        // C. Análisis IA con PROMPT REFORZADO
         async function enhanceWithAI() {
             if(!currentSongId) return;
             const btn = document.getElementById('ai-enhance-btn');
@@ -405,19 +405,34 @@
             spinner.classList.remove('hidden');
 
             try {
-                const systemPrompt = `You are a professional music theory API. Analyze lyrics and return ONLY a valid JSON object:
+                // SUPER PROMPT: Music Director & Theorist
+                const systemPrompt = `You are a world-class Music Director and Music Theorist.
+                Your task is to analyze the lyrics and infer harmony for the song "${data.title}".
+                
+                RULES FOR HARMONIC ANALYSIS:
+                1. DETERMINING KEY: The "Concert Key" is the tonal center. It is almost NEVER "Diminished" (Dim) or "Augmented". 
+                   - If you see chords like "Edim", look at the surrounding chords. "Edim" is likely the ii° of D Minor. So the key is Dm.
+                   - Default to the Relative Major or Relative Minor if ambiguous.
+                   - For Latin/Andean music, look for i-VII-VI-V7 progressions.
+                
+                2. OUTPUT FORMAT: Return ONLY a raw JSON object (no markdown, no backticks) with this structure:
                 {
-                    "lyrics": "Full lyrics with chords strictly in brackets like [Am] [Cmaj7] placed exactly where they change. Keep original language.",
-                    "key": "The Concert Key (e.g. Cm, Ab, F#m).",
-                    "scale": "Specific improvisation scale (e.g. C Blues, A Dorian).",
-                    "advice": "Technical harmonic advice. Max 30 words."
+                    "lyrics": "Full lyrics with chords in brackets [Am]. Fix spacing.",
+                    "key": "The CORRECT Concert Key (e.g. Dm, not Edim).",
+                    "scale": "Best scale for soloing (e.g. D Minor Natural, G Mixolydian).",
+                    "advice": "Direct, actionable musical advice on articulation and dynamics. Max 40 words."
                 }
-                If input lacks chords, infer them.
-                Title: ${data.title}. Input: ${data.lyrics.substring(0, 2000)}`;
+                
+                Input Lyrics (to fix/analyze): ${data.lyrics.substring(0, 1500)}`;
 
                 const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt)}`);
                 const rawText = await response.text();
-                let cleanJson = rawText.match(/\{[\s\S]*\}/) ? rawText.match(/\{[\s\S]*\}/)[0] : rawText;
+                
+                // Clean JSON string (remove markdown if AI ignored instructions)
+                let cleanJson = rawText;
+                const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) cleanJson = jsonMatch[0];
+
                 const aiData = JSON.parse(cleanJson);
 
                 // ACTUALIZAR BASE DE DATOS GLOBAL (Siempre en Concert Key)
