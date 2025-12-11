@@ -231,25 +231,12 @@
                             <pre id="lyrics-content" class="font-mono text-sm md:text-base text-gray-300 whitespace-pre-wrap leading-relaxed"></pre>
                         </div>
                         
-                        <!-- NUEVA SECCION: DIAGRAMAS DE PROGRESION COMPLETA -->
+                        <!-- SECCION: DIAGRAMAS DE PROGRESION COMPLETA (Unico lugar de acordes) -->
                         <div class="mt-8 border-t border-gray-700/50 pt-6">
                             <h4 class="text-sm font-bold text-alter-cyan uppercase tracking-wider mb-4">Esquemas de la Progresión</h4>
                             <div id="progression-diagrams" class="chord-scroll custom-scrollbar">
                                 <!-- Se llena dinámicamente -->
                             </div>
-                        </div>
-                    </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                        <div class="glass-card rounded-xl p-6 border-l-4 border-l-alter-cyan">
-                            <h3 class="text-lg font-bold text-white mb-2 flex items-center"><i class="bi bi-guitar mr-2"></i>Acorde Tónica (Guitarra)</h3>
-                            <p class="text-xs text-gray-400 mb-4">Posición: <span id="guitar-chord-name" class="font-bold text-alter-cyan text-base ml-1"></span></p>
-                            <div class="w-full max-w-xs mx-auto py-2"><svg id="guitar-diagram-svg" viewBox="0 0 200 150" class="w-full h-auto drop-shadow-[0_0_10px_rgba(0,229,255,0.2)]" xmlns="http://www.w3.org/2000/svg"></svg></div>
-                        </div>
-                        <div class="glass-card rounded-xl p-6 border-l-4 border-l-purple-500">
-                            <h3 class="text-lg font-bold text-white mb-2 flex items-center"><i class="bi bi-keyboard mr-2"></i>Acorde Tónica (Teclado)</h3>
-                            <p class="text-xs text-gray-400 mb-4">Voicing: <span id="piano-chord-name" class="font-bold text-alter-cyan text-base ml-1"></span></p>
-                            <div class="w-full max-w-sm mx-auto py-2"><svg id="piano-diagram-svg" viewBox="0 0 350 120" class="w-full h-auto drop-shadow-[0_0_10px_rgba(0,229,255,0.2)]" xmlns="http://www.w3.org/2000/svg"></svg></div>
                         </div>
                     </div>
                     
@@ -388,15 +375,18 @@
             spinner.classList.remove('hidden');
 
             try {
+                // SUPER PROMPT: Editor Musical Estricto
+                // Garantiza que la letra se formatee con acordes intercalados
                 const systemPrompt = `You are a professional music editor. Format lyrics for a musician's app.
                 
                 RULES:
-                1. Embed chords in brackets [Am] BEFORE the word.
-                2. Key detection must be logical (e.g. Dm, not Edim).
+                1. FORMAT: Place chords strictly inside brackets [Am] exactly BEFORE the word where the chord change happens.
+                   - Example: "[Am]Soy toda la [Edim]sobra de lo que"
+                2. LOGIC: Determine the TRUE Concert Key (e.g. Dm, not Edim).
                 
                 RETURN JSON ONLY:
                 {
-                    "lyrics": "Full lyrics...",
+                    "lyrics": "Full lyrics formatted as requested.",
                     "key": "Concert Key.",
                     "scale": "Scale.",
                     "advice": "Musical advice."
@@ -447,25 +437,27 @@
             
             const trNote = (n) => transposeNote(n.trim(), semitones);
             
-            // Transposición de Tonalidad
+            // Transposición
             const rootNoteMatch = originalData.concertKey.match(/^([A-G][#b]?)/);
             const rootNote = rootNoteMatch ? rootNoteMatch[1] : 'C'; 
             const quality = originalData.concertKey.substring(rootNote.length);
             const trRoot = transposeNote(rootNote, semitones);
             const trKey = trRoot + quality; 
             
-            // Transposición de Progresión
+            // Acordes Base
             let baseChordsStr = hasBeenAnalyzed ? extractBaseChords(originalData.lyrics) : (originalData.baseChords || "Pendiente...");
             let trChords = baseChordsStr.replace(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g, (m) => trNote(m));
             
             // Escala y Notas
             let rawScale = originalData.improvScale || (originalData.concertKey + " Natural");
             let trScale = rawScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
-            const scaleNotes = generateScaleNotes(rawScale.match(/(\w[#♭b]?)\s/)?.[1] || 'C', originalData.steps || SCALE_STEPS['Natural'], semitones);
             
-            // Acorde Tónica (Simple)
-            const tonicNotes = generateChordNotes(rootNote, originalData.chordType || 'M', semitones);
-            const tonicChordName = trRoot + (originalData.chordType === 'm' ? 'm' : '');
+            // MAPA DE NOTAS: Aquí restauramos la lógica para dibujar los puntitos
+            // Necesitamos la nota raíz de la ESCALA (no de la tónica si difieren)
+            const scaleRootMatch = rawScale.match(/^([A-G][#b]?)/);
+            const scaleRoot = scaleRootMatch ? scaleRootMatch[1] : 'C';
+            const scaleRootTr = transposeNote(scaleRoot, semitones);
+            const scaleNotes = generateScaleNotes(scaleRootTr, originalData.steps || SCALE_STEPS['Natural'], 0); // 0 porque ya transpusimos la raíz
 
             // ACTUALIZAR DOM
             document.getElementById('instrument-display').textContent = instrumentName;
@@ -477,40 +469,32 @@
                 document.getElementById('lyrics-content').innerHTML = transposeLyrics(originalData.lyrics, semitones);
                 document.getElementById('execution-advice').innerHTML = originalData.advice;
                 
+                // RENDERIZAR MAPA DE NOTAS
                 const mainDiv = document.getElementById('main-notes'); const passDiv = document.getElementById('passing-notes');
                 mainDiv.innerHTML = scaleNotes.main.map(n => `<span class="note-chip main-note">${n}</span>`).join('');
                 passDiv.innerHTML = scaleNotes.passing.map(n => `<span class="note-chip passing-note">${n}</span>`).join('');
                 
-                document.getElementById('guitar-chord-name').textContent = tonicChordName;
-                document.getElementById('piano-chord-name').textContent = tonicChordName;
-                document.getElementById('guitar-diagram-svg').innerHTML = generateGuitarDiagram(tonicNotes);
-                document.getElementById('piano-diagram-svg').innerHTML = generatePianoDiagram(tonicNotes);
-
-                // --- NUEVO: RENDERIZAR CARRUSEL DE ACORDES DE LA PROGRESIÓN ---
+                // RENDERIZAR CARRUSEL DE ACORDES DE LA PROGRESIÓN (UNICO SITIO)
                 renderProgressionDiagrams(trChords);
             }
         }
 
-        // NUEVA FUNCIÓN PARA GENERAR MÚLTIPLES DIAGRAMAS
+        // GENERAR MÚLTIPLES DIAGRAMAS
         function renderProgressionDiagrams(chordString) {
             const container = document.getElementById('progression-diagrams');
-            container.innerHTML = ''; // Limpiar
-            
+            container.innerHTML = ''; 
             if (!chordString || chordString === "Pendiente..." || chordString === "N/A") return;
 
-            // Limpiar string y obtener lista de acordes únicos
             const rawChords = chordString.split(/[\s–-]+/).filter(c => c.length > 0);
-            const uniqueChords = [...new Set(rawChords)]; // Eliminar duplicados
+            const uniqueChords = [...new Set(rawChords)]; 
 
             uniqueChords.forEach(chordName => {
-                // Parsear acorde: separar nota raiz de cualidad (ej: F#m7 -> F#, m7)
                 const match = chordName.match(/^([A-G][#b]?)(.*)$/);
                 if (!match) return;
                 
                 const root = match[1];
-                const quality = match[2] || 'M'; // Si no hay cualidad, asumimos Mayor
+                const quality = match[2] || 'M'; 
                 
-                // Mapear cualidad a nuestras definiciones internas
                 let typeKey = 'M';
                 if (quality === 'm' || quality === 'min') typeKey = 'm';
                 else if (quality === '7') typeKey = '7';
@@ -520,13 +504,10 @@
                 else if (quality === 'dim7') typeKey = 'dim7';
                 else if (quality === 'aug') typeKey = 'aug';
                 else if (quality === 'sus4') typeKey = 'sus4';
-                // Si no encontramos match exacto, usar Mayor o Menor básico
                 else if (quality.includes('m')) typeKey = 'm';
                 
-                // Generar notas (Ojo: aquí ya vienen transpuestas desde renderUI, así que semitones = 0)
                 const chordNotes = generateChordNotes(root, typeKey, 0); 
 
-                // Crear tarjeta HTML
                 const card = document.createElement('div');
                 card.className = "chord-card glass-card";
                 card.innerHTML = `
@@ -558,10 +539,9 @@
         function getNoteIndex(note) { if(!note) return -1; let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim().replace('♭', 'b').replace('♯', '#'); baseNote = {'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'}[baseNote] || baseNote; return NOTES.indexOf(baseNote); }
         function transposeNote(note, semitones) { if(!note) return ""; const baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim(); const suffix = note.substring(baseNote.length); let startIndex = getNoteIndex(baseNote); if (startIndex === -1) return note; let newIndex = (startIndex + semitones) % 12; if (newIndex < 0) newIndex += 12; let newNote = NOTES[newIndex]; if (note.includes('b') || note.includes('♭') || ['F','Bb','Eb','Ab','Db'].includes(newNote)) { newNote = {'A#':'Bb','C#':'Db','D#':'Eb','F#':'Gb','G#':'Ab'}[newNote] || newNote; } return newNote + suffix; }
         
-        // Generador de Notas de Acorde (Acepta root y tipo)
         function generateChordNotes(rootNote, chordType, semitonesTranspose) { 
             const rootIndex = getNoteIndex(rootNote); 
-            const intervals = CHORD_INTERVALS[chordType] || CHORD_INTERVALS['M']; // Fallback a Mayor
+            const intervals = CHORD_INTERVALS[chordType] || CHORD_INTERVALS['M']; 
             if (rootIndex === -1) return []; 
             return intervals.map(interval => { 
                 const noteIndex = (rootIndex + interval + semitonesTranspose) % 12; 
