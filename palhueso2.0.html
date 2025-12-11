@@ -351,14 +351,23 @@
             currentInstrument = 'Concert'; // Resetear a Concierto
             hasBeenAnalyzed = false; // Resetear análisis
 
+            // --- CORRECCIÓN CLAVE PARA RESETEO DE BOTÓN ---
+            // Reiniciar estado del botón de la IA por si estaba cargando en otra canción
+            const btn = document.getElementById('ai-enhance-btn');
+            btn.classList.remove('ai-processing', 'hidden'); // Quitar estado de carga y asegurar visibilidad
+            document.getElementById('ai-btn-text').textContent = "Iniciar Análisis Musical";
+            document.getElementById('ai-spinner').classList.add('hidden');
+
             const data = SONGS_DATA[currentSongId];
 
-            // UI Reset
+            // UI Reset General
             document.getElementById('initial-message').classList.add('hidden');
             document.getElementById('analysis-output').classList.remove('hidden');
             document.getElementById('data-panels').classList.add('hidden'); // Ocultar paneles hasta analizar
-            document.getElementById('ai-enhance-btn').classList.remove('hidden'); // Mostrar botón IA
-            document.getElementById('ai-btn-text').textContent = "Iniciar Análisis Musical";
+            
+            // Limpiar visualmente datos anteriores para evitar "fantasmas"
+            document.getElementById('lyrics-content').innerHTML = "";
+            document.getElementById('execution-advice').innerHTML = "";
             
             // Reset Botones Instrumento
             updateInstrumentButtons();
@@ -448,8 +457,17 @@
 
             // Helpers de transposición
             const trNote = (n) => transposeNote(n.trim(), semitones);
-            const trKey = originalData.concertKey.split('/').map(trNote).join(' / ');
-            const rootKey = originalData.concertKey.split('/')[0].replace(/m(aj)?\d*/, '').trim();
+            
+            // --- CORRECCIÓN PARA ACORDES COMPLEJOS (EDIM) ---
+            // Extraer nota raíz usando Regex que captura A-G y opcional #/b al inicio
+            const rootNoteMatch = originalData.concertKey.match(/^([A-G][#b]?)/);
+            const rootNote = rootNoteMatch ? rootNoteMatch[1] : 'C'; // Fallback
+            // Obtener el resto del string (dim, maj7, etc.)
+            const quality = originalData.concertKey.substring(rootNote.length);
+            
+            // Transponer solo la nota raíz y reensamblar
+            const trRoot = transposeNote(rootNote, semitones);
+            const trKey = trRoot + quality; 
             
             // Acordes Base
             let baseChordsStr = hasBeenAnalyzed ? extractBaseChords(originalData.lyrics) : (originalData.baseChords || "Pendiente...");
@@ -461,8 +479,9 @@
             
             // Notas
             const scaleNotes = generateScaleNotes(rawScale.match(/(\w[#♭b]?)\s/)?.[1] || 'C', originalData.steps || SCALE_STEPS['Natural'], semitones);
-            const tonicNotes = generateChordNotes(rootKey, originalData.chordType || 'M', semitones);
-            const tonicChordName = trNote(rootKey) + (originalData.chordType === 'm' ? 'm' : '');
+            // Usar la nota raíz extraída correctamente para los diagramas
+            const tonicNotes = generateChordNotes(rootNote, originalData.chordType || 'M', semitones);
+            const tonicChordName = trRoot + (originalData.chordType === 'm' ? 'm' : '');
 
             // ACTUALIZAR DOM
             document.getElementById('instrument-display').textContent = instrumentName;
