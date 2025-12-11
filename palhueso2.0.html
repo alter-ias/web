@@ -109,7 +109,7 @@
         </div>
 
         <div class="space-y-8">
-            <!-- SELECCIONADOR SIMPLE -->
+            <!-- SELECCIONADOR -->
             <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in relative" style="animation-delay: 0.1s;">
                 <div id="loader-overlay" class="loading-overlay">
                     <div id="loader-spinner">
@@ -133,7 +133,7 @@
             </div>
 
             <div id="analysis-output" class="hidden space-y-6">
-                <!-- REPRODUCTOR AVANZADO -->
+                <!-- REPRODUCTOR -->
                 <div class="glass-card rounded-xl overflow-hidden animate-fade-in">
                     <div class="glass-card-header p-4 flex justify-between items-center bg-black/40">
                         <div class="flex items-center gap-4">
@@ -187,7 +187,6 @@
                             <p class="text-xs text-gray-400 uppercase tracking-[0.3em] mb-2">Tonalidad Transpuesta</p>
                             <p id="transposed-key" class="text-6xl md:text-8xl font-black text-white filter drop-shadow-[0_0_15px_rgba(0,229,255,0.4)] transition-all hover:scale-105 duration-300">?</p>
                             
-                            <!-- BOTONES DE TRANSPOSICIÓN AQUI -->
                             <div class="flex justify-center gap-3 mt-4">
                                 <button onclick="setInstrument('Concert')" class="inst-btn active" id="btn-Concert">Concierto (C)</button>
                                 <button onclick="setInstrument('Bb')" class="inst-btn" id="btn-Bb">Sax Tenor (B♭)</button>
@@ -265,7 +264,6 @@
         // --- CONSTANTES ---
         const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
         const SCALE_STEPS = { 'Jónica':[0,2,4,5,7,9,11], 'Eólica':[0,2,3,5,7,8,10], 'Dórica':[0,2,3,5,7,9,10], 'Armónica':[0,2,3,5,7,8,11], 'Pentatónica':[0,3,5,7,10], 'Mayor':[0,2,4,5,7,9,11], 'Mixolidia':[0,2,4,5,7,9,10], 'Blues':[0,3,5,6,7,10], 'Natural':[0,2,4,5,7,9,11], 'Lidia':[0,2,4,6,7,9,11] };
-        // DICCIONARIO DE INTERVALOS EXTENDIDO PARA DIAGRAMAS
         const CHORD_INTERVALS = { 
             'm':[0,3,7], 'maj7':[0,4,7,11], 'm7':[0,3,7,10], '7':[0,4,7,10], 'M':[0,4,7], 'dim':[0,3,6], 
             'sus4':[0,5,7], 'sus2':[0,2,7], 'add9':[0,4,7,14], '6':[0,4,7,9], 'm6':[0,3,7,9], '9':[0,4,7,10,14],
@@ -376,7 +374,6 @@
 
             try {
                 // SUPER PROMPT: Editor Musical Estricto
-                // Garantiza que la letra se formatee con acordes intercalados
                 const systemPrompt = `You are a professional music editor. Format lyrics for a musician's app.
                 
                 RULES:
@@ -452,12 +449,11 @@
             let rawScale = originalData.improvScale || (originalData.concertKey + " Natural");
             let trScale = rawScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
             
-            // MAPA DE NOTAS: Aquí restauramos la lógica para dibujar los puntitos
-            // Necesitamos la nota raíz de la ESCALA (no de la tónica si difieren)
+            // MAPA DE NOTAS: Corrección para mostrar puntos
             const scaleRootMatch = rawScale.match(/^([A-G][#b]?)/);
             const scaleRoot = scaleRootMatch ? scaleRootMatch[1] : 'C';
             const scaleRootTr = transposeNote(scaleRoot, semitones);
-            const scaleNotes = generateScaleNotes(scaleRootTr, originalData.steps || SCALE_STEPS['Natural'], 0); // 0 porque ya transpusimos la raíz
+            const scaleNotes = generateScaleNotes(scaleRootTr, originalData.steps || SCALE_STEPS['Natural'], 0); 
 
             // ACTUALIZAR DOM
             document.getElementById('instrument-display').textContent = instrumentName;
@@ -474,12 +470,12 @@
                 mainDiv.innerHTML = scaleNotes.main.map(n => `<span class="note-chip main-note">${n}</span>`).join('');
                 passDiv.innerHTML = scaleNotes.passing.map(n => `<span class="note-chip passing-note">${n}</span>`).join('');
                 
-                // RENDERIZAR CARRUSEL DE ACORDES DE LA PROGRESIÓN (UNICO SITIO)
+                // RENDERIZAR CARRUSEL DE ACORDES
                 renderProgressionDiagrams(trChords);
             }
         }
 
-        // GENERAR MÚLTIPLES DIAGRAMAS
+        // GENERAR MÚLTIPLES DIAGRAMAS CON LISTA NEGRA
         function renderProgressionDiagrams(chordString) {
             const container = document.getElementById('progression-diagrams');
             container.innerHTML = ''; 
@@ -489,6 +485,13 @@
             const uniqueChords = [...new Set(rawChords)]; 
 
             uniqueChords.forEach(chordName => {
+                // FILTRO DE ETIQUETAS: Ignorar Chorus, Bridge, etc.
+                const labelsToIgnore = ['Chorus', 'Coro', 'Bridge', 'Puente', 'Break', 'Bass', 'Bajo', 'Coda', 'Capo', 'Outro', 'Intro', 'Final', 'Verso', 'Verse'];
+                if (labelsToIgnore.some(label => chordName.includes(label))) return;
+                
+                // Filtro adicional: Debe empezar con nota válida A-G
+                if (!/^[A-G]/.test(chordName)) return;
+
                 const match = chordName.match(/^([A-G][#b]?)(.*)$/);
                 if (!match) return;
                 
