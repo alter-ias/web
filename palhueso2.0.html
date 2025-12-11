@@ -76,10 +76,8 @@
         #youtube-container { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 0.5rem; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.1); background: #000; }
         #youtube-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
         
-        /* AI Button Styles */
-        .ai-btn { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); transition: all 0.3s ease; }
-        .ai-btn:hover { filter: brightness(1.2); transform: translateY(-2px); box-shadow: 0 0 15px rgba(168, 85, 247, 0.6); }
-        .ai-processing { pointer-events: none; opacity: 0.8; }
+        /* AI Button Processing State */
+        .ai-processing { pointer-events: none; opacity: 0.7; cursor: wait; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between">
@@ -205,15 +203,13 @@
                             </div>
                         </div>
                         
-                        <!-- BOTÓN DE INTELIGENCIA ARTIFICIAL -->
+                        <!-- BOTÓN DE INTELIGENCIA ARTIFICIAL (DISEÑO ACTUALIZADO) -->
                         <div class="mt-8 text-center">
-                            <button id="ai-enhance-btn" onclick="enhanceWithAI()" class="ai-btn relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-bold text-white rounded-lg group focus:outline-none">
-                                <span class="absolute w-0 h-0 transition-all duration-500 ease-out bg-white rounded-full group-hover:w-56 group-hover:h-56 opacity-10"></span>
+                            <button id="ai-enhance-btn" onclick="enhanceWithAI()" class="group relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-bold rounded-lg border border-alter-cyan text-alter-cyan hover:bg-alter-cyan hover:text-black transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.2)] hover:shadow-[0_0_25px_rgba(0,229,255,0.6)] focus:outline-none">
                                 <i class="bi bi-stars mr-2"></i>
-                                <span id="ai-btn-text">Mejorar Data con IA (Gratis)</span>
-                                <div id="ai-spinner" class="hidden ml-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <span id="ai-btn-text">Mejorar Análisis</span>
+                                <div id="ai-spinner" class="hidden absolute right-4 w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                             </button>
-                            <p class="text-[10px] text-gray-500 mt-2 uppercase tracking-wide">Impulsado por Pollinations.AI • Formatea letras y genera consejos</p>
                         </div>
                     </div>
                 </div>
@@ -294,18 +290,16 @@
 
             // UI Loading State
             btn.classList.add('ai-processing');
-            btnText.textContent = "Procesando...";
+            btnText.textContent = "Analizando...";
             spinner.classList.remove('hidden');
 
             try {
                 // 1. SOLICITUD DE FORMATO DE LETRA
-                // Si la letra ya tiene corchetes, asumimos que está bien. Si no, la arreglamos.
                 let newLyrics = data.lyrics;
-                if (!data.lyrics.includes('[')) {
-                    const promptLyrics = `Actúa como un formateador de música. Toma este texto, detecta los acordes (ej: Am, G, F) y ponlos estrictamente entre corchetes (ej: [Am]). NO CAMBIES LA LETRA, SOLO AÑADE CORCHETES A LOS ACORDES. Texto: ${data.lyrics.substring(0, 1500)}`; // Limitamos caracteres para no saturar GET
-                    const responseLyrics = await fetch(`https://text.pollinations.ai/${encodeURIComponent(promptLyrics)}`);
-                    newLyrics = await responseLyrics.text();
-                }
+                // Intentar mejorar incluso si tiene algunos corchetes, para estandarizar
+                const promptLyrics = `Actúa como un formateador de música. Toma este texto, detecta los acordes (ej: Am, G, F) y ponlos estrictamente entre corchetes (ej: [Am]). NO CAMBIES LA LETRA, SOLO AÑADE CORCHETES A LOS ACORDES. Texto: ${data.lyrics.substring(0, 1500)}`; 
+                const responseLyrics = await fetch(`https://text.pollinations.ai/${encodeURIComponent(promptLyrics)}`);
+                newLyrics = await responseLyrics.text();
 
                 // 2. SOLICITUD DE CONSEJOS (ADVICE)
                 const promptAdvice = `Eres un director musical experto. Para la canción "${data.title}" en tonalidad ${data.concertKey}, dame un consejo técnico y emocional breve (max 50 palabras) para la banda. Enfócate en el groove y la dinámica.`;
@@ -313,7 +307,6 @@
                 const newAdvice = await responseAdvice.text();
 
                 // 3. ACTUALIZAR INTERFAZ
-                // Actualizar letra en el objeto en memoria y en pantalla (respetando transposición actual)
                 const instrument = document.querySelector('input[name="instrument"]:checked').value;
                 let semitones = instrument === 'Bb' ? 2 : (instrument === 'Eb' ? 9 : 0);
                 
@@ -325,18 +318,18 @@
                 lyricsDiv.innerHTML = transposeLyrics(newLyrics, semitones);
                 adviceDiv.innerHTML = newAdvice;
                 
-                // Actualizar acordes base detectados si cambiaron
+                // Actualizar acordes base detectados
                 const baseChords = extractBaseChords(newLyrics);
                 const trNote = (n) => transposeNote(n.trim(), semitones);
                 document.getElementById('transposed-chords').textContent = baseChords.replace(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g, (m) => trNote(m));
 
             } catch (error) {
                 console.error("Error AI:", error);
-                alert("La IA está durmiendo (Error de conexión). Intenta de nuevo.");
+                alert("No se pudo conectar con la IA. Verifica si tienes un bloqueador de anuncios activado (Ghostery, AdBlock) que esté bloqueando la conexión externa.");
             } finally {
                 // Reset UI
                 btn.classList.remove('ai-processing');
-                btnText.textContent = "Mejorar Data con IA (Gratis)";
+                btnText.textContent = "Mejorar Análisis";
                 spinner.classList.add('hidden');
             }
         }
@@ -478,136 +471,4 @@
                 const openIdx = GUITAR_TUNING[s], sY = 10 + s * STRING_SPACING;
                 for (let f = 1; f <= NUM_FRETS; f++) {
                     const fretNote = NOTES[(openIdx + f) % 12];
-                    if (chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(fretNote))) svgContent += `<circle cx="${(f*FRET_WIDTH)+5}" cy="${sY}" r="6" class="note-dot" />`;
-                }
-            }
-            return svgContent;
-        }
-        function generatePianoDiagram(chordNotes) {
-            const pianoMap = [{n:'C',t:'w'},{n:'C#',t:'b'},{n:'D',t:'w'},{n:'D#',t:'b'},{n:'E',t:'w'},{n:'F',t:'w'},{n:'F#',t:'b'},{n:'G',t:'w'},{n:'G#',t:'b'},{n:'A',t:'w'},{n:'A#',t:'b'},{n:'B',t:'w'},{n:'C',t:'w'},{n:'C#',t:'b'}];
-            let svgContent = '', wIdx = 0;
-            pianoMap.forEach(k => { if(k.t==='w') { svgContent += `<rect x="${wIdx*25}" y="0" width="25" height="100" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'white-key'}" />`; wIdx++; } });
-            wIdx = 0;
-            pianoMap.forEach(k => { if(k.t==='w') wIdx++; else svgContent += `<rect x="${(wIdx-1)*25+17.5}" y="0" width="15" height="70" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'black-key'}" />`; });
-            return svgContent;
-        }
-        function generateScaleNotes(rootNote, steps, semitones) {
-            const rootIndex = getNoteIndex(rootNote); if (rootIndex === -1) return { main:[], passing:[] };
-            const transposedNotes = NOTES.map((n, i) => NOTES[(i + semitones) % 12]);
-            const mainNotes = steps.map(step => transposedNotes[(rootIndex + step + semitones) % 12]);
-            return { main: mainNotes, passing: transposedNotes.filter(n => !mainNotes.includes(n)) };
-        }
-        function transposeLyrics(lyrics, semitones) {
-            if(!lyrics) return "Letra no disponible.";
-            return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeNote(chord, semitones)}]</span>`);
-        }
-        function extractBaseChords(lyrics) {
-            if(!lyrics) return "N/A";
-            const matches = lyrics.match(/\[(.*?)\]/g);
-            if (!matches) return "N/A";
-            const validChords = matches.map(m => m.replace(/[\[\]]/g, '')).filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10);
-            const uniqueChords = [...new Set(validChords)].slice(0, 4);
-            return uniqueChords.length > 0 ? uniqueChords.join(' – ') : "N/A";
-        }
-        
-        function getTransposedData(data, instrument) {
-            let semitones = instrument === 'Bb' ? 2 : (instrument === 'Eb' ? 9 : 0);
-            let instrumentName = instrument === 'Bb' ? 'SAX TENOR (B♭)' : (instrument === 'Eb' ? 'SAX ALTO (E♭)' : 'CONCIERTO (C)');
-            
-            const trNote = (n) => transposeNote(n.trim(), semitones);
-            const trKey = data.concertKey.split('/').map(trNote).join(' / ');
-            const rootKey = data.concertKey.split('/')[0].replace(/m(aj)?\d*/, '').trim();
-            
-            let baseChordsStr = data.baseChords || extractBaseChords(data.lyrics);
-            let trChords = baseChordsStr.replace(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g, (m) => trNote(m));
-            
-            let rawScale = data.improvScale || (data.concertKey + " Natural");
-            let trScale = rawScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
-            
-            const scaleNotes = generateScaleNotes(rawScale.match(/(\w[#♭b]?)\s/)?.[1] || 'C', data.steps || SCALE_STEPS['Natural'], semitones);
-            const tonicNotes = generateChordNotes(rootKey, data.chordType || 'M', semitones);
-            
-            return {
-                key: trKey, chords: trChords, scale: trScale, instrumentName: instrumentName,
-                scaleNotes: scaleNotes, tonicChordNotes: tonicNotes,
-                tonicChordName: trNote(rootKey) + (data.chordType === 'm' ? 'm' : ''),
-                lyrics: transposeLyrics(data.lyrics, semitones),
-                audioUrl: data.audioUrl
-            };
-        }
-
-        /* --- CONTROLES YOUTUBE Y LOOP --- */
-        function extractVideoID(url) {
-            var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-            var match = url.match(regExp);
-            return (match && match[7].length == 11) ? match[7] : false;
-        }
-
-        const playBtn = document.getElementById('play-btn');
-        const playIcon = document.getElementById('play-icon');
-        const seekBar = document.getElementById('seek-bar');
-        const currentTimeEl = document.getElementById('current-time');
-        const totalDurationEl = document.getElementById('total-duration');
-        let loopStart = null, loopEnd = null;
-
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-        }
-
-        function toggleAudio() { if (player && player.getPlayerState() === YT.PlayerState.PLAYING) { player.pauseVideo(); } else if (player) { player.playVideo(); } }
-        function skipTime(seconds) { if(player) { let current = player.getCurrentTime(); player.seekTo(current + seconds, true); } }
-        function updateSpeed(val) { if(player) { player.setPlaybackRate(parseFloat(val)); document.getElementById('speed-val').textContent = val + "x"; } }
-        function setLoopA() { if(player) { loopStart = player.getCurrentTime(); document.getElementById('loop-a-btn').classList.add('loop-active'); document.getElementById('loop-b-btn').disabled = false; } }
-        function setLoopB() { if (loopStart !== null && player) { loopEnd = player.getCurrentTime(); if (loopEnd <= loopStart) loopEnd = loopStart + 1; document.getElementById('loop-b-btn').classList.add('loop-active'); document.getElementById('loop-status-msg').classList.remove('opacity-0'); document.getElementById('loop-times').textContent = `${formatTime(loopStart)} - ${formatTime(loopEnd)}`; } }
-        function clearLoop() { loopStart = null; loopEnd = null; document.getElementById('loop-a-btn').classList.remove('loop-active'); document.getElementById('loop-b-btn').classList.remove('loop-active'); document.getElementById('loop-b-btn').disabled = true; document.getElementById('loop-status-msg').classList.add('opacity-0'); }
-        function startProgressLoop() { stopProgressLoop(); updateInterval = setInterval(() => { if(!player) return; let current = player.getCurrentTime(); let duration = player.getDuration(); seekBar.max = duration; seekBar.value = current; currentTimeEl.textContent = formatTime(current); totalDurationEl.textContent = formatTime(duration); if (loopStart !== null && loopEnd !== null) { if (current >= loopEnd || current < loopStart) { player.seekTo(loopStart, true); } } }, 500); }
-        function stopProgressLoop() { if(updateInterval) clearInterval(updateInterval); }
-        seekBar.addEventListener('input', () => { if(player) player.seekTo(seekBar.value, true); });
-
-        function updateAnalysis() {
-            const songKey = document.getElementById('song-selector').value, instrument = document.querySelector('input[name="instrument"]:checked').value;
-            if (!songKey) return;
-            const originalData = SONGS_DATA[songKey], data = getTransposedData(originalData, instrument);
-            
-            document.getElementById('initial-message').classList.add('hidden');
-            document.getElementById('analysis-output').classList.remove('hidden');
-            document.getElementById('instrument-display').textContent = data.instrumentName;
-            document.getElementById('transposed-key').textContent = data.key;
-            document.getElementById('transposed-chords').textContent = data.chords;
-            document.getElementById('transposed-scale').textContent = data.scale;
-            document.getElementById('lyrics-content').innerHTML = data.lyrics;
-            document.getElementById('execution-advice').innerHTML = originalData.advice || "Haz clic en 'Mejorar Data con IA' para generar consejos.";
-            
-            const mainDiv = document.getElementById('main-notes'), passDiv = document.getElementById('passing-notes');
-            mainDiv.innerHTML = data.scaleNotes.main.map(n => `<span class="note-chip main-note">${n}</span>`).join('');
-            passDiv.innerHTML = data.scaleNotes.passing.map(n => `<span class="note-chip passing-note">${n}</span>`).join('');
-            
-            document.getElementById('guitar-chord-name').textContent = data.tonicChordName;
-            document.getElementById('piano-chord-name').textContent = data.tonicChordName;
-            document.getElementById('guitar-diagram-svg').innerHTML = generateGuitarDiagram(data.tonicChordNotes);
-            document.getElementById('piano-diagram-svg').innerHTML = generatePianoDiagram(data.tonicChordNotes);
-            
-            if (originalData.audioUrl && player) {
-                const videoId = extractVideoID(originalData.audioUrl);
-                if(videoId) {
-                    player.loadVideoById(videoId);
-                    clearLoop(); updateSpeed(1); document.getElementById('speed-control').value = 1;
-                }
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', fetchSongs);
-
-        // 3D BACKGROUND
-        const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000), renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
-        renderer.setSize(window.innerWidth, window.innerHeight); document.getElementById('canvas-container').appendChild(renderer.domElement);
-        const particles = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(2700).map(()=>(Math.random()-0.5)*25), 3)), new THREE.PointsMaterial({size:0.035, color:0x00E5FF, transparent:true, opacity:0.7}));
-        scene.add(particles); scene.add(new THREE.Mesh(new THREE.IcosahedronGeometry(4,1), new THREE.MeshBasicMaterial({color:0x00E5FF, wireframe:true, transparent:true, opacity:0.07})));
-        camera.position.z = 6;
-        function animate() { requestAnimationFrame(animate); particles.rotation.y += 0.001; renderer.render(scene, camera); } animate();
-        window.addEventListener('resize', () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
-    </script>
-</body>
-</html>
+                    if (chordNotes.some(c
