@@ -359,7 +359,7 @@
 
         function setInstrument(inst) { currentInstrument = inst; updateInstrumentButtons(); renderUI(); }
 
-        /* --- IA ESTRICTA PARA CORCHETES --- */
+        /* --- IA SIMPLIFICADA + ANALISIS LOCAL --- */
         async function enhanceWithAI() {
             if(!currentSongId) return;
             const btn = document.getElementById('ai-enhance-btn');
@@ -372,24 +372,23 @@
             spinner.classList.remove('hidden');
 
             try {
-                // PROMPT ESTRICTO: Solo corchetes para acordes válidos. Parentesis para etiquetas.
-                const systemPrompt = `Act as a music editor. Format the lyrics below.
-                
-                RULES:
-                1. Musical Chords (A-G, Am, Cmaj7, etc.) must go in BRACKETS [ ] right before the word.
-                2. Section labels (Chorus, Verse, Intro, etc.) must go in PARENTHESES ( ) or be plain text. NEVER use brackets [ ] for non-chords.
-                3. Return ONLY the formatted text.
-                
+                // 1. SOLICITUD SIMPLE: Solo texto de letra formateada
+                const systemPrompt = `Act as a music editor.
+                Take the following lyrics and insert chords in brackets [Am] immediately BEFORE the word where the change happens.
+                Return ONLY the formatted text. No JSON, no intro.
                 Input: ${data.lyrics.substring(0, 3000)}`;
 
+                // Usamos GET con encodeURIComponent para evitar CORS, es texto plano
                 const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt)}`);
                 const formattedLyrics = await response.text();
 
-                // Detección Local de Tonalidad
+                // 2. ANALISIS LOCAL (JavaScript)
+                // Extraemos todos los acordes de la letra que nos dio la IA
                 const chordsFound = extractBaseChords(formattedLyrics).split(/[\s–-]+/);
                 const detectedKey = detectKeyFromChords(chordsFound) || "C";
                 const derivedScale = inferScaleFromKey(detectedKey);
 
+                // 3. GUARDAR DATOS
                 SONGS_DATA[currentSongId].lyrics = formattedLyrics;
                 SONGS_DATA[currentSongId].concertKey = detectedKey;
                 SONGS_DATA[currentSongId].improvScale = derivedScale.name;
@@ -411,7 +410,7 @@
             }
         }
 
-        /* --- LOGICA MUSICAL LOCAL --- */
+        /* --- LOGICA MUSICAL LOCAL (REEMPLAZA A LA IA COMPLEJA) --- */
         function detectKeyFromChords(chords) {
             if (!chords || chords.length === 0) return "C";
             // Limpiar acordes de basura
@@ -459,6 +458,7 @@
             let rawScale = originalData.improvScale || (originalData.concertKey + " Natural");
             let trScale = rawScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
             
+            // Mapa Notas
             const scaleRootMatch = rawScale.match(/^([A-G][#b]?)/);
             const scaleRoot = scaleRootMatch ? scaleRootMatch[1] : 'C';
             const scaleRootTr = transposeNote(scaleRoot, semitones);
@@ -474,6 +474,7 @@
                 document.getElementById('lyrics-content').innerHTML = transposeLyrics(originalData.lyrics, semitones);
                 document.getElementById('execution-advice').innerHTML = originalData.advice;
                 
+                // RENDERIZAR MAPA DE NOTAS
                 const mainDiv = document.getElementById('main-notes'); const passDiv = document.getElementById('passing-notes');
                 mainDiv.innerHTML = scaleNotes.main.map(n => `<span class="note-chip main-note">${n}</span>`).join('');
                 passDiv.innerHTML = scaleNotes.passing.map(n => `<span class="note-chip passing-note">${n}</span>`).join('');
@@ -503,12 +504,12 @@
 
             uniqueChords.forEach(chordName => {
                 // --- FILTRO FINAL DE ETIQUETAS ---
-                // Si la IA falló y puso [Chorus], esto lo atrapa porque NO es una nota válida.
-                if (!/^[A-G]/.test(chordName)) return;
-
-                // Doble chequeo: palabras reservadas
-                const labelsToIgnore = ['Chorus', 'Coro', 'Bridge', 'Puente', 'Intro', 'Verse', 'Verso', 'x2', 'x4'];
+                // LISTA NEGRA: Si el "acorde" contiene estas palabras, lo ignoramos.
+                const labelsToIgnore = ['Chorus', 'Coro', 'Bridge', 'Puente', 'Intro', 'Verse', 'Verso', 'Outro', 'Final', 'Solo', 'Instrumental', 'Pre', 'x2', 'x4'];
                 if (labelsToIgnore.some(l => chordName.toLowerCase().includes(l.toLowerCase()))) return;
+
+                // Además, debe empezar con una nota válida (A-G)
+                if (!/^[A-G]/.test(chordName)) return;
 
                 const match = chordName.match(/^([A-G][#b]?)(.*)$/);
                 if (!match) return;
