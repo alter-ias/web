@@ -230,7 +230,7 @@
                             <pre id="lyrics-content" class="font-mono text-sm md:text-base text-gray-300 whitespace-pre-wrap leading-relaxed"></pre>
                         </div>
                         
-                        <!-- SECCION: DIAGRAMAS DE PROGRESION COMPLETA (Unico lugar de acordes) -->
+                        <!-- SECCION: DIAGRAMAS DE PROGRESION COMPLETA -->
                         <div class="mt-8 border-t border-gray-700/50 pt-6">
                             <h4 class="text-sm font-bold text-alter-cyan uppercase tracking-wider mb-4">Esquemas de la Progresión</h4>
                             <div id="progression-diagrams" class="chord-scroll custom-scrollbar">
@@ -373,7 +373,6 @@
             spinner.classList.remove('hidden');
 
             try {
-                // SUPER PROMPT: Editor Musical Estricto
                 const systemPrompt = `You are a professional music editor. Format lyrics for a musician's app.
                 
                 RULES:
@@ -434,28 +433,27 @@
             
             const trNote = (n) => transposeNote(n.trim(), semitones);
             
-            // Transposición
             const rootNoteMatch = originalData.concertKey.match(/^([A-G][#b]?)/);
             const rootNote = rootNoteMatch ? rootNoteMatch[1] : 'C'; 
             const quality = originalData.concertKey.substring(rootNote.length);
             const trRoot = transposeNote(rootNote, semitones);
             const trKey = trRoot + quality; 
             
-            // Acordes Base
             let baseChordsStr = hasBeenAnalyzed ? extractBaseChords(originalData.lyrics) : (originalData.baseChords || "Pendiente...");
-            let trChords = baseChordsStr.replace(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g, (m) => trNote(m));
             
-            // Escala y Notas
+            // LOGICA MEJORADA: Transponer lista de acordes
+            let chordList = baseChordsStr.split(/[\s–-]+/).filter(c => c.length > 0);
+            let trChordList = chordList.map(chord => transposeChord(chord, semitones));
+            let trChords = trChordList.join(' – ');
+            
             let rawScale = originalData.improvScale || (originalData.concertKey + " Natural");
             let trScale = rawScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
             
-            // MAPA DE NOTAS: Corrección para mostrar puntos
             const scaleRootMatch = rawScale.match(/^([A-G][#b]?)/);
             const scaleRoot = scaleRootMatch ? scaleRootMatch[1] : 'C';
             const scaleRootTr = transposeNote(scaleRoot, semitones);
             const scaleNotes = generateScaleNotes(scaleRootTr, originalData.steps || SCALE_STEPS['Natural'], 0); 
 
-            // ACTUALIZAR DOM
             document.getElementById('instrument-display').textContent = instrumentName;
             document.getElementById('transposed-key').textContent = trKey;
             document.getElementById('transposed-chords').textContent = trChords;
@@ -465,17 +463,29 @@
                 document.getElementById('lyrics-content').innerHTML = transposeLyrics(originalData.lyrics, semitones);
                 document.getElementById('execution-advice').innerHTML = originalData.advice;
                 
-                // RENDERIZAR MAPA DE NOTAS
                 const mainDiv = document.getElementById('main-notes'); const passDiv = document.getElementById('passing-notes');
                 mainDiv.innerHTML = scaleNotes.main.map(n => `<span class="note-chip main-note">${n}</span>`).join('');
                 passDiv.innerHTML = scaleNotes.passing.map(n => `<span class="note-chip passing-note">${n}</span>`).join('');
                 
-                // RENDERIZAR CARRUSEL DE ACORDES
                 renderProgressionDiagrams(trChords);
             }
         }
 
-        // GENERAR MÚLTIPLES DIAGRAMAS CON LISTA NEGRA
+        // --- NUEVA LÓGICA DE TRANSPOSICIÓN INTELIGENTE ---
+        function transposeChord(chord, semitones) {
+            // Manejar Slash Chords: Ab/Bb -> Bb/C
+            if (chord.includes('/')) {
+                const parts = chord.split('/');
+                return transposeChord(parts[0], semitones) + '/' + transposeChord(parts[1], semitones);
+            }
+            // Separar Raiz y Sufijo
+            const match = chord.match(/^([A-G][#b]?)(.*)$/);
+            if (!match) return chord;
+            const root = match[1];
+            const suffix = match[2];
+            return transposeNote(root, semitones) + suffix;
+        }
+
         function renderProgressionDiagrams(chordString) {
             const container = document.getElementById('progression-diagrams');
             container.innerHTML = ''; 
@@ -485,11 +495,10 @@
             const uniqueChords = [...new Set(rawChords)]; 
 
             uniqueChords.forEach(chordName => {
-                // FILTRO DE ETIQUETAS: Ignorar Chorus, Bridge, etc.
+                // FILTRO DE ETIQUETAS DE TEXTO
                 const labelsToIgnore = ['Chorus', 'Coro', 'Bridge', 'Puente', 'Break', 'Bass', 'Bajo', 'Coda', 'Capo', 'Outro', 'Intro', 'Final', 'Verso', 'Verse'];
                 if (labelsToIgnore.some(label => chordName.includes(label))) return;
                 
-                // Filtro adicional: Debe empezar con nota válida A-G
                 if (!/^[A-G]/.test(chordName)) return;
 
                 const match = chordName.match(/^([A-G][#b]?)(.*)$/);
@@ -555,7 +564,7 @@
         function generateGuitarDiagram(chordNotes) { const SVG_WIDTH = 200, SVG_HEIGHT = 150, NUM_STRINGS = 6, NUM_FRETS = 4; const FRET_WIDTH = SVG_WIDTH / (NUM_FRETS + 1), STRING_SPACING = (SVG_HEIGHT - 20) / (NUM_STRINGS - 1); let svgContent = `<rect x="5" y="10" width="${FRET_WIDTH/2}" height="${SVG_HEIGHT - 20}" class="nut" />`; for (let i = 0; i <= NUM_FRETS; i++) svgContent += `<line x1="${5+(FRET_WIDTH/2)+i*FRET_WIDTH}" y1="10" x2="${5+(FRET_WIDTH/2)+i*FRET_WIDTH}" y2="${SVG_HEIGHT - 10}" class="fret-line" />`; for (let i = 0; i < NUM_STRINGS; i++) svgContent += `<line x1="5" y1="${10+i*STRING_SPACING}" x2="${SVG_WIDTH-5}" y2="${10+i*STRING_SPACING}" class="string" />`; for (let s = 0; s < NUM_STRINGS; s++) { const openIdx = GUITAR_TUNING[s], sY = 10 + s * STRING_SPACING; for (let f = 1; f <= NUM_FRETS; f++) { const fretNote = NOTES[(openIdx + f) % 12]; if (chordNotes.some(cn => getNoteIndex(cn) === getNoteIndex(fretNote))) svgContent += `<circle cx="${(f*FRET_WIDTH)+5}" cy="${sY}" r="6" class="note-dot" />`; } } return svgContent; }
         function generatePianoDiagram(chordNotes) { const pianoMap = [{n:'C',t:'w'},{n:'C#',t:'b'},{n:'D',t:'w'},{n:'D#',t:'b'},{n:'E',t:'w'},{n:'F',t:'w'},{n:'F#',t:'b'},{n:'G',t:'w'},{n:'G#',t:'b'},{n:'A',t:'w'},{n:'A#',t:'b'},{n:'B',t:'w'},{n:'C',t:'w'},{n:'C#',t:'b'}]; let svgContent = '', wIdx = 0; pianoMap.forEach(k => { if(k.t==='w') { svgContent += `<rect x="${wIdx*25}" y="0" width="25" height="100" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'white-key'}" />`; wIdx++; } }); wIdx = 0; pianoMap.forEach(k => { if(k.t==='w') wIdx++; else svgContent += `<rect x="${(wIdx-1)*25+17.5}" y="0" width="15" height="70" class="${chordNotes.some(cn=>getNoteIndex(cn)===getNoteIndex(k.n))?'highlight-key':'black-key'}" />`; }); return svgContent; }
         function generateScaleNotes(rootNote, steps, semitones) { const rootIndex = getNoteIndex(rootNote); if (rootIndex === -1) return { main:[], passing:[] }; const transposedNotes = NOTES.map((n, i) => NOTES[(i + semitones) % 12]); const mainNotes = steps.map(step => transposedNotes[(rootIndex + step + semitones) % 12]); return { main: mainNotes, passing: transposedNotes.filter(n => !mainNotes.includes(n)) }; }
-        function transposeLyrics(lyrics, semitones) { if(!lyrics) return "Letra no disponible."; return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeNote(chord, semitones)}]</span>`); }
+        function transposeLyrics(lyrics, semitones) { if(!lyrics) return "Letra no disponible."; return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeChord(chord, semitones)}]</span>`); }
         function extractBaseChords(lyrics) { if(!lyrics) return "N/A"; const matches = lyrics.match(/\[(.*?)\]/g); if (!matches) return "N/A"; const validChords = matches.map(m => m.replace(/[\[\]]/g, '')).filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10); const uniqueChords = [...new Set(validChords)].slice(0, 4); return uniqueChords.length > 0 ? uniqueChords.join(' – ') : "N/A"; }
         function deriveScaleData(concertKey) { if (!concertKey) return { name: "N/A", type: "Natural" }; let key = concertKey.trim(); if (key.includes('m') && !key.includes('maj')) { let root = key.replace('m', '').trim(); return { name: `${root} Menor Natural`, type: 'Eólica' }; } else { return { name: `${key} Mayor Natural`, type: 'Jónica' }; } }
         function inferScaleType(scaleName) { if(!scaleName) return 'Natural'; const s = scaleName.toLowerCase(); if(s.includes('pentat')) return 'Pentatónica'; if(s.includes('blues')) return 'Blues'; if(s.includes('mixol')) return 'Mixolidia'; if(s.includes('dorian') || s.includes('doric')) return 'Dórica'; if(s.includes('harmonic') || s.includes('armón')) return 'Armónica'; if(s.includes('lydian') || s.includes('lidia')) return 'Lidia'; if(s.includes('minor') || s.includes('menor')) return 'Eólica'; return 'Jónica'; }
