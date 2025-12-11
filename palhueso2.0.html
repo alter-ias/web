@@ -261,7 +261,7 @@
     </footer>
 
     <script>
-        // --- CONSTANTES ---
+        // --- CONSTANTES Y UTILIDADES BASICAS ---
         const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
         const SCALE_STEPS = { 'Jónica':[0,2,4,5,7,9,11], 'Eólica':[0,2,3,5,7,8,10], 'Dórica':[0,2,3,5,7,9,10], 'Armónica':[0,2,3,5,7,8,11], 'Pentatónica':[0,3,5,7,10], 'Mayor':[0,2,4,5,7,9,11], 'Mixolidia':[0,2,4,5,7,9,10], 'Blues':[0,3,5,6,7,10], 'Natural':[0,2,4,5,7,9,11], 'Lidia':[0,2,4,6,7,9,11] };
         const CHORD_INTERVALS = { 
@@ -272,17 +272,15 @@
         const GUITAR_TUNING = [4, 9, 2, 7, 11, 4];
         const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbSwkQHV4pqULt-IhsUUJpC95YzLr6WpPqpHvcwBRfbjlO06DG1di5MF6CbclXtgT2BultwEIJgN-m/pub?output=csv';
 
-        // --- ESTADO GLOBAL ---
         let SONGS_DATA = {}; 
         let currentSongId = null; 
         let currentInstrument = 'Concert'; 
         let hasBeenAnalyzed = false; 
-        
         let player; 
         let updateInterval; 
         let loopStart = null, loopEnd = null;
 
-        /* --- 1. CARGA DE BASE DE DATOS (CSV) --- */
+        // --- CARGA DE DATOS ---
         function parseCSV(str) {
             const arr = []; let quote = false; let col = 0, row = 0;
             for (let c = 0; c < str.length; c++) {
@@ -302,7 +300,7 @@
         async function fetchSongs() {
             try {
                 const response = await fetch(SHEET_CSV_URL);
-                if(!response.ok) throw new Error("Error HTTP: " + response.status);
+                if(!response.ok) throw new Error("Error HTTP");
                 const text = await response.text();
                 const rawData = parseCSV(text);
                 const headers = rawData[0].map(h => h.trim());
@@ -310,11 +308,9 @@
                     const row = rawData[i]; if(row.length < headers.length) continue;
                     const songObj = {}; headers.forEach((header, index) => { songObj[header] = row[index]; });
                     if(songObj.id) {
-                        if (!songObj.improvScale || !songObj.scaleType) {
-                            const derived = deriveScaleData(songObj.concertKey);
-                            songObj.improvScale = derived.name; songObj.scaleType = derived.type;
-                        }
-                        songObj.steps = SCALE_STEPS[songObj.scaleType] || SCALE_STEPS['Natural'];
+                        // Valores por defecto
+                        songObj.concertKey = songObj.concertKey || "C";
+                        songObj.lyrics = songObj.lyrics || "";
                         SONGS_DATA[songObj.id] = songObj;
                     }
                 }
@@ -331,7 +327,7 @@
             }
         }
 
-        /* --- 2. CONTROL DE FLUJO --- */
+        /* --- CONTROL DE FLUJO --- */
         function loadSong() {
             const songKey = document.getElementById('song-selector').value;
             if(!songKey) return;
@@ -349,7 +345,7 @@
             document.getElementById('analysis-output').classList.remove('hidden');
             document.getElementById('data-panels').classList.add('hidden');
             document.getElementById('lyrics-content').innerHTML = "";
-            document.getElementById('execution-advice').innerHTML = "";
+            
             updateInstrumentButtons();
 
             if (data.audioUrl && player) {
@@ -361,6 +357,7 @@
 
         function setInstrument(inst) { currentInstrument = inst; updateInstrumentButtons(); renderUI(); }
 
+        /* --- IA SIMPLIFICADA + ANALISIS LOCAL --- */
         async function enhanceWithAI() {
             if(!currentSongId) return;
             const btn = document.getElementById('ai-enhance-btn');
@@ -373,42 +370,29 @@
             spinner.classList.remove('hidden');
 
             try {
-                const systemPrompt = `You are a professional music editor. Format lyrics for a musician's app.
-                
-                RULES:
-                1. FORMAT: Place chords strictly inside brackets [Am] exactly BEFORE the word where the chord change happens.
-                   - Example: "[Am]Soy toda la [Edim]sobra de lo que"
-                2. LOGIC: Determine the TRUE Concert Key (e.g. Dm, not Edim).
-                
-                RETURN JSON ONLY:
-                {
-                    "lyrics": "Full lyrics formatted as requested.",
-                    "key": "Concert Key.",
-                    "scale": "Scale.",
-                    "advice": "Musical advice."
-                }
-                
-                Input: Title: ${data.title} \n Content: ${data.lyrics.substring(0, 3000)}`;
+                // 1. SOLICITUD SIMPLE: Solo texto de letra formateada
+                const systemPrompt = `Act as a music editor.
+                Take the following lyrics and insert chords in brackets [Am] immediately BEFORE the word where the change happens.
+                Return ONLY the formatted text. No JSON, no intro.
+                Input: ${data.lyrics.substring(0, 3000)}`;
 
-                const response = await fetch(`https://text.pollinations.ai/`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        messages: [{ role: 'system', content: systemPrompt }],
-                        seed: Math.floor(Math.random() * 1000)
-                    })
-                });
-                
-                const rawText = await response.text();
-                let cleanJson = rawText.match(/\{[\s\S]*\}/) ? rawText.match(/\{[\s\S]*\}/)[0] : rawText;
-                const aiData = JSON.parse(cleanJson);
+                // Usamos GET con encodeURIComponent para evitar CORS, es texto plano
+                const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt)}`);
+                const formattedLyrics = await response.text();
 
-                SONGS_DATA[currentSongId].lyrics = aiData.lyrics || data.lyrics;
-                SONGS_DATA[currentSongId].concertKey = aiData.key || data.concertKey;
-                SONGS_DATA[currentSongId].improvScale = aiData.scale || data.improvScale;
-                SONGS_DATA[currentSongId].advice = aiData.advice || data.advice;
-                SONGS_DATA[currentSongId].scaleType = inferScaleType(aiData.scale);
-                SONGS_DATA[currentSongId].steps = SCALE_STEPS[SONGS_DATA[currentSongId].scaleType];
+                // 2. ANALISIS LOCAL (JavaScript)
+                // Extraemos todos los acordes de la letra que nos dio la IA
+                const chordsFound = extractBaseChords(formattedLyrics).split(/[\s–-]+/);
+                const detectedKey = detectKeyFromChords(chordsFound) || "C";
+                const derivedScale = inferScaleFromKey(detectedKey);
+
+                // 3. GUARDAR DATOS
+                SONGS_DATA[currentSongId].lyrics = formattedLyrics;
+                SONGS_DATA[currentSongId].concertKey = detectedKey;
+                SONGS_DATA[currentSongId].improvScale = derivedScale.name;
+                SONGS_DATA[currentSongId].scaleType = derivedScale.type;
+                SONGS_DATA[currentSongId].advice = "Generated by Alter.Lab AI based on harmonic analysis.";
+                SONGS_DATA[currentSongId].steps = SCALE_STEPS[derivedScale.type];
 
                 hasBeenAnalyzed = true;
                 document.getElementById('data-panels').classList.remove('hidden');
@@ -417,14 +401,41 @@
 
             } catch (error) {
                 console.error("Error AI:", error);
-                alert("La IA está tardando. Intenta de nuevo.");
+                alert("La IA está ocupada. Intenta de nuevo.");
                 btn.classList.remove('ai-processing');
                 btnText.textContent = "Reintentar Análisis";
                 spinner.classList.add('hidden');
             }
         }
 
-        /* --- 3. RENDERIZADO VISUAL --- */
+        /* --- LOGICA MUSICAL LOCAL (REEMPLAZA A LA IA COMPLEJA) --- */
+        function detectKeyFromChords(chords) {
+            if (!chords || chords.length === 0) return "C";
+            // Heurística simple: El primer y último acorde suelen ser la tónica
+            // Limpiamos el acorde (quitamos 7, m, etc)
+            let first = chords[0].replace(/[^A-G#b]/g, '');
+            let last = chords[chords.length-1].replace(/[^A-G#b]/g, '');
+            
+            // Si hay muchos menores, probablemente es menor
+            const minorCount = chords.filter(c => c.includes('m') && !c.includes('maj')).length;
+            const isMinor = minorCount > chords.length / 3;
+
+            // Retornamos el primer acorde como tónica (muy probable) + m si es menor
+            let key = first;
+            // Si el acorde ya tiene 'm' (ej Dm), lo dejamos. Si no y detectamos tendencia menor, lo agregamos?
+            // Para simplificar, confiamos en la nomenclatura del primer acorde
+            if (chords[0].includes('m') && !chords[0].includes('maj')) return chords[0]; // Dm
+            return key; // C
+        }
+
+        function inferScaleFromKey(key) {
+            if (key.includes('m') && !key.includes('maj')) {
+                return { name: key + " Natural Minor", type: 'Eólica' };
+            }
+            return { name: key + " Major", type: 'Jónica' };
+        }
+
+        /* --- VISUALIZACION --- */
         function renderUI() {
             if(!currentSongId) return;
             const originalData = SONGS_DATA[currentSongId];
@@ -433,26 +444,29 @@
             
             const trNote = (n) => transposeNote(n.trim(), semitones);
             
+            // Transposición Tonalidad
             const rootNoteMatch = originalData.concertKey.match(/^([A-G][#b]?)/);
             const rootNote = rootNoteMatch ? rootNoteMatch[1] : 'C'; 
             const quality = originalData.concertKey.substring(rootNote.length);
             const trRoot = transposeNote(rootNote, semitones);
             const trKey = trRoot + quality; 
             
-            let baseChordsStr = hasBeenAnalyzed ? extractBaseChords(originalData.lyrics) : (originalData.baseChords || "Pendiente...");
-            
-            // LOGICA MEJORADA: Transponer lista de acordes
-            let chordList = baseChordsStr.split(/[\s–-]+/).filter(c => c.length > 0);
+            // Transposición Acordes
+            let baseChordsStr = hasBeenAnalyzed ? extractBaseChords(originalData.lyrics) : "Pendiente...";
+            let chordList = baseChordsStr.split(/[\s–-]+/).filter(c => c.length > 0 && c !== "N/A");
             let trChordList = chordList.map(chord => transposeChord(chord, semitones));
             let trChords = trChordList.join(' – ');
             
+            // Escala
             let rawScale = originalData.improvScale || (originalData.concertKey + " Natural");
             let trScale = rawScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
             
+            // Mapa Notas
             const scaleRootMatch = rawScale.match(/^([A-G][#b]?)/);
             const scaleRoot = scaleRootMatch ? scaleRootMatch[1] : 'C';
             const scaleRootTr = transposeNote(scaleRoot, semitones);
-            const scaleNotes = generateScaleNotes(scaleRootTr, originalData.steps || SCALE_STEPS['Natural'], 0); 
+            const scaleType = originalData.scaleType || 'Jónica';
+            const scaleNotes = generateScaleNotes(scaleRootTr, SCALE_STEPS[scaleType], 0);
 
             document.getElementById('instrument-display').textContent = instrumentName;
             document.getElementById('transposed-key').textContent = trKey;
@@ -471,83 +485,67 @@
             }
         }
 
-        // --- NUEVA LÓGICA DE TRANSPOSICIÓN INTELIGENTE ---
+        // --- HERRAMIENTAS DE DIBUJO ---
         function transposeChord(chord, semitones) {
-            // Manejar Slash Chords: Ab/Bb -> Bb/C
             if (chord.includes('/')) {
                 const parts = chord.split('/');
                 return transposeChord(parts[0], semitones) + '/' + transposeChord(parts[1], semitones);
             }
-            // Separar Raiz y Sufijo
             const match = chord.match(/^([A-G][#b]?)(.*)$/);
             if (!match) return chord;
-            const root = match[1];
-            const suffix = match[2];
-            return transposeNote(root, semitones) + suffix;
+            return transposeNote(match[1], semitones) + match[2];
         }
 
         function renderProgressionDiagrams(chordString) {
             const container = document.getElementById('progression-diagrams');
             container.innerHTML = ''; 
-            if (!chordString || chordString === "Pendiente..." || chordString === "N/A") return;
+            if (!chordString || chordString.includes("Pendiente")) return;
 
             const rawChords = chordString.split(/[\s–-]+/).filter(c => c.length > 0);
             const uniqueChords = [...new Set(rawChords)]; 
 
             uniqueChords.forEach(chordName => {
-                // FILTRO DE ETIQUETAS DE TEXTO
-                const labelsToIgnore = ['Chorus', 'Coro', 'Bridge', 'Puente', 'Break', 'Bass', 'Bajo', 'Coda', 'Capo', 'Outro', 'Intro', 'Final', 'Verso', 'Verse'];
-                if (labelsToIgnore.some(label => chordName.includes(label))) return;
-                
+                // Filtro anti-basura
+                const labelsToIgnore = ['Chorus', 'Coro', 'Bridge', 'Puente', 'Intro', 'Verse', 'Verso', 'x2', 'x4'];
+                if (labelsToIgnore.some(l => chordName.toLowerCase().includes(l.toLowerCase()))) return;
                 if (!/^[A-G]/.test(chordName)) return;
 
                 const match = chordName.match(/^([A-G][#b]?)(.*)$/);
                 if (!match) return;
                 
                 const root = match[1];
-                const quality = match[2] || 'M'; 
+                const quality = match[2] || 'M';
                 
+                // Mapeo simple de cualidad
                 let typeKey = 'M';
-                if (quality === 'm' || quality === 'min') typeKey = 'm';
-                else if (quality === '7') typeKey = '7';
-                else if (quality === 'm7') typeKey = 'm7';
-                else if (quality === 'maj7') typeKey = 'maj7';
-                else if (quality === 'dim') typeKey = 'dim';
-                else if (quality === 'dim7') typeKey = 'dim7';
-                else if (quality === 'aug') typeKey = 'aug';
-                else if (quality === 'sus4') typeKey = 'sus4';
-                else if (quality.includes('m')) typeKey = 'm';
-                
+                if (quality.includes('m') && !quality.includes('maj')) typeKey = 'm';
+                if (quality.includes('7')) typeKey = '7';
+                if (quality.includes('maj7')) typeKey = 'maj7';
+                if (quality.includes('dim')) typeKey = 'dim';
+
                 const chordNotes = generateChordNotes(root, typeKey, 0); 
 
                 const card = document.createElement('div');
                 card.className = "chord-card glass-card";
                 card.innerHTML = `
-                    <div class="text-center mb-2">
-                        <span class="text-xl font-bold text-white">${chordName}</span>
-                    </div>
+                    <div class="text-center mb-2"><span class="text-xl font-bold text-white">${chordName}</span></div>
                     <div class="flex gap-4">
                         <div class="w-24">
                             <div class="text-[10px] text-gray-400 text-center mb-1"><i class="bi bi-guitar"></i></div>
-                            <svg viewBox="0 0 200 150" class="w-full h-auto drop-shadow-[0_0_5px_rgba(0,229,255,0.2)]" xmlns="http://www.w3.org/2000/svg">
-                                ${generateGuitarDiagram(chordNotes)}
-                            </svg>
+                            <svg viewBox="0 0 200 150" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg">${generateGuitarDiagram(chordNotes)}</svg>
                         </div>
                         <div class="w-32">
                             <div class="text-[10px] text-gray-400 text-center mb-1"><i class="bi bi-keyboard"></i></div>
-                            <svg viewBox="0 0 350 120" class="w-full h-auto drop-shadow-[0_0_5px_rgba(0,229,255,0.2)]" xmlns="http://www.w3.org/2000/svg">
-                                ${generatePianoDiagram(chordNotes)}
-                            </svg>
+                            <svg viewBox="0 0 350 120" class="w-full h-auto" xmlns="http://www.w3.org/2000/svg">${generatePianoDiagram(chordNotes)}</svg>
                         </div>
-                    </div>
-                `;
+                    </div>`;
                 container.appendChild(card);
             });
         }
 
         function updateInstrumentButtons() { ['Concert', 'Bb', 'Eb'].forEach(inst => { const btn = document.getElementById(`btn-${inst}`); if(inst === currentInstrument) btn.classList.add('active'); else btn.classList.remove('active'); }); }
         
-        /* --- UTILIDADES --- */
+        // --- UTILIDADES ---
         function getNoteIndex(note) { if(!note) return -1; let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim().replace('♭', 'b').replace('♯', '#'); baseNote = {'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'}[baseNote] || baseNote; return NOTES.indexOf(baseNote); }
         function transposeNote(note, semitones) { if(!note) return ""; const baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim(); const suffix = note.substring(baseNote.length); let startIndex = getNoteIndex(baseNote); if (startIndex === -1) return note; let newIndex = (startIndex + semitones) % 12; if (newIndex < 0) newIndex += 12; let newNote = NOTES[newIndex]; if (note.includes('b') || note.includes('♭') || ['F','Bb','Eb','Ab','Db'].includes(newNote)) { newNote = {'A#':'Bb','C#':'Db','D#':'Eb','F#':'Gb','G#':'Ab'}[newNote] || newNote; } return newNote + suffix; }
         
@@ -566,8 +564,6 @@
         function generateScaleNotes(rootNote, steps, semitones) { const rootIndex = getNoteIndex(rootNote); if (rootIndex === -1) return { main:[], passing:[] }; const transposedNotes = NOTES.map((n, i) => NOTES[(i + semitones) % 12]); const mainNotes = steps.map(step => transposedNotes[(rootIndex + step + semitones) % 12]); return { main: mainNotes, passing: transposedNotes.filter(n => !mainNotes.includes(n)) }; }
         function transposeLyrics(lyrics, semitones) { if(!lyrics) return "Letra no disponible."; return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeChord(chord, semitones)}]</span>`); }
         function extractBaseChords(lyrics) { if(!lyrics) return "N/A"; const matches = lyrics.match(/\[(.*?)\]/g); if (!matches) return "N/A"; const validChords = matches.map(m => m.replace(/[\[\]]/g, '')).filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10); const uniqueChords = [...new Set(validChords)].slice(0, 4); return uniqueChords.length > 0 ? uniqueChords.join(' – ') : "N/A"; }
-        function deriveScaleData(concertKey) { if (!concertKey) return { name: "N/A", type: "Natural" }; let key = concertKey.trim(); if (key.includes('m') && !key.includes('maj')) { let root = key.replace('m', '').trim(); return { name: `${root} Menor Natural`, type: 'Eólica' }; } else { return { name: `${key} Mayor Natural`, type: 'Jónica' }; } }
-        function inferScaleType(scaleName) { if(!scaleName) return 'Natural'; const s = scaleName.toLowerCase(); if(s.includes('pentat')) return 'Pentatónica'; if(s.includes('blues')) return 'Blues'; if(s.includes('mixol')) return 'Mixolidia'; if(s.includes('dorian') || s.includes('doric')) return 'Dórica'; if(s.includes('harmonic') || s.includes('armón')) return 'Armónica'; if(s.includes('lydian') || s.includes('lidia')) return 'Lidia'; if(s.includes('minor') || s.includes('menor')) return 'Eólica'; return 'Jónica'; }
 
         var tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; var firstScriptTag = document.getElementsByTagName('script')[0]; firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
         function onYouTubeIframeAPIReady() { player = new YT.Player('youtube-player', { height: '100%', width: '100%', playerVars: { 'playsinline': 1, 'controls': 1, 'modestbranding': 1, 'rel': 0 }, events: { 'onStateChange': onPlayerStateChange } }); }
