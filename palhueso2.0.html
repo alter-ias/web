@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pa'l Hueso | Herramienta de Ensayo - Alter.Lab</title>
     
-    <!-- Fuentes y Librerías -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
@@ -13,7 +12,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-    <!-- Configuración Tailwind -->
     <script>
         tailwind.config = {
             theme: {
@@ -76,7 +74,6 @@
         #youtube-container { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 0.5rem; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.1); background: #000; }
         #youtube-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
         
-        /* AI Button Processing State */
         .ai-processing { pointer-events: none; opacity: 0.7; cursor: wait; }
     </style>
 </head>
@@ -210,11 +207,11 @@
                             </div>
                         </div>
                         
-                        <!-- BOTÓN DE INTELIGENCIA ARTIFICIAL (NUEVO) -->
+                        <!-- BOTÓN DE INTELIGENCIA ARTIFICIAL -->
                         <div class="mt-8 text-center">
                             <button id="ai-enhance-btn" onclick="enhanceWithAI()" class="group relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-bold rounded-lg border border-alter-cyan text-alter-cyan hover:bg-alter-cyan hover:text-black transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.2)] hover:shadow-[0_0_25px_rgba(0,229,255,0.6)] focus:outline-none">
                                 <i class="bi bi-stars mr-2"></i>
-                                <span id="ai-btn-text">Análisis Musical</span>
+                                <span id="ai-btn-text">Mejorar Análisis</span>
                                 <div id="ai-spinner" class="hidden absolute right-4 w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                             </button>
                         </div>
@@ -276,14 +273,13 @@
         const CHORD_INTERVALS = { 'm':[0,3,7], 'maj7':[0,4,7,11], 'm7':[0,3,7,10], '7':[0,4,7,10], 'M':[0,4,7], 'dim':[0,3,6], 'sus4':[0,5,7], 'add9':[0,4,7,14] };
         const GUITAR_TUNING = [4, 9, 2, 7, 11, 4];
         
-        // URL DE TU CSV PÚBLICO (Asegurarnos que es la correcta del prompt anterior)
         const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbSwkQHV4pqULt-IhsUUJpC95YzLr6WpPqpHvcwBRfbjlO06DG1di5MF6CbclXtgT2BultwEIJgN-m/pub?output=csv';
 
         let SONGS_DATA = {};
         let player; 
         let updateInterval; 
 
-        /* --- API POLLINATIONS.AI INTEGRATION AVANZADA --- */
+        /* --- API POLLINATIONS.AI INTEGRATION CORREGIDA --- */
         async function enhanceWithAI() {
             const songKey = document.getElementById('song-selector').value;
             if(!songKey) return;
@@ -299,45 +295,47 @@
             spinner.classList.remove('hidden');
 
             try {
-                // PROMPT PODEROSO: Pedimos JSON estructurado
-                const systemPrompt = `You are a professional music theory API. I will give you song lyrics with or without chords.
-                You must analyze them and return valid JSON (no markdown, no extra text) with this structure:
+                // SOLUCIÓN CLAVE: Siempre enviar los datos en CONCERT KEY a la IA, ignorando la selección actual de instrumento.
+                // El prompt le exige a la IA un formato JSON estricto.
+                
+                const systemPrompt = `You are a professional music theory API. I will give you song lyrics.
+                Analyze them and return ONLY a valid JSON object with this exact structure (no other text):
                 {
-                    "lyrics": "The full lyrics with chords strictly in brackets like [Am] [Cmaj7] placed exactly where they change.",
-                    "key": "The detected Concert Key (e.g. Cm, Ab, F#m).",
+                    "lyrics": "The full lyrics with chords strictly in brackets like [Am] [Cmaj7] placed exactly where they change. Keep original language.",
+                    "key": "The Concert Key (e.g. Cm, Ab, F#m).",
                     "scale": "Specific improvisation scale suggestion (e.g. C Blues, A Dorian, G Mixolydian).",
                     "advice": "Technical harmonic advice for musicians. Mention specific tensions, dynamics or articulations. Max 30 words."
                 }
-                If the input lacks chords, infer them from the song title and artist context if known, or estimate.
+                If input lacks chords, infer them.
                 Song Title: ${data.title}.
                 Input Text: ${data.lyrics.substring(0, 2000)}`;
 
                 const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(systemPrompt)}`);
                 const rawText = await response.text();
                 
-                // Limpieza de JSON por si la IA alucina texto extra
+                // Limpieza de respuesta (por si la IA añade markdown ```json ... ```)
                 let cleanJson = rawText;
                 const jsonMatch = rawText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) cleanJson = jsonMatch[0];
 
                 const aiData = JSON.parse(cleanJson);
 
-                // ACTUALIZAR BASE DE DATOS LOCAL
+                // ACTUALIZAR BASE DE DATOS LOCAL (Siempre en Concierto)
                 SONGS_DATA[songKey].lyrics = aiData.lyrics || data.lyrics;
                 SONGS_DATA[songKey].concertKey = aiData.key || data.concertKey;
                 SONGS_DATA[songKey].improvScale = aiData.scale || data.improvScale;
                 SONGS_DATA[songKey].advice = aiData.advice || data.advice;
                 
-                // Resetear derivación automática de escalas para usar la de la IA
+                // Actualizar tipo de escala visualmente
                 SONGS_DATA[songKey].scaleType = inferScaleType(aiData.scale);
                 SONGS_DATA[songKey].steps = SCALE_STEPS[SONGS_DATA[songKey].scaleType];
 
-                // RE-RENDERIZAR INTERFAZ
+                // Forzar re-renderizado visual (aquí es donde se aplica la transposición si estás en Saxo)
                 updateAnalysis();
 
             } catch (error) {
                 console.error("Error AI:", error);
-                alert("La IA tuvo un problema procesando la respuesta musical. Intenta de nuevo.");
+                alert("La IA tuvo un problema procesando la respuesta. Intenta de nuevo.");
             } finally {
                 btn.classList.remove('ai-processing');
                 btnText.textContent = "Mejorar Análisis";
@@ -345,7 +343,7 @@
             }
         }
 
-        // Helper para adivinar el tipo de escala visual basado en el nombre que dio la IA
+        // Helper para adivinar el tipo de escala visual
         function inferScaleType(scaleName) {
             if(!scaleName) return 'Natural';
             const s = scaleName.toLowerCase();
@@ -423,9 +421,8 @@
 
         async function fetchSongs() {
             try {
-                // Timeout de seguridad por si Google no responde
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+                const timeoutId = setTimeout(() => controller.abort(), 10000); 
 
                 const response = await fetch(SHEET_CSV_URL, { signal: controller.signal });
                 clearTimeout(timeoutId);
