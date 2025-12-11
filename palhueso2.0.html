@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pa'l Hueso | Herramienta de Ensayo - Alter.Lab</title>
     
+    <!-- Fuentes y Librerías -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
@@ -12,6 +13,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
+    <!-- Configuración Tailwind -->
     <script>
         tailwind.config = {
             theme: {
@@ -20,7 +22,7 @@
                         alter: { bg: '#0F121B', cyan: '#00E5FF', dark: '#1a1d26', glass: 'rgba(255, 255, 255, 0.05)' }
                     },
                     fontFamily: { sans: ['Montserrat', 'sans-serif'], mono: ['Inter', 'monospace'] },
-                    animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'spin-slow': 'spin 3s linear infinite' },
+                    animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'spin-slow': 'spin 3s linear infinite', 'pulse-fast': 'pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite' },
                     keyframes: {
                         fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
                     }
@@ -71,9 +73,13 @@
         .loading-overlay { position: absolute; inset: 0; background: rgba(15,18,27,0.8); z-index: 50; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); border-radius: 0.75rem; }
         
         /* YouTube Player Wrapper */
-        #youtube-container { position: relative; width: 100%; padding-bottom: 56.25%; /* 16:9 Aspect Ratio */ height: 0; overflow: hidden; border-radius: 0.5rem; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.1); background: #000; }
+        #youtube-container { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 0.5rem; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.1); background: #000; }
         #youtube-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        .hidden-player { display: none !important; }
+        
+        /* AI Button Styles */
+        .ai-btn { background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); transition: all 0.3s ease; }
+        .ai-btn:hover { filter: brightness(1.2); transform: translateY(-2px); box-shadow: 0 0 15px rgba(168, 85, 247, 0.6); }
+        .ai-processing { pointer-events: none; opacity: 0.8; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between">
@@ -137,7 +143,7 @@
                     <!-- Contenedor Video y Controles -->
                     <div class="p-6 bg-gradient-to-b from-black/20 to-transparent">
                         
-                        <!-- Video YouTube (Visible por requerimiento de la API) -->
+                        <!-- Video YouTube -->
                         <div id="youtube-container">
                             <div id="youtube-player"></div>
                         </div>
@@ -150,14 +156,12 @@
                         </div>
 
                         <div class="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-8">
-                            <!-- Controles Principales (Play/Skip) -->
+                            <!-- Controles Principales -->
                             <div class="flex items-center gap-4">
                                 <button onclick="skipTime(-5)" class="text-gray-400 hover:text-white transition-colors" title="-5s"><i class="bi bi-rewind-fill text-xl"></i></button>
-                                
                                 <button id="play-btn" onclick="toggleAudio()" class="w-12 h-12 rounded-full bg-alter-cyan text-black flex items-center justify-center hover:scale-110 hover:bg-white transition-all duration-300 shadow-[0_0_15px_rgba(0,229,255,0.6)] group">
                                     <i id="play-icon" class="bi bi-play-fill text-3xl ml-1 group-hover:text-alter-bg"></i>
                                 </button>
-                                
                                 <button onclick="skipTime(5)" class="text-gray-400 hover:text-white transition-colors" title="+5s"><i class="bi bi-fast-forward-fill text-xl"></i></button>
                             </div>
 
@@ -169,7 +173,7 @@
                                 <button onclick="clearLoop()" class="text-red-400 hover:text-red-300 px-2" title="Borrar Loop"><i class="bi bi-x-lg"></i></button>
                             </div>
 
-                            <!-- Control de Velocidad (Adaptado a YouTube) -->
+                            <!-- Control de Velocidad -->
                             <div class="flex items-center gap-3 bg-gray-900/50 p-2 rounded-lg border border-gray-700 w-full md:w-auto">
                                 <i class="bi bi-speedometer2 text-gray-400"></i>
                                 <div class="flex flex-col w-32">
@@ -200,9 +204,21 @@
                                 <div class="font-mono text-lg md:text-xl text-gray-200"><span id="transposed-scale"></span></div>
                             </div>
                         </div>
+                        
+                        <!-- BOTÓN DE INTELIGENCIA ARTIFICIAL -->
+                        <div class="mt-8 text-center">
+                            <button id="ai-enhance-btn" onclick="enhanceWithAI()" class="ai-btn relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-bold text-white rounded-lg group focus:outline-none">
+                                <span class="absolute w-0 h-0 transition-all duration-500 ease-out bg-white rounded-full group-hover:w-56 group-hover:h-56 opacity-10"></span>
+                                <i class="bi bi-stars mr-2"></i>
+                                <span id="ai-btn-text">Mejorar Data con IA (Gratis)</span>
+                                <div id="ai-spinner" class="hidden ml-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            </button>
+                            <p class="text-[10px] text-gray-500 mt-2 uppercase tracking-wide">Impulsado por Pollinations.AI • Formatea letras y genera consejos</p>
+                        </div>
                     </div>
                 </div>
 
+                <!-- Paneles Informativos -->
                 <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in" style="animation-delay: 0.1s;">
                     <h3 class="text-xl font-bold text-white mb-6 flex items-center"><i class="bi bi-music-note-list mr-3 text-alter-cyan"></i>Mapa de Notas</h3>
                     <div class="mb-6"><p class="text-xs font-semibold text-gray-400 uppercase mb-3 ml-1">Notas de Escala (Seguras)</p><div id="main-notes" class="flex flex-wrap gap-2"></div></div>
@@ -230,7 +246,7 @@
                 </div>
                 
                 <div class="glass-card rounded-xl p-6 md:p-8 border-l-4 border-l-yellow-500 animate-fade-in" style="animation-delay: 0.25s;">
-                    <h3 class="text-lg font-bold mb-3 text-yellow-500 uppercase tracking-wider"><i class="bi bi-lightbulb-fill mr-2"></i>Data de Ejecución</h3>
+                    <h3 class="text-lg font-bold mb-3 text-yellow-500 uppercase tracking-wider"><i class="bi bi-lightbulb-fill mr-2"></i>Data de Ejecución (AI Advice)</h3>
                     <p id="execution-advice" class="text-gray-300 leading-relaxed font-mono text-sm md:text-base"></p>
                 </div>
             </div>
@@ -257,12 +273,73 @@
         const CHORD_INTERVALS = { 'm':[0,3,7], 'maj7':[0,4,7,11], 'm7':[0,3,7,10], '7':[0,4,7,10], 'M':[0,4,7], 'dim':[0,3,6], 'sus4':[0,5,7], 'add9':[0,4,7,14] };
         const GUITAR_TUNING = [4, 9, 2, 7, 11, 4];
         
-        // URL DE TU CSV PÚBLICO
         const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbSwkQHV4pqULt-IhsUUJpC95YzLr6WpPqpHvcwBRfbjlO06DG1di5MF6CbclXtgT2BultwEIJgN-m/pub?output=csv';
 
         let SONGS_DATA = {};
         let player; 
         let updateInterval; 
+        let currentRawLyrics = ""; // Guardar letra original para la IA
+
+        /* --- API POLLINATIONS.AI INTEGRATION --- */
+        async function enhanceWithAI() {
+            const songKey = document.getElementById('song-selector').value;
+            if(!songKey) return;
+            
+            const btn = document.getElementById('ai-enhance-btn');
+            const btnText = document.getElementById('ai-btn-text');
+            const spinner = document.getElementById('ai-spinner');
+            const lyricsDiv = document.getElementById('lyrics-content');
+            const adviceDiv = document.getElementById('execution-advice');
+            const data = SONGS_DATA[songKey];
+
+            // UI Loading State
+            btn.classList.add('ai-processing');
+            btnText.textContent = "Procesando...";
+            spinner.classList.remove('hidden');
+
+            try {
+                // 1. SOLICITUD DE FORMATO DE LETRA
+                // Si la letra ya tiene corchetes, asumimos que está bien. Si no, la arreglamos.
+                let newLyrics = data.lyrics;
+                if (!data.lyrics.includes('[')) {
+                    const promptLyrics = `Actúa como un formateador de música. Toma este texto, detecta los acordes (ej: Am, G, F) y ponlos estrictamente entre corchetes (ej: [Am]). NO CAMBIES LA LETRA, SOLO AÑADE CORCHETES A LOS ACORDES. Texto: ${data.lyrics.substring(0, 1500)}`; // Limitamos caracteres para no saturar GET
+                    const responseLyrics = await fetch(`https://text.pollinations.ai/${encodeURIComponent(promptLyrics)}`);
+                    newLyrics = await responseLyrics.text();
+                }
+
+                // 2. SOLICITUD DE CONSEJOS (ADVICE)
+                const promptAdvice = `Eres un director musical experto. Para la canción "${data.title}" en tonalidad ${data.concertKey}, dame un consejo técnico y emocional breve (max 50 palabras) para la banda. Enfócate en el groove y la dinámica.`;
+                const responseAdvice = await fetch(`https://text.pollinations.ai/${encodeURIComponent(promptAdvice)}`);
+                const newAdvice = await responseAdvice.text();
+
+                // 3. ACTUALIZAR INTERFAZ
+                // Actualizar letra en el objeto en memoria y en pantalla (respetando transposición actual)
+                const instrument = document.querySelector('input[name="instrument"]:checked').value;
+                let semitones = instrument === 'Bb' ? 2 : (instrument === 'Eb' ? 9 : 0);
+                
+                // Actualizar Global Data
+                SONGS_DATA[songKey].lyrics = newLyrics; 
+                SONGS_DATA[songKey].advice = newAdvice;
+
+                // Renderizar
+                lyricsDiv.innerHTML = transposeLyrics(newLyrics, semitones);
+                adviceDiv.innerHTML = newAdvice;
+                
+                // Actualizar acordes base detectados si cambiaron
+                const baseChords = extractBaseChords(newLyrics);
+                const trNote = (n) => transposeNote(n.trim(), semitones);
+                document.getElementById('transposed-chords').textContent = baseChords.replace(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g, (m) => trNote(m));
+
+            } catch (error) {
+                console.error("Error AI:", error);
+                alert("La IA está durmiendo (Error de conexión). Intenta de nuevo.");
+            } finally {
+                // Reset UI
+                btn.classList.remove('ai-processing');
+                btnText.textContent = "Mejorar Data con IA (Gratis)";
+                spinner.classList.add('hidden');
+            }
+        }
 
         /* --- CARGA DE API DE YOUTUBE --- */
         var tag = document.createElement('script');
@@ -297,15 +374,11 @@
         /* --- LOGICA AUTOMATICA DE ESCALAS --- */
         function deriveScaleData(concertKey) {
             if (!concertKey) return { name: "N/A", type: "Natural" };
-            
             let key = concertKey.trim();
-            // Determinar si es Menor o Mayor
             if (key.includes('m') && !key.includes('maj')) {
-                // Caso Menor (ej: Am, C#m) -> Asumir Eólica (Menor Natural)
                 let root = key.replace('m', '').trim();
                 return { name: `${root} Menor Natural`, type: 'Eólica' };
             } else {
-                // Caso Mayor (ej: C, F#, Bb) -> Asumir Jónica (Mayor Natural)
                 return { name: `${key} Mayor Natural`, type: 'Jónica' };
             }
         }
@@ -347,14 +420,11 @@
                     headers.forEach((header, index) => { songObj[header] = row[index]; });
 
                     if(songObj.id) {
-                        // AUTO-COMPLETADO INTELIGENTE DE ESCALAS
                         if (!songObj.improvScale || !songObj.scaleType) {
                             const derived = deriveScaleData(songObj.concertKey);
                             songObj.improvScale = derived.name;
                             songObj.scaleType = derived.type;
                         }
-
-                        // Asignar los intervalos matemáticos según el tipo de escala
                         songObj.steps = SCALE_STEPS[songObj.scaleType] || SCALE_STEPS['Natural'];
                         SONGS_DATA[songObj.id] = songObj;
                     }
@@ -431,18 +501,11 @@
             if(!lyrics) return "Letra no disponible.";
             return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeNote(chord, semitones)}]</span>`);
         }
-        
-        // EXTRACCION DE ACORDES MEJORADA (FILTRA COROS/VERSOS)
         function extractBaseChords(lyrics) {
             if(!lyrics) return "N/A";
             const matches = lyrics.match(/\[(.*?)\]/g);
             if (!matches) return "N/A";
-            
-            // Filtro: Solo acordes que empiecen con A-G y sean cortos (evitar [Estribillo], [Solo de Guitarra])
-            const validChords = matches
-                .map(m => m.replace(/[\[\]]/g, ''))
-                .filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10);
-                
+            const validChords = matches.map(m => m.replace(/[\[\]]/g, '')).filter(chord => /^[A-G][#b]?/.test(chord) && chord.length < 10);
             const uniqueChords = [...new Set(validChords)].slice(0, 4);
             return uniqueChords.length > 0 ? uniqueChords.join(' – ') : "N/A";
         }
@@ -458,7 +521,6 @@
             let baseChordsStr = data.baseChords || extractBaseChords(data.lyrics);
             let trChords = baseChordsStr.replace(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g, (m) => trNote(m));
             
-            // Aseguramos que data.improvScale tenga un valor válido antes de procesar
             let rawScale = data.improvScale || (data.concertKey + " Natural");
             let trScale = rawScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
             
@@ -494,56 +556,13 @@
             return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
         }
 
-        function toggleAudio() {
-            if (player && player.getPlayerState() === YT.PlayerState.PLAYING) { player.pauseVideo(); } else if (player) { player.playVideo(); }
-        }
-
+        function toggleAudio() { if (player && player.getPlayerState() === YT.PlayerState.PLAYING) { player.pauseVideo(); } else if (player) { player.playVideo(); } }
         function skipTime(seconds) { if(player) { let current = player.getCurrentTime(); player.seekTo(current + seconds, true); } }
-
         function updateSpeed(val) { if(player) { player.setPlaybackRate(parseFloat(val)); document.getElementById('speed-val').textContent = val + "x"; } }
-
-        function setLoopA() {
-            if(player) {
-                loopStart = player.getCurrentTime();
-                document.getElementById('loop-a-btn').classList.add('loop-active');
-                document.getElementById('loop-b-btn').disabled = false;
-            }
-        }
-
-        function setLoopB() {
-            if (loopStart !== null && player) {
-                loopEnd = player.getCurrentTime();
-                if (loopEnd <= loopStart) loopEnd = loopStart + 1;
-                document.getElementById('loop-b-btn').classList.add('loop-active');
-                const statusDiv = document.getElementById('loop-status-msg');
-                document.getElementById('loop-times').textContent = `${formatTime(loopStart)} - ${formatTime(loopEnd)}`;
-                statusDiv.classList.remove('opacity-0');
-            }
-        }
-
-        function clearLoop() {
-            loopStart = null; loopEnd = null;
-            document.getElementById('loop-a-btn').classList.remove('loop-active');
-            document.getElementById('loop-b-btn').classList.remove('loop-active');
-            document.getElementById('loop-b-btn').disabled = true;
-            document.getElementById('loop-status-msg').classList.add('opacity-0');
-        }
-
-        function startProgressLoop() {
-            stopProgressLoop();
-            updateInterval = setInterval(() => {
-                if(!player) return;
-                let current = player.getCurrentTime();
-                let duration = player.getDuration();
-                seekBar.max = duration; seekBar.value = current;
-                currentTimeEl.textContent = formatTime(current);
-                totalDurationEl.textContent = formatTime(duration);
-                if (loopStart !== null && loopEnd !== null) {
-                    if (current >= loopEnd || current < loopStart) { player.seekTo(loopStart, true); }
-                }
-            }, 500);
-        }
-
+        function setLoopA() { if(player) { loopStart = player.getCurrentTime(); document.getElementById('loop-a-btn').classList.add('loop-active'); document.getElementById('loop-b-btn').disabled = false; } }
+        function setLoopB() { if (loopStart !== null && player) { loopEnd = player.getCurrentTime(); if (loopEnd <= loopStart) loopEnd = loopStart + 1; document.getElementById('loop-b-btn').classList.add('loop-active'); document.getElementById('loop-status-msg').classList.remove('opacity-0'); document.getElementById('loop-times').textContent = `${formatTime(loopStart)} - ${formatTime(loopEnd)}`; } }
+        function clearLoop() { loopStart = null; loopEnd = null; document.getElementById('loop-a-btn').classList.remove('loop-active'); document.getElementById('loop-b-btn').classList.remove('loop-active'); document.getElementById('loop-b-btn').disabled = true; document.getElementById('loop-status-msg').classList.add('opacity-0'); }
+        function startProgressLoop() { stopProgressLoop(); updateInterval = setInterval(() => { if(!player) return; let current = player.getCurrentTime(); let duration = player.getDuration(); seekBar.max = duration; seekBar.value = current; currentTimeEl.textContent = formatTime(current); totalDurationEl.textContent = formatTime(duration); if (loopStart !== null && loopEnd !== null) { if (current >= loopEnd || current < loopStart) { player.seekTo(loopStart, true); } } }, 500); }
         function stopProgressLoop() { if(updateInterval) clearInterval(updateInterval); }
         seekBar.addEventListener('input', () => { if(player) player.seekTo(seekBar.value, true); });
 
@@ -559,7 +578,7 @@
             document.getElementById('transposed-chords').textContent = data.chords;
             document.getElementById('transposed-scale').textContent = data.scale;
             document.getElementById('lyrics-content').innerHTML = data.lyrics;
-            document.getElementById('execution-advice').innerHTML = originalData.advice || "Sin comentarios adicionales.";
+            document.getElementById('execution-advice').innerHTML = originalData.advice || "Haz clic en 'Mejorar Data con IA' para generar consejos.";
             
             const mainDiv = document.getElementById('main-notes'), passDiv = document.getElementById('passing-notes');
             mainDiv.innerHTML = data.scaleNotes.main.map(n => `<span class="note-chip main-note">${n}</span>`).join('');
