@@ -20,7 +20,7 @@
                         alter: { bg: '#0F121B', cyan: '#00E5FF', dark: '#1a1d26', glass: 'rgba(255, 255, 255, 0.05)' }
                     },
                     fontFamily: { sans: ['Montserrat', 'sans-serif'], mono: ['Inter', 'monospace'] },
-                    animation: { 'fade-in': 'fadeIn 0.5s ease-out' },
+                    animation: { 'fade-in': 'fadeIn 0.5s ease-out', 'spin-slow': 'spin 3s linear infinite' },
                     keyframes: {
                         fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } }
                     }
@@ -68,16 +68,21 @@
         input[type=range]:focus { outline: none; }
         
         .loop-active { background-color: #00E5FF !important; color: #000 !important; font-weight: bold; box-shadow: 0 0 10px #00E5FF; }
+        .loading-overlay { position: absolute; inset: 0; background: rgba(15,18,27,0.8); z-index: 50; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); border-radius: 0.75rem; }
+        
+        /* YouTube Player Wrapper */
+        #youtube-container { position: relative; width: 100%; padding-bottom: 56.25%; /* 16:9 Aspect Ratio */ height: 0; overflow: hidden; border-radius: 0.5rem; margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.1); background: #000; }
+        #youtube-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        .hidden-player { display: none !important; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between">
 
-    <audio id="audio-player" preload="auto"></audio>
     <div id="canvas-container"></div>
 
     <header class="w-full py-6 z-10 relative">
         <div class="container mx-auto px-4 flex flex-col items-center">
-            <a href="index.html" class="flex items-center gap-3 mb-2 animate-fade-in hover:opacity-80 transition-opacity group">
+            <a href="#" class="flex items-center gap-3 mb-2 animate-fade-in hover:opacity-80 transition-opacity group">
                 <svg class="w-8 h-8 text-alter-cyan filter drop-shadow-[0_0_8px_rgba(0,229,255,0.8)] group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
                 <span class="logo-text font-bold text-xl md:text-2xl text-white tracking-[0.2em]">ALTER.LAB</span>
             </a>
@@ -92,12 +97,19 @@
         </div>
 
         <div class="space-y-8">
-            <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in" style="animation-delay: 0.1s;">
+            <div class="glass-card rounded-xl p-6 md:p-8 animate-fade-in relative" style="animation-delay: 0.1s;">
+                <div id="loader-overlay" class="loading-overlay">
+                    <div class="text-center">
+                        <div class="w-8 h-8 border-4 border-alter-cyan border-t-transparent rounded-full animate-spin-slow mb-2 mx-auto"></div>
+                        <span class="text-xs text-alter-cyan uppercase tracking-widest">Conectando Base de Datos...</span>
+                    </div>
+                </div>
+                
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="col-span-1 md:col-span-2">
                         <label for="song-selector" class="block text-sm font-bold text-alter-cyan mb-2 uppercase tracking-wider"><i class="bi bi-music-note-beamed mr-2"></i>Selecciona la Pieza</label>
                         <select id="song-selector" onchange="updateAnalysis()" class="w-full p-3 rounded-lg text-white focus:ring-2 focus:ring-alter-cyan transition-all cursor-pointer">
-                            <option value="" disabled selected>-- Repertorio Cargado --</option>
+                            <option value="" disabled selected>-- Cargando Repertorio... --</option>
                         </select>
                     </div>
                     <div class="col-span-1">
@@ -117,17 +129,23 @@
                     <!-- Cabecera del reproductor -->
                     <div class="glass-card-header p-4 flex justify-between items-center bg-black/40">
                         <div class="flex items-center gap-4">
-                            <h2 class="text-lg font-bold text-white tracking-widest uppercase"><i class="bi bi-cpu-fill mr-2"></i>Reproductor & Análisis</h2>
+                            <h2 class="text-lg font-bold text-white tracking-widest uppercase"><i class="bi bi-youtube mr-2"></i>Reproductor YouTube</h2>
                         </div>
                         <span id="instrument-display" class="text-xs font-mono bg-alter-cyan text-black px-2 py-1 rounded font-bold shadow-[0_0_10px_#00E5FF]">CONCERT</span>
                     </div>
 
-                    <!-- Controles del reproductor -->
+                    <!-- Contenedor Video y Controles -->
                     <div class="p-6 bg-gradient-to-b from-black/20 to-transparent">
+                        
+                        <!-- Video YouTube (Visible por requerimiento de la API) -->
+                        <div id="youtube-container">
+                            <div id="youtube-player"></div>
+                        </div>
+
                         <!-- Barra de progreso -->
                         <div class="flex items-center gap-3 mb-4">
                             <span id="current-time" class="text-xs font-mono text-alter-cyan w-10 text-right">0:00</span>
-                            <input type="range" id="seek-bar" value="0" step="0.1" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                            <input type="range" id="seek-bar" value="0" step="1" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
                             <span id="total-duration" class="text-xs font-mono text-gray-400 w-10">0:00</span>
                         </div>
 
@@ -151,15 +169,15 @@
                                 <button onclick="clearLoop()" class="text-red-400 hover:text-red-300 px-2" title="Borrar Loop"><i class="bi bi-x-lg"></i></button>
                             </div>
 
-                            <!-- Control de Velocidad -->
+                            <!-- Control de Velocidad (Adaptado a YouTube) -->
                             <div class="flex items-center gap-3 bg-gray-900/50 p-2 rounded-lg border border-gray-700 w-full md:w-auto">
                                 <i class="bi bi-speedometer2 text-gray-400"></i>
                                 <div class="flex flex-col w-32">
                                     <div class="flex justify-between text-[10px] text-gray-400 mb-1">
-                                        <span>Lento (33%)</span>
+                                        <span>Lento (0.25x)</span>
                                         <span id="speed-val">1.0x</span>
                                     </div>
-                                    <input type="range" id="speed-control" min="0.33" max="1" step="0.05" value="1" oninput="updateSpeed(this.value)" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+                                    <input type="range" id="speed-control" min="0.25" max="1" step="0.25" value="1" oninput="updateSpeed(this.value)" class="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer">
                                 </div>
                             </div>
                         </div>
@@ -225,7 +243,10 @@
     </main>
 
     <footer class="relative z-10 py-8 mt-12 border-t border-gray-800 bg-gray-900/80 backdrop-blur-md">
-        <div class="container mx-auto text-center">
+        <div class="container mx-auto text-center space-y-2">
+            <p class="text-gray-500 text-xs">
+                Si quieres escuchar la música sin anuncios instala <a href="https://www.ghostery.com/" target="_blank" class="text-alter-cyan hover:underline font-bold">Ghostery</a> como extensión en tu navegador.
+            </p>
             <p class="text-gray-600 text-xs uppercase tracking-widest">© 2025 Alter.Lab | Generative Art & Code</p>
         </div>
     </footer>
@@ -235,43 +256,121 @@
         const SCALE_STEPS = { 'Jónica':[0,2,4,5,7,9,11], 'Eólica':[0,2,3,5,7,8,10], 'Dórica':[0,2,3,5,7,9,10], 'Armónica':[0,2,3,5,7,8,11], 'Pentatónica':[0,3,5,7,10], 'Mayor':[0,2,4,5,7,9,11], 'Mixolidia':[0,2,4,5,7,9,10], 'Blues':[0,3,5,6,7,10], 'Natural':[0,2,4,5,7,9,11], 'Lidia':[0,2,4,6,7,9,11] };
         const CHORD_INTERVALS = { 'm':[0,3,7], 'maj7':[0,4,7,11], 'm7':[0,3,7,10], '7':[0,4,7,10], 'M':[0,4,7], 'dim':[0,3,6], 'sus4':[0,5,7], 'add9':[0,4,7,14] };
         const GUITAR_TUNING = [4, 9, 2, 7, 11, 4];
+        
+        // URL DE TU CSV PÚBLICO
+        const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRbSwkQHV4pqULt-IhsUUJpC95YzLr6WpPqpHvcwBRfbjlO06DG1di5MF6CbclXtgT2BultwEIJgN-m/pub?output=csv';
 
-        // BASE DE DATOS ACTUALIZADA CON LETRAS COMPLETAS
-        const SONGS_DATA = {
-            'aint-no-sunshine': { title: "Ain't no sunshine", concertKey: 'Am', improvScale: 'A Menor Pentatónica', advice: 'El E7 (V) es tensión pura. Usa A Armónica ahí. Mantén el groove minimalista.', chordType: 'm', steps: SCALE_STEPS['Pentatónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735908/Bill_Withers_-_Ain_t_No_Sunshine_t94x1j.flac', lyrics: `[Am]Ain't no sunshine [Em]when she's [G]gone\n[Am]It's not warm [Em]when she's [G]away\n[Am]Ain't no sunshine [Em]when she's [G]gone\nAnd she's [Dm]always gone too long\nAny[Am]time she goes a[Am]way\n[Am]Wonder this time [Em]where she's [G]gone\n[Am]Wonder if she's [Em]gone to [G]stay\n[Am]Ain't no sunshine [Em]when she's [G]gone\nAnd this [Dm]house just ain't no home\nAny[Am]time she goes a[Am]way\nInterludio (I know...)\n[Am]I know, I know, I know, I know... (x26)\nHey, I oughta leave the young thing alone\nBut ain't no [Dm]sunshine when she's gone\n[Am]Ain't no sunshine [Em]when she's [G]gone\n[Am]Only darkness [Em]every [G]day\n[Am]Ain't no sunshine [Em]when she's [G]gone\nAnd this [Dm]house just ain't no home\nAny[Am]time she goes a[Am]way\nAny[Am]time she goes a[Am]way\nAny[Am]time she goes a[Am]way` },
-            'baby-come-back': { title: 'Baby Come Back', concertKey: 'Cm', improvScale: 'C Menor Natural', advice: 'Cuidado con la modulación en el estribillo. Soft Rock con acordes maj7.', chordType: 'maj7', steps: SCALE_STEPS['Eólica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735920/Player_-_Baby_Come_Back_lnpmbf.flac', lyrics: `Verso 1\n[Abmaj7]Spending all my [Gm7]nights, all my [Cm7]money going [Fm7]out on the town [Bb/C]\n[Abmaj7]Doing any[Gm7]thing just to [Cm7]get you off of my [Fm7]mind [Bb/C]\n[Abmaj7]But when the morning [Gm7]comes, I'm right [Cm7]back where I [Fm7]started again [Bb/C]\n[Abmaj7]Trying to for[Gm7]get you is [Cm7]just a waste of [Fm7]time [Bb/C]\nEstribillo\n[Abmaj7]Baby come [Gm7]back, any kind of [Cm7]fool could [Fm7]see [Gm7]\n[Fm7]There was [Gm7]something [Cm7]in [Fm7]everything about [Bb]you\n[Abmaj7]Baby come [Gm7]back, you can blame it [Cm7]all on [Fm7]me [Gm7]\n[Fm7]I was [Gm7]wrong and [Cm7]I [Fm7]just can't live with[Bb]out you\nVerso 2\n[Abmaj7]All day [Gm7]long, wearing a [Cm7]mask of false bra[Fm7]vado [Bb/C]\n[Abmaj7]Trying to [Gm7]keep up the [Cm7]smile that hides a [Fm7]tear [Bb/C]\n[Abmaj7]But as the sun goes [Gm7]down, I [Cm7]get that empty [Fm7]feeling again [Bb/C]\n[Abmaj7]I wish to [Gm7]God that [Cm7]you were [Fm7]here [Bb/C]\nEstribillo\n[Abmaj7]Baby come [Gm7]back... (Repetir)` },
-            'bad-moon-rising': { title: 'Bad Moon Rising', concertKey: 'D', improvScale: 'D Pentatónica Mayor', advice: 'Rock simple. Articulación rítmica precisa. Usa la 6ª menor como paso.', chordType: 'M', steps: SCALE_STEPS['Mayor'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735908/Creedence_Clearwater_Revival_-_Bad_Moon_Rising_uvsds2.flac', lyrics: `Verso 1\n[D]I see the [A]bad moon [G]a-[D]rising\n[D]I see [A]trouble [G]on the [D]way\n[D]I see [A]earth[G]quakes and [D]lightning\n[D]I see [A]bad [G]times to[D]day\nEstribillo\n[G]Don't go around tonight\nWell it's [D]bound to take your life\n[A]There's a [G]bad moon on the [D]rise\nVerso 2\n[D]I hear [A]hurri[G]canes a-[D]blowing\n[D]I know the [A]end is [G]coming [D]soon\n[D]I fear [A]rivers [G]over[D]flowing\n[D]I hear the [A]voice of [G]rage and [D]ruin\nEstribillo\n[G]Don't go around tonight...\nVerso 3\n[D]Hope you [A]got your [G]things to[D]gether\n[D]Hope you are [A]quite pre[G]pared to [D]die\n[D]Looks like we're [A]in for [G]nasty [D]weather\n[D]One eye is [A]taken [G]for an [D]eye\nEstribillo\n[G]Don't go around tonight...` },
-            'band-on-the-run': { title: 'Band on the Run', concertKey: 'Am / C', improvScale: 'C Jónica', advice: 'Suite de 3 partes. Atento al cambio de mentalidad modal en cada sección.', chordType: 'm', steps: SCALE_STEPS['Eólica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735917/Paul_McCartney_Wings_-_Band_On_The_Run_ouk572.flac', lyrics: `Parte 1: La Prisión (Balada)\n[Am]Stuck inside these [G]four walls\n[F]Sent inside forever [C]more\n[Am]Never seeing no one [G]nice again\n[F]Like you, mama, you, mama, [C]you\n[Am] [G] [F] [Em7] [Am]\nParte 2: La Fuga (Rock)\n[Am]If I ever get out of here\n[D]Thought of giving it all away\n[D]To a registered charity\n[D]All I need is a pint a day\n[D]If I ever get out of here (If we ever get out of here)\nParte 3: La Libertad (Folk/Pop)\n[C]Well, the [Fmaj7]rain exploded with a [C]mighty crash as we [Fmaj7]fell into the [C]sun\n[C]And the [Fmaj7]first one said to the [C]second one there, I [Em]hope you're having [Am]fun\n[G]Band on the [C]run, [Fmaj7]band on the [C]run\n[G]And the jailer man and [C]Sailor Sam were [Fmaj7]searching every [C]one\n[G]For the band on the [C]run, [Fmaj7]band on the [C]run\n[Fmaj7]Band on the [C]run, [Fmaj7]band on the [C]run\n[C]Well, the [Fmaj7]undertaker drew a [C]heavy sigh seeing [Fmaj7]no one else had [C]come\n[C]And a [Fmaj7]bell was ringing in the [C]village square for the [Em]rabbits on the [Am]run\n[G]Band on the [C]run...` },
-            'black-magic-woman': { title: 'Black Magic Woman', concertKey: 'Dm', improvScale: 'D Armónica', advice: 'El A7 exige la escala Armónica (C#). Ritmo latino clave.', chordType: 'm', steps: SCALE_STEPS['Armónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735904/Santana_-_Black_Magic_Woman_svhmye.flac', lyrics: `Verso 1\n[Dm]Got a black magic [Am7]woman\n[Dm]Got a black magic [Am7]woman\nI got a [Dm]black magic [Am7]woman\nGot me so [Gm7]blind\n[Dm]Got a black magic [A7]woman\nShe's [A7]trying to make a devil out of [Dm]me\nVerso 2\n[Dm]Turn your back on me [Am7]baby\n[Dm]Turn your back on me [Am7]baby\nYes, don't [Dm]turn your back on me [Am7]baby\nStop messin' 'round with your [Gm7]tricks\n[Dm]Don't turn your back on me [A7]baby\nYou [A7]just might pick up my magic [Dm]sticks\nVerso 3\n[Dm]Got your spell on me [Am7]baby\n[Dm]Got your spell on me [Am7]baby\nYes, you [Dm]got your spell on me [Am7]baby\nTurning my heart into [Gm7]stone\n[Dm]I need you so bad [A7]magic woman\nI [A7]can't leave you a[Dm]lone` },
-            'born-on-the-bayou': { title: 'Born on the Bayou', concertKey: 'E7', improvScale: 'E Blues', advice: 'Groove pantanoso. Mantener el E7 vibrante.', chordType: '7', steps: SCALE_STEPS['Blues'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735904/Santana_-_Black_Magic_Woman_svhmye.flac', lyrics: `Verso 1\n[E7]Now, when I was just a little boy\n[E7]Standin' to my Daddy's knee\n[E7]My poppa said, "Son, don't let the man get you\n[E7]Do what he done to me"\n[E7]'Cause he'll [D]get [A]you\n[E7]'Cause he'll [D]get [A]you now, now\nEstribillo\n[E7]And I can remember the fourth of July\n[E7]Runnin' through the backwood, bare\n[A7]And I can still hear my old hound dog barkin'\n[E7]Chasin' down a hoodoo there\n[E7]Chasin' down a [D]hoodoo [A]there\nPost-Estribillo\n[E7]Born on the bayou\n[E7]Born on the bayou\n[E7]Born on the bayou\n[E7]Do it, do it, do it, do it\nVerso 2\n[E7]Wish I was back on the bayou\n[E7]Rollin' with some Cajun Queen\n[E7]Wish I were a fast freight train\n[E7]Just a chooglin' on down to New Orleans\n[E7]Born on the [D]bayou [A]\n[E7]Born on the [D]bayou [A]` },
-            'carry-that-weight': { title: 'Carry That Weight', concertKey: 'C', improvScale: 'C Jónica', advice: 'Ritmo marcial. Unísono en el coro.', chordType: 'M', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735870/The_Beatles_-_Carry_That_Weight_Remastered_2009_i3pd5k.flac', lyrics: `Estribillo\n[C]Boy, you're gonna [G]carry that [C]weight\nCarry that [C]weight a [F]long [C]time\n[C]Boy, you're gonna [G]carry that [C]weight\nCarry that [C]weight a [F]long [C]time\nVerso\n[Am7]I never give you my [Dm7]pillow\n[G7]I only send you my [C]invitations\n[Fmaj7]And in the middle of the [Bm7b5]celebrations\n[E7]I break [Am]down\nEstribillo\n[C]Boy, you're gonna [G]carry that [C]weight...` },
-            'coming-back-to-life': { title: 'Coming back to life', concertKey: 'C', improvScale: 'C Mayor', advice: 'Sustain infinito. Intro en C, verso en G.', chordType: 'M', steps: SCALE_STEPS['Mayor'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735879/Pink_Floyd_-_Coming_Back_to_Life_luo2kv.flac', lyrics: `Intro (C Major)\n[C]Where were you when [Fmaj7]I was burned and [Am]broken\n[F]While the days slipped [C]by [G]from my window watching\n[C]And where were you when [Fmaj7]I was hurt and [Am]helpless\n[Bb]Because the things you [F]say and the things you [C]do surround me\n[Am]While you were hanging your[F]self on some[G]one else's words\n[Am]Dying to believe in [Bb]what you [F]heard\n[Am]I was staring straight in[G]to the shining [C]sun [G]\nVerso 1 (Rock Beat - G Major)\n[G]Lost in thought and [D]lost in time\n[Em]While the seeds of life and the [C]seeds of change were [G]planted\n[G]Outside the rain fell [D]dark and slow\n[Em]While I pondered on this [C]dangerous but irresistible [G]pastime\n[G]I took a heavenly [D]ride through our silence\n[Em]I knew the moment had ar[C]rived\n[C]For killing the [Am]past and coming [D]back to [G]life\nGuitar Solo\n[G] [D] [Em] [C] (x2) [A] [C] [G]\nVerso 2\n[G]I took a heavenly [D]ride through our silence\n[Em]I knew the waiting had be[C]gun\n[C]And headed straight... in[D]to the shining [G]sun` },
-            'dont-let-me-down': { title: "Don't Let Me Down", concertKey: 'E', improvScale: 'E Mixolidia', advice: 'Clave: El paso B7 - C#m - A y la métrica irregular en el verso.', chordType: 'M', steps: SCALE_STEPS['Mayor'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735898/The_Beatles_-_Don_t_Let_Me_Down_Remastered_2009_tkooln.flac', lyrics: `Estribillo\n[E]Don't let me [F#m]down [F#m7/E]\n[E]Don't let me [F#m]down [F#m7/E]\n[E]Don't let me [F#m]down [F#m7/E]\n[E]Don't let me [F#m]down\nVerso 1\n[E]Nobody ever loved me like [F#m]she does, [F#m7/E]oh, she does, [E]yeah, she does\n[E]And if somebody loved me like [F#m]she do me, [F#m7/E]oh, she do me, [E]yes, she does\nEstribillo\n[E]Don't let me [F#m]down...\nPuente\n[E]I'm in [B]love for the [B7]first time\n[C#m]Don't you know it's [A]gonna last\n[E]It's a love that [B]lasts for[E]ever\n[E]It's a love that [B]had no [E]past\nEstribillo\n[E]Don't let me [F#m]down...\nVerso 2\n[E]And from the first time that she [F#m]really done me\n[E]Oh, she done me, she done me good\n[E]I guess nobody ever [F#m]really done me\n[E]Oh, she done me, she done me good` },
-            'dreams-fleetwood': { title: 'Dreams (Fleetwood Mac)', concertKey: 'F', improvScale: 'F Lidio', advice: 'Sonido Jangle Pop. Mucha reverb.', chordType: 'maj7', steps: SCALE_STEPS['Lidia'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735897/Fleetwood_Mac_-_Dreams_2001_Remaster_mrpopb.flac', lyrics: `Verso 1\n[F]Now here you go again, you say [G]you want your freedom\n[F]Well, who am I to keep you [G]down\n[F]It's only right that you should [G]play the way you feel it\nBut [F]listen carefully to the [G]sound of your loneliness\n[F]Like a heartbeat drives you [G]mad\nIn the [F]stillness of remembering what you [G]had\n[F]And what you lost [G]\n[F]And what you had [G]\n[F]And what you lost [G]\nEstribillo\n[F]Thunder only [G]happens when it's raining\n[F]Players only [G]love you when they're playing\n[F]Say, women, they will [G]come and they will go\n[F]When the rain washes you [G]clean, you'll know\n[F]You'll know [G]\nVerso 2\n[F]Now here I go again, I see [G]the crystal visions\n[F]I keep my visions to my[G]self\n[F]It's only me who wants to [G]wrap around your dreams, and\n[F]Have you any dreams you'd like to [G]sell\n[F]Dreams of loneliness [G]\n[F]Like a heartbeat drives you [G]mad...\nEstribillo\n[F]Thunder only [G]happens when it's raining... (x2)` },
-            'dreams-cranberries': { title: 'Dreams (Cranberries)', concertKey: 'E', improvScale: 'E Mayor', advice: 'Sólo dos acordes principales (E - A) todo el tema.', chordType: 'M', steps: SCALE_STEPS['Mayor'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735898/The_Cranberries_-_Dreams_lnrcsg.flac', lyrics: `Verso 1\n[E]Oh, my [A]life is changing every[B]day, in every possible [E]way\n[E]And oh, my [A]dreams, it's never quite as it [B]seems, never quite as it [E]seems\nVerso 2\n[E]I know I've felt like this be[A]fore, but now I'm feeling it [B]even more\nBecause it [E]came from you\n[E]Then I open up and [A]see, the person falling here is [B]me\nA different way to [E]be\nEstribillo\n[A]I want [B]more, im[E]possible to ig[A]nore\n[A]Im[B]possible to ig[E]nore\n[E]And they'll come true, im[A]possible not to [B]do\n[B]Impossible not to [E]do\nVerso 3\n[E]And now I tell you open[A]ly, you have my heart so don't [B]hurt me\nYou're what I [E]couldn't find\n[E]A totally amazing [A]mind, so understanding and so [B]kind\nYou're everything to [E]me` },
-            'everybody-wants-to-rule': { title: 'Everybody Wants to Rule', concertKey: 'D', improvScale: 'D Mixolidia', advice: 'El riff es D - G/D. El estribillo va al relativo menor (Bm).', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735896/Tears_For_Fears_-_Everybody_Wants_To_Rule_The_World_zuyf4k.flac', lyrics: `Verso 1\n[D]Welcome to your [G/D]life, there's no turning [D]back [G/D]\n[D]Even while we [G/D]sleep, we will find [D]you [G/D]\n[Em]Acting on your [F#m]best behaviour, [G]turn your back on [F#m]Mother Nature\n[Em]Everybody [F#m]wants to [G]rule the [D]world\nVerso 2\n[D]It's my own de[G/D]sign, it's my own re[D]morse [G/D]\n[D]Help me to de[G/D]cide, help me make the [D]most [G/D]\nOf [Em]freedom and of [F#m]pleasure, [G]nothing ever [F#m]lasts forever\n[Em]Everybody [F#m]wants to [G]rule the [D]world\nPuente\n[G]There's a room where the [D]light won't [A]find you\n[G]Holding hands while the [D]walls come [A]tumbling [G]down\n[D]When they do I'll be [A]right be[G]hind you\n[Em]So glad we've [F#m]almost [G]made it\n[Em]So sad they [F#m]had to [G]fade it\n[Em]Everybody [F#m]wants to [G]rule the [D]world` },
-            'eye-in-the-sky': { title: 'Eye in the Sky', concertKey: 'Bm', improvScale: 'D Mayor', advice: 'Pulso constante. La armonía es muy diatónica en B menor.', chordType: 'm', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735897/The_Alan_Parsons_Project_-_Eye_In_The_Sky_kwunpj.flac', lyrics: `Verso 1\n[Bm]Don't think sorry's [G]easily said\n[Bm]Don't try turning [G]tables instead\n[Bm]You've taken all my [G]chances and there's nowhere [Em]left to [Bm]hide\n[Bm]Believe me I'm looking from the [G]other [D]side\nEstribillo\n[D]I am the [F#m]eye in the sky, [G]looking at you, [Em]I can read your [Bm]mind\n[D]I am the [F#m]maker of rules, [G]dealing with fools, [Em]I can cheat you [Bm]blind\n[G]And I don't need to see any [Gm6]more to know that [Bm]I can read your mind (looking at you)\n[G]I can read your mind (looking at you)\n[Bm]I can read your mind (looking at you)\nVerso 2\n[Bm]Don't leave false il[G]lusions behind\n[Bm]Don't cry cause I ain't [G]changing my mind\n[Bm]So find another [G]fool like before 'cause I ain't [Em]gonna live a [Bm]lie\n[Bm]Believe me I'm looking from the [G]other [D]side\nEstribillo\n[D]I am the [F#m]eye in the sky...` },
-            'fortunate-son': { title: 'Fortunate Son', concertKey: 'G', improvScale: 'G Mixolidia', advice: 'Rock clásico con bVII (F) para sabor mixolidio/blues.', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735883/Creedence_Clearwater_Revival_-_Fortunate_Son_f3zmx2.flac', lyrics: `Verso 1\n[G]Some folks are born [F]made to wave the [C]flag\n[C]Ooh, they're red, white and [G]blue\n[G]And when the band plays [F]"Hail to the [C]chief"\n[C]Ooh, they point the cannon at [G]you, Lord\nEstribillo\n[G]It ain't me, [D]it ain't me\n[C]I ain't no senator's [G]son, son\n[G]It ain't me, [D]it ain't me\n[C]I ain't no fortunate [G]one, no\nVerso 2\n[G]Some folks are born [F]silver spoon in [C]hand\n[C]Lord, don't they help them[G]selves, oh\n[G]But when the taxman [F]comes to the [C]door\n[C]Lord, the house looks like a [G]rumble, yes\nEstribillo\n[G]It ain't me, [D]it ain't me\n[C]I ain't no millionaire's [G]son, no, no\n[G]It ain't me, [D]it ain't me\n[C]I ain't no fortunate [G]one, no\nVerso 3\n[G]Some folks inherit [F]star spangled [C]eyes\n[C]Ooh, they send you down to [G]war, Lord\n[G]And when you ask them, [F]"How much should we [C]give?"\n[C]Ooh, they only answer [G]"More! More! More!"` },
-            'get-back': { title: 'Get Back', concertKey: 'A', improvScale: 'A Mixolidia', advice: 'El ritmo de batería "gallop" y el G (bVII) son clave.', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735878/The_Beatles_-_Get_Back_Remastered_2009_hlcyh6.flac', lyrics: `Verso 1\n[A]Jojo was a man who [A7]thought he was a loner\n[D]But he knew it wouldn't [A]last\n[A]Jojo left his home in [A7]Tucson, Arizona\n[D]For some California [A]grass\nEstribillo\n[A]Get back, [A7]get back\n[D]Get back to where you once be[A]longed [G] [D]\n[A]Get back, [A7]get back\n[D]Get back to where you once be[A]longed\nVerso 2\n[A]Sweet Loretta Martin [A7]thought she was a woman\n[D]But she was another [A]man\n[A]All the girls around her [A7]say she's got it coming\n[D]But she gets it while she [A]can\nEstribillo\n[A]Get back, [A7]get back... (Get back Loretta)` },
-            'golden-slumbers': { title: 'Golden Slumbers', concertKey: 'Am / C', improvScale: 'C Jónica', advice: 'Balada de piano muy lírica.', chordType: 'M', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735861/The_Beatles_-_Golden_Slumbers_Remastered_2009_eoqjzx.flac', lyrics: `Verso\n[Am7]Once there was a way [Dm]to get back homeward\n[G7]Once there was a way [C]to get back home\n[E7]Sleep pretty darling, [Am]do not [Dm]cry\n[G7]And I will sing a lulla[C]by\nEstribillo\n[C]Golden [F]slumbers [C]fill your [E7]eyes\n[Am]Smiles a[Dm]wake you [G7]when you [C]rise\n[E7]Sleep pretty darling, [Am]do not [Dm]cry\n[G7]And I will sing a lulla[C]by\nCierre\n[Am7]Once there was a way [Dm]to get back homeward\n[G7]Once there was a way [C]to get back home\n[E7]Sleep pretty darling, [Am]do not [Dm]cry\n[G7]And I will sing a lulla[C]by` },
-            'gypsy-queen': { title: 'Gypsy Queen', concertKey: 'Dm', improvScale: 'D Armónica', advice: 'Principalmente instrumental. Improvisación modal.', chordType: 'm', steps: SCALE_STEPS['Armónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735878/Santana_-_Black_Magic_Woman___Gypsy_Queen_xlslzw.flac', lyrics: `Intro / Instrumental Jam\n[Am] [Dm] (Vamping principal)\nCanto (Final)\n[Dm]Gypsy [Am]Queen\n[Gm]She's a [Dm]gypsy [A7]queen\n[Dm]She's a [Am]gypsy [Gm]queen [Dm]\n[Dm]Got a [Am]spell on [Gm]me [Dm]\n[Dm]Got a [Am]spell on [Gm]me [Dm]` },
-            'here-today': { title: 'Here Today', concertKey: 'G', improvScale: 'G Jónica', advice: 'Acústica. Cambios sutiles entre mayor y relativo menor.', chordType: 'maj7', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735862/Paul_McCartney_-_Here_Today_Remixed_2009_r0bchh.flac', lyrics: `Verso 1\n[G]And if I [Bm]say I really [Em]knew you well, [A7]what would your answer be?\n[G]If you were [Bm]here to[C]day [D] [G]\n[Cm]Here to[G]day\nVerso 2\n[G]And if I [Bm]say I really [Em]loved you [A7]and I'm glad you came along\n[G]If you were [Bm]here to[C]day [D] [G]\n[Cm]For you were in my [G]song [G]\n[Cm]Here to[G]day\nPuente\n[Am7]Well, knowing you, [Bm7]you'd probably laugh\nAnd [Cmaj7]say that we were worlds a[Fmaj7]part\n[Am7]If you were here to[Bm7]day\n[Cmaj7]But as for me [D7sus4]I still remember [G]how it was before\n[A7]And I am holding back the [C]tears no [Cm]more\nVerso 3\n[G]I love [Bm]you, [Em]oooh... [A7]\n[G]If you were [Bm]here to[C]day [D] [G]\n[Cm]Here to[G]day` },
-            'hold-the-line': { title: 'Hold the Line', concertKey: 'F#m', improvScale: 'F# Menor', advice: 'Riff de piano en tresillos. Acordes con bajos descendentes.', chordType: 'm', steps: SCALE_STEPS['Eólica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735879/TOTO_-_Hold_the_Line_ojsxff.flac', lyrics: `Verso 1\n[F#m]It's not in the way that you [C#m]hold me\n[F#m]It's not in the way you [D]say you [E]care\n[F#m]It's not in the way you've [C#m]been treating my friends\n[F#m]It's not in the way that you [D]stayed 'till the [E]end\n[F#m]It's not in the way you [C#m]look or the things that you say that you'll [D]do [E]\nEstribillo\n[F#m]Hold the line, [A]love isn't [D]always on [E]time\n[F#m]Hold the line, [A]love isn't [D]always on [E]time\n[F#m]Hold the line, [A]love isn't [D]always on [E]time\nVerso 2\n[F#m]It's not in the words that you [C#m]told me\n[F#m]It's not in the way you [D]say you're [E]mine\n[F#m]It's not in the way that you [C#m]came back to me\n[F#m]It's not in the way that your [D]love set me [E]free\nEstribillo\n[F#m]Hold the line...` },
-            'hotel-california': { title: 'Hotel California', concertKey: 'Bm', improvScale: 'B Armónica', advice: 'Progresión icónica. El F#7 (V) usa A#.', chordType: 'm', steps: SCALE_STEPS['Armónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735875/Eagles_-_Hotel_California_2013_Remaster_u1bdcw.flac', lyrics: `Verso 1\n[Bm]On a dark desert [F#7]highway, cool wind in my [A]hair\n[E]Warm smell of co[G]litas, rising up through the [D]air\n[Em]Up ahead in the [F#7]distance, I saw a shimmering [Bm]light\n[Bm]My head grew heavy and my [F#7]sight grew dim, I had to stop for the [A]night\nVerso 2\n[A]There she stood in the [E]doorway; I heard the mission [G]bell\n[G]And I was thinking to my[D]self, this could be heaven or this could be [Em]hell\n[Em]Then she lit up a [F#7]candle and she showed me the [Bm]way\n[Bm]There were voices down the [F#7]corridor, I thought I heard them [A]say\nEstribillo\n[G]Welcome to the [D]Hotel Cali[F#7]fornia\nSuch a [Bm]lovely place (such a lovely place), such a [Bm7]lovely face\n[G]Plenty of room at the [D]Hotel Cali[Em]fornia\nAny [F#7]time of year (any time of year), you can find it [Bm]here\nVerso 3\n[Bm]Her mind is Tiffany-[F#7]twisted, she got the Mercedes [A]bends\n[E]She got a lot of pretty, [G]pretty boys, that she calls [D]friends\n[Em]How they dance in the [F#7]courtyard, sweet summer [Bm]sweat\n[Bm]Some dance to re[F#7]member, some dance to for[A]get\nVerso 4\n[A]So I called up the [E]Captain, "Please bring me my [G]wine"\nHe said, "[D]We haven't had that spirit here since nineteen sixty [Em]nine"\n[Em]And still those voices are [F#7]calling from far a[Bm]way\n[Bm]Wake you up in the [F#7]middle of the night just to hear them [A]say...\nEstribillo\n[G]Welcome to the [D]Hotel Cali[F#7]fornia...\nVerso 5\n[Bm]Mirrors on the [F#7]ceiling, the pink champagne on [A]ice\nAnd she said, "[E]We are all just prisoners here, of our [G]own de[D]vice"\n[Em]And in the master's [F#7]chambers, they gathered for the [Bm]feast\n[Bm]They stab it with their [F#7]steely knives, but they just can't kill the [A]beast\nVerso 6\n[A]Last thing I re[E]member, I was running for the [G]door\n[G]I had to find the [D]passage back to the place I was be[Em]fore\n[Em]"Relax," said the [F#7]night man, "We are programmed to re[Bm]ceive.\n[Bm]You can check out any [F#7]time you like, but you can never [A]leave!"\nSolo de Guitarra Épico\n[Bm] [F#7] [A] [E] [G] [D] [Em] [F#7] (Repetir hasta fade out)` },
-            'in-my-life': { title: 'In my life', concertKey: 'A', improvScale: 'A Jónica', advice: 'El Dm (iv) prestado en el coro es la firma armónica.', chordType: 'M', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735861/The_Beatles_-_In_My_Life_Remastered_2009_snplpd.flac', lyrics: `Verso 1\n[A]There are [E]places [F#m]I'll re[A7]member\n[D]All my [Dm]life, though [A]some have changed\n[A]Some forever, [E]not for [F#m]better [A7]\n[D]Some have [Dm]gone and [A]some remain\nEstribillo\n[F#m]All these [D]places had their [G]moments\n[A]With lovers and friends I [F#m]still can recall\n[F#m]Some are [B7]dead and some are [D]living\n[Dm]In my [A]life, I've [E]loved them [A]all\nVerso 2\n[A]But of [E]all these [F#m]friends and [A7]lovers\n[D]There is [Dm]no one com[A]pares with you\n[A]And these mem'ries [E]lose their [F#m]meaning [A7]\n[D]When I [Dm]think of love [A]as something new\nEstribillo\n[F#m]Though I [D]know I'll never [G]lose affection\n[A]For people and things that [F#m]went before\n[F#m]I know I'll [B7]often stop and think a[D]bout them\n[Dm]In my [A]life, I [E]love you [A]more\nSolo de Teclado (Barroco)\n[A] [E] [F#m] [A7] [D] [Dm] [A]\nFinal\n[Dm]In my [A]life, I [E]love you [A]more` },
-            'just-the-two-of-us': { title: 'Just the two of us', concertKey: 'C', improvScale: 'C Jónica', advice: 'El Ebm7 es un paso cromático de lujo. Progresión jazzera II-V-I.', chordType: 'maj7', steps: SCALE_STEPS['Eólica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735874/Grover_Washington_Jr._-_Just_the_Two_of_Us_tt9tu8.flac', lyrics: `Verso 1\n[Cmaj7]I see the crystal [B7]raindrops fall\n[Em7]And the beauty of it [Ebm7] [Dm7]all\nIs when the [G7]sun comes shining [Cmaj7]through\n[Cmaj7]To make those rainbows [B7]in my mind\n[Em7]When I think of you some[Ebm7] [Dm7]time\nAnd I want to [G7]spend some time with [Cmaj7]you\nEstribillo\n[Cmaj7]Just the two [B7]of us\n[Em7]We can [Ebm7]make it [Dm7]if we [G7]try\n[Cmaj7]Just the two [B7]of us\n[Em7]Just the [Ebm7]two of [Dm7]us [G7]\n[Cmaj7]Just the two [B7]of us\n[Em7]Building [Ebm7]castles [Dm7]in the [G7]sky\n[Cmaj7]Just the two [B7]of us\n[Em7]You [Ebm7]and [Dm7]I [G7]\nVerso 2\n[Cmaj7]We look for love, no [B7]time for tears\n[Em7]Wasted water's all that [Ebm7] [Dm7]is\nAnd it don't [G7]make no flowers [Cmaj7]grow\n[Cmaj7]Good things might come to [B7]those who wait\n[Em7]Not for those who wait too [Ebm7] [Dm7]late\nWe've gotta [G7]go for all we [Cmaj7]know\nEstribillo\n[Cmaj7]Just the two [B7]of us...` },
-            'mala-bad-bunny': { title: 'Mala (Vete)', concertKey: 'Cm', improvScale: 'C Menor Natural', advice: 'Loop: Cm - Ab - Eb - Bb. Simpleza armónica, peso en el bajo.', chordType: 'm', steps: SCALE_STEPS['Eólica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735920/America_-_Tin_Man_wjt4sg.flac', lyrics: `Estribillo\n[Cm]Ella es mala, [Ab]tiene fuego\n[Eb]Ella es una [Bb]diabla\n[Cm]Si me mira, [Ab]yo me pego\n[Eb]Y ella no se [Bb]cala\n[Cm]Mala, mala, mala, [Ab]mala y peligrosa\n[Eb]Tiene una mirada sen[Bb]sual y una carita hermosa\nVerso 1\n[Cm]Ojos café y un [Ab]cuerpo de modelo, espectacular\n[Eb]No sé qué fue pero [Bb]noté\n[Cm]Usted tiene el pa[Ab]quete completo y me hipno[Eb]ticé [Bb]\n[Cm]Tú eres peligrosa como ruleta rusa [Ab]\n[Eb]Envuelve a los hombres cuando baila y después los [Bb]usa\n[Cm]De diseñador la cartera, también la [Ab]blusa\n[Eb]Una diabla con cara de diosa por eso es que a[Bb]busa\nVerso 2\n[Cm]Contigo camino en la cuerda floja [Ab]\n[Eb]'Tas llena de maldad, yo tengo lo que te des[Bb]poja\n[Cm]Engáñame pero que no te [Ab]coja\n[Eb]Porque a la primera te saco tarjeta [Bb]roja\nEstribillo\n[Cm]Ella es mala...` },
-            'michelle': { title: 'Michelle', concertKey: 'F', improvScale: 'F Mayor', advice: 'Uso magistral del intercambio modal (Fm en el verso).', chordType: 'M', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735860/The_Beatles_-_Michelle_Remastered_2009_kxgxcn.flac', lyrics: `Verso 1\n[F]Michelle, [Bbm7]ma belle\n[Eb6]These are words that [Ddim7]go together [C7]well\n[C7]My Mi[F]chelle\nVerso 2\n[F]Michelle, [Bbm7]ma belle\n[Eb6]Sont des mots qui [Ddim7]vont très bien en[C7]semble\n[C7]Très bien en[F]semble\nPuente\n[Fm]I love you, I love you, I love you\n[Ab7]That's all I want to [Db]say\n[C7]Until I find a [Fm]way\nI will [Fm]say the [Fm7]only [Fm6]words I [Bbm]know that [C7]you'll under[F]stand\nVerso 3\n[F]Michelle, [Bbm7]ma belle\n[Eb6]Sont des mots qui [Ddim7]vont très bien en[C7]semble\n[C7]Très bien en[F]semble\nPuente\n[Fm]I need to, I need to, I need to\n[Ab7]I need to make you [Db]see\n[C7]Oh, what you mean to [Fm]me\nUntil [Fm]I do [Fm7]I'm [Fm6]hoping [Bbm]you will [C7]know what I [F]mean\n[F]I love you` },
-            'overkill': { title: 'Overkill', concertKey: 'D', improvScale: 'D Mixolidia', advice: 'Acordes sus4 crean la tensión nocturna. Bajo sincopado.', chordType: 'M', steps: SCALE_STEPS['Mixolidia'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735934/Men_At_Work_-_Overkill_kwvcxn.flac', lyrics: `Verso 1\n[D]I can't get to [A]sleep\n[C]I think about the [G]implications\n[D]Of diving in too [A]deep\n[C]And possibly the [G]complications\nVerso 2\n[D]Especially at [A]night\n[C]I worry over [G]situations\n[D]I know will be all [A]right\n[C]Perhaps it's just i[G]magination\nEstribillo\n[Bm]Day [Asus4]after [G]day it reappe[A]ars\n[Bm]Night [Asus4]after [G]night my heartbeat shows the [F#sus4] [F#]fear\n[Bm]Ghosts [Asus4]appear and [G]fade a[A]way\n[Bm]Alone [Asus4]between the [G]sheets [F#sus4] [F#]only brings exasperation\nVerso 3\n[D]It's time to walk the [A]streets\n[C]Smell the [G]desperation\n[D]At least there's pretty [A]lights\n[C]And though there's little [G]variation\n[D]It nullifies the [A]night\n[C]From overkill [G]\nEstribillo\n[Bm]Day [Asus4]after [G]day...` },
-            'quien-fuera-bunkers': { title: 'Quien Fuera (Los Bunkers)', concertKey: 'A / Am', improvScale: 'A Mayor', advice: 'Versos en A Mayor, Coro en Am (modulación homónima). Rock vibrante.', chordType: 'm', steps: SCALE_STEPS['Mayor'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735933/Los_Bunkers_-_Qui%C3%A9n_Fuera_nriiye.flac', lyrics: `Verso 1 (A Mayor)\n[A]Estoy buscando una pa[F#m]labra\n[A]En el umbral de tu mis[F#m]terio\n[D]Quién fuera Alí Ba[Bm]bá\n[Bm]Quién fuera el mítico Sim[C#m]bad\n[D]Quién fuera un poderoso sor[E]tilegio\n[E]Quién fuera encanta[A]dor\nVerso 2 (A Mayor)\n[A]Estoy buscando una esca[F#m]fandra\n[A]Al pie del mar de los de[F#m]lirios\n[D]Quién fuera Jacques Cous[Bm]teau\n[Bm]Quién fuera Nemo el capi[C#m]tán\n[D]Quién fuera el batiscafo de tu a[E]bismo\n[E]Quién fuera explora[A]dor\nEstribillo (A Menor)\n[Am]Quién [G]fuera [C]sol\n[F]Para entrar por tu [E7]ventana\n[Am]Quién [G]fuera [C]mar\n[F]Para mojar tu [E7]cama\n[Am]Quién [G]fuera [C]sol\n[F]Para entrar por tu [E7]ventana\n[Am]Quién [G]fuera [C]mar\n[F]Para mojar tu [E7]cama\nPuente\n[Am]Corazón, corazón [G]oscuro\n[G]Corazón, corazón [F]con muros\n[F]Corazón que se [E7]esconde\n[E7]Corazón que está [Am]donde\n[Am]Corazón [G]en fuga\n[F]Herido de dudas de [E7]amor\nVerso 3 (A Mayor)\n[A]Estoy buscando una me[F#m]lodía\n[A]Para tener como lla[F#m]marte\n[D]Quién fuera ruise[Bm]ñor\n[Bm]Quién fuera Lennon y Mc[C#m]Cartney\n[D]Sindo Garay, Violeta, Chico Bu[E]arque\n[E]Quién fuera tu trova[A]dor` },
-            'smooth-operator': { title: 'Smooth Operator', concertKey: 'Dm', improvScale: 'D Dórica', advice: 'El bajo lleva la melodía. Sophisti-pop elegante.', chordType: 'm7', steps: SCALE_STEPS['Eólica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735926/Sade_-_Smooth_Operator_2011_Remastered_hxznit.flac', lyrics: `Verso 1\n[Dm7]Diamond life, [Am7]lover boy\n[Dm7]He move in space with [Am7]minimum waste and [Gm7]maximum joy\n[Gm7]City lights and [Am7]business nights\n[Dm7]When you require [Am7]streetcar desire for [Gm7]higher heights\nVerso 2\n[Dm7]No place for be[Am7]ginners or [Gm7]sensitive hearts [Am7]\n[Dm7]Sentiment is [Am7]left to [Gm7]chance\n[Dm7]No place to be [Am7]ending but [Gm7]somewhere to start\nEstribillo\n[Dm7]Smooth [Am7]operator\n[Gm7]Smooth [Am7]operator\n[Dm7]Smooth [Am7]operator\n[Gm7]Smooth [Am7]operator\nVerso 3\n[Dm7]Coast to coast, [Am7]LA to Chicago, [Gm7]western male [Am7]\n[Dm7]Across the North and [Am7]South, to Key Largo, [Gm7]love for sale [Am7]\n[Dm7]Face to face, [Am7]each classic case\n[Gm7]We shadow box and [Am7]double cross\n[Gm7]Yet need the chase\nEstribillo\n[Dm7]Smooth [Am7]operator...` },
-            'shape-of-my-heart': { title: 'Shape of my heart', concertKey: 'F#m', improvScale: 'F# Eólica', advice: 'Arpegio complejo. C#7sus4 dominante.', chordType: 'm', steps: SCALE_STEPS['Eólica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735927/Sting_-_Shape_Of_My_Heart_llbb9e.flac', lyrics: `Verso 1\n[F#m]He deals the [E6]cards as a [D6]meditation\n[C#sus4]And those he [C#7]plays never sus[F#m]pect\n[D]He doesn't [A]play for the [E]money he wins\n[D]He doesn't [C#7]play for res[F#m]pect\nVerso 2\n[F#m]He deals the [E6]cards to find the [D6]answer\n[C#sus4]The sacred [C#7]geometry of [F#m]chance\n[D]The hidden [A]law of a [E]probable outcome\n[D]The numbers [C#7]lead a [F#m]dance\nEstribillo\n[D]I know that [A]the spades are the [E]swords of a soldier\n[D]I know that [A]the clubs are weapons of [E]war\n[D]I know that [A]diamonds mean [E]money for this art\n[D]But that's not the [C#7]shape of my [F#m]heart\nVerso 3\n[F#m]He may [E6]play the jack of [D6]diamonds\n[C#sus4]He may lay the [C#7]queen of [F#m]spades\n[D]He may con[A]ceal a [E]king in his hand\n[D]While the memory [C#7]of it [F#m]fades\nEstribillo\n[D]I know that [A]the spades...\nVerso 4\n[F#m]And if I [E6]told you that I [D6]loved you\n[C#sus4]You'd maybe [C#7]think there's something [F#m]wrong\n[D]I'm not a [A]man of [E]too many faces\n[D]The mask I [C#7]wear is [F#m]one` },
-            'sirius': { title: 'Sirius', concertKey: 'Am', improvScale: 'A Menor', advice: 'Instrumental. Delay en corcheas con puntillo en el Clavinet.', chordType: 'm', steps: SCALE_STEPS['Eólica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735919/The_Alan_Parsons_Project_-_Sirius_d84rn3.flac', lyrics: `Instrumental (Clavinet Riff - Delay)\n[Bm] (Bajo pedal sobre el riff)\n[G] [Fmaj7] [E7]\n(Entrada de Batería y Guitarra eléctrica)\n[Bm]... [G]... [Fmaj7]... [E7]...\n(Transición directa a "Eye in the Sky")` },
-            'the-end': { title: 'The End', concertKey: 'A / C', improvScale: 'A Blues', advice: 'Solo de batería -> Solos de guitarra (A Blues) -> Piano Final (C).', chordType: 'M', steps: SCALE_STEPS['Jónica'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735910/The_Beatles_-_The_End_Remastered_2009_iu8sii.flac', lyrics: `Verso 1\n[C]Oh yeah, [Bm]all right\n[Am]Are you [D7]gonna be [G]in my dreams To[G7]night?\nInstrumental\n(Solo de Batería - Ringo Starr)\n(Solos de Guitarra - Paul, George, John alternados en [A7])\nFinal\n[C]And in the [G]end\nThe [F]love you [C]take\nIs [Dm]equal [G]to the love [C]you make.\n[Dm] [Em] [F] [G] [A] (Fade out)` },
-            'tin-man': { title: 'Tin Man', concertKey: 'G', improvScale: 'G Jónica', advice: 'Acordes maj7 esenciales. El paso Gmaj7 a Cmaj7 es todo el verso.', chordType: 'maj7', steps: SCALE_STEPS['Mayor'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735920/America_-_Tin_Man_wjt4sg.flac', lyrics: `Verso 1\n[Gmaj7]Sometimes late when things are [Cmaj7]real\n[Gmaj7]And people share the gift of gab be[Cmaj7]tween themselves\n[Gmaj7]Some are quick to take the [Cmaj7]bait\n[Gmaj7]And catch the perfect prize that waits a[Cmaj7]mong the shells\nEstribillo\n[Em7]But Oz never did give nothing to the [Gmaj7]Tin Man\n[Gmaj7]That he didn't, didn't already [Bm7]have\nAnd [Cmaj7]Cause never was the reason for the [Bm7]evening\nOr the [Cmaj7]tropic of Sir Gala[Gmaj7]had\nPuente\n[C/D]So [D7]please believe in me\n[Gmaj7]When I say I'm spinning round, round, round, [Cmaj7]round\n[Gmaj7]Smoke glass stain bright color\n[Cmaj7]Image going down, down, down, down\n[Gmaj7]Soapsuds green like bubbles [Cmaj7]\nEstribillo\n[Em7]But Oz never did give nothing... (x2)` },
-            'up-around-the-bend': { title: 'Up Around the Bend', concertKey: 'D', improvScale: 'D Mayor Pentatónica', advice: 'Riff de guitarra en D. Shuffle energético.', chordType: 'M', steps: SCALE_STEPS['Mayor'], audioUrl: 'https://res.cloudinary.com/dmhdcqlqu/video/upload/v1764735873/Creedence_Clearwater_Revival_-_Up_Around_The_Bend_qnktfe.flac', lyrics: `Verso 1\n[D]There's a place up ahead and I'm [A]goin'\n[A]Just as fast as my feet can [D]fly\n[D]Come away, come away if you're [A]goin'\n[A]Leave the sinking ship be[D]hind\nEstribillo\n[G]Come on the rising [D]wind, [G]We're goin' up around the [A]bend\n[A]Ooh! [D]\nVerso 2\n[D]Bring a song and a smile for the [A]banjo\n[A]Better get while the gettin's [D]good\n[D]Hitch a ride to the end of the [A]highway\n[A]Where the neons turn to [D]wood\nEstribillo\n[G]Come on the rising [D]wind...\nVerso 3\n[D]You can ponder perpetual [A]motion\n[A]Fix your mind on a crystal [D]day\n[D]Always time for a good conver[A]sation\n[A]There's an ear for what you [D]say\nEstribillo\n[G]Come on the rising [D]wind...` }
-        };
+        let SONGS_DATA = {};
+        let player; // Variable para el reproductor de YouTube
+        let updateInterval; // Intervalo para actualizar la barra de progreso
 
+        /* --- CARGA DE API DE YOUTUBE --- */
+        var tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        var firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('youtube-player', {
+                height: '100%',
+                width: '100%',
+                playerVars: { 'playsinline': 1, 'controls': 1, 'modestbranding': 1, 'rel': 0 },
+                events: {
+                    'onStateChange': onPlayerStateChange,
+                    'onReady': onPlayerReady
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            // El reproductor está listo
+        }
+
+        function onPlayerStateChange(event) {
+            const playIcon = document.getElementById('play-icon');
+            const playBtn = document.getElementById('play-btn');
+
+            if (event.data == YT.PlayerState.PLAYING) {
+                playIcon.classList.replace('bi-play-fill', 'bi-pause-fill'); 
+                playBtn.classList.add('playing-pulse');
+                startProgressLoop();
+            } else {
+                playIcon.classList.replace('bi-pause-fill', 'bi-play-fill'); 
+                playBtn.classList.remove('playing-pulse');
+                stopProgressLoop();
+            }
+        }
+
+        /* --- EXTRACTOR DE ID DE YOUTUBE --- */
+        function extractVideoID(url) {
+            var regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+            var match = url.match(regExp);
+            return (match && match[7].length == 11) ? match[7] : false;
+        }
+
+        /* --- PARSER CSV --- */
+        function parseCSV(str) {
+            const arr = [];
+            let quote = false;
+            let col = 0, row = 0;
+            for (let c = 0; c < str.length; c++) {
+                let cc = str[c], nc = str[c+1];
+                arr[row] = arr[row] || [];
+                arr[row][col] = arr[row][col] || '';
+                
+                if (cc == '"' && quote && nc == '"') { arr[row][col] += cc; ++c; continue; }
+                if (cc == '"') { quote = !quote; continue; }
+                if (cc == ',' && !quote) { ++col; continue; }
+                if (cc == '\r' && nc == '\n' && !quote) { ++row; col = 0; ++c; continue; }
+                if (cc == '\n' && !quote) { ++row; col = 0; continue; }
+                if (cc == '\r' && !quote) { ++row; col = 0; continue; }
+                arr[row][col] += cc;
+            }
+            return arr;
+        }
+
+        async function fetchSongs() {
+            try {
+                const response = await fetch(SHEET_CSV_URL);
+                if(!response.ok) throw new Error("Error de Red");
+                const text = await response.text();
+                const rawData = parseCSV(text);
+                
+                const headers = rawData[0].map(h => h.trim());
+                
+                for(let i=1; i<rawData.length; i++) {
+                    const row = rawData[i];
+                    if(row.length < headers.length) continue;
+                    
+                    const songObj = {};
+                    headers.forEach((header, index) => {
+                        songObj[header] = row[index];
+                    });
+
+                    if(songObj.id) {
+                        songObj.steps = SCALE_STEPS[songObj.scaleType] || SCALE_STEPS['Natural'];
+                        SONGS_DATA[songObj.id] = songObj;
+                    }
+                }
+
+                const selector = document.getElementById('song-selector');
+                selector.innerHTML = '<option value="" disabled selected>-- Selecciona Pieza --</option>';
+                Object.keys(SONGS_DATA).sort().forEach(key => {
+                    const option = document.createElement('option'); 
+                    option.value = key; 
+                    option.textContent = SONGS_DATA[key].title; 
+                    selector.appendChild(option);
+                });
+
+                document.getElementById('loader-overlay').style.display = 'none';
+
+            } catch (error) {
+                console.error("Error cargando CSV:", error);
+                document.getElementById('loader-overlay').innerHTML = `<p class="text-red-500 font-bold">Error cargando datos.<br>Revisa la consola.</p>`;
+            }
+        }
+
+        /* --- FUNCIONES TEORIA MUSICAL (MISMAS) --- */
         function getNoteIndex(note) { let baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim().replace('♭', 'b').replace('♯', '#'); baseNote = {'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'}[baseNote] || baseNote; return NOTES.indexOf(baseNote); }
         function transposeNote(note, semitones) { 
             const baseNote = note.replace(/[^A-G#♭♯b]/g, '').trim(); 
@@ -322,10 +421,11 @@
             return { main: mainNotes, passing: transposedNotes.filter(n => !mainNotes.includes(n)) };
         }
         function transposeLyrics(lyrics, semitones) {
+            if(!lyrics) return "Letra no disponible.";
             return lyrics.replace(/\[(.*?)\]/g, (match, chord) => `<span class="text-alter-cyan font-bold">[${transposeNote(chord, semitones)}]</span>`);
         }
-        
         function extractBaseChords(lyrics) {
+            if(!lyrics) return "N/A";
             const matches = lyrics.match(/\[(.*?)\]/g);
             if (!matches) return "N/A";
             const chords = matches.map(m => m.replace(/[\[\]]/g, ''));
@@ -343,7 +443,6 @@
             
             let baseChordsStr = data.baseChords || extractBaseChords(data.lyrics);
             let trChords = baseChordsStr.replace(/(\w[#♭b]?\/?\w[#♭b]?)(m|maj|sus|add|\d|M)?\d*/g, (m) => trNote(m));
-            
             let trScale = data.improvScale.replace(/(\w[#♭b]?)\s/, (m, r) => trNote(r) + " ");
             
             const scaleNotes = generateScaleNotes(data.improvScale.match(/(\w[#♭b]?)\s/)?.[1] || 'C', data.steps || SCALE_STEPS['Natural'], semitones);
@@ -358,17 +457,14 @@
             };
         }
 
-        /* --- LOGICA DEL REPRODUCTOR --- */
-        const audioPlayer = document.getElementById('audio-player');
+        /* --- CONTROLES YOUTUBE --- */
         const playBtn = document.getElementById('play-btn');
         const playIcon = document.getElementById('play-icon');
         const seekBar = document.getElementById('seek-bar');
         const currentTimeEl = document.getElementById('current-time');
         const totalDurationEl = document.getElementById('total-duration');
         
-        // Variables para Loop
-        let loopStart = null;
-        let loopEnd = null;
+        let loopStart = null, loopEnd = null;
 
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
@@ -377,43 +473,40 @@
         }
 
         function toggleAudio() {
-            if (audioPlayer.paused) { 
-                audioPlayer.play(); 
-                playIcon.classList.replace('bi-play-fill', 'bi-pause-fill'); 
-                playBtn.classList.add('playing-pulse'); 
-            } else { 
-                audioPlayer.pause(); 
-                playIcon.classList.replace('bi-pause-fill', 'bi-play-fill'); 
-                playBtn.classList.remove('playing-pulse'); 
+            if (player && player.getPlayerState() === YT.PlayerState.PLAYING) {
+                player.pauseVideo();
+            } else if (player) {
+                player.playVideo();
             }
         }
 
-        function skipTime(seconds) {
-            audioPlayer.currentTime += seconds;
+        function skipTime(seconds) { 
+            if(player) {
+                let current = player.getCurrentTime();
+                player.seekTo(current + seconds, true);
+            }
         }
 
         function updateSpeed(val) {
-            audioPlayer.playbackRate = val;
-            document.getElementById('speed-val').textContent = val + "x";
+            if(player) {
+                player.setPlaybackRate(parseFloat(val));
+                document.getElementById('speed-val').textContent = val + "x";
+            }
         }
 
-        // Loop Functions
         function setLoopA() {
-            loopStart = audioPlayer.currentTime;
-            document.getElementById('loop-a-btn').classList.add('loop-active');
-            document.getElementById('loop-b-btn').disabled = false;
+            if(player) {
+                loopStart = player.getCurrentTime();
+                document.getElementById('loop-a-btn').classList.add('loop-active');
+                document.getElementById('loop-b-btn').disabled = false;
+            }
         }
 
         function setLoopB() {
-            if (loopStart !== null) {
-                loopEnd = audioPlayer.currentTime;
-                // Asegurar que B es después de A
-                if (loopEnd <= loopStart) { 
-                    loopEnd = loopStart + 1; // Mínimo 1 seg
-                }
+            if (loopStart !== null && player) {
+                loopEnd = player.getCurrentTime();
+                if (loopEnd <= loopStart) loopEnd = loopStart + 1;
                 document.getElementById('loop-b-btn').classList.add('loop-active');
-                
-                // Mostrar estado
                 const statusDiv = document.getElementById('loop-status-msg');
                 document.getElementById('loop-times').textContent = `${formatTime(loopStart)} - ${formatTime(loopEnd)}`;
                 statusDiv.classList.remove('opacity-0');
@@ -421,39 +514,44 @@
         }
 
         function clearLoop() {
-            loopStart = null;
-            loopEnd = null;
+            loopStart = null; loopEnd = null;
             document.getElementById('loop-a-btn').classList.remove('loop-active');
             document.getElementById('loop-b-btn').classList.remove('loop-active');
             document.getElementById('loop-b-btn').disabled = true;
             document.getElementById('loop-status-msg').classList.add('opacity-0');
         }
 
-        // Event Listeners de Audio
-        audioPlayer.addEventListener('loadedmetadata', () => {
-            seekBar.max = audioPlayer.duration;
-            totalDurationEl.textContent = formatTime(audioPlayer.duration);
-        });
+        // Ticker manual para actualizar barra y checar loop (YouTube no tiene evento timeupdate fiable)
+        function startProgressLoop() {
+            stopProgressLoop();
+            updateInterval = setInterval(() => {
+                if(!player) return;
+                let current = player.getCurrentTime();
+                let duration = player.getDuration();
 
-        audioPlayer.addEventListener('timeupdate', () => {
-            // Lógica de Loop
-            if (loopStart !== null && loopEnd !== null) {
-                if (audioPlayer.currentTime >= loopEnd || audioPlayer.currentTime < loopStart) {
-                    audioPlayer.currentTime = loopStart;
+                seekBar.max = duration;
+                seekBar.value = current;
+                currentTimeEl.textContent = formatTime(current);
+                totalDurationEl.textContent = formatTime(duration);
+
+                // Lógica de Loop
+                if (loopStart !== null && loopEnd !== null) {
+                    if (current >= loopEnd || current < loopStart) {
+                        player.seekTo(loopStart, true);
+                    }
                 }
-            }
+            }, 500);
+        }
 
-            // Actualizar UI
-            seekBar.value = audioPlayer.currentTime;
-            currentTimeEl.textContent = formatTime(audioPlayer.currentTime);
+        function stopProgressLoop() {
+            if(updateInterval) clearInterval(updateInterval);
+        }
+
+        seekBar.addEventListener('input', () => { 
+            if(player) player.seekTo(seekBar.value, true); 
         });
 
-        seekBar.addEventListener('input', () => {
-            audioPlayer.currentTime = seekBar.value;
-        });
-
-        /* --- FIN LOGICA REPRODUCTOR --- */
-
+        /* --- ACTUALIZAR DATOS --- */
         function updateAnalysis() {
             const songKey = document.getElementById('song-selector').value, instrument = document.querySelector('input[name="instrument"]:checked').value;
             if (!songKey) return;
@@ -466,7 +564,7 @@
             document.getElementById('transposed-chords').textContent = data.chords;
             document.getElementById('transposed-scale').textContent = data.scale;
             document.getElementById('lyrics-content').innerHTML = data.lyrics;
-            document.getElementById('execution-advice').innerHTML = originalData.advice;
+            document.getElementById('execution-advice').innerHTML = originalData.advice || "Sin comentarios adicionales.";
             
             const mainDiv = document.getElementById('main-notes'), passDiv = document.getElementById('passing-notes');
             mainDiv.innerHTML = data.scaleNotes.main.map(n => `<span class="note-chip main-note">${n}</span>`).join('');
@@ -477,28 +575,19 @@
             document.getElementById('guitar-diagram-svg').innerHTML = generateGuitarDiagram(data.tonicChordNotes);
             document.getElementById('piano-diagram-svg').innerHTML = generatePianoDiagram(data.tonicChordNotes);
             
-            if (originalData.audioUrl && audioPlayer.src !== originalData.audioUrl) {
-                audioPlayer.src = originalData.audioUrl; 
-                audioPlayer.load();
-                // Resetear controles al cambiar canción
-                clearLoop();
-                updateSpeed(1);
-                document.getElementById('speed-control').value = 1;
-                
-                playIcon.classList.replace('bi-pause-fill', 'bi-play-fill'); 
-                playBtn.classList.remove('playing-pulse', 'hidden');
-            } else if (!originalData.audioUrl) { 
-                audioPlayer.pause(); 
-                playBtn.classList.add('hidden'); 
+            // Cargar Video de YouTube
+            if (originalData.audioUrl && player) {
+                const videoId = extractVideoID(originalData.audioUrl);
+                if(videoId) {
+                    player.loadVideoById(videoId);
+                    clearLoop();
+                    updateSpeed(1);
+                    document.getElementById('speed-control').value = 1;
+                }
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const selector = document.getElementById('song-selector');
-            Object.keys(SONGS_DATA).sort().forEach(key => {
-                const option = document.createElement('option'); option.value = key; option.textContent = SONGS_DATA[key].title; selector.appendChild(option);
-            });
-        });
+        document.addEventListener('DOMContentLoaded', fetchSongs);
 
         // 3D BACKGROUND
         const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000), renderer = new THREE.WebGLRenderer({alpha:true, antialias:true});
