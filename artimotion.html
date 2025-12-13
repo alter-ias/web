@@ -2,61 +2,45 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Raw Audio Reactive</title>
+    <title>Artimotion - Pure Neon Audio</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; user-select: none; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
         
-        #loading { 
-            position: absolute; top: 50%; left: 50%; 
-            transform: translate(-50%, -50%);
-            color: #0ff; font-size: 14px; letter-spacing: 2px;
-            background: rgba(0, 10, 20, 0.9); padding: 20px 40px; border-radius: 4px;
-            border: 1px solid #0ff; box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
-            pointer-events: none; z-index: 10; text-align: center;
+        #overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 20;
+            transition: opacity 0.5s ease;
         }
+        
+        #start-btn {
+            padding: 20px 50px; font-size: 24px; color: #0ff; background: transparent;
+            border: 2px solid #0ff; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 0 30px rgba(0,255,255,0.3); letter-spacing: 2px;
+            transition: all 0.3s; text-transform: uppercase;
+        }
+        #start-btn:hover { background: #0ff; color: #000; box-shadow: 0 0 60px rgba(0,255,255,0.8); }
 
         #bottom-menu {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 10px; z-index: 5;
-            background: rgba(0, 0, 0, 0.6); padding: 10px; border-radius: 15px;
-            border-top: 1px solid rgba(255,255,255,0.1); align-items: center;
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 15px; z-index: 10;
         }
 
-        .mode-btn {
-            background: rgba(30, 30, 30, 0.8); color: #888; border: 1px solid #444;
-            padding: 10px 15px; border-radius: 8px; cursor: pointer;
-            font-weight: bold; text-transform: uppercase; font-size: 11px;
-            transition: all 0.2s ease; min-width: 80px; text-align: center;
+        .control-group {
+            background: rgba(20, 20, 30, 0.8); padding: 10px 20px; border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px; align-items: center;
         }
 
-        .mode-btn:hover { background: #444; color: #fff; border-color: #fff; }
-        .mode-btn.active { background: #0ff; color: #000; border-color: #0ff; box-shadow: 0 0 15px #0ff; }
-        .mode-btn.react-active { background: #ff0055; color: #fff; border-color: #ff0055; box-shadow: 0 0 15px #ff0055; }
-        
-        /* Contenedor del Micrófono y Barra de Nivel */
-        .mic-container { display: flex; flex-direction: column; gap: 5px; align-items: center; }
-        .mode-btn.mic-active { background: #00ff66; color: #000; border-color: #00ff66; box-shadow: 0 0 15px #00ff66; }
-        
-        #mic-level-bg {
-            width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; border: 1px solid #444;
-        }
-        #mic-level-bar {
-            width: 0%; height: 100%; background: #00ff66; transition: width 0.05s linear;
-        }
+        .label { color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-right: 5px;}
 
-        #audio-hint {
-            position: absolute; top: 20px; right: 20px; 
-            color: rgba(255,255,255,0.5); font-size: 10px; z-index: 5;
-            text-align: right; line-height: 1.5; pointer-events: none;
+        #mic-bar-container {
+            width: 100px; height: 6px; background: #111; border-radius: 3px; overflow: hidden;
         }
+        #mic-bar { width: 0%; height: 100%; background: #0f0; transition: width 0.05s; }
 
-        .lil-gui { --background-color: rgba(5, 5, 10, 0.9); --text-color: #ddd; --title-background-color: #111; }
+        .lil-gui { --background-color: rgba(5, 5, 10, 0.9); --text-color: #ddd; }
     </style>
-
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
@@ -65,307 +49,255 @@
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // --- PARÁMETROS ---
+        // PARAMS
         const params = {
-            trailStyle: 'Ribbon', 
-            lineWidth: 0.8,
-            bloomStrength: 1.5,
-            particleSize: 1.0, 
-            mode: 'Spectral',
-            inputSensitivity: 1.5,
-            soundEnabled: true,
-            audioReact: false, 
-            audioSource: 'Internal', 
-            micGain: 5.0, // Ganancia inicial alta
-            key: 'A',
-            reset: () => resetCanvas()
+            lineCount: 5,
+            pointsPerLine: 128, // Resolución de la onda
+            amplitude: 2.0,     // Altura de la onda
+            speed: 1.0,
+            bloomStrength: 2.0,
+            colorMode: 'Spectral', // Spectral, Neon, Fire
+            sensitivity: 2.0
         };
 
-        // --- AUDIO ENGINE MEJORADO (WAVEFORM) ---
-        class AudioEngine {
+        // --- AUDIO ENGINE (Simplificado y Robusto) ---
+        class AudioSystem {
             constructor() {
                 this.ctx = null;
-                // Synth
-                this.melodyOsc = null; this.gainMelody = null;
-                this.chordOscs = []; this.gainChord = null;
-                this.masterGain = null;
-                // Mic
-                this.micStream = null; this.micSource = null;
-                this.micAnalyser = null; this.micData = null;
-                this.isMicActive = false;
-                this.isInit = false;
+                this.analyser = null;
+                this.dataArray = null;
+                this.source = null;
+                this.isReady = false;
             }
 
-            init() {
-                if (this.isInit) return;
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                this.ctx = new AudioContext();
-                this.masterGain = this.ctx.createGain();
-                this.masterGain.connect(this.ctx.destination);
-
-                // Config Synth (Melody + Chords) - Simplificado
-                this.melodyOsc = this.ctx.createOscillator(); this.melodyOsc.type = 'triangle';
-                this.gainMelody = this.ctx.createGain(); this.gainMelody.gain.value = 0;
-                this.melodyOsc.connect(this.gainMelody); this.gainMelody.connect(this.masterGain);
-                this.melodyOsc.start();
-
-                this.gainChord = this.ctx.createGain(); this.gainChord.gain.value = 0;
-                this.gainChord.connect(this.masterGain);
-                for(let i=0; i<3; i++){
-                    const o = this.ctx.createOscillator(); o.type='sine';
-                    o.connect(this.gainChord); o.start(); this.chordOscs.push(o);
-                }
-                this.isInit = true;
-            }
-
-            async enableMicrophone() {
-                if(this.isMicActive) return;
+            async init() {
                 try {
-                    if (this.ctx && this.ctx.state === 'suspended') await this.ctx.resume();
-                    
-                    // IMPORTANTE: echoCancellation: false para audio "crudo"
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
                     const stream = await navigator.mediaDevices.getUserMedia({ 
-                        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, 
-                        video: false 
+                        audio: { 
+                            echoCancellation: false, 
+                            noiseSuppression: false, 
+                            autoGainControl: false 
+                        } 
                     });
                     
-                    this.micStream = stream;
-                    this.micSource = this.ctx.createMediaStreamSource(stream);
-                    this.micAnalyser = this.ctx.createAnalyser();
+                    this.source = this.ctx.createMediaStreamSource(stream);
+                    this.analyser = this.ctx.createAnalyser();
+                    this.analyser.fftSize = 512; // Tamaño de buffer para la onda
+                    this.analyser.smoothingTimeConstant = 0.5;
                     
-                    // Usamos TimeDomain (Forma de onda) para mejor respuesta a golpes/voces
-                    this.micAnalyser.fftSize = 512; 
-                    this.micData = new Uint8Array(this.micAnalyser.fftSize);
+                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                    this.source.connect(this.analyser);
                     
-                    this.micSource.connect(this.micAnalyser);
-                    this.isMicActive = true;
-                    this.updateHint();
-                } catch(e) {
+                    this.isReady = true;
+                    return true;
+                } catch (e) {
                     console.error(e);
-                    alert("No se pudo acceder al micrófono. Verifica permisos.");
-                    document.getElementById('btn-mic').click(); // Revertir UI
+                    alert("Error accediendo al micrófono. Revisa permisos.");
+                    return false;
                 }
             }
 
-            stopMicrophone() {
-                if(this.micStream) {
-                    this.micStream.getTracks().forEach(t => t.stop());
-                    this.isMicActive = false;
-                }
-                this.updateHint();
+            getWaveform() {
+                if(!this.isReady) return new Uint8Array(256).fill(128);
+                this.analyser.getByteTimeDomainData(this.dataArray);
+                return this.dataArray;
             }
 
-            // Nuevo cálculo basado en RMS (Root Mean Square) de la onda
             getVolume() {
-                if(!this.isInit) return 0;
-                
-                if(params.audioSource === 'Microphone' && this.isMicActive && this.micAnalyser) {
-                    this.micAnalyser.getByteTimeDomainData(this.micData);
-                    let sum = 0;
-                    for(let i = 0; i < this.micData.length; i++) {
-                        // El silencio es 128. Calculamos la desviación.
-                        const amplitude = (this.micData[i] - 128) / 128; 
-                        sum += amplitude * amplitude;
-                    }
-                    const rms = Math.sqrt(sum / this.micData.length);
-                    // Aplicar ganancia y limitar a 1.0
-                    return Math.min(rms * params.micGain, 1.0);
-                } 
-                
-                // Fallback para Synth (usamos el gain actual como proxy de volumen)
-                if(params.audioSource === 'Internal') {
-                    return this.gainMelody.gain.value + this.gainChord.gain.value; 
+                if(!this.isReady) return 0;
+                let sum = 0;
+                for(let i=0; i<this.dataArray.length; i++) {
+                    const v = (this.dataArray[i] - 128) / 128;
+                    sum += v*v;
                 }
-                return 0;
+                return Math.sqrt(sum / this.dataArray.length);
             }
-
-            updateHint() {
-                const src = (params.audioSource === 'Microphone' && this.isMicActive) ? 'MICRÓFONO (Raw)' : 'SINTETIZADOR';
-                document.getElementById('audio-hint').innerHTML = `FUENTE: ${src}<br>TONO: ${params.key}m`;
-            }
-
-            // Synth Helpers (Simplificados para no ocupar espacio)
-            setKey(k) { /* Lógica musical simplificada */ this.updateHint(); }
-            updateMelody(x,y,on) { if(this.isInit && params.soundEnabled) this.gainMelody.gain.setTargetAtTime(on ? (1-y)*0.2 : 0, this.ctx.currentTime, 0.1); }
-            updateChords(x,y,on) { if(this.isInit && params.soundEnabled) this.gainChord.gain.setTargetAtTime(on ? (1-y)*0.2 : 0, this.ctx.currentTime, 0.1); }
         }
-        const audioSys = new AudioEngine();
+        const audio = new AudioSystem();
 
-        // --- VISUALES ---
-        function createSoftTexture() {
-            const c=document.createElement('canvas'); c.width=32; c.height=32;
-            const x=c.getContext('2d'); const g=x.createRadialGradient(16,16,0,16,16,16);
-            g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(1,'rgba(255,255,255,0)');
-            x.fillStyle=g; x.fillRect(0,0,32,32); return new THREE.CanvasTexture(c);
-        }
-        const tex = createSoftTexture();
+        // --- 3D SCENE ---
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000000, 0.03);
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 15);
 
-        const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x000000, 0.02);
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000); camera.position.z = 12;
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight); 
+        renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
+        // Post-Processing (Bloom)
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-        const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth,window.innerHeight), 1.5, 0.4, 0.85);
-        composer.addPass(bloom);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.strength = params.bloomStrength;
+        composer.addPass(bloomPass);
 
-        const bgGroup = new THREE.Group(); scene.add(bgGroup);
-        const grid = new THREE.GridHelper(100, 40, 0x00ffff, 0x222222); grid.position.y = -10; grid.visible = false; bgGroup.add(grid);
-        
-        // --- OBJETOS REACTIVOS ---
-        class Trail {
-            constructor(i) {
-                this.i=i; this.tgt=new THREE.Vector3(0,-1000,0); this.cur=new THREE.Vector3(0,-1000,0);
-                this.pts=[]; for(let k=0;k<40;k++) this.pts.push(new THREE.Vector3(0,-1000,0));
-                this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({color:0xffffff, side:2, transparent:true, blending:2}));
-                this.mesh.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(240),3));
-                scene.add(this.mesh);
+        // --- NEON LINES ---
+        const lines = [];
+        const group = new THREE.Group();
+        scene.add(group);
+
+        function initLines() {
+            // Limpiar anteriores
+            while(group.children.length > 0){ 
+                group.remove(group.children[0]); 
             }
-            tick(t, vol) {
-                this.cur.lerp(this.tgt, 0.15); this.pts.shift(); this.pts.push(this.cur.clone());
-                const path = new THREE.CatmullRomCurve3(this.pts, false, 'catmullrom', 0.5);
-                const p = path.getPoints(39);
-                const pos = this.mesh.geometry.attributes.position.array;
-                
-                // REACTIVIDAD: El grosor explota con el volumen
-                let wBase = params.lineWidth + (params.audioReact ? vol * 3.5 : 0);
+            lines.length = 0;
 
-                for(let i=0; i<p.length; i++){
-                    const d = new THREE.Vector3().subVectors(p[Math.min(i+1,39)], p[i]).normalize();
-                    if(d.lengthSq()===0) d.set(0,1,0);
-                    const r = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0,0,1)).normalize();
-                    const w = wBase * Math.sqrt(i/40);
-                    pos[i*6]=p[i].x-r.x*w; pos[i*6+1]=p[i].y-r.y*w; pos[i*6+2]=p[i].z;
-                    pos[i*6+3]=p[i].x+r.x*w; pos[i*6+4]=p[i].y+r.y*w; pos[i*6+5]=p[i].z;
+            const material = new THREE.LineBasicMaterial({ 
+                color: 0xffffff, 
+                linewidth: 3, // Nota: linewidth solo funciona en algunos browsers, usaremos Bloom para dar grosor visual
+                transparent: true,
+                opacity: 0.9,
+                vertexColors: true // Importante para degradados
+            });
+
+            // Ancho visible aproximado
+            const width = 40; 
+            const step = width / params.pointsPerLine;
+
+            for(let i = 0; i < params.lineCount; i++) {
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(params.pointsPerLine * 3);
+                const colors = new Float32Array(params.pointsPerLine * 3);
+
+                // Inicializar línea plana
+                for(let j = 0; j < params.pointsPerLine; j++) {
+                    positions[j*3] = (j * step) - (width/2); // X
+                    positions[j*3+1] = (i - params.lineCount/2) * 2; // Y (separación vertical)
+                    positions[j*3+2] = 0; // Z
                 }
-                this.mesh.geometry.attributes.position.needsUpdate=true;
+
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
                 
-                let h = (t * params.inputSensitivity * 0.1 + (this.i * 0.05)) % 1;
-                // REACTIVIDAD: El color brilla blanco con volumen alto
-                const l = 0.5 + (params.audioReact ? vol * 0.5 : 0); 
-                this.mesh.material.color.setHSL(h, 1.0, l);
+                const line = new THREE.Line(geometry, material);
+                // Guardar posición base Y para referencia
+                line.userData = { 
+                    baseY: (i - params.lineCount/2) * 1.5,
+                    offset: i * 0.5 // Desfase para que no se muevan igual
+                };
+                
+                group.add(line);
+                lines.push(line);
             }
         }
+        initLines();
 
-        const trails=[]; for(let i=0;i<10;i++) trails.push(new Trail(i));
-        function resetCanvas(){ trails.forEach(t=>t.tgt.set(0,-1000,0)); }
-
-        // --- UI LOGIC ---
-        const btnVoid = document.getElementById('btn-void');
-        const btnGrid = document.getElementById('btn-grid');
-        const btnReact = document.getElementById('btn-react');
-        const btnMic = document.getElementById('btn-mic');
-        const micBar = document.getElementById('mic-level-bar');
-
-        btnVoid.onclick=()=>{ grid.visible=false; btnVoid.classList.add('active'); btnGrid.classList.remove('active'); };
-        btnGrid.onclick=()=>{ grid.visible=true; btnGrid.classList.add('active'); btnVoid.classList.remove('active'); };
-
-        // GUI Setup Seguro
-        const gui = new GUI({ title: 'Config' });
-        const fAudio = gui.addFolder('Audio Settings');
-        const reactCtrl = fAudio.add(params, 'audioReact').listen().name('Visual Reaction').onChange(v => {
-            btnReact.innerText = v ? "REACT: ON" : "REACT: OFF";
-            btnReact.classList.toggle('react-active', v);
-        });
-        fAudio.add(params, 'micGain', 1, 10).name('Mic Sensitivity');
-
-        // Toggle React
-        btnReact.onclick = () => { params.audioReact = !params.audioReact; reactCtrl.updateDisplay(); btnReact.innerText = params.audioReact ? "REACT: ON" : "REACT: OFF"; btnReact.classList.toggle('react-active', params.audioReact); };
-
-        // Toggle Mic
-        btnMic.onclick = async () => {
-            if(!audioSys.isInit) audioSys.init();
-            if(params.audioSource === 'Internal') {
-                params.audioSource = 'Microphone';
-                // Activar React automáticamente
-                if(!params.audioReact) btnReact.click();
-                await audioSys.enableMicrophone();
-                btnMic.innerText = "MIC: ON";
-                btnMic.classList.add('mic-active');
-            } else {
-                params.audioSource = 'Internal';
-                audioSys.stopMicrophone();
-                btnMic.innerText = "MIC: OFF";
-                btnMic.classList.remove('mic-active');
-                micBar.style.width = '0%';
-            }
-        };
-
-        // --- MEDIAPIPE ---
-        const hands = new Hands({locateFile: f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
-        hands.setOptions({maxNumHands:2, minDetectionConfidence:0.5});
-        hands.onResults(res => {
-            document.getElementById('loading').style.display='none';
-            let mel=false, ch=false;
-            if(res.multiHandLandmarks) res.multiHandLandmarks.forEach((lm,i) => {
-                if(i>1)return;
-                [4,8,12,16,20].forEach((fid,k) => {
-                    const idx=i*5+k;
-                    const x=(lm[fid].x-0.5)*(-25); const y=(lm[fid].y-0.5)*(-15); const z=-lm[fid].z*20;
-                    trails[idx].tgt.set(x,y,z);
-                });
-                if(i===0) { mel=true; audioSys.updateMelody(lm[8].x, lm[8].y, true); }
-                else { ch=true; audioSys.updateChords(lm[8].x, lm[8].y, true); }
-            });
-            if(!mel) audioSys.updateMelody(0,0,false); if(!ch) audioSys.updateChords(0,0,false);
-        });
-        const cam = new Camera(document.createElement('video'), {onFrame: async()=>{await hands.send({image:document.createElement('video')});}, width:1280, height:720}); 
-        // Nota: Truco rápido para la cámara, en prod usar video real pero aquí simplificamos el DOM
-        // Corrección: Necesitamos un elemento de video real para camera utils
-        const vEl = document.createElement('video');
-        const cam2 = new Camera(vEl, {onFrame: async()=>{await hands.send({image:vEl});}, width:640, height:480});
-        cam2.start();
-
-        // --- LOOP ---
+        // --- ANIMATION ---
         function animate() {
             requestAnimationFrame(animate);
-            const time = performance.now()*0.001;
+
+            const time = performance.now() * 0.001 * params.speed;
+            const waveData = audio.getWaveform(); // Array de 0 a 255 (128 es silencio)
+            const volume = audio.getVolume();
+
+            // Update Mic Bar UI
+            document.getElementById('mic-bar').style.width = `${Math.min(volume * 100 * 3, 100)}%`; // *3 para visualización
             
-            // 1. OBTENER VOLUMEN (0.0 a 1.0)
-            let vol = 0;
-            if(params.audioReact) vol = audioSys.getVolume();
+            // Bloom reactivo al volumen
+            bloomPass.strength = params.bloomStrength + (volume * 2.0);
 
-            // 2. ACTUALIZAR BARRA DE NIVEL (Feedback Visual)
-            if(params.audioSource === 'Microphone' && audioSys.isMicActive) {
-                micBar.style.width = `${Math.min(vol * 100, 100)}%`;
-            } else {
-                micBar.style.width = '0%';
-            }
+            // Actualizar líneas
+            lines.forEach((line, lineIndex) => {
+                const positions = line.geometry.attributes.position.array;
+                const colors = line.geometry.attributes.color.array;
+                const baseY = line.userData.baseY;
+                const offset = line.userData.offset;
 
-            // 3. EFECTOS GLOBALES
-            if(params.audioReact) {
-                bloom.strength = params.bloomStrength + (vol * 3.0);
-                camera.position.z = THREE.MathUtils.lerp(camera.position.z, 12 - (vol * 2.0), 0.2);
-            } else {
-                bloom.strength = params.bloomStrength;
-                camera.position.z = THREE.MathUtils.lerp(camera.position.z, 12, 0.1);
-            }
+                for(let j = 0; j < params.pointsPerLine; j++) {
+                    // Mapear índice de audio a punto de la línea
+                    // Interpolamos el array de audio para que coincida con los puntos
+                    const audioIndex = Math.floor((j / params.pointsPerLine) * waveData.length);
+                    const rawAudio = waveData[audioIndex]; 
+                    
+                    // Convertir 0-255 a -1 a 1
+                    let waveVal = (rawAudio - 128) / 128.0; 
+                    
+                    // Aplicar sensibilidad y amplitud
+                    waveVal *= params.amplitude * params.sensitivity;
 
-            trails.forEach(t => t.tick(time, vol));
-            if(grid.visible) grid.position.z = (time*2)%10;
+                    // Factor suavizado en los bordes (para que la línea no salte en los extremos)
+                    const edgeFactor = Math.sin((j / (params.pointsPerLine-1)) * Math.PI);
+
+                    // Nueva posición Y: Base + Onda + Movimiento senoidal suave
+                    const y = baseY + (waveVal * edgeFactor);
+                    
+                    // Actualizar Y
+                    positions[j*3 + 1] = y;
+
+                    // COLOR
+                    const color = new THREE.Color();
+                    let hue = 0;
+
+                    if(params.colorMode === 'Spectral') {
+                        hue = (j * 0.01 + time * 0.2 + lineIndex * 0.1) % 1;
+                        color.setHSL(hue, 1.0, 0.5 + Math.abs(waveVal)*0.5);
+                    } else if (params.colorMode === 'Neon') {
+                        hue = (0.5 + Math.abs(waveVal)*0.5 + time * 0.1) % 1; // Azules/Cyan
+                         color.setHSL(hue, 1.0, 0.6);
+                    } else { // Fire
+                        hue = (Math.abs(waveVal) * 0.3 + lineIndex*0.05) % 1;
+                        color.setHSL(hue, 1.0, 0.5);
+                    }
+
+                    colors[j*3] = color.r;
+                    colors[j*3+1] = color.g;
+                    colors[j*3+2] = color.b;
+                }
+
+                line.geometry.attributes.position.needsUpdate = true;
+                line.geometry.attributes.color.needsUpdate = true;
+                
+                // Rotación sutil de todo el grupo
+                group.rotation.x = Math.sin(time * 0.1) * 0.1;
+                group.rotation.z = Math.cos(time * 0.15) * 0.05;
+            });
+
             composer.render();
         }
-        animate();
-        
-        window.addEventListener('resize', () => { camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); composer.setSize(window.innerWidth,window.innerHeight); });
-        window.addEventListener('click', () => { if(!audioSys.isInit) audioSys.init(); });
-        
-        btnVoid.click();
-    </script>
 
-    <div id="loading">INICIALIZANDO...</div>
-    <div id="audio-hint">CLICK PARA INICIAR</div>
-    
+        // --- EVENTS ---
+        document.getElementById('start-btn').addEventListener('click', async () => {
+            const success = await audio.init();
+            if(success) {
+                document.getElementById('overlay').style.opacity = 0;
+                setTimeout(() => document.getElementById('overlay').style.display = 'none', 500);
+                animate();
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // GUI
+        const gui = new GUI({ title: 'Ajustes' });
+        gui.add(params, 'amplitude', 0.1, 10.0).name('Altura Onda');
+        gui.add(params, 'sensitivity', 1.0, 10.0).name('Sensibilidad Mic');
+        gui.add(params, 'bloomStrength', 0.0, 5.0).name('Brillo Neón');
+        gui.add(params, 'colorMode', ['Spectral', 'Neon', 'Fire']).name('Color');
+        gui.add(params, 'lineCount', 1, 20, 1).name('Num Líneas').onChange(initLines);
+
+    </script>
+</head>
+<body>
+    <div id="overlay">
+        <button id="start-btn">ACTIVAR MICRÓFONO</button>
+        <p style="color: #666; margin-top: 20px; font-family: sans-serif; font-size: 12px;">Se requieren permisos de audio</p>
+    </div>
+
     <div id="bottom-menu">
-        <div id="btn-void" class="mode-btn active">Void</div>
-        <div id="btn-grid" class="mode-btn">Grid</div>
-        <div id="btn-react" class="mode-btn">REACT: OFF</div>
-        
-        <div class="mic-container">
-            <div id="btn-mic" class="mode-btn">MIC: OFF</div>
-            <div id="mic-level-bg"><div id="mic-level-bar"></div></div>
+        <div class="control-group">
+            <span class="label">Nivel de Entrada</span>
+            <div id="mic-bar-container">
+                <div id="mic-bar"></div>
+            </div>
         </div>
     </div>
 </body>
