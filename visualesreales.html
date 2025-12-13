@@ -2,45 +2,48 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Pro VJ Console</title>
+    <title>Artimotion - Ultimate VJ Station</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', monospace; }
         
         #overlay { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            background: rgba(0,0,0,0.92); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 20;
-            transition: opacity 0.5s ease;
+            transition: opacity 0.5s ease; text-align: center;
         }
+
+        .keys-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+            color: #888; margin-top: 30px; text-align: left; font-size: 14px;
+        }
+        .key { color: #0ff; font-weight: bold; border: 1px solid #0ff; padding: 2px 6px; border-radius: 4px;}
         
         button#start-btn {
-            padding: 15px 40px; font-size: 18px; color: #0ff; background: transparent;
-            border: 2px solid #0ff; border-radius: 50px; cursor: pointer;
-            box-shadow: 0 0 20px rgba(0,255,255,0.2); text-transform: uppercase; letter-spacing: 2px;
-            margin: 10px; transition: all 0.3s;
+            padding: 20px 60px; font-size: 24px; color: #0ff; background: transparent;
+            border: 2px solid #0ff; border-radius: 5px; cursor: pointer;
+            box-shadow: 0 0 20px rgba(0,255,255,0.2); text-transform: uppercase; letter-spacing: 4px;
+            margin-bottom: 20px; transition: all 0.2s;
         }
-        button#start-btn:hover { background: #0ff; color: #000; box-shadow: 0 0 50px rgba(0,255,255,0.8); }
+        button#start-btn:hover { background: #0ff; color: #000; box-shadow: 0 0 60px rgba(0,255,255,1); }
 
-        #ui-container {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 15px; z-index: 10; align-items: center;
+        #hud {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            color: #fff; text-shadow: 0 0 5px #000; pointer-events: none;
         }
+        .hud-line { margin-bottom: 5px; font-size: 12px; opacity: 0.8; }
+        .hud-value { color: #0ff; font-weight: bold; }
 
+        /* Input oculto para carga dinámica */
         #file-input { display: none; }
         
-        .action-btn {
-            padding: 12px 25px; background: rgba(20, 20, 30, 0.9); 
-            border: 1px solid #444; color: #fff; border-radius: 30px; 
-            cursor: pointer; font-size: 12px; font-weight: bold; text-transform: uppercase;
-            transition: 0.3s; display: flex; align-items: center; gap: 8px; min-width: 140px; justify-content: center;
+        /* Notificaciones visuales */
+        #notification {
+            position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); border: 1px solid #0ff; color: #0ff;
+            padding: 10px 30px; border-radius: 20px; font-weight: bold;
+            opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 15;
         }
-        .action-btn:hover { background: #333; border-color: #fff; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
-        
-        /* Estados Activos */
-        .action-btn.video-active { background: #ff0055; border-color: #ff0055; box-shadow: 0 0 20px #ff0055; color: white; }
-        .action-btn.cam-active { background: #00ff66; border-color: #00ff66; box-shadow: 0 0 20px #00ff66; color: black; }
-
-        .lil-gui { --background-color: rgba(10, 10, 10, 0.95); }
     </style>
 
     <script type="module">
@@ -50,321 +53,405 @@
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // --- PARÁMETROS ---
-        const params = {
-            effectMode: 0, // 0:Glitch, 1:RGB, 2:Pixel, 3:Kaleido, 4:Holo, 5:Liquid
-            mixRatio: 0.5,
-            distortion: 2.0,     // Fuerza de deformación 3D
-            effectStrength: 1.0, // Intensidad del efecto visual
-            bloomStrength: 1.5,
-            wireframe: false,
+        // --- ESTADO GLOBAL ---
+        const state = {
+            effectMode: 1, // 1-10
+            mixRatio: 0.0, // 0 = Video, 1 = Cam
+            distortion: 2.0,
             micGain: 5.0,
-            speed: 1.0
-        };
-
-        const effectNames = {
-            0: 'Standard Glitch',
-            1: 'RGB Split',
-            2: 'Pixelate',
-            3: 'Kaleidoscope',
-            4: 'Hologram',
-            5: 'Liquid Warp'
+            bloom: 1.5,
+            tint: new THREE.Color(1, 1, 1),
+            tintMix: 0.0, // 0 = Original, 1 = Tinted
+            activeSlot: null,
+            loadingSlot: null // Slot que se está cargando actualmente
         };
 
         // --- AUDIO ENGINE ---
         class AudioEngine {
-            constructor() { this.ctx = null; this.analyser = null; this.data = null; this.freqData = null; this.isReady = false; }
+            constructor() { this.ctx = null; this.analyser = null; this.data = null; this.freq = null; this.ready = false; }
             async init() {
                 try {
                     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false } });
-                    this.analyser = this.ctx.createAnalyser();
-                    this.analyser.fftSize = 512; 
-                    const src = this.ctx.createMediaStreamSource(stream);
-                    src.connect(this.analyser);
+                    this.analyser = this.ctx.createAnalyser(); this.analyser.fftSize = 512;
+                    this.ctx.createMediaStreamSource(stream).connect(this.analyser);
                     this.data = new Uint8Array(this.analyser.frequencyBinCount);
-                    this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
-                    this.isReady = true;
-                    return true;
+                    this.freq = new Uint8Array(this.analyser.frequencyBinCount);
+                    this.ready = true; return true;
                 } catch(e) { console.error(e); return false; }
             }
             getLevels() {
-                if(!this.isReady) return { vol: 0, bass: 0, mid: 0, high: 0 };
-                this.analyser.getByteFrequencyData(this.freqData);
+                if(!this.ready) return { vol: 0, bass: 0, high: 0 };
                 this.analyser.getByteTimeDomainData(this.data);
-                
-                // Volumen general (RMS)
-                let sum = 0; for(let i=0; i<this.data.length; i++) { const v=(this.data[i]-128)/128; sum+=v*v; }
-                const vol = Math.sqrt(sum/this.data.length) * params.micGain;
-
-                // Bandas de frecuencia (Simplificado)
-                const bass = this.freqData[10] / 255.0;
-                const mid = this.freqData[100] / 255.0;
-                const high = this.freqData[200] / 255.0;
-
-                return { vol, bass, mid, high };
+                this.analyser.getByteFrequencyData(this.freq);
+                let sum=0; for(let i=0;i<this.data.length;i++){ const v=(this.data[i]-128)/128; sum+=v*v; }
+                const vol = Math.sqrt(sum/this.data.length) * state.micGain;
+                const bass = this.freq[5] / 255.0;
+                const high = this.freq[200] / 255.0;
+                return { vol, bass, high };
             }
         }
         const audio = new AudioEngine();
 
-        // --- SCENE SETUP ---
+        // --- SCENE ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        camera.position.z = 8; // Cámara un poco más cerca
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        camera.position.z = 9;
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // --- TEXTURAS & VIDEO ---
-        const videoEl = document.createElement('video');
-        videoEl.loop = true; videoEl.muted = true; videoEl.crossOrigin = "anonymous"; videoEl.playsInline = true;
-        const videoTex = new THREE.VideoTexture(videoEl);
-
+        // --- TEXTURES ---
+        // Slots de Video: Guardamos elementos de video HTML aquí
+        const videoSlots = { 'g': null, 'h': null, 'j': null, 'k': null, 'l': null };
+        
+        // Textura "Activa" (se actualiza con el video del slot seleccionado)
+        const activeVideoTex = new THREE.VideoTexture(document.createElement('video')); // Dummy init
+        
+        // Webcam
         const webcamEl = document.createElement('video');
         webcamEl.muted = true; webcamEl.playsInline = true;
         const webcamTex = new THREE.VideoTexture(webcamEl);
 
-        function createPlasma() {
+        // Placeholder (Ruido inicial)
+        function createNoise() {
             const c=document.createElement('canvas'); c.width=64; c.height=64;
-            const x=c.getContext('2d'); x.fillStyle='#000'; x.fillRect(0,0,64,64);
+            const x=c.getContext('2d'); x.fillStyle='#111'; x.fillRect(0,0,64,64);
             return new THREE.CanvasTexture(c);
         }
-        const placeholderTex = createPlasma();
+        const noiseTex = createNoise();
 
-        // --- SHADER PERSONALIZADO (VJ ENGINE) ---
+        // --- SHADER (EL CEREBRO VISUAL) ---
         const uniforms = {
-            uTexVideo: { value: placeholderTex },
-            uTexCam: { value: placeholderTex },
-            uMix: { value: 0.5 },
+            uTexVideo: { value: noiseTex },
+            uTexCam: { value: noiseTex },
+            uMix: { value: 0.0 },
             uTime: { value: 0.0 },
-            uHasVideo: { value: 0.0 },
-            uHasCam: { value: 0.0 },
-            uAudioVol: { value: 0.0 },  // Volumen General
-            uAudioBass: { value: 0.0 }, // Bajos
-            uAudioHigh: { value: 0.0 }, // Agudos
-            uMode: { value: 0 },        // Modo de efecto
-            uStrength: { value: 1.0 }   // Intensidad de efecto
+            uBass: { value: 0.0 },
+            uHigh: { value: 0.0 },
+            uVol: { value: 0.0 },
+            uMode: { value: 1 }, // 1-10
+            uTint: { value: new THREE.Color(1,1,1) },
+            uTintMix: { value: 0.0 },
+            uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         };
-
-        const vertexShader = `
-            uniform float uAudioVol;
-            uniform float uAudioBass;
-            uniform float uTime;
-            uniform sampler2D uTexCam; 
-            uniform sampler2D uTexVideo;
-            uniform float uMix;
-            uniform float uHasCam;
-
-            varying vec2 vUv;
-            varying float vElev;
-
-            // Función simple de ruido
-            float random(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123); }
-            float noise(vec2 st) {
-                vec2 i = floor(st); vec2 f = fract(st);
-                float a = random(i); float b = random(i + vec2(1.0, 0.0));
-                float c = random(i + vec2(0.0, 1.0)); float d = random(i + vec2(1.0, 1.0));
-                vec2 u = f * f * (3.0 - 2.0 * f);
-                return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-            }
-
-            void main() {
-                vUv = uv;
-                vec3 pos = position;
-
-                // --- 1. DEFORMACIÓN POR AUDIO (Ondas) ---
-                float wave = sin(pos.x * 2.0 + uTime) * cos(pos.y * 1.5 + uTime);
-                float glitch = wave * uAudioVol * 2.0;
-
-                // --- 2. DEFORMACIÓN POR IMAGEN (Profundidad) ---
-                // Leemos el brillo de la cámara (si está activa) para "extruir" a la persona
-                vec4 camColor = texture2D(uTexCam, uv);
-                float brightness = length(camColor.rgb); // Simple luminancia
-                
-                // Si hay cámara, la deformación responde a la silueta de la persona
-                float extrusion = 0.0;
-                if(uHasCam > 0.5) {
-                    extrusion = brightness * uAudioBass * 3.0; // Los bajos empujan la silueta
-                }
-
-                pos.z += glitch + extrusion;
-                vElev = pos.z; // Pasamos la altura al fragment para colorear si queremos
-
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-            }
-        `;
 
         const fragmentShader = `
             uniform sampler2D uTexVideo;
             uniform sampler2D uTexCam;
             uniform float uMix;
             uniform float uTime;
-            uniform float uHasVideo;
-            uniform float uHasCam;
-            uniform float uAudioVol;
-            uniform float uAudioBass;
-            uniform float uAudioHigh;
+            uniform float uBass;
+            uniform float uHigh;
+            uniform float uVol;
             uniform int uMode;
-            uniform float uStrength;
-
+            uniform vec3 uTint;
+            uniform float uTintMix;
+            uniform vec2 uResolution;
             varying vec2 vUv;
-            varying float vElev;
+            varying float vElev; // Altura de deformación
 
-            // --- FUNCIONES DE EFECTOS --- //
-
-            vec4 rgbSplit(sampler2D t, vec2 uv, float force) {
-                vec2 dir = vec2(force * 0.02, 0.0);
-                float r = texture2D(t, uv - dir).r;
-                float g = texture2D(t, uv).g;
-                float b = texture2D(t, uv + dir).b;
-                return vec4(r, g, b, 1.0);
-            }
-
-            vec2 pixelate(vec2 uv, float pixels) {
-                float dx = 15.0 * (1.0 / pixels);
-                float dy = 10.0 * (1.0 / pixels);
-                return vec2(dx * floor(uv.x / dx), dy * floor(uv.y / dy));
-            }
-
-            vec2 kaleidoscope(vec2 uv) {
-                vec2 centered = uv - 0.5;
-                float r = length(centered);
-                float a = atan(centered.y, centered.x);
-                float sides = 6.0;
-                a = mod(a, 3.14159 * 2.0 / sides);
-                a = abs(a - 3.14159 / sides);
-                return 0.5 + r * vec2(cos(a), sin(a));
+            // Utils
+            float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+            
+            vec3 rgbSplit(sampler2D tex, vec2 uv, float amount) {
+                float r = texture2D(tex, uv - vec2(amount, 0.0)).r;
+                float g = texture2D(tex, uv).g;
+                float b = texture2D(tex, uv + vec2(amount, 0.0)).b;
+                return vec3(r,g,b);
             }
 
             void main() {
                 vec2 uv = vUv;
+                vec2 p = -1.0 + 2.0 * uv; // Coordenadas centradas -1 a 1
+
+                // --- MODIFICACIÓN DE UV (GEOMETRÍA 2D) ---
                 
-                // --- APLICAR EFECTOS A COORDENADAS UV ---
+                // 3: Mirror X
+                if(uMode == 3) uv.x = abs(uv.x - 0.5) + 0.5;
                 
-                // 2: Pixelate
-                if (uMode == 2) {
-                    float res = 50.0 + (1.0 - uAudioHigh) * 500.0; // Pixel size reacciona a agudos
-                    uv = pixelate(uv, res);
-                }
-                // 3: Kaleidoscope
-                if (uMode == 3) {
-                    uv = kaleidoscope(uv);
-                }
-                // 5: Liquid
-                if (uMode == 5) {
-                    uv.x += sin(uv.y * 10.0 + uTime) * 0.05 * uAudioVol * uStrength;
-                    uv.y += cos(uv.x * 10.0 + uTime) * 0.05 * uAudioVol * uStrength;
-                }
-                // 4: Hologram (Interferencia)
-                float scanline = 1.0;
-                if (uMode == 4) {
-                    scanline = sin(uv.y * 800.0 + uTime * 10.0) * 0.5 + 0.5;
-                    uv.x += sin(uv.y * 50.0 + uTime) * 0.01 * uAudioBass;
+                // 4: Kaleidoscope
+                if(uMode == 4) {
+                    vec2 centered = uv - 0.5;
+                    float r = length(centered);
+                    float a = atan(centered.y, centered.x);
+                    float sides = 6.0;
+                    a = mod(a, 3.14159 * 2.0 / sides);
+                    a = abs(a - 3.14159 / sides);
+                    uv = 0.5 + r * vec2(cos(a), sin(a));
                 }
 
-                // --- OBTENER TEXTURAS BASE ---
-                vec4 cVid = texture2D(uTexVideo, uv);
-                vec4 cCam = texture2D(uTexCam, uv);
-
-                // 1: RGB Split (se aplica al leer la textura)
-                if (uMode == 1) {
-                    if(uHasVideo > 0.5) cVid = rgbSplit(uTexVideo, uv, uAudioBass * uStrength);
-                    if(uHasCam > 0.5) cCam = rgbSplit(uTexCam, uv, uAudioBass * uStrength);
+                // 5: Twist / Swirl
+                if(uMode == 5) {
+                    float dist = length(uv - 0.5);
+                    float angle = atan(uv.y-0.5, uv.x-0.5) + (uBass*5.0) * (1.0-dist);
+                    uv = 0.5 + dist * vec2(cos(angle), sin(angle));
                 }
 
-                // --- MEZCLA (MIXER) ---
-                vec3 finalVid = (uHasVideo > 0.5) ? cVid.rgb : vec3(0.0);
-                vec3 finalCam = (uHasCam > 0.5) ? cCam.rgb : vec3(0.0);
-
-                // Si no hay nada, Plasma de fondo
-                if (uHasVideo < 0.5 && uHasCam < 0.5) {
-                    finalVid = 0.5 + 0.5 * cos(uTime + uv.xyx + vec3(0,2,4));
+                // 6: Pixelate
+                if(uMode == 6) {
+                    float pixels = 50.0 + (1.0-uHigh)*200.0;
+                    float dx = 1.0 / pixels;
+                    float dy = 1.0 / pixels;
+                    uv = vec2(dx * floor(uv.x/dx), dy * floor(uv.y/dy));
                 }
 
-                // Lógica de Mezcla (Video de fondo + Cámara encima con modo Screen)
-                vec3 color = mix(finalVid, finalCam, uMix);
+                // 9: Liquid Wave
+                if(uMode == 9) {
+                    uv.x += sin(uv.y * 10.0 + uTime) * 0.05 * uVol;
+                    uv.y += cos(uv.x * 10.0 + uTime) * 0.05 * uVol;
+                }
+
+                // --- SAMPLING TEXTURAS ---
+                vec3 colorVid = texture2D(uTexVideo, uv).rgb;
+                vec3 colorCam = texture2D(uTexCam, uv).rgb;
+
+                // 2: RGB Split on Read
+                if(uMode == 2) {
+                    colorVid = rgbSplit(uTexVideo, uv, uBass * 0.05);
+                    colorCam = rgbSplit(uTexCam, uv, uBass * 0.05);
+                }
+
+                // --- POST-PROCESADO DE COLOR ---
                 
-                // Modo Screen artificial para resaltar a la banda
-                if(uHasCam > 0.5 && uHasVideo > 0.5) {
-                     color = finalVid + finalCam * uMix; // Additive mix for glow
+                vec3 color = mix(colorVid, colorCam, uMix);
+
+                // 7: Invert (Negative) Flash on Beat
+                if(uMode == 7) {
+                    if(uBass > 0.6) color = 1.0 - color;
                 }
 
-                // Aplicar Scanline del holograma
-                if (uMode == 4) color *= (0.8 + 0.2 * scanline);
+                // 8: Edge Detection (Neon lines)
+                if(uMode == 8) {
+                    vec3 c1 = texture2D(uTexVideo, uv + vec2(0.002, 0.0)).rgb;
+                    vec3 c2 = texture2D(uTexVideo, uv - vec2(0.002, 0.0)).rgb;
+                    vec3 c3 = texture2D(uTexVideo, uv + vec2(0.0, 0.002)).rgb;
+                    vec3 c4 = texture2D(uTexVideo, uv - vec2(0.0, 0.002)).rgb;
+                    vec3 edge = abs(color - c1) + abs(color - c2) + abs(color - c3) + abs(color - c4);
+                    color = edge * 2.0; // Brillar bordes
+                }
+
+                // 10: Glitch Blocks
+                if(uMode == 10) {
+                    vec2 block = floor(uv * 10.0);
+                    float n = rand(block + floor(uTime * 10.0));
+                    if(n < uBass * 0.5) {
+                        color = vec3(1.0); // Bloques blancos
+                    }
+                }
+                
+                // 1: Scanlines (Default aesthetic)
+                if(uMode == 1) {
+                    float scan = sin(uv.y * 800.0 + uTime * 5.0) * 0.5 + 0.5;
+                    color *= (0.8 + 0.2 * scan);
+                }
+
+                // TINTING (Teclas Q-Y)
+                color = mix(color, color * uTint, uTintMix);
 
                 gl_FragColor = vec4(color, 1.0);
             }
         `;
 
+        const vertexShader = `
+            uniform float uVol;
+            uniform float uBass;
+            uniform float uTime;
+            varying vec2 vUv;
+            varying float vElev;
+            void main() {
+                vUv = uv;
+                vec3 pos = position;
+                // Deformación Z básica
+                float noise = sin(pos.x * 2.0 + uTime) * cos(pos.y * 1.5 + uTime);
+                pos.z += noise * uVol * 3.0;
+                vElev = pos.z;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            }
+        `;
+
         const material = new THREE.ShaderMaterial({
-            uniforms: uniforms,
-            vertexShader: vertexShader,
-            fragmentShader: fragmentShader,
-            side: THREE.DoubleSide,
-            wireframe: false
+            uniforms: uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide
         });
 
-        const geometry = new THREE.PlaneGeometry(16, 9, 120, 120); // Alta resolución para buena deformación
+        const geometry = new THREE.PlaneGeometry(16, 9, 100, 100);
         const plane = new THREE.Mesh(geometry, material);
         scene.add(plane);
 
-        // --- POST PROCESS ---
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        composer.addPass(bloomPass);
+        const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        composer.addPass(bloom);
 
-        // --- LOGIC ---
-        function updatePlasma(time) {
-            const tex = placeholderTex;
-            const ctx = tex.image.getContext('2d');
-            ctx.fillStyle = `hsl(${time*20 % 360}, 50%, 20%)`; 
-            ctx.fillRect(0,0,64,64); // Fondo oscuro
-            ctx.fillStyle = '#fff';
-            if(Math.random()>0.9) ctx.fillRect(Math.random()*64, Math.random()*64, 2, 2); // Estrellas
-            tex.needsUpdate = true;
+        // --- SISTEMA DE CONTROL DE TECLADO ---
+        const fileInput = document.getElementById('file-input');
+        
+        // Colores predefinidos
+        const colors = {
+            'q': [1, 0, 0], // Rojo
+            'w': [0, 1, 0], // Verde
+            'e': [0, 0, 1], // Azul
+            'r': [0, 1, 1], // Cyan
+            't': [1, 0, 1], // Magenta
+            'y': [1, 1, 0], // Amarillo
+        };
+
+        const hudMode = document.getElementById('hud-mode');
+        const hudSlot = document.getElementById('hud-slot');
+        const hudColor = document.getElementById('hud-color');
+        
+        function showNotify(msg) {
+            const n = document.getElementById('notification');
+            n.innerText = msg; n.style.opacity = 1;
+            setTimeout(() => n.style.opacity = 0, 2000);
         }
 
+        // Manejador de eventos de teclado
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+
+            // 1. Efectos (1-0)
+            if(!isNaN(parseInt(key))) {
+                let mode = parseInt(key);
+                if(mode === 0) mode = 10;
+                state.effectMode = mode;
+                showNotify(`EFECTO: ${mode}`);
+                hudMode.innerText = mode;
+            }
+
+            // 2. Colores (Q-Y)
+            if(colors[key]) {
+                state.tint.setRGB(...colors[key]);
+                state.tintMix = 1.0;
+                showNotify(`COLOR: ${key.toUpperCase()}`);
+                hudColor.innerText = key.toUpperCase();
+                hudColor.style.color = `rgb(${colors[key][0]*255},${colors[key][1]*255},${colors[key][2]*255})`;
+            }
+            if(key === 'u') {
+                state.tintMix = 0.0;
+                showNotify("COLOR: RESET");
+                hudColor.innerText = "OFF";
+                hudColor.style.color = "#fff";
+            }
+
+            // 3. Video Slots (G-L)
+            if (['g','h','j','k','l'].includes(key)) {
+                if (!videoSlots[key]) {
+                    // Slot vacío: Cargar
+                    state.loadingSlot = key;
+                    fileInput.click();
+                } else {
+                    // Slot lleno: Reproducir
+                    // Pausar el anterior si existe
+                    if(state.activeSlot && videoSlots[state.activeSlot]) {
+                        videoSlots[state.activeSlot].pause();
+                    }
+                    // Activar nuevo
+                    state.activeSlot = key;
+                    const vid = videoSlots[key];
+                    vid.play();
+                    
+                    // SWAP TEXTURE: Truco para cambiar el video de la textura sin crear una nueva
+                    activeVideoTex.image = vid; 
+                    activeVideoTex.needsUpdate = true;
+                    uniforms.uTexVideo.value = activeVideoTex;
+                    
+                    showNotify(`SLOT ${key.toUpperCase()}: PLAY`);
+                    hudSlot.innerText = key.toUpperCase();
+                }
+            }
+
+            // 4. Doble Exposición Toggle (B)
+            if(key === 'b') {
+                state.mixRatio = (state.mixRatio > 0.1) ? 0.0 : 0.5;
+                showNotify(state.mixRatio > 0 ? "CAM: ON" : "CAM: OFF");
+                // Activar webcam si no está lista
+                if(state.mixRatio > 0 && !webcamEl.srcObject) {
+                    initWebcam();
+                }
+            }
+        });
+
+        // Manejador de carga de archivo
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if(!file || !state.loadingSlot) return;
+            
+            const url = URL.createObjectURL(file);
+            const vid = document.createElement('video');
+            vid.src = url; vid.loop = true; vid.muted = true; vid.playsInline = true;
+            
+            videoSlots[state.loadingSlot] = vid;
+            showNotify(`VIDEO CARGADO EN SLOT ${state.loadingSlot.toUpperCase()}`);
+            
+            // Auto-play
+            const key = state.loadingSlot;
+            state.activeSlot = key;
+            vid.play();
+            activeVideoTex.image = vid;
+            uniforms.uTexVideo.value = activeVideoTex;
+            hudSlot.innerText = key.toUpperCase();
+            
+            state.loadingSlot = null;
+            fileInput.value = ""; // Reset input
+        };
+
+        async function initWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+                webcamEl.srcObject = stream;
+                webcamEl.play();
+                uniforms.uTexCam.value = webcamTex;
+            } catch(e) { console.error("No cam"); }
+        }
+
+        // --- ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
-            const time = performance.now() * 0.001 * params.speed;
-            const audioData = audio.getLevels();
+            const time = performance.now() * 0.001;
+            const lvls = audio.getLevels();
 
             // Update Uniforms
             uniforms.uTime.value = time;
-            uniforms.uMix.value = params.mixRatio;
-            uniforms.uMode.value = params.effectMode;
-            uniforms.uStrength.value = params.effectStrength;
+            uniforms.uVol.value = lvls.vol;
+            uniforms.uBass.value = lvls.bass;
+            uniforms.uHigh.value = lvls.high;
+            uniforms.uMix.value = state.mixRatio;
+            uniforms.uMode.value = state.effectMode;
+            uniforms.uTint.value = state.tint;
+            uniforms.uTintMix.value = state.tintMix;
 
-            // Audio Uniforms
-            uniforms.uAudioVol.value = audioData.vol;
-            uniforms.uAudioBass.value = audioData.bass;
-            uniforms.uAudioHigh.value = audioData.high;
-
-            // Plasma fallback
-            if(uniforms.uHasVideo.value === 0 && uniforms.uHasCam.value === 0) updatePlasma(time);
-
-            // Reactivity
-            bloomPass.strength = params.bloomStrength + (audioData.vol * 1.5);
-            material.wireframe = params.wireframe;
-
-            // Camera Motion
-            if(audioData.bass > 0.6) {
-                plane.rotation.z = (Math.random()-0.5) * 0.02 * params.distortion;
-                plane.scale.setScalar(1.0 + audioData.bass * 0.05);
+            // Bloom dinámico
+            bloom.strength = state.bloom + (lvls.vol * 1.5);
+            
+            // Movimiento físico extra del plano
+            if(lvls.bass > 0.5) {
+                plane.rotation.z = (Math.random()-0.5)*0.05;
+                plane.scale.setScalar(1.0 + lvls.bass*0.05);
             } else {
                 plane.rotation.z *= 0.9;
                 plane.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
             }
 
+            // Update textures
+            if(activeVideoTex.image && activeVideoTex.image.readyState === activeVideoTex.image.HAVE_ENOUGH_DATA) {
+                activeVideoTex.needsUpdate = true;
+            }
+            if(webcamTex.image && webcamTex.image.readyState === webcamTex.image.HAVE_ENOUGH_DATA) {
+                webcamTex.needsUpdate = true;
+            }
+
             composer.render();
         }
 
-        // --- MANEJO DE ESTADOS (TOGGLE) ---
-        let isVideoActive = false;
-        let isCamActive = false;
+        // Resize
+        window.onresize = () => {
+            camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
+            uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
+        };
 
-        // 1. Start Audio
+        // Start
         document.getElementById('start-btn').onclick = async () => {
             if(await audio.init()) {
                 document.getElementById('overlay').style.opacity = 0;
@@ -373,121 +460,56 @@
             }
         };
 
-        // 2. Video Toggle
-        const btnLoad = document.getElementById('btn-load-video');
-        const fileInput = document.getElementById('file-input');
-
-        btnLoad.onclick = () => {
-            if(isVideoActive) {
-                // APAGAR VIDEO
-                videoEl.pause();
-                uniforms.uHasVideo.value = 0.0;
-                isVideoActive = false;
-                btnLoad.classList.remove('video-active');
-                btnLoad.innerHTML = "📂 CARGAR VIDEO";
-            } else {
-                // ENCENDER VIDEO
-                if(!videoEl.src) {
-                    fileInput.click(); // Primer carga
-                } else {
-                    videoEl.play();
-                    uniforms.uHasVideo.value = 1.0;
-                    isVideoActive = true;
-                    btnLoad.classList.add('video-active');
-                    btnLoad.innerHTML = "⏹ DETENER VIDEO";
-                }
-            }
-        };
-
-        fileInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if(!file) return;
-            const url = URL.createObjectURL(file);
-            videoEl.src = url;
-            videoEl.play().then(() => {
-                uniforms.uTexVideo.value = videoTex;
-                uniforms.uHasVideo.value = 1.0;
-                isVideoActive = true;
-                btnLoad.classList.add('video-active');
-                btnLoad.innerHTML = "⏹ DETENER VIDEO";
-            });
-        };
-
-        // 3. Cam Toggle
-        const btnCam = document.getElementById('btn-cam');
-        let camStream = null;
-
-        btnCam.onclick = async () => {
-            if(isCamActive) {
-                // APAGAR CAMARA
-                if(camStream) {
-                    const tracks = camStream.getTracks();
-                    tracks.forEach(track => track.stop());
-                }
-                webcamEl.srcObject = null;
-                uniforms.uHasCam.value = 0.0;
-                isCamActive = false;
-                btnCam.classList.remove('cam-active');
-                btnCam.innerHTML = "📷 ACTIVAR CÁMARA";
-            } else {
-                // ENCENDER CAMARA
-                try {
-                    camStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-                    webcamEl.srcObject = camStream;
-                    webcamEl.play().then(() => {
-                        uniforms.uTexCam.value = webcamTex;
-                        uniforms.uHasCam.value = 1.0;
-                        isCamActive = true;
-                        btnCam.classList.add('cam-active');
-                        btnCam.innerHTML = "🚫 APAGAR CÁMARA";
-                        // Auto-ajustar mezcla para que se note
-                        if(isVideoActive) params.mixRatio = 0.5;
-                        else params.mixRatio = 1.0;
-                    });
-                } catch(err) {
-                    console.error(err);
-                    alert("Error al acceder a la cámara");
-                }
-            }
-        };
-
-        window.onresize = () => {
-            camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
-        };
-
-        // --- GUI ---
-        const gui = new GUI({ title: 'VJ CONSOLE' });
-        
-        const fMix = gui.addFolder('Mezcla & Fuente');
-        fMix.add(params, 'mixRatio', 0.0, 1.0).name('Crossfader Vid/Cam').listen();
-        
-        const fEffects = gui.addFolder('Efectos Visuales');
-        fEffects.add(params, 'effectMode', effectNames).name('MODO FX').onChange(v => {
-            // Convert string back to int key if needed by dat.gui quirks
-            params.effectMode = parseInt(Object.keys(effectNames).find(key => effectNames[key] === v));
-        });
-        fEffects.add(params, 'effectStrength', 0.0, 2.0).name('Intensidad FX');
-        fEffects.add(params, 'distortion', 0.0, 5.0).name('Deformación 3D');
-        fEffects.add(params, 'wireframe').name('Modo Malla');
-        fEffects.add(params, 'bloomStrength', 0.0, 3.0).name('Brillo Neón');
-
-        const fAudio = gui.addFolder('Audio');
-        fAudio.add(params, 'micGain', 1.0, 10.0).name('Sensibilidad Mic');
+        // GUI
+        const gui = new GUI({ title: 'Ajustes Finos' });
+        gui.add(state, 'distortion', 0, 5).name('Fuerza Glitch');
+        gui.add(state, 'micGain', 1, 10).name('Sensibilidad Mic');
+        gui.add(state, 'bloom', 0, 3).name('Brillo Base');
 
     </script>
 </head>
 <body>
     <div id="overlay">
-        <h1 style="color:white; letter-spacing: 5px; text-transform:uppercase;">Artimotion VJ Console</h1>
+        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">ULTIMATE VJ STATION</h1>
         <button id="start-btn">INICIAR SISTEMA</button>
+        
+        <div class="keys-grid">
+            <div>
+                <span class="key">1-0</span> EFECTOS<br>
+                1: Scanlines<br>
+                2: RGB Split<br>
+                3: Mirror X<br>
+                4: Kaleido<br>
+                5: Twist<br>
+                6: Pixelate<br>
+                7: Invert Flash<br>
+                8: Neon Edge<br>
+                9: Liquid<br>
+                0: Glitch Blocks
+            </div>
+            <div>
+                <span class="key">Q-Y</span> COLORES<br>
+                Q: Rojo | W: Verde<br>
+                E: Azul | R: Cyan<br>
+                T: Magenta | Y: Amarillo<br>
+                <span class="key">U</span> Reset Color
+            </div>
+            <div>
+                <span class="key">G-L</span> VIDEO SLOTS<br>
+                (Clic para cargar)<br>
+                (Clic para cambiar)<br><br>
+                <span class="key">B</span> CAM MIX
+            </div>
+        </div>
     </div>
 
-    <div id="ui-container">
-        <input type="file" id="file-input" accept="video/*">
-        
-        <div id="btn-load-video" class="action-btn">📂 Cargar Video</div>
-        <div id="btn-cam" class="action-btn">📷 Activar Cámara</div>
+    <div id="hud">
+        <div class="hud-line">EFECTO: <span id="hud-mode" class="hud-value">1</span></div>
+        <div class="hud-line">COLOR: <span id="hud-color" class="hud-value" style="color:#fff">OFF</span></div>
+        <div class="hud-line">VIDEO SLOT: <span id="hud-slot" class="hud-value">NONE</span></div>
     </div>
+
+    <div id="notification">NOTIFICACIÓN</div>
+    <input type="file" id="file-input" accept="video/*">
 </body>
 </html>
