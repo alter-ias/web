@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - External Audio Reactive</title>
+    <title>Artimotion - Mic Reaction Fixed</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; user-select: none; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
@@ -26,23 +26,23 @@
 
         .mode-btn {
             background: rgba(20, 20, 20, 0.8); color: #888; border: 1px solid #444;
-            padding: 10px 20px; border-radius: 8px; cursor: pointer;
-            font-weight: bold; text-transform: uppercase; font-size: 12px;
+            padding: 10px 15px; border-radius: 8px; cursor: pointer;
+            font-weight: bold; text-transform: uppercase; font-size: 11px;
             transition: all 0.3s ease;
-            min-width: 80px; text-align: center;
+            min-width: 70px; text-align: center; display: flex; align-items: center; justify-content: center;
         }
 
         .mode-btn:hover { background: #333; color: #fff; border-color: #fff; }
         .mode-btn.active { background: #0ff; color: #000; border-color: #0ff; box-shadow: 0 0 15px #0ff; }
         
-        /* Botón de reacción activo */
-        .mode-btn.react-active { background: #ff0055; color: #fff; border-color: #ff0055; box-shadow: 0 0 20px #ff0055; }
+        /* Estilos específicos para botones de estado */
+        .mode-btn.react-active { background: #ff0055; color: #fff; border-color: #ff0055; box-shadow: 0 0 15px #ff0055; }
+        .mode-btn.mic-active { background: #00ff66; color: #000; border-color: #00ff66; box-shadow: 0 0 15px #00ff66; }
         
         #audio-hint {
             position: absolute; top: 20px; right: 20px; 
             color: rgba(255,255,255,0.5); font-size: 10px; z-index: 5;
-            text-align: right;
-            line-height: 1.5;
+            text-align: right; line-height: 1.5; pointer-events: none;
         }
 
         .lil-gui { --background-color: rgba(5, 5, 10, 0.9); --text-color: #ddd; --title-background-color: #111; }
@@ -65,68 +65,45 @@
             trailStyle: 'Ribbon', 
             lineWidth: 0.8,
             bloomStrength: 1.5,
-            bloomRadius: 0.5,
-            relaxation: 0.15,
-            colorSpeed: 1.5,
-            opacity: 0.85,
             particleSize: 1.0, 
             mode: 'Spectral',
             inputSensitivity: 1.5,
             soundEnabled: true,
             audioReact: false, 
-            audioSource: 'Internal', // 'Internal' o 'Microphone'
-            micGain: 3.0, // Amplificación extra para el micrófono
+            audioSource: 'Internal', // 'Internal' | 'Microphone'
+            micGain: 4.0, // Ganancia alta por defecto para micrófono
             reset: () => resetCanvas()
         };
 
         // --- TEORÍA MUSICAL ---
         const NOTES = { 'C': 261.63, 'C#': 277.18, 'D': 293.66, 'D#': 311.13, 'E': 329.63, 'F': 349.23, 'F#': 369.99, 'G': 392.00, 'G#': 415.30, 'A': 440.00, 'A#': 466.16, 'B': 493.88 };
         const PENTA_INTERVALS = [0, 3, 5, 7, 10];
-
-        function getFrequency(baseFreq, semitones) { return baseFreq * Math.pow(2, semitones / 12); }
-
-        function generateScale(rootKey) {
-            const base = NOTES[rootKey] / 2; 
-            const scale = [];
-            for (let oct = 0; oct < 3; oct++) {
-                PENTA_INTERVALS.forEach(interval => scale.push(getFrequency(base * Math.pow(2, oct), interval)));
-            }
-            return scale;
+        function getFrequency(base, semitones) { return base * Math.pow(2, semitones / 12); }
+        function generateScale(root) {
+            const base = NOTES[root] / 2; const s = [];
+            for (let o=0; o<3; o++) PENTA_INTERVALS.forEach(i => s.push(getFrequency(base * Math.pow(2, o), i)));
+            return s;
         }
-
-        function generateChords(rootKey) {
-            const base = NOTES[rootKey] / 4; 
-            return [
-                [getFrequency(base, 0), getFrequency(base, 3), getFrequency(base, 7)],
-                [getFrequency(base, 8), getFrequency(base, 12), getFrequency(base, 15)],
-                [getFrequency(base, 10), getFrequency(base, 14), getFrequency(base, 17)]
-            ];
+        function generateChords(root) {
+            const base = NOTES[root] / 4; 
+            return [ [0,3,7], [8,12,15], [10,14,17] ].map(chord => chord.map(i => getFrequency(base, i)));
         }
-
         let currentScale = generateScale(params.key);
         let currentChords = generateChords(params.key);
 
-        // --- MOTOR DE AUDIO & MICRÓFONO ---
+        // --- MOTOR DE AUDIO ---
         class AudioEngine {
             constructor() {
                 this.ctx = null;
-                
-                // Internal Synth Nodes
-                this.melodyOsc = null;
-                this.chordOscs = []; 
-                this.gainMelody = null;
-                this.gainChord = null;
                 this.masterGain = null;
-                this.synthAnalyser = null;
-                this.synthDataArray = null;
-
-                // Microphone Nodes
-                this.micStream = null;
-                this.micSource = null;
-                this.micAnalyser = null;
-                this.micDataArray = null;
+                // Synth
+                this.melodyOsc = null; this.gainMelody = null;
+                this.chordOscs = []; this.gainChord = null;
+                this.synthAnalyser = null; this.synthData = null;
+                // Mic
+                this.micStream = null; this.micSource = null;
+                this.micAnalyser = null; this.micData = null;
                 this.isMicActive = false;
-
                 this.isInit = false;
             }
 
@@ -134,417 +111,382 @@
                 if (this.isInit) return;
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 this.ctx = new AudioContext();
-
-                // 1. SETUP SINTETIZADOR INTERNO
                 this.masterGain = this.ctx.createGain();
-                this.masterGain.gain.value = 1.0;
                 
+                // Analizador Synth
                 this.synthAnalyser = this.ctx.createAnalyser();
                 this.synthAnalyser.fftSize = 256;
-                this.synthDataArray = new Uint8Array(this.synthAnalyser.frequencyBinCount);
-
+                this.synthData = new Uint8Array(this.synthAnalyser.frequencyBinCount);
                 this.masterGain.connect(this.synthAnalyser);
                 this.synthAnalyser.connect(this.ctx.destination);
 
-                // Canal Melodía
-                this.melodyOsc = this.ctx.createOscillator();
-                this.melodyOsc.type = 'triangle';
-                this.gainMelody = this.ctx.createGain();
-                this.gainMelody.gain.value = 0;
+                // Configurar Synth (Melodía + Acordes)
+                this.melodyOsc = this.ctx.createOscillator(); this.melodyOsc.type = 'triangle';
+                this.gainMelody = this.ctx.createGain(); this.gainMelody.gain.value = 0;
                 
-                const delay = this.ctx.createDelay(); delay.delayTime.value = 0.25;
-                const delayGain = this.ctx.createGain(); delayGain.gain.value = 0.3;
+                const d = this.ctx.createDelay(); d.delayTime.value=0.25;
+                const dg = this.ctx.createGain(); dg.gain.value=0.3;
                 
                 this.melodyOsc.connect(this.gainMelody);
                 this.gainMelody.connect(this.masterGain);
-                this.gainMelody.connect(delay);
-                delay.connect(delayGain); delayGain.connect(delay); delay.connect(this.masterGain);
+                this.gainMelody.connect(d); d.connect(dg); dg.connect(d); d.connect(this.masterGain);
                 this.melodyOsc.start();
 
-                // Canal Acordes
-                this.gainChord = this.ctx.createGain();
-                this.gainChord.gain.value = 0;
-                const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 800;
-                this.gainChord.connect(filter); filter.connect(this.masterGain);
+                this.gainChord = this.ctx.createGain(); this.gainChord.gain.value = 0;
+                const f = this.ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=800;
+                this.gainChord.connect(f); f.connect(this.masterGain);
 
-                for(let i=0; i<3; i++) {
-                    const osc = this.ctx.createOscillator(); osc.type = 'sine';
-                    osc.connect(this.gainChord); osc.start();
-                    this.chordOscs.push(osc);
+                for(let i=0; i<3; i++){
+                    const o = this.ctx.createOscillator(); o.type='sine';
+                    o.connect(this.gainChord); o.start(); this.chordOscs.push(o);
                 }
-
                 this.isInit = true;
-                this.updateUI();
+                this.updateHint();
             }
 
             async enableMicrophone() {
-                if (this.isMicActive) return;
+                if(this.isMicActive) return;
                 try {
-                    // Pedir permiso al navegador
+                    // RESUME CONTEXT FIRST (Importante para navegadores modernos)
+                    if (this.ctx && this.ctx.state === 'suspended') await this.ctx.resume();
+                    
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                     this.micStream = stream;
-                    
-                    // Crear fuente y analizador
                     this.micSource = this.ctx.createMediaStreamSource(stream);
                     this.micAnalyser = this.ctx.createAnalyser();
                     this.micAnalyser.fftSize = 256;
-                    this.micDataArray = new Uint8Array(this.micAnalyser.frequencyBinCount);
-
-                    // IMPORTANTE: Conectar Mic -> Analyser. 
-                    // NO CONECTAR A DESTINATION (Speakers) para evitar feedback.
-                    this.micSource.connect(this.micAnalyser);
+                    this.micData = new Uint8Array(this.micAnalyser.frequencyBinCount);
                     
+                    // Mic -> Analyser (NO a destination para evitar feedback)
+                    this.micSource.connect(this.micAnalyser);
                     this.isMicActive = true;
-                    console.log("Micrófono activado correctamente");
-                } catch (err) {
-                    console.error("Error al acceder al micrófono:", err);
-                    alert("No se pudo acceder al micrófono. Verifica los permisos.");
-                    params.audioSource = 'Internal'; // Revertir a interno
+                    console.log("Micrófono activado.");
+                    this.updateHint();
+                } catch(e) {
+                    console.error(e);
+                    alert("ERROR DE PERMISOS: No se pudo acceder al micrófono. Asegúrate de estar en HTTPS o Localhost.");
+                    // Revertir UI
+                    document.getElementById('btn-mic').click(); 
                 }
             }
 
             stopMicrophone() {
-                if (this.micStream) {
-                    this.micStream.getTracks().forEach(track => track.stop());
+                if(this.micStream) {
+                    this.micStream.getTracks().forEach(t => t.stop());
                     this.isMicActive = false;
                 }
+                this.updateHint();
             }
 
-            // Obtener volumen según la fuente seleccionada
             getVolume() {
-                if (!this.isInit) return 0;
-
-                let array, analyser;
-                let multiplier = 1.0;
-
-                if (params.audioSource === 'Microphone' && this.isMicActive) {
-                    array = this.micDataArray;
-                    analyser = this.micAnalyser;
-                    multiplier = params.micGain; // El mic suele necesitar boost
-                } else {
-                    array = this.synthDataArray;
-                    analyser = this.synthAnalyser;
-                }
-
-                if (!analyser) return 0;
-
-                analyser.getByteFrequencyData(array);
-                let sum = 0;
-                for (let i = 0; i < array.length; i++) sum += array[i];
-                const average = sum / array.length;
+                if(!this.isInit) return 0;
+                let arr, ana, mult = 1.0;
                 
-                // Normalizar y aplicar multiplicador, clampear a 1.0 máx para evitar explosión visual
-                return Math.min((average / 255) * multiplier, 1.0); 
-            }
-
-            updateUI() {
-                const src = params.audioSource === 'Microphone' ? 'MICRÓFONO (Externo)' : 'SINTETIZADOR (Manos)';
-                document.getElementById('audio-hint').innerHTML = `AUDIO: ACTIVO<br>Fuente: ${src}<br>Tonalidad: ${params.key} Menor`;
-            }
-
-            setKey(newKey) {
-                currentScale = generateScale(newKey);
-                currentChords = generateChords(newKey);
-                this.updateUI();
-            }
-
-            updateMelody(normX, normY, active) {
-                if (!this.isInit || !params.soundEnabled) return;
-                const t = this.ctx.currentTime;
-                if (active) {
-                    const index = Math.floor(normX * currentScale.length);
-                    const safeIndex = Math.min(Math.max(index, 0), currentScale.length - 1);
-                    this.melodyOsc.frequency.setTargetAtTime(currentScale[safeIndex], t, 0.05);
-                    this.gainMelody.gain.setTargetAtTime(Math.max(0, (1.0 - normY) * 0.2), t, 0.1);
+                if(params.audioSource === 'Microphone' && this.isMicActive) {
+                    arr = this.micData; ana = this.micAnalyser; mult = params.micGain;
                 } else {
-                    this.gainMelody.gain.setTargetAtTime(0, t, 0.2);
+                    arr = this.synthData; ana = this.synthAnalyser;
                 }
+                
+                if(!ana) return 0;
+                ana.getByteFrequencyData(arr);
+                let sum = 0; for(let i=0; i<arr.length; i++) sum+=arr[i];
+                return Math.min((sum / arr.length / 255) * mult, 1.0);
             }
 
-            updateChords(normX, normY, active) {
-                if (!this.isInit || !params.soundEnabled) return;
-                const t = this.ctx.currentTime;
-                if (active) {
-                    let idx = normX < 0.33 ? 0 : (normX < 0.66 ? 1 : 2);
-                    const targetChord = currentChords[idx];
-                    this.chordOscs.forEach((osc, i) => osc.frequency.setTargetAtTime(targetChord[i], t, 0.1));
-                    this.gainChord.gain.setTargetAtTime(Math.max(0, (1.0 - normY) * 0.25), t, 0.2);
-                } else {
-                    this.gainChord.gain.setTargetAtTime(0, t, 0.5);
-                }
+            updateHint() {
+                const src = (params.audioSource === 'Microphone' && this.isMicActive) ? 'MICRÓFONO (Externo)' : 'SINTETIZADOR (Gestual)';
+                document.getElementById('audio-hint').innerHTML = `FUENTE: ${src}<br>TONO: ${params.key}m`;
+            }
+
+            // Synth Methods
+            setKey(k) { currentScale=generateScale(k); currentChords=generateChords(k); this.updateHint(); }
+            updateMelody(x,y,on) { 
+                if(!this.isInit || !params.soundEnabled) return;
+                const t=this.ctx.currentTime;
+                if(on){
+                    const idx=Math.floor(x*currentScale.length);
+                    this.melodyOsc.frequency.setTargetAtTime(currentScale[Math.max(0,Math.min(idx,currentScale.length-1))], t, 0.05);
+                    this.gainMelody.gain.setTargetAtTime(Math.max(0,(1-y)*0.2), t, 0.1);
+                } else this.gainMelody.gain.setTargetAtTime(0, t, 0.2);
+            }
+            updateChords(x,y,on) {
+                if(!this.isInit || !params.soundEnabled) return;
+                const t=this.ctx.currentTime;
+                if(on){
+                    const c = currentChords[x<0.33?0:(x<0.66?1:2)];
+                    this.chordOscs.forEach((o,i) => o.frequency.setTargetAtTime(c[i], t, 0.1));
+                    this.gainChord.gain.setTargetAtTime(Math.max(0,(1-y)*0.25), t, 0.2);
+                } else this.gainChord.gain.setTargetAtTime(0, t, 0.5);
             }
         }
-        
         const audioSys = new AudioEngine();
 
-        // --- VISUALES (Simplificado para integración) ---
+        // --- VISUALES ---
         function createSoftTexture() {
-            const canvas = document.createElement('canvas'); canvas.width = 32; canvas.height = 32;
-            const ctx = canvas.getContext('2d');
-            const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-            grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
-            ctx.fillStyle = grad; ctx.fillRect(0, 0, 32, 32);
-            return new THREE.CanvasTexture(canvas);
+            const c=document.createElement('canvas'); c.width=32; c.height=32;
+            const x=c.getContext('2d'); const g=x.createRadialGradient(16,16,0,16,16,16);
+            g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(1,'rgba(255,255,255,0)');
+            x.fillStyle=g; x.fillRect(0,0,32,32); return new THREE.CanvasTexture(c);
         }
-        const particleTexture = createSoftTexture();
+        const tex = createSoftTexture();
 
         const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x000000, 0.02);
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); camera.position.z = 12;
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000); camera.position.z = 12;
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight); renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        composer.addPass(bloomPass);
+        const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth,window.innerHeight), 1.5, 0.4, 0.85);
+        composer.addPass(bloom);
 
-        // Fondos
-        const bgGroup = new THREE.Group(); scene.add(bgGroup);
-        let gridHelper, starField;
-        gridHelper = new THREE.GridHelper(100, 40, 0x00ffff, 0x222222); gridHelper.position.y = -10; gridHelper.visible = false; bgGroup.add(gridHelper);
-        const gridTop = gridHelper.clone(); gridTop.position.y = 10; gridHelper.add(gridTop);
-        const starGeo = new THREE.BufferGeometry(); const posArray = new Float32Array(6000);
-        for(let i=0; i<6000; i++) posArray[i] = (Math.random() - 0.5) * 100;
-        starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-        starField = new THREE.Points(starGeo, new THREE.PointsMaterial({size: 0.2, color: 0xffffff, transparent: true, opacity: 0.8}));
-        starField.visible = false; bgGroup.add(starField);
+        const bg = new THREE.Group(); scene.add(bg);
+        const grid = new THREE.GridHelper(100, 40, 0x00ffff, 0x222222); grid.position.y = -10; grid.visible = false; bg.add(grid);
+        const grid2 = grid.clone(); grid2.position.y = 10; grid.add(grid2);
+        const stargeo = new THREE.BufferGeometry(); 
+        const starpos = new Float32Array(6000); for(let i=0;i<6000;i++) starpos[i]=(Math.random()-0.5)*100;
+        stargeo.setAttribute('position', new THREE.BufferAttribute(starpos,3));
+        const stars = new THREE.Points(stargeo, new THREE.PointsMaterial({size:0.2, color:0xffffff, transparent:true, opacity:0.8}));
+        stars.visible=false; bg.add(stars);
 
-        function setScenario(name) {
-            gridHelper.visible = false; starField.visible = false;
-            scene.background = new THREE.Color(0x000000);
-            document.querySelectorAll('.mode-btn').forEach(b => { if(!b.id.includes('react')) b.classList.remove('active'); });
-            document.getElementById(`btn-${name.toLowerCase()}`).classList.add('active');
-            if (name === 'Grid') { gridHelper.visible = true; scene.background = new THREE.Color(0x050510); }
-            else if (name === 'Warp') { starField.visible = true; scene.background = new THREE.Color(0x000010); }
-        }
-
-        // --- TRAZOS REACTIVOS ---
-        class RibbonTrail {
-            constructor(idx) {
-                this.idx = idx; this.length = 50; this.points = []; this.visible = true;
-                this.target = new THREE.Vector3(0,-1000,0); this.current = new THREE.Vector3(0,-1000,0);
-                for(let i=0; i<this.length; i++) this.points.push(new THREE.Vector3(0,-1000,0));
-                
-                const geo = new THREE.BufferGeometry();
-                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.length*6), 3));
-                
-                this.material = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: params.opacity, blending: THREE.AdditiveBlending });
-                this.mesh = new THREE.Mesh(geo, this.material); scene.add(this.mesh); this.mesh.frustumCulled = false;
+        // --- CLASES ---
+        class Trail {
+            constructor(i) {
+                this.i=i; this.tgt=new THREE.Vector3(0,-1000,0); this.cur=new THREE.Vector3(0,-1000,0);
+                this.pts=[]; for(let k=0;k<50;k++) this.pts.push(new THREE.Vector3(0,-1000,0));
+                this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({
+                    color:0xffffff, side:2, transparent:true, blending:2, depthTest:false
+                }));
+                this.mesh.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(300),3));
+                scene.add(this.mesh); this.visible=true;
             }
-            setTarget(x,y,z) { this.target.set(x,y,z); }
-            reset() { this.target.set(0,-1000,0); this.current.set(0,-1000,0); }
-            
-            tick(time, audioLevel) {
-                if(!this.visible) { this.mesh.visible = false; return; }
-                this.mesh.visible = true;
-                this.current.lerp(this.target, params.relaxation);
-                this.points.shift(); this.points.push(this.current.clone());
-
-                const curve = new THREE.CatmullRomCurve3(this.points, false, 'catmullrom', 0.5);
-                const pts = curve.getPoints(this.length - 1);
+            tick(t, vol) {
+                if(!this.visible) { this.mesh.visible=false; return; }
+                this.mesh.visible=true; this.cur.lerp(this.tgt, params.relaxation);
+                this.pts.shift(); this.pts.push(this.cur.clone());
+                
+                const path = new THREE.CatmullRomCurve3(this.pts, false, 'catmullrom', 0.5);
+                const p = path.getPoints(49);
                 const pos = this.mesh.geometry.attributes.position.array;
                 
-                // AUDIO REACT: Modificar grosor
-                let width = params.lineWidth + (params.audioReact ? audioLevel * 2.0 : 0);
+                // Audio React: Grosor explosivo
+                let wBase = params.lineWidth;
+                if(params.audioReact) wBase += vol * 4.0; // Mucha reacción
 
-                for(let i=0; i<pts.length; i++) {
-                    const dir = new THREE.Vector3().subVectors(pts[Math.min(i+1, pts.length-1)], pts[i]).normalize();
-                    if(dir.lengthSq()===0) dir.set(0,1,0);
-                    const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,0,1)).normalize();
-                    const w = width * Math.pow(i/this.length, 0.5);
-                    pos[i*6+0] = pts[i].x - right.x*w; pos[i*6+1] = pts[i].y - right.y*w; pos[i*6+2] = pts[i].z;
-                    pos[i*6+3] = pts[i].x + right.x*w; pos[i*6+4] = pts[i].y + right.y*w; pos[i*6+5] = pts[i].z;
+                for(let i=0; i<p.length; i++){
+                    const d = new THREE.Vector3().subVectors(p[Math.min(i+1,49)], p[i]).normalize();
+                    if(d.lengthSq()===0) d.set(0,1,0);
+                    const r = new THREE.Vector3().crossVectors(d, new THREE.Vector3(0,0,1)).normalize();
+                    const w = wBase * Math.sqrt(i/50);
+                    pos[i*6]=p[i].x-r.x*w; pos[i*6+1]=p[i].y-r.y*w; pos[i*6+2]=p[i].z;
+                    pos[i*6+3]=p[i].x+r.x*w; pos[i*6+4]=p[i].y+r.y*w; pos[i*6+5]=p[i].z;
                 }
-                this.mesh.geometry.attributes.position.needsUpdate = true;
+                this.mesh.geometry.attributes.position.needsUpdate=true;
                 
-                let hue = 0;
-                if(params.mode==='Spectral') hue=(time*params.colorSpeed*0.1+(this.idx*0.05))%1;
-                else if(params.mode==='Fire') hue=(Math.sin(time+this.idx)*0.05)%1;
-                else hue=(0.6+Math.sin(time+this.idx)*0.1)%1;
-                this.material.color.setHSL(hue, 1.0, 0.5 + (audioLevel * 0.2)); // Brillo extra con audio
+                let h=0; 
+                if(params.mode==='Spectral') h=(t*params.colorSpeed*0.1+(this.i*0.05))%1;
+                else if(params.mode==='Fire') h=(0+(Math.sin(t+this.i)*0.05))%1;
+                else h=(0.6+(Math.sin(t+this.i)*0.1))%1;
+                
+                // Color React: Se pone blanco con volumen alto
+                const l = 0.5 + (params.audioReact ? vol * 0.4 : 0);
+                this.mesh.material.color.setHSL(h, 1.0, l);
+                this.mesh.material.opacity = params.opacity; // Fix opacidad
             }
         }
 
-        class ParticleEmitter {
-            constructor(idx) {
-                this.idx = idx; this.visible = false; this.particles = []; this.maxParticles = 50;
-                this.target = new THREE.Vector3(0,-1000,0); this.lastPos = new THREE.Vector3(0,-1000,0);
-                
-                const geo = new THREE.BufferGeometry();
-                geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.maxParticles*3), 3));
-                geo.setAttribute('size', new THREE.BufferAttribute(new Float32Array(this.maxParticles), 1));
-                geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this.maxParticles*3), 3));
-                
-                this.mesh = new THREE.Points(geo, new THREE.PointsMaterial({ size: 1.0, map: particleTexture, transparent: true, vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-                scene.add(this.mesh); this.mesh.frustumCulled = false;
-
-                for(let i=0; i<this.maxParticles; i++) this.particles.push({pos: new THREE.Vector3(0,-1000,0), vel: new THREE.Vector3(), life: 0, color: new THREE.Color()});
+        class Emitter {
+            constructor(i) {
+                this.i=i; this.visible=false; this.tgt=new THREE.Vector3(0,-1000,0); this.last=new THREE.Vector3(0,-1000,0);
+                this.parts=[]; for(let k=0;k<50;k++) this.parts.push({p:new THREE.Vector3(0,-1000,0),v:new THREE.Vector3(),l:0,c:new THREE.Color()});
+                const g = new THREE.BufferGeometry();
+                g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(150),3));
+                g.setAttribute('size', new THREE.BufferAttribute(new Float32Array(50),1));
+                g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(150),3));
+                this.mesh = new THREE.Points(g, new THREE.PointsMaterial({size:1, map:tex, transparent:true, vertexColors:true, blending:2, depthWrite:false}));
+                scene.add(this.mesh);
             }
-            setTarget(x,y,z) { this.target.set(x,y,z); }
-            reset() { this.target.set(0,-1000,0); this.lastPos.set(0,-1000,0); }
-
-            tick(time, audioLevel) {
-                if(!this.visible) { this.mesh.visible = false; return; }
-                this.mesh.visible = true;
-                const currentPos = new THREE.Vector3().lerpVectors(this.lastPos, this.target, 0.3);
-                const isSmoke = params.trailStyle === 'Smoke';
-                const spread = (isSmoke ? 0.1 : 0.2) + (params.audioReact ? audioLevel : 0);
-
-                if (this.target.distanceTo(this.lastPos) > 0.01 || Math.random() < 0.1) {
-                    const p = this.particles.find(p => p.life <= 0);
-                    if(p) {
-                        p.life = 1.0; p.pos.copy(currentPos);
-                        p.vel.set((Math.random()-0.5)*spread, (Math.random()-0.5)*spread + (isSmoke?0.02:-0.05), (Math.random()-0.5)*spread);
-                        let hue = 0;
-                        if(params.mode==='Spectral') hue=(time*params.colorSpeed*0.1+(this.idx*0.05))%1;
-                        else if(params.mode==='Fire') hue=(0.05+Math.random()*0.1);
-                        else hue=(0.6+Math.random()*0.1);
-                        p.color.setHSL(hue, 1.0, 0.5);
+            tick(t, vol) {
+                if(!this.visible) { this.mesh.visible=false; return; }
+                this.mesh.visible=true;
+                const curr = new THREE.Vector3().lerpVectors(this.last, this.tgt, 0.3);
+                const smoke = params.trailStyle==='Smoke';
+                const spread = (smoke?0.1:0.2) + (params.audioReact?vol:0);
+                
+                if(this.tgt.distanceTo(this.last)>0.01 || Math.random()<0.1 || (params.audioReact && vol>0.3)) {
+                    const p = this.parts.find(x=>x.l<=0);
+                    if(p){
+                        p.l=1; p.p.copy(curr);
+                        p.v.set((Math.random()-0.5)*spread, (Math.random()-0.5)*spread+(smoke?0.02:-0.05), (Math.random()-0.5)*spread);
+                        let h=0; 
+                        if(params.mode==='Spectral') h=(t*params.colorSpeed*0.1+(this.i*0.05))%1;
+                        else if(params.mode==='Fire') h=(0.05+Math.random()*0.1);
+                        else h=(0.6+Math.random()*0.1);
+                        p.c.setHSL(h, 1.0, 0.5 + (vol*0.3));
                     }
                 }
-                this.lastPos.copy(currentPos);
-
-                const positions = this.mesh.geometry.attributes.position.array;
-                const sizes = this.mesh.geometry.attributes.size.array;
-                const colors = this.mesh.geometry.attributes.color.array;
-
-                this.particles.forEach((p, i) => {
-                    if(p.life > 0) {
-                        p.life -= isSmoke ? 0.01 : 0.04;
-                        p.pos.add(p.vel);
-                        let size = (isSmoke ? params.particleSize*3 : params.particleSize) * p.life;
-                        if(params.audioReact) size += audioLevel * 3.0; // Particulas explotan con sonido
-
-                        positions[i*3]=p.pos.x; positions[i*3+1]=p.pos.y; positions[i*3+2]=p.pos.z;
-                        sizes[i] = size;
-                        colors[i*3]=p.color.r; colors[i*3+1]=p.color.g; colors[i*3+2]=p.color.b;
-                    } else { sizes[i] = 0; positions[i*3+1] = -1000; }
+                this.last.copy(curr);
+                
+                const pos=this.mesh.geometry.attributes.position.array;
+                const size=this.mesh.geometry.attributes.size.array;
+                const col=this.mesh.geometry.attributes.color.array;
+                
+                this.parts.forEach((p,k) => {
+                    if(p.l>0) {
+                        p.l -= (smoke?0.01:0.04); p.p.add(p.v);
+                        let s = (smoke?params.particleSize*3:params.particleSize)*p.l;
+                        if(params.audioReact) s += vol * 5.0; // Explosión de tamaño
+                        pos[k*3]=p.p.x; pos[k*3+1]=p.p.y; pos[k*3+2]=p.p.z;
+                        size[k]=s;
+                        col[k*3]=p.c.r; col[k*3+1]=p.c.g; col[k*3+2]=p.c.b;
+                    } else { size[k]=0; pos[k*3+1]=-1000; }
                 });
-                this.mesh.geometry.attributes.position.needsUpdate = true;
-                this.mesh.geometry.attributes.size.needsUpdate = true;
-                this.mesh.geometry.attributes.color.needsUpdate = true;
+                this.mesh.geometry.attributes.position.needsUpdate=true;
+                this.mesh.geometry.attributes.size.needsUpdate=true;
+                this.mesh.geometry.attributes.color.needsUpdate=true;
             }
         }
 
-        const ribbons = []; const particles = [];
-        for(let i=0; i<10; i++) { ribbons.push(new RibbonTrail(i)); particles.push(new ParticleEmitter(i)); }
-        function resetCanvas() { ribbons.forEach(r=>r.reset()); particles.forEach(p=>p.reset()); }
+        const trails=[], emits=[]; for(let i=0;i<10;i++){ trails.push(new Trail(i)); emits.push(new Emitter(i)); }
+        function resetCanvas(){ trails.forEach(t=>t.tgt.set(0,-1000,0)); emits.forEach(e=>e.tgt.set(0,-1000,0)); }
 
-        // --- MEDIAPIPE ---
-        const videoElement = document.createElement('video');
-        let melodyHandActive = false, chordHandActive = false;
-        
-        const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-        hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
-        
-        hands.onResults((results) => {
-            document.getElementById('loading').style.display = 'none';
-            melodyHandActive = false; chordHandActive = false;
-            
-            if (results.multiHandLandmarks) {
-                results.multiHandLandmarks.forEach((lm, index) => {
-                    if (index > 1) return;
-                    [4,8,12,16,20].forEach((fIdx, i) => {
-                        const globalIdx = (index * 5) + i;
-                        const x = (lm[fIdx].x - 0.5) * -((camera.aspect*camera.position.z*0.8)*params.inputSensitivity);
-                        const y = (lm[fIdx].y - 0.5) * -((camera.position.z*0.8)*params.inputSensitivity);
-                        const z = -lm[fIdx].z * 20;
-                        ribbons[globalIdx].setTarget(x,y,z); particles[globalIdx].setTarget(x,y,z);
-                    });
-                    
-                    if (index===0) { melodyHandActive=true; audioSys.updateMelody(lm[8].x, lm[8].y, true); }
-                    else { chordHandActive=true; audioSys.updateChords(lm[8].x, lm[8].y, true); }
-                });
-            }
-            if(!melodyHandActive) audioSys.updateMelody(0,0,false);
-            if(!chordHandActive) audioSys.updateChords(0,0,false);
-        });
+        // --- LOGICA DE BOTONES ROBUSTA ---
+        const btnVoid = document.getElementById('btn-void');
+        const btnGrid = document.getElementById('btn-grid');
+        const btnWarp = document.getElementById('btn-warp');
+        const btnReact = document.getElementById('btn-react');
+        const btnMic = document.getElementById('btn-mic');
+        const allBtns = [btnVoid, btnGrid, btnWarp];
 
-        const cameraFeed = new Camera(videoElement, { onFrame: async () => { await hands.send({image: videoElement}); }, width: 1280, height: 720 });
-        cameraFeed.start();
+        function setMode(name){
+            grid.visible=false; stars.visible=false; scene.background=new THREE.Color(0x000000);
+            allBtns.forEach(b => b.classList.remove('active'));
+            if(name==='Void') btnVoid.classList.add('active');
+            if(name==='Grid') { grid.visible=true; scene.background=new THREE.Color(0x050510); btnGrid.classList.add('active'); }
+            if(name==='Warp') { stars.visible=true; scene.background=new THREE.Color(0x000010); btnWarp.classList.add('active'); }
+        }
+        btnVoid.onclick=()=>setMode('Void'); btnGrid.onclick=()=>setMode('Grid'); btnWarp.onclick=()=>setMode('Warp');
 
-        // --- GUI & CONTROL ---
+        // --- GUI ---
         const gui = new GUI({ title: 'System Core' });
-        
-        const fStyle = gui.addFolder('Visual Style');
-        fStyle.add(params, 'trailStyle', ['Ribbon', 'Particles', 'Smoke']).onChange(v => {
-            ribbons.forEach(r => r.visible = (v === 'Ribbon')); particles.forEach(p => p.visible = (v !== 'Ribbon'));
+        const fStyle = gui.addFolder('Visuals');
+        fStyle.add(params, 'trailStyle', ['Ribbon', 'Particles', 'Smoke']).onChange(v=>{
+            trails.forEach(t=>t.visible=(v==='Ribbon')); emits.forEach(e=>e.visible=(v!=='Ribbon'));
         });
         fStyle.add(params, 'particleSize', 0.1, 5.0);
-        fStyle.add(params, 'bloomStrength', 0, 3).onChange(v => bloomPass.strength=v);
-        
+        fStyle.add(params, 'bloomStrength', 0, 3).onChange(v=>bloom.strength=v);
+
         const fAudio = gui.addFolder('Audio & Mic');
         fAudio.add(params, 'soundEnabled').name('Sound ON/OFF');
-        fAudio.add(params, 'audioReact').name('Visual Reaction').onChange(v => {
-            const btn = document.getElementById('btn-react');
-            btn.innerText = v ? "REACT: ON" : "REACT: OFF";
-            btn.classList.toggle('react-active', v);
+        
+        // GUARDAMOS REFERENCIA DEL CONTROLADOR PARA EVITAR CRASH
+        const reactCtrl = fAudio.add(params, 'audioReact').name('Visual Reaction').onChange(v => {
+            btnReact.innerText = v ? "REACT: ON" : "REACT: OFF";
+            btnReact.classList.toggle('react-active', v);
         });
         
-        // SELECTOR DE FUENTE DE AUDIO
-        fAudio.add(params, 'audioSource', ['Internal', 'Microphone'])
-            .name('Input Source')
-            .onChange(async (val) => {
-                if(val === 'Microphone') await audioSys.enableMicrophone();
-                else audioSys.stopMicrophone();
-                audioSys.updateUI();
-            });
-
-        fAudio.add(params, 'micGain', 1.0, 10.0).name('Mic Sensitivity');
-        
-        const fKey = gui.addFolder('Music Key');
-        fKey.add(params, 'key', ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']).onChange(v=>audioSys.setKey(v));
-
-        const initAudio = () => { audioSys.init(); if(audioSys.ctx?.state==='suspended') audioSys.ctx.resume(); };
-        window.addEventListener('click', initAudio); window.addEventListener('touchstart', initAudio);
-        window.addEventListener('keydown', e => { if(e.key.toLowerCase()==='r') resetCanvas(); });
-
-        document.getElementById('btn-void').onclick = () => setScenario('Void');
-        document.getElementById('btn-grid').onclick = () => setScenario('Grid');
-        document.getElementById('btn-warp').onclick = () => setScenario('Warp');
-        
-        const btnReact = document.getElementById('btn-react');
+        // Sincronización Botón React
         btnReact.onclick = () => {
             params.audioReact = !params.audioReact;
+            reactCtrl.updateDisplay(); // USANDO LA REFERENCIA GUARDADA
+            // Trigger UI update inside controller logic
             btnReact.innerText = params.audioReact ? "REACT: ON" : "REACT: OFF";
             btnReact.classList.toggle('react-active', params.audioReact);
-            gui.controllers.find(c => c.property === 'audioReact').updateDisplay();
         };
 
-        ribbons.forEach(r=>r.visible=true);
-        setScenario('Void');
+        const sourceCtrl = fAudio.add(params, 'audioSource', ['Internal', 'Microphone']).listen().onChange(v => {
+            if(v==='Microphone') audioSys.enableMicrophone();
+            else audioSys.stopMicrophone();
+        });
+        
+        fAudio.add(params, 'micGain', 1, 10).name('Mic Boost');
+        
+        // Sincronización Botón Mic
+        btnMic.onclick = async () => {
+            // Inicializar audio context si es el primer click
+            if(!audioSys.isInit) audioSys.init();
+            if(audioSys.ctx && audioSys.ctx.state === 'suspended') await audioSys.ctx.resume();
 
-        // --- LOOP ---
+            if(params.audioSource === 'Internal') {
+                params.audioSource = 'Microphone';
+                // Activar visuales automáticamente si se prende el mic
+                if(!params.audioReact) btnReact.click();
+                
+                await audioSys.enableMicrophone();
+                btnMic.innerText = "MIC INPUT: ON";
+                btnMic.classList.add('mic-active');
+            } else {
+                params.audioSource = 'Internal';
+                audioSys.stopMicrophone();
+                btnMic.innerText = "MIC INPUT: OFF";
+                btnMic.classList.remove('mic-active');
+            }
+        };
+
+        // --- MEDIAPIPE & LOOP ---
+        const hands = new Hands({locateFile: f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+        hands.setOptions({maxNumHands:2, minDetectionConfidence:0.5, minTrackingConfidence:0.5});
+        
+        hands.onResults(res => {
+            document.getElementById('loading').style.display='none';
+            let mel=false, ch=false;
+            if(res.multiHandLandmarks) res.multiHandLandmarks.forEach((lm,i) => {
+                if(i>1)return;
+                [4,8,12,16,20].forEach((fid,k) => {
+                    const idx=i*5+k;
+                    const x=(lm[fid].x-0.5)*(-20*params.inputSensitivity);
+                    const y=(lm[fid].y-0.5)*(-10*params.inputSensitivity);
+                    const z=-lm[fid].z*20;
+                    trails[idx].tgt.set(x,y,z); emits[idx].tgt.set(x,y,z);
+                });
+                const idxF = lm[8];
+                if(i===0) { mel=true; audioSys.updateMelody(idxF.x, idxF.y, true); }
+                else { ch=true; audioSys.updateChords(idxF.x, idxF.y, true); }
+            });
+            if(!mel) audioSys.updateMelody(0,0,false);
+            if(!ch) audioSys.updateChords(0,0,false);
+        });
+
+        const video = document.createElement('video');
+        const cam = new Camera(video, {onFrame: async()=>{await hands.send({image:video});}, width:1280, height:720});
+        cam.start();
+
         function animate() {
             requestAnimationFrame(animate);
-            const time = performance.now() * 0.001;
+            const t = performance.now()*0.001;
+            const vol = params.audioReact ? audioSys.getVolume() : 0;
             
-            // Lógica Reactiva
-            let audioLevel = 0;
-            if (params.audioReact) audioLevel = audioSys.getVolume();
-
-            // Efectos globales reactivos
-            if (params.audioReact) {
-                bloomPass.strength = params.bloomStrength + (audioLevel * 2.5); // Bloom pulsa
-                camera.position.z = THREE.MathUtils.lerp(camera.position.z, 12 - (audioLevel * 1.5), 0.1); // Zoom sutil
+            // Efectos Globales
+            if(params.audioReact) {
+                bloom.strength = params.bloomStrength + (vol * 3.0);
+                camera.position.z = THREE.MathUtils.lerp(camera.position.z, 12 - (vol*3), 0.1);
             } else {
-                bloomPass.strength = params.bloomStrength;
+                bloom.strength = params.bloomStrength;
                 camera.position.z = THREE.MathUtils.lerp(camera.position.z, 12, 0.1);
             }
 
             for(let i=0; i<10; i++) {
-                if(params.trailStyle === 'Ribbon') ribbons[i].tick(time, audioLevel);
-                else particles[i].tick(time, audioLevel);
+                if(params.trailStyle==='Ribbon') trails[i].tick(t, vol);
+                else emits[i].tick(t, vol);
             }
-
-            if(gridHelper.visible) gridHelper.position.z = (time*2)%10;
-            if(starField.visible) { starField.rotation.z=time*0.1; starField.rotation.x=Math.sin(time*0.2)*0.2; }
+            
+            if(grid.visible) grid.position.z = (t*2)%10;
+            if(stars.visible) { stars.rotation.z=t*0.1; stars.rotation.x=Math.sin(t*0.2)*0.2; }
             composer.render();
         }
         animate();
         
-        window.onresize = () => { camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); composer.setSize(window.innerWidth,window.innerHeight); };
+        window.addEventListener('resize', () => {
+            camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth,window.innerHeight); composer.setSize(window.innerWidth,window.innerHeight);
+        });
+        
+        // Start Audio on click just in case
+        window.addEventListener('click', () => { if(!audioSys.isInit) audioSys.init(); });
+        
+        setMode('Void');
     </script>
 
     <div id="loading">INICIALIZANDO SISTEMA...</div>
@@ -555,6 +497,7 @@
         <div id="btn-grid" class="mode-btn">Cyber Grid</div>
         <div id="btn-warp" class="mode-btn">Warp Hole</div>
         <div id="btn-react" class="mode-btn">REACT: OFF</div>
+        <div id="btn-mic" class="mode-btn">MIC INPUT: OFF</div>
     </div>
 </body>
 </html>
