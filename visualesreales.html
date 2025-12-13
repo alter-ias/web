@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Artimotion - Live Band Visuals</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
+        
+        #overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 20;
+            transition: opacity 0.5s ease;
+        }
+        
+        button {
+            padding: 15px 40px; font-size: 18px; color: #0ff; background: transparent;
+            border: 2px solid #0ff; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 0 20px rgba(0,255,255,0.2); text-transform: uppercase; letter-spacing: 2px;
+            margin: 10px; transition: all 0.3s;
+        }
+        button:hover { background: #0ff; color: #000; box-shadow: 0 0 50px rgba(0,255,255,0.8); }
+
+        #ui-container {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 15px; z-index: 10; align-items: center;
+        }
+
+        #file-input { display: none; }
+        
+        .action-btn {
+            padding: 10px 20px; background: rgba(20, 20, 30, 0.9); 
+            border: 1px solid #444; color: #fff; border-radius: 30px; 
+            cursor: pointer; font-size: 12px; font-weight: bold; text-transform: uppercase;
+            transition: 0.3s; display: flex; align-items: center; gap: 5px;
+        }
+        .action-btn:hover { background: #333; border-color: #fff; box-shadow: 0 0 15px rgba(255,255,255,0.2); }
+        .action-btn.active { background: #00ff66; color: black; border-color: #00ff66; box-shadow: 0 0 20px #00ff66; }
+        .action-btn.video-loaded { background: #ff0055; border-color: #ff0055; box-shadow: 0 0 15px #ff0055; }
+
+        .lil-gui { --background-color: rgba(10, 10, 10, 0.9); }
+    </style>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+        import { EffectComposer } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
+        import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
+
+        const params = {
+            distortion: 3.5,
+            bloomStrength: 1.5,
+            speed: 1.0,
+            wireframe: false,
+            micGain: 5.0,
+            mixRatio: 0.5, // 0 = Video, 1 = Webcam
+            blendMode: 'Screen' // Simple logic switch
+        };
+
+        // --- AUDIO ENGINE ---
+        class AudioEngine {
+            constructor() { this.ctx = null; this.analyser = null; this.data = null; this.isReady = false; }
+            async init() {
+                try {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false } });
+                    this.analyser = this.ctx.createAnalyser();
+                    this.analyser.fftSize = 512; 
+                    const src = this.ctx.createMediaStreamSource(stream);
+                    src.connect(this.analyser);
+                    this.data = new Uint8Array(this.analyser.frequencyBinCount);
+                    this.isReady = true;
+                    return true;
+                } catch(e) { console.error(e); return false; }
+            }
+            getVolume() {
+                if(!this.isReady) return 0;
+                this.analyser.getByteTimeDomainData(this.data);
+                let sum = 0;
+                for(let i=0; i<this.data.length; i++) { const v=(this.data[i]-128)/128; sum+=v*v; }
+                return Math.sqrt(sum/this.data.length) * params.micGain;
+            }
+            getWaveData() {
+                if(!this.isReady) return new Uint8Array(256);
+                this.analyser.getByteFrequencyData(this.data);
+                return this.data;
+            }
+        }
+        const audio = new AudioEngine();
+
+        // --- SCENE ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.z = 9;
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // --- TEXTURES ---
+        // 1. Video Local
+        const videoEl = document.createElement('video');
+        videoEl.loop = true; videoEl.muted = true; videoEl.crossOrigin = "anonymous"; videoEl.playsInline = true;
+        const videoTex = new THREE.VideoTexture(videoEl);
+
+        // 2. Webcam
+        const webcamEl = document.createElement('video');
+        webcamEl.muted = true; webcamEl.playsInline = true;
+        const webcamTex = new THREE.VideoTexture(webcamEl);
+
+        // 3. Placeholder (Plasma)
+        function createPlasma() {
+            const c=document.createElement('canvas'); c.width=64; c.height=64;
+            const x=c.getContext('2d'); x.fillStyle='#000'; x.fillRect(0,0,64,64);
+            return new THREE.CanvasTexture(c);
+        }
+        const placeholderTex = createPlasma();
+
+        // --- SHADER MATERIAL (EL SECRETO DE LA MEZCLA) ---
+        // Este shader recibe ambas texturas y las mezcla pixel a pixel
+        const uniforms = {
+            uTexVideo: { value: placeholderTex },
+            uTexCam: { value: placeholderTex },
+            uMix: { value: 0.0 }, // 0 = Video, 1 = Cam
+            uTime: { value: 0.0 },
+            uHasVideo: { value: 0.0 }, // Flags para saber si hay señal
+            uHasCam: { value: 0.0 }
+        };
+
+        const vertexShader = `
+            varying vec2 vUv;
+            varying float vDistortion; // Pasamos info al fragment si queremos colorear por altura
+            void main() {
+                vUv = uv;
+                vec3 pos = position;
+                // La deformación sigue haciéndose en CPU para este ejemplo,
+                // así que aquí solo pasamos la posición ya deformada.
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            }
+        `;
+
+        const fragmentShader = `
+            uniform sampler2D uTexVideo;
+            uniform sampler2D uTexCam;
+            uniform float uMix;
+            uniform float uHasVideo;
+            uniform float uHasCam;
+            uniform float uTime;
+            varying vec2 vUv;
+
+            void main() {
+                // Generar plasma de fondo si no hay video
+                vec3 colorDefault = vec3(0.5 + 0.5*sin(uTime+vUv.xyx));
+                
+                vec4 vidColor = texture2D(uTexVideo, vUv);
+                vec4 camColor = texture2D(uTexCam, vUv);
+
+                // Si no hay video cargado, usar plasma
+                vec3 finalA = (uHasVideo > 0.5) ? vidColor.rgb : colorDefault * 0.2;
+                
+                // Si no hay cámara, usar negro
+                vec3 finalB = (uHasCam > 0.5) ? camColor.rgb : vec3(0.0);
+
+                // MEZCLA TIPO "SCREEN" (Doble Exposición Artística)
+                // Fórmula Screen: 1 - (1-A)*(1-B) -> Hace brillar las partes claras de ambos
+                vec3 screenBlend = 1.0 - (1.0 - finalA) * (1.0 - finalB);
+                
+                // Mezcla lineal simple controlada por el usuario
+                vec3 linearBlend = mix(finalA, finalB, uMix);
+
+                // Usamos una combinación: 
+                // Si uMix es 0.5, hacemos Screen. Si es extremo, mostramos solo uno.
+                // Para simplificar, usaremos un mix lineal potenciado (Additivo)
+                
+                vec3 finalColor = mix(finalA, finalB, uMix);
+                
+                // Hack artístico: Si ambos están activos, sumamos un poco de brillo (Add)
+                if(uHasVideo > 0.5 && uHasCam > 0.5) {
+                    finalColor += (finalA * finalB) * 0.5; 
+                }
+
+                gl_FragColor = vec4(finalColor, 1.0);
+            }
+        `;
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: uniforms,
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
+            side: THREE.DoubleSide,
+            wireframe: false
+        });
+
+        // --- MESH ---
+        const geometry = new THREE.PlaneGeometry(16, 9, 100, 100);
+        const plane = new THREE.Mesh(geometry, material);
+        scene.add(plane);
+
+        // --- POST PROCESS ---
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        composer.addPass(bloomPass);
+
+        // --- LOGIC ---
+        const posAttr = geometry.attributes.position;
+        const origPos = posAttr.array.slice();
+
+        function updatePlasmaTex(time) {
+            const tex = placeholderTex;
+            const ctx = tex.image.getContext('2d');
+            const w=64, h=64;
+            const grad = ctx.createLinearGradient(0,0,w,h);
+            grad.addColorStop(0, `hsl(${time*40%360},100%,50%)`);
+            grad.addColorStop(1, `hsl(${(time*40+180)%360},100%,50%)`);
+            ctx.fillStyle = grad; ctx.fillRect(0,0,w,h);
+            tex.needsUpdate = true;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = performance.now() * 0.001 * params.speed;
+            const vol = audio.getVolume();
+            const freqs = audio.getWaveData();
+
+            // Update Uniforms
+            uniforms.uTime.value = time;
+            uniforms.uMix.value = params.mixRatio;
+            
+            // Update Plasma si no hay video
+            if(uniforms.uHasVideo.value === 0) updatePlasmaTex(time);
+
+            // Audio Reactivity
+            bloomPass.strength = params.bloomStrength + (vol * 2.0);
+            material.wireframe = params.wireframe;
+
+            // --- DEFORMACIÓN (GLITCH) ---
+            for (let i = 0; i < posAttr.count; i++) {
+                const x = origPos[i*3];
+                const y = origPos[i*3+1];
+                
+                // Mapear Y a frecuencia
+                const freqIdx = Math.floor(((y+4.5)/9)*100);
+                const audioVal = freqs[freqIdx % freqs.length] / 255.0;
+
+                // Ruido base + Audio
+                const noise = Math.sin(x*2 + time) * Math.cos(y*1.5 + time);
+                const dist = noise * (audioVal * params.distortion * params.micGain);
+                
+                posAttr.setZ(i, dist);
+            }
+            posAttr.needsUpdate = true;
+            geometry.computeVertexNormals();
+
+            // Camera Beat Kick
+            if(vol > 0.5) {
+                plane.scale.setScalar(1.0 + vol*0.05);
+            } else {
+                plane.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
+            }
+
+            composer.render();
+        }
+
+        // --- EVENTS ---
+        document.getElementById('start-btn').onclick = async () => {
+            if(await audio.init()) {
+                document.getElementById('overlay').style.opacity = 0;
+                setTimeout(()=>document.getElementById('overlay').style.display='none', 500);
+                animate();
+            }
+        };
+
+        // Cargar Video Local
+        const fileInput = document.getElementById('file-input');
+        document.getElementById('btn-load-video').onclick = () => fileInput.click();
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            const url = URL.createObjectURL(file);
+            videoEl.src = url;
+            videoEl.play().then(() => {
+                uniforms.uTexVideo.value = videoTex;
+                uniforms.uHasVideo.value = 1.0;
+                document.getElementById('btn-load-video').classList.add('video-loaded');
+                document.getElementById('btn-load-video').innerHTML = "VIDEO: OK";
+            });
+        };
+
+        // Activar Webcam
+        document.getElementById('btn-cam').onclick = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+                webcamEl.srcObject = stream;
+                webcamEl.play().then(() => {
+                    uniforms.uTexCam.value = webcamTex;
+                    uniforms.uHasCam.value = 1.0;
+                    document.getElementById('btn-cam').classList.add('active');
+                    // Ponemos el mix al 50% para que se vea el cambio
+                    params.mixRatio = 0.5;
+                });
+            } catch(err) {
+                console.error(err);
+                alert("No se pudo acceder a la cámara.");
+            }
+        };
+
+        window.onresize = () => {
+            camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
+        };
+
+        // GUI
+        const gui = new GUI({ title: 'VJ CONTROLS' });
+        const fVideo = gui.addFolder('Mezcla & Video');
+        fVideo.add(params, 'mixRatio', 0.0, 1.0).name('Mezcla Video/Cam').listen();
+        fVideo.add(params, 'distortion', 0, 10).name('Distorsión Audio');
+        
+        const fFx = gui.addFolder('Efectos');
+        fFx.add(params, 'micGain', 1, 10).name('Sensibilidad');
+        fFx.add(params, 'bloomStrength', 0, 4).name('Brillo');
+        fFx.add(params, 'wireframe').name('Wireframe');
+
+    </script>
+</head>
+<body>
+    <div id="overlay">
+        <h1 style="color:white; letter-spacing: 5px; text-transform:uppercase;">Live Band Visuals</h1>
+        <button id="start-btn">INICIAR SISTEMA</button>
+    </div>
+
+    <div id="ui-container">
+        <input type="file" id="file-input" accept="video/*">
+        <div id="btn-load-video" class="action-btn">📂 Cargar Video</div>
+        
+        <div id="btn-cam" class="action-btn">📷 Activar Cámara (Banda)</div>
+    </div>
+</body>
+</html>
