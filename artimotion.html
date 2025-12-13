@@ -2,44 +2,42 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Pure Neon Audio</title>
+    <title>Artimotion - Video Glitch Reactor</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; user-select: none; font-family: 'Segoe UI', sans-serif; }
-        canvas { display: block; }
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif; }
         
         #overlay { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
             justify-content: center; align-items: center; z-index: 20;
             transition: opacity 0.5s ease;
         }
         
-        #start-btn {
-            padding: 20px 50px; font-size: 24px; color: #0ff; background: transparent;
+        button {
+            padding: 15px 40px; font-size: 18px; color: #0ff; background: transparent;
             border: 2px solid #0ff; border-radius: 50px; cursor: pointer;
-            box-shadow: 0 0 30px rgba(0,255,255,0.3); letter-spacing: 2px;
-            transition: all 0.3s; text-transform: uppercase;
+            box-shadow: 0 0 20px rgba(0,255,255,0.2); text-transform: uppercase; letter-spacing: 2px;
+            margin: 10px; transition: all 0.3s;
         }
-        #start-btn:hover { background: #0ff; color: #000; box-shadow: 0 0 60px rgba(0,255,255,0.8); }
+        button:hover { background: #0ff; color: #000; box-shadow: 0 0 50px rgba(0,255,255,0.8); }
 
-        #bottom-menu {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 15px; z-index: 10;
-        }
-
-        .control-group {
-            background: rgba(20, 20, 30, 0.8); padding: 10px 20px; border-radius: 12px;
-            border: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px; align-items: center;
+        #ui-container {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; z-index: 10; align-items: center;
         }
 
-        .label { color: #888; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-right: 5px;}
-
-        #mic-bar-container {
-            width: 100px; height: 6px; background: #111; border-radius: 3px; overflow: hidden;
+        /* Input de archivo oculto pero funcional */
+        #file-input { display: none; }
+        
+        .label-upload {
+            padding: 10px 20px; background: rgba(255, 0, 80, 0.2); 
+            border: 1px solid #ff0050; color: #ff0050; border-radius: 30px; 
+            cursor: pointer; font-size: 12px; font-weight: bold; text-transform: uppercase;
+            transition: 0.3s;
         }
-        #mic-bar { width: 0%; height: 100%; background: #0f0; transition: width 0.05s; }
+        .label-upload:hover { background: #ff0050; color: white; box-shadow: 0 0 15px #ff0050; }
 
-        .lil-gui { --background-color: rgba(5, 5, 10, 0.9); --text-color: #ddd; }
+        .lil-gui { --background-color: rgba(10, 10, 10, 0.9); }
     </style>
 
     <script type="module">
@@ -47,258 +45,241 @@
         import { EffectComposer } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/EffectComposer.js';
         import { RenderPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
+        import { GlitchPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/GlitchPass.js'; // Efecto extra
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // PARAMS
         const params = {
-            lineCount: 5,
-            pointsPerLine: 128, // Resolución de la onda
-            amplitude: 2.0,     // Altura de la onda
+            distortion: 3.5,     // Qué tanto se deforma el video
+            bloomStrength: 1.5,
             speed: 1.0,
-            bloomStrength: 2.0,
-            colorMode: 'Spectral', // Spectral, Neon, Fire
-            sensitivity: 2.0
+            wireframe: false,
+            micGain: 5.0,
+            colorSpeed: 0.5
         };
 
-        // --- AUDIO ENGINE (Simplificado y Robusto) ---
-        class AudioSystem {
+        // --- AUDIO SYSTEM (RAW) ---
+        class AudioEngine {
             constructor() {
-                this.ctx = null;
-                this.analyser = null;
-                this.dataArray = null;
-                this.source = null;
-                this.isReady = false;
+                this.ctx = null; this.analyser = null; this.data = null; this.isReady = false;
             }
-
             async init() {
                 try {
                     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        audio: { 
-                            echoCancellation: false, 
-                            noiseSuppression: false, 
-                            autoGainControl: false 
-                        } 
-                    });
-                    
-                    this.source = this.ctx.createMediaStreamSource(stream);
+                    // Importante: Sin cancelación de eco para captar música cruda
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false } });
                     this.analyser = this.ctx.createAnalyser();
-                    this.analyser.fftSize = 512; // Tamaño de buffer para la onda
-                    this.analyser.smoothingTimeConstant = 0.5;
-                    
-                    this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
-                    this.source.connect(this.analyser);
-                    
+                    this.analyser.fftSize = 512; 
+                    const src = this.ctx.createMediaStreamSource(stream);
+                    src.connect(this.analyser);
+                    this.data = new Uint8Array(this.analyser.frequencyBinCount);
                     this.isReady = true;
                     return true;
-                } catch (e) {
-                    console.error(e);
-                    alert("Error accediendo al micrófono. Revisa permisos.");
-                    return false;
-                }
+                } catch(e) { console.error(e); alert("Error de Micrófono"); return false; }
             }
-
-            getWaveform() {
-                if(!this.isReady) return new Uint8Array(256).fill(128);
-                this.analyser.getByteTimeDomainData(this.dataArray);
-                return this.dataArray;
-            }
-
             getVolume() {
                 if(!this.isReady) return 0;
+                this.analyser.getByteTimeDomainData(this.data);
                 let sum = 0;
-                for(let i=0; i<this.dataArray.length; i++) {
-                    const v = (this.dataArray[i] - 128) / 128;
+                for(let i=0; i<this.data.length; i++) {
+                    const v = (this.data[i]-128)/128;
                     sum += v*v;
                 }
-                return Math.sqrt(sum / this.dataArray.length);
+                return Math.sqrt(sum/this.data.length) * params.micGain;
+            }
+            getWaveData() {
+                if(!this.isReady) return new Uint8Array(256);
+                this.analyser.getByteFrequencyData(this.data); // Usamos Frecuencia para deformar malla
+                return this.data;
             }
         }
-        const audio = new AudioSystem();
+        const audio = new AudioEngine();
 
-        // --- 3D SCENE ---
+        // --- SCENE SETUP ---
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x000000, 0.03);
-        
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 15);
+        camera.position.z = 10;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Post-Processing (Bloom)
+        // --- MESH & VIDEO TEXTURE ---
+        // Creamos un plano con MUCHOS segmentos (100x100) para poder deformarlo bien
+        const geometry = new THREE.PlaneGeometry(16, 9, 120, 120); 
+        
+        // Shader Material personalizado "Inline" para efectos visuales potentes sin texturas
+        // O usaremos MeshStandard simple y manipulamos vértices manualmente para facilidad
+        const videoElement = document.createElement('video');
+        videoElement.loop = true;
+        videoElement.muted = true; 
+        videoElement.crossOrigin = "anonymous";
+        videoElement.playsInline = true;
+        
+        let videoTexture = new THREE.VideoTexture(videoElement);
+        let defaultTexture = createPlasmaTexture(); // Textura por defecto si no hay video
+
+        const material = new THREE.MeshBasicMaterial({ 
+            map: defaultTexture,
+            color: 0xffffff,
+            side: THREE.DoubleSide,
+            wireframe: false
+        });
+
+        const plane = new THREE.Mesh(geometry, material);
+        scene.add(plane);
+
+        // --- POST PROCESSING ---
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
+        
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         bloomPass.strength = params.bloomStrength;
+        bloomPass.radius = 0.5;
+        bloomPass.threshold = 0.1;
         composer.addPass(bloomPass);
 
-        // --- NEON LINES ---
-        const lines = [];
-        const group = new THREE.Group();
-        scene.add(group);
-
-        function initLines() {
-            // Limpiar anteriores
-            while(group.children.length > 0){ 
-                group.remove(group.children[0]); 
-            }
-            lines.length = 0;
-
-            const material = new THREE.LineBasicMaterial({ 
-                color: 0xffffff, 
-                linewidth: 3, // Nota: linewidth solo funciona en algunos browsers, usaremos Bloom para dar grosor visual
-                transparent: true,
-                opacity: 0.9,
-                vertexColors: true // Importante para degradados
-            });
-
-            // Ancho visible aproximado
-            const width = 40; 
-            const step = width / params.pointsPerLine;
-
-            for(let i = 0; i < params.lineCount; i++) {
-                const geometry = new THREE.BufferGeometry();
-                const positions = new Float32Array(params.pointsPerLine * 3);
-                const colors = new Float32Array(params.pointsPerLine * 3);
-
-                // Inicializar línea plana
-                for(let j = 0; j < params.pointsPerLine; j++) {
-                    positions[j*3] = (j * step) - (width/2); // X
-                    positions[j*3+1] = (i - params.lineCount/2) * 2; // Y (separación vertical)
-                    positions[j*3+2] = 0; // Z
-                }
-
-                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-                
-                const line = new THREE.Line(geometry, material);
-                // Guardar posición base Y para referencia
-                line.userData = { 
-                    baseY: (i - params.lineCount/2) * 1.5,
-                    offset: i * 0.5 // Desfase para que no se muevan igual
-                };
-                
-                group.add(line);
-                lines.push(line);
-            }
+        // --- FUNCIONES AUXILIARES ---
+        function createPlasmaTexture() {
+            // Crea una textura generativa temporal
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#000'; ctx.fillRect(0,0,512,512);
+            return new THREE.CanvasTexture(canvas);
         }
-        initLines();
 
-        // --- ANIMATION ---
+        function updatePlasma(time) {
+            // Si no hay video, dibujamos ruido de colores
+            if(material.map === videoTexture) return;
+            
+            const tex = material.map;
+            const ctx = tex.image.getContext('2d');
+            const w = 512; const h = 512;
+            
+            // Efecto "Barrido" simple para rendimiento
+            const grad = ctx.createLinearGradient(0,0,w,h);
+            grad.addColorStop(0, `hsl(${time*50 % 360}, 100%, 50%)`);
+            grad.addColorStop(0.5, `hsl(${(time*50 + 180) % 360}, 100%, 50%)`);
+            grad.addColorStop(1, `hsl(${time*50 % 360}, 100%, 50%)`);
+            
+            ctx.globalAlpha = 0.1;
+            ctx.fillStyle = grad;
+            ctx.fillRect(0,0,w,h);
+            
+            // Rayas aleatorias
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = '#fff';
+            if(Math.random()>0.9) ctx.fillRect(0, Math.random()*h, w, 2);
+            
+            tex.needsUpdate = true;
+        }
+
+        // --- ANIMACIÓN PRINCIPAL ---
+        const positionAttribute = geometry.attributes.position;
+        const originalPositions = positionAttribute.array.slice(); // Copia de seguridad
+
         function animate() {
             requestAnimationFrame(animate);
-
             const time = performance.now() * 0.001 * params.speed;
-            const waveData = audio.getWaveform(); // Array de 0 a 255 (128 es silencio)
-            const volume = audio.getVolume();
-
-            // Update Mic Bar UI
-            document.getElementById('mic-bar').style.width = `${Math.min(volume * 100 * 3, 100)}%`; // *3 para visualización
             
-            // Bloom reactivo al volumen
-            bloomPass.strength = params.bloomStrength + (volume * 2.0);
+            // 1. Audio Data
+            const vol = audio.getVolume(); // Volumen general (0 a 1+)
+            const freqs = audio.getWaveData(); // Array de frecuencias (bajos a agudos)
 
-            // Actualizar líneas
-            lines.forEach((line, lineIndex) => {
-                const positions = line.geometry.attributes.position.array;
-                const colors = line.geometry.attributes.color.array;
-                const baseY = line.userData.baseY;
-                const offset = line.userData.offset;
+            // 2. Efectos Visuales
+            if(!material.map.image) updatePlasma(time);
+            else if (material.map !== videoTexture) updatePlasma(time);
 
-                for(let j = 0; j < params.pointsPerLine; j++) {
-                    // Mapear índice de audio a punto de la línea
-                    // Interpolamos el array de audio para que coincida con los puntos
-                    const audioIndex = Math.floor((j / params.pointsPerLine) * waveData.length);
-                    const rawAudio = waveData[audioIndex]; 
-                    
-                    // Convertir 0-255 a -1 a 1
-                    let waveVal = (rawAudio - 128) / 128.0; 
-                    
-                    // Aplicar sensibilidad y amplitud
-                    waveVal *= params.amplitude * params.sensitivity;
+            bloomPass.strength = params.bloomStrength + (vol * 1.5); // Bloom explota con volumen
+            material.wireframe = params.wireframe;
 
-                    // Factor suavizado en los bordes (para que la línea no salte en los extremos)
-                    const edgeFactor = Math.sin((j / (params.pointsPerLine-1)) * Math.PI);
-
-                    // Nueva posición Y: Base + Onda + Movimiento senoidal suave
-                    const y = baseY + (waveVal * edgeFactor);
-                    
-                    // Actualizar Y
-                    positions[j*3 + 1] = y;
-
-                    // COLOR
-                    const color = new THREE.Color();
-                    let hue = 0;
-
-                    if(params.colorMode === 'Spectral') {
-                        hue = (j * 0.01 + time * 0.2 + lineIndex * 0.1) % 1;
-                        color.setHSL(hue, 1.0, 0.5 + Math.abs(waveVal)*0.5);
-                    } else if (params.colorMode === 'Neon') {
-                        hue = (0.5 + Math.abs(waveVal)*0.5 + time * 0.1) % 1; // Azules/Cyan
-                         color.setHSL(hue, 1.0, 0.6);
-                    } else { // Fire
-                        hue = (Math.abs(waveVal) * 0.3 + lineIndex*0.05) % 1;
-                        color.setHSL(hue, 1.0, 0.5);
-                    }
-
-                    colors[j*3] = color.r;
-                    colors[j*3+1] = color.g;
-                    colors[j*3+2] = color.b;
-                }
-
-                line.geometry.attributes.position.needsUpdate = true;
-                line.geometry.attributes.color.needsUpdate = true;
+            // 3. DEFORMACIÓN DE VÉRTICES (Lo estilo TouchDesigner)
+            // Recorremos todos los vértices del plano
+            for (let i = 0; i < positionAttribute.count; i++) {
+                const x = originalPositions[i * 3];
+                const y = originalPositions[i * 3 + 1];
                 
-                // Rotación sutil de todo el grupo
-                group.rotation.x = Math.sin(time * 0.1) * 0.1;
-                group.rotation.z = Math.cos(time * 0.15) * 0.05;
-            });
+                // Mapear posición Y del vértice a una frecuencia del audio
+                // Esto hace que la parte de abajo reaccione a bajos y arriba a agudos (o viceversa)
+                const freqIndex = Math.floor(((y + 4.5) / 9) * 100); // Mapeo aprox
+                const audioVal = freqs[freqIndex % freqs.length] / 255.0;
+
+                // Calculamos el desplazamiento en Z (Profundidad)
+                // Usamos ruido Perlin simple (Math.sin combinados) + Audio
+                const noise = Math.sin(x * 2 + time) * Math.cos(y * 1.5 + time);
+                
+                // Si el volumen es alto, la distorsión es masiva
+                const distortion = noise * (audioVal * params.distortion * params.micGain);
+
+                // Aplicamos nueva Z
+                positionAttribute.setZ(i, distortion);
+            }
+            
+            positionAttribute.needsUpdate = true;
+            geometry.computeVertexNormals(); // Para que la luz (si hubiera) reaccione bien
+
+            // Rotación sutil de cámara con el "Kick"
+            if(vol > 0.4) {
+                plane.rotation.z = (Math.random()-0.5) * 0.05;
+                plane.scale.setScalar(1.0 + vol * 0.1);
+            } else {
+                plane.rotation.z *= 0.9; // Volver suavemente
+                plane.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
+            }
 
             composer.render();
         }
 
-        // --- EVENTS ---
-        document.getElementById('start-btn').addEventListener('click', async () => {
-            const success = await audio.init();
-            if(success) {
+        // --- CONTROLADORES UI ---
+        document.getElementById('start-btn').onclick = async () => {
+            if(await audio.init()) {
                 document.getElementById('overlay').style.opacity = 0;
-                setTimeout(() => document.getElementById('overlay').style.display = 'none', 500);
+                setTimeout(()=>document.getElementById('overlay').style.display='none', 500);
                 animate();
             }
-        });
+        };
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            composer.setSize(window.innerWidth, window.innerHeight);
-        });
+        const fileInput = document.getElementById('file-input');
+        
+        document.querySelector('.label-upload').onclick = () => fileInput.click();
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if(!file) return;
+            
+            const url = URL.createObjectURL(file);
+            videoElement.src = url;
+            videoElement.play().then(() => {
+                material.map = videoTexture;
+                material.color.setHex(0xffffff); // Reset color a blanco puro para video
+                console.log("Video cargado");
+            });
+        };
+
+        // Resize
+        window.onresize = () => {
+            camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
+        };
 
         // GUI
-        const gui = new GUI({ title: 'Ajustes' });
-        gui.add(params, 'amplitude', 0.1, 10.0).name('Altura Onda');
-        gui.add(params, 'sensitivity', 1.0, 10.0).name('Sensibilidad Mic');
-        gui.add(params, 'bloomStrength', 0.0, 5.0).name('Brillo Neón');
-        gui.add(params, 'colorMode', ['Spectral', 'Neon', 'Fire']).name('Color');
-        gui.add(params, 'lineCount', 1, 20, 1).name('Num Líneas').onChange(initLines);
+        const gui = new GUI({ title: 'Visual Controls' });
+        gui.add(params, 'distortion', 0, 10).name('Nivel Glitch');
+        gui.add(params, 'micGain', 1, 10).name('Sensibilidad Audio');
+        gui.add(params, 'bloomStrength', 0, 4).name('Brillo Neón');
+        gui.add(params, 'wireframe').name('Modo Malla');
 
     </script>
 </head>
 <body>
     <div id="overlay">
-        <button id="start-btn">ACTIVAR MICRÓFONO</button>
-        <p style="color: #666; margin-top: 20px; font-family: sans-serif; font-size: 12px;">Se requieren permisos de audio</p>
+        <h1 style="color:white; letter-spacing: 5px; text-transform:uppercase; margin-bottom:30px;">Neon Glitch Reactor</h1>
+        <button id="start-btn">ACTIVAR SISTEMA</button>
     </div>
 
-    <div id="bottom-menu">
-        <div class="control-group">
-            <span class="label">Nivel de Entrada</span>
-            <div id="mic-bar-container">
-                <div id="mic-bar"></div>
-            </div>
-        </div>
+    <div id="ui-container">
+        <input type="file" id="file-input" accept="video/*">
+        <div class="label-upload">📂 Cargar Video Local</div>
     </div>
 </body>
 </html>
