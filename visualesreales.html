@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Ultimate VJ Station</title>
+    <title>Artimotion - Ultimate VJ Station 2.0</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', monospace; }
         
@@ -34,10 +34,8 @@
         .hud-line { margin-bottom: 5px; font-size: 12px; opacity: 0.8; }
         .hud-value { color: #0ff; font-weight: bold; }
 
-        /* Input oculto para carga dinámica */
         #file-input { display: none; }
         
-        /* Notificaciones visuales */
         #notification {
             position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.8); border: 1px solid #0ff; color: #0ff;
@@ -55,15 +53,16 @@
 
         // --- ESTADO GLOBAL ---
         const state = {
-            effectMode: 1, // 1-10
+            effectMode: 1, // 1-10 (Deformaciones)
+            styleMode: 0,  // 0:Normal, 1:Malla, 2:Puntos, 3:Hex, 4:Hologram, 5:Binary
             mixRatio: 0.0, // 0 = Video, 1 = Cam
             distortion: 2.0,
             micGain: 5.0,
             bloom: 1.5,
             tint: new THREE.Color(1, 1, 1),
-            tintMix: 0.0, // 0 = Original, 1 = Tinted
+            tintMix: 0.0, 
             activeSlot: null,
-            loadingSlot: null // Slot que se está cargando actualmente
+            loadingSlot: null
         };
 
         // --- AUDIO ENGINE ---
@@ -102,18 +101,12 @@
         document.body.appendChild(renderer.domElement);
 
         // --- TEXTURES ---
-        // Slots de Video: Guardamos elementos de video HTML aquí
         const videoSlots = { 'g': null, 'h': null, 'j': null, 'k': null, 'l': null };
-        
-        // Textura "Activa" (se actualiza con el video del slot seleccionado)
-        const activeVideoTex = new THREE.VideoTexture(document.createElement('video')); // Dummy init
-        
-        // Webcam
+        const activeVideoTex = new THREE.VideoTexture(document.createElement('video')); 
         const webcamEl = document.createElement('video');
         webcamEl.muted = true; webcamEl.playsInline = true;
         const webcamTex = new THREE.VideoTexture(webcamEl);
 
-        // Placeholder (Ruido inicial)
         function createNoise() {
             const c=document.createElement('canvas'); c.width=64; c.height=64;
             const x=c.getContext('2d'); x.fillStyle='#111'; x.fillRect(0,0,64,64);
@@ -121,7 +114,7 @@
         }
         const noiseTex = createNoise();
 
-        // --- SHADER (EL CEREBRO VISUAL) ---
+        // --- SHADER UNIFORMS ---
         const uniforms = {
             uTexVideo: { value: noiseTex },
             uTexCam: { value: noiseTex },
@@ -130,7 +123,8 @@
             uBass: { value: 0.0 },
             uHigh: { value: 0.0 },
             uVol: { value: 0.0 },
-            uMode: { value: 1 }, // 1-10
+            uMode: { value: 1 },    // Deformaciones
+            uStyle: { value: 0 },   // NUEVO: Estilos Geométricos
             uTint: { value: new THREE.Color(1,1,1) },
             uTintMix: { value: 0.0 },
             uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
@@ -145,11 +139,11 @@
             uniform float uHigh;
             uniform float uVol;
             uniform int uMode;
+            uniform int uStyle; // NUEVO
             uniform vec3 uTint;
             uniform float uTintMix;
             uniform vec2 uResolution;
             varying vec2 vUv;
-            varying float vElev; // Altura de deformación
 
             // Utils
             float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
@@ -161,11 +155,21 @@
                 return vec3(r,g,b);
             }
 
+            // Funciones Geométricas
+            float grid(vec2 uv, float size, float thickness) {
+                vec2 grid = fract(uv * size);
+                return step(thickness, grid.x) * step(thickness, grid.y);
+            }
+
+            float dots(vec2 uv, float size, float radius) {
+                vec2 grid = fract(uv * size) - 0.5;
+                return 1.0 - step(radius, length(grid));
+            }
+
             void main() {
                 vec2 uv = vUv;
-                vec2 p = -1.0 + 2.0 * uv; // Coordenadas centradas -1 a 1
-
-                // --- MODIFICACIÓN DE UV (GEOMETRÍA 2D) ---
+                
+                // --- 1. DEFORMACIONES DE COORDENADAS (uMode 1-10) ---
                 
                 // 3: Mirror X
                 if(uMode == 3) uv.x = abs(uv.x - 0.5) + 0.5;
@@ -181,19 +185,11 @@
                     uv = 0.5 + r * vec2(cos(a), sin(a));
                 }
 
-                // 5: Twist / Swirl
+                // 5: Twist
                 if(uMode == 5) {
                     float dist = length(uv - 0.5);
                     float angle = atan(uv.y-0.5, uv.x-0.5) + (uBass*5.0) * (1.0-dist);
                     uv = 0.5 + dist * vec2(cos(angle), sin(angle));
-                }
-
-                // 6: Pixelate
-                if(uMode == 6) {
-                    float pixels = 50.0 + (1.0-uHigh)*200.0;
-                    float dx = 1.0 / pixels;
-                    float dy = 1.0 / pixels;
-                    uv = vec2(dx * floor(uv.x/dx), dy * floor(uv.y/dy));
                 }
 
                 // 9: Liquid Wave
@@ -202,51 +198,104 @@
                     uv.y += cos(uv.x * 10.0 + uTime) * 0.05 * uVol;
                 }
 
-                // --- SAMPLING TEXTURAS ---
+                // --- 2. SAMPLING COLOR ---
                 vec3 colorVid = texture2D(uTexVideo, uv).rgb;
                 vec3 colorCam = texture2D(uTexCam, uv).rgb;
 
-                // 2: RGB Split on Read
+                // 2: RGB Split
                 if(uMode == 2) {
                     colorVid = rgbSplit(uTexVideo, uv, uBass * 0.05);
                     colorCam = rgbSplit(uTexCam, uv, uBass * 0.05);
                 }
 
-                // --- POST-PROCESADO DE COLOR ---
-                
+                // Mezcla Camara/Video
                 vec3 color = mix(colorVid, colorCam, uMix);
 
-                // 7: Invert (Negative) Flash on Beat
-                if(uMode == 7) {
-                    if(uBass > 0.6) color = 1.0 - color;
-                }
+                // --- 3. EFECTOS DE COLOR (uMode) ---
+                
+                // 7: Invert Flash
+                if(uMode == 7 && uBass > 0.6) color = 1.0 - color;
 
-                // 8: Edge Detection (Neon lines)
+                // 8: Neon Edge
                 if(uMode == 8) {
                     vec3 c1 = texture2D(uTexVideo, uv + vec2(0.002, 0.0)).rgb;
                     vec3 c2 = texture2D(uTexVideo, uv - vec2(0.002, 0.0)).rgb;
                     vec3 c3 = texture2D(uTexVideo, uv + vec2(0.0, 0.002)).rgb;
                     vec3 c4 = texture2D(uTexVideo, uv - vec2(0.0, 0.002)).rgb;
                     vec3 edge = abs(color - c1) + abs(color - c2) + abs(color - c3) + abs(color - c4);
-                    color = edge * 2.0; // Brillar bordes
+                    color = edge * 2.0; 
                 }
 
                 // 10: Glitch Blocks
                 if(uMode == 10) {
                     vec2 block = floor(uv * 10.0);
                     float n = rand(block + floor(uTime * 10.0));
-                    if(n < uBass * 0.5) {
-                        color = vec3(1.0); // Bloques blancos
-                    }
+                    if(n < uBass * 0.5) color = vec3(1.0);
                 }
                 
-                // 1: Scanlines (Default aesthetic)
+                // 1: Scanlines Clásicas
                 if(uMode == 1) {
                     float scan = sin(uv.y * 800.0 + uTime * 5.0) * 0.5 + 0.5;
                     color *= (0.8 + 0.2 * scan);
                 }
 
-                // TINTING (Teclas Q-Y)
+                // --- 4. NUEVOS ESTILOS GEOMÉTRICOS (uStyle Z-B) ---
+                
+                float luminance = dot(color, vec3(0.299, 0.587, 0.114));
+
+                // Z: MALLA DIGITAL (Wireframe Grid)
+                if (uStyle == 1) {
+                    float gridSize = 40.0;
+                    vec2 g = fract(uv * gridSize + uTime * 0.5);
+                    // Líneas finas
+                    float lines = step(0.9, g.x) + step(0.9, g.y);
+                    // El color se muestra solo en las líneas
+                    color = color * lines * 2.0;
+                    // Fondo negro sutil
+                    color += vec3(0.05, 0.0, 0.1); 
+                }
+
+                // X: NUBE DE PUNTOS (LED Matrix)
+                if (uStyle == 2) {
+                    float dotSize = 80.0;
+                    vec2 st = fract(uv * dotSize);
+                    vec2 center = vec2(0.5);
+                    float d = distance(st, center);
+                    // El tamaño del punto depende del brillo de la imagen
+                    float radius = luminance * 0.5; 
+                    float mask = step(d, radius);
+                    color = color * mask * 1.5;
+                }
+
+                // C: HEXAGRID / PANAL
+                if (uStyle == 3) {
+                    vec2 r = vec2(uv.x * 30.0, uv.y * 17.32); // Proporción hex
+                    vec2 h = r + vec2(0.5 * mod(floor(r.y), 2.0), 0.0);
+                    vec2 f = fract(h) - 0.5;
+                    float l = length(f);
+                    // Borde hexagonal brillante
+                    float hex = step(l, 0.45) - step(l, 0.4);
+                    color = color * 0.2 + vec3(hex) * color * 3.0;
+                }
+
+                // V: HOLOGRAM INTERFERENCE
+                if (uStyle == 4) {
+                    float bar = step(0.5, sin(uv.y * 200.0 + uTime * 10.0));
+                    float noise = rand(uv * uTime) * 0.3;
+                    vec3 holoColor = vec3(0.0, 1.0, 0.8) * luminance;
+                    color = mix(color, holoColor, 0.8) * bar + noise;
+                }
+
+                // B: BINARY RAIN / ASCII SIMULATION
+                if (uStyle == 5) {
+                    vec2 block = floor(uv * vec2(40.0, 20.0));
+                    float fall = mod(block.y + uTime * 10.0, 20.0);
+                    float trail = 1.0 - (fall / 20.0);
+                    float symbol = step(0.5, rand(block + floor(uTime)));
+                    color = vec3(0.0, 1.0, 0.2) * symbol * trail * luminance * 2.0;
+                }
+
+                // TINTING FINAL
                 color = mix(color, color * uTint, uTintMix);
 
                 gl_FragColor = vec4(color, 1.0);
@@ -258,14 +307,12 @@
             uniform float uBass;
             uniform float uTime;
             varying vec2 vUv;
-            varying float vElev;
             void main() {
                 vUv = uv;
                 vec3 pos = position;
                 // Deformación Z básica
                 float noise = sin(pos.x * 2.0 + uTime) * cos(pos.y * 1.5 + uTime);
                 pos.z += noise * uVol * 3.0;
-                vElev = pos.z;
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
             }
         `;
@@ -283,20 +330,16 @@
         const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         composer.addPass(bloom);
 
-        // --- SISTEMA DE CONTROL DE TECLADO ---
+        // --- TECLADO ---
         const fileInput = document.getElementById('file-input');
         
-        // Colores predefinidos
         const colors = {
-            'q': [1, 0, 0], // Rojo
-            'w': [0, 1, 0], // Verde
-            'e': [0, 0, 1], // Azul
-            'r': [0, 1, 1], // Cyan
-            't': [1, 0, 1], // Magenta
-            'y': [1, 1, 0], // Amarillo
+            'q': [1, 0, 0], 'w': [0, 1, 0], 'e': [0, 0, 1],
+            'r': [0, 1, 1], 't': [1, 0, 1], 'y': [1, 1, 0]
         };
 
         const hudMode = document.getElementById('hud-mode');
+        const hudStyle = document.getElementById('hud-style');
         const hudSlot = document.getElementById('hud-slot');
         const hudColor = document.getElementById('hud-color');
         
@@ -306,16 +349,15 @@
             setTimeout(() => n.style.opacity = 0, 2000);
         }
 
-        // Manejador de eventos de teclado
         window.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
 
-            // 1. Efectos (1-0)
+            // 1. Efectos Base (1-0)
             if(!isNaN(parseInt(key))) {
                 let mode = parseInt(key);
                 if(mode === 0) mode = 10;
                 state.effectMode = mode;
-                showNotify(`EFECTO: ${mode}`);
+                showNotify(`DEFORMACIÓN: ${mode}`);
                 hudMode.innerText = mode;
             }
 
@@ -323,77 +365,74 @@
             if(colors[key]) {
                 state.tint.setRGB(...colors[key]);
                 state.tintMix = 1.0;
-                showNotify(`COLOR: ${key.toUpperCase()}`);
+                showNotify(`TINT: ${key.toUpperCase()}`);
                 hudColor.innerText = key.toUpperCase();
                 hudColor.style.color = `rgb(${colors[key][0]*255},${colors[key][1]*255},${colors[key][2]*255})`;
             }
             if(key === 'u') {
                 state.tintMix = 0.0;
-                showNotify("COLOR: RESET");
+                showNotify("TINT: OFF");
                 hudColor.innerText = "OFF";
                 hudColor.style.color = "#fff";
             }
 
-            // 3. Video Slots (G-L)
+            // 3. NUEVOS ESTILOS GEOMÉTRICOS (Z-B)
+            const styleMap = { 'z': 1, 'x': 2, 'c': 3, 'v': 4, 'b': 5 };
+            if(styleMap[key]) {
+                state.styleMode = styleMap[key];
+                const names = ["", "MALLA", "PUNTOS", "HEX", "HOLO", "BINARY"];
+                showNotify(`ESTILO: ${names[state.styleMode]}`);
+                hudStyle.innerText = names[state.styleMode];
+            }
+            // M: RESET ESTILO
+            if(key === 'm') {
+                state.styleMode = 0;
+                showNotify("ESTILO: NORMAL");
+                hudStyle.innerText = "NORMAL";
+            }
+
+            // 4. Video Slots (G-L)
             if (['g','h','j','k','l'].includes(key)) {
                 if (!videoSlots[key]) {
-                    // Slot vacío: Cargar
                     state.loadingSlot = key;
                     fileInput.click();
                 } else {
-                    // Slot lleno: Reproducir
-                    // Pausar el anterior si existe
-                    if(state.activeSlot && videoSlots[state.activeSlot]) {
-                        videoSlots[state.activeSlot].pause();
-                    }
-                    // Activar nuevo
+                    if(state.activeSlot && videoSlots[state.activeSlot]) videoSlots[state.activeSlot].pause();
                     state.activeSlot = key;
                     const vid = videoSlots[key];
                     vid.play();
-                    
-                    // SWAP TEXTURE: Truco para cambiar el video de la textura sin crear una nueva
                     activeVideoTex.image = vid; 
                     activeVideoTex.needsUpdate = true;
                     uniforms.uTexVideo.value = activeVideoTex;
-                    
                     showNotify(`SLOT ${key.toUpperCase()}: PLAY`);
                     hudSlot.innerText = key.toUpperCase();
                 }
             }
 
-            // 4. Doble Exposición Toggle (B)
-            if(key === 'b') {
+            // 5. Doble Exposición (Ahora en N)
+            if(key === 'n') {
                 state.mixRatio = (state.mixRatio > 0.1) ? 0.0 : 0.5;
-                showNotify(state.mixRatio > 0 ? "CAM: ON" : "CAM: OFF");
-                // Activar webcam si no está lista
-                if(state.mixRatio > 0 && !webcamEl.srcObject) {
-                    initWebcam();
-                }
+                showNotify(state.mixRatio > 0 ? "CAM MIX: ON" : "CAM MIX: OFF");
+                if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
             }
         });
 
-        // Manejador de carga de archivo
         fileInput.onchange = (e) => {
             const file = e.target.files[0];
             if(!file || !state.loadingSlot) return;
-            
             const url = URL.createObjectURL(file);
             const vid = document.createElement('video');
             vid.src = url; vid.loop = true; vid.muted = true; vid.playsInline = true;
-            
             videoSlots[state.loadingSlot] = vid;
-            showNotify(`VIDEO CARGADO EN SLOT ${state.loadingSlot.toUpperCase()}`);
-            
-            // Auto-play
+            showNotify(`CARGADO EN ${state.loadingSlot.toUpperCase()}`);
             const key = state.loadingSlot;
             state.activeSlot = key;
             vid.play();
             activeVideoTex.image = vid;
             uniforms.uTexVideo.value = activeVideoTex;
             hudSlot.innerText = key.toUpperCase();
-            
             state.loadingSlot = null;
-            fileInput.value = ""; // Reset input
+            fileInput.value = ""; 
         };
 
         async function initWebcam() {
@@ -405,26 +444,23 @@
             } catch(e) { console.error("No cam"); }
         }
 
-        // --- ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             const time = performance.now() * 0.001;
             const lvls = audio.getLevels();
 
-            // Update Uniforms
             uniforms.uTime.value = time;
             uniforms.uVol.value = lvls.vol;
             uniforms.uBass.value = lvls.bass;
             uniforms.uHigh.value = lvls.high;
             uniforms.uMix.value = state.mixRatio;
             uniforms.uMode.value = state.effectMode;
+            uniforms.uStyle.value = state.styleMode; // Enviar estilo al shader
             uniforms.uTint.value = state.tint;
             uniforms.uTintMix.value = state.tintMix;
 
-            // Bloom dinámico
             bloom.strength = state.bloom + (lvls.vol * 1.5);
             
-            // Movimiento físico extra del plano
             if(lvls.bass > 0.5) {
                 plane.rotation.z = (Math.random()-0.5)*0.05;
                 plane.scale.setScalar(1.0 + lvls.bass*0.05);
@@ -433,25 +469,20 @@
                 plane.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
             }
 
-            // Update textures
-            if(activeVideoTex.image && activeVideoTex.image.readyState === activeVideoTex.image.HAVE_ENOUGH_DATA) {
+            if(activeVideoTex.image && activeVideoTex.image.readyState === activeVideoTex.image.HAVE_ENOUGH_DATA) 
                 activeVideoTex.needsUpdate = true;
-            }
-            if(webcamTex.image && webcamTex.image.readyState === webcamTex.image.HAVE_ENOUGH_DATA) {
+            if(webcamTex.image && webcamTex.image.readyState === webcamTex.image.HAVE_ENOUGH_DATA) 
                 webcamTex.needsUpdate = true;
-            }
 
             composer.render();
         }
 
-        // Resize
         window.onresize = () => {
             camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
             uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
         };
 
-        // Start
         document.getElementById('start-btn').onclick = async () => {
             if(await audio.init()) {
                 document.getElementById('overlay').style.opacity = 0;
@@ -460,53 +491,45 @@
             }
         };
 
-        // GUI
         const gui = new GUI({ title: 'Ajustes Finos' });
         gui.add(state, 'distortion', 0, 5).name('Fuerza Glitch');
         gui.add(state, 'micGain', 1, 10).name('Sensibilidad Mic');
         gui.add(state, 'bloom', 0, 3).name('Brillo Base');
-
     </script>
 </head>
 <body>
     <div id="overlay">
-        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">ULTIMATE VJ STATION</h1>
+        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">ULTIMATE VJ STATION 2.0</h1>
         <button id="start-btn">INICIAR SISTEMA</button>
         
         <div class="keys-grid">
             <div>
-                <span class="key">1-0</span> EFECTOS<br>
-                1: Scanlines<br>
-                2: RGB Split<br>
-                3: Mirror X<br>
-                4: Kaleido<br>
-                5: Twist<br>
-                6: Pixelate<br>
-                7: Invert Flash<br>
-                8: Neon Edge<br>
-                9: Liquid<br>
-                0: Glitch Blocks
+                <span class="key">1-0</span> DEFORMACIÓN<br>
+                Modifican la forma<br>
+                (Kaleido, Twist, etc.)
             </div>
             <div>
-                <span class="key">Q-Y</span> COLORES<br>
-                Q: Rojo | W: Verde<br>
-                E: Azul | R: Cyan<br>
-                T: Magenta | Y: Amarillo<br>
-                <span class="key">U</span> Reset Color
+                <span class="key">Z-B</span> ESTILOS GEO<br>
+                Z: Malla (Wireframe)<br>
+                X: Puntos (LED)<br>
+                C: Hexágonos<br>
+                V: Holograma<br>
+                B: Binary Rain<br>
+                <span class="key">M</span> Normal (Reset)
             </div>
             <div>
-                <span class="key">G-L</span> VIDEO SLOTS<br>
-                (Clic para cargar)<br>
-                (Clic para cambiar)<br><br>
-                <span class="key">B</span> CAM MIX
+                <span class="key">G-L</span> CLIPS<br>
+                <span class="key">N</span> CAM MIX (ON/OFF)<br>
+                <span class="key">Q-Y</span> TINTES
             </div>
         </div>
     </div>
 
     <div id="hud">
-        <div class="hud-line">EFECTO: <span id="hud-mode" class="hud-value">1</span></div>
+        <div class="hud-line">DEFORMACIÓN: <span id="hud-mode" class="hud-value">1</span></div>
+        <div class="hud-line">ESTILO: <span id="hud-style" class="hud-value">NORMAL</span></div>
         <div class="hud-line">COLOR: <span id="hud-color" class="hud-value" style="color:#fff">OFF</span></div>
-        <div class="hud-line">VIDEO SLOT: <span id="hud-slot" class="hud-value">NONE</span></div>
+        <div class="hud-line">SLOT: <span id="hud-slot" class="hud-value">NONE</span></div>
     </div>
 
     <div id="notification">NOTIFICACIÓN</div>
