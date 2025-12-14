@@ -2,99 +2,91 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>VJ STATION - GITHUB VERSION</title>
+    <title>ARTIMOTION VJ SUITE - PRO</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', monospace; }
-        
-        /* --- ESTILOS VISUALES --- */
-        #overlay { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.92); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 20;
-            transition: opacity 0.5s ease; text-align: center;
+        /* --- CORE STYLES --- */
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Rajdhani', 'Segoe UI', sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+
+        /* --- UI CONTAINER (DASHBOARD) --- */
+        #ui-layer {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 220px;
+            background: linear-gradient(to top, #000 90%, transparent);
+            display: grid; grid-template-columns: 250px 1fr 250px;
+            padding: 20px; box-sizing: border-box; z-index: 10;
+            border-top: 1px solid #333; pointer-events: auto;
         }
 
-        .keys-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
-            color: #888; margin-top: 30px; text-align: left; font-size: 14px;
-        }
-        .key { color: #0ff; font-weight: bold; border: 1px solid #0ff; padding: 2px 6px; border-radius: 4px;}
-        
-        button#start-btn {
-            padding: 20px 60px; font-size: 24px; color: #0ff; background: transparent;
-            border: 2px solid #0ff; border-radius: 5px; cursor: pointer;
-            box-shadow: 0 0 20px rgba(0,255,255,0.2); text-transform: uppercase; letter-spacing: 4px;
-            margin-bottom: 20px; transition: all 0.2s;
-        }
-        button#start-btn:hover { background: #0ff; color: #000; box-shadow: 0 0 60px rgba(0,255,255,1); }
+        /* --- SECCIONES UI --- */
+        .panel-section { padding: 0 20px; border-right: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; }
+        .panel-section:last-child { border-right: none; }
+        h3 { color: #888; margin: 0 0 10px 0; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
 
-        #hud {
-            position: absolute; top: 20px; left: 20px; z-index: 10;
-            color: #fff; text-shadow: 0 0 5px #000; pointer-events: none;
-            line-height: 1.5;
-        }
-        .hud-value { color: #0ff; font-weight: bold; }
+        /* --- INFO DISPLAY (IZQUIERDA) --- */
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; color: #aaa; }
+        .info-val { color: #0ff; font-weight: bold; font-family: monospace; }
+        .active-deck { color: #0f0; text-shadow: 0 0 5px #0f0; }
 
-        /* DEBUGGER EN PANTALLA */
-        #midi-debug-log {
-            position: absolute; top: 20px; right: 140px; 
-            color: #555; font-weight: bold; font-size: 11px;
-            text-align: right; pointer-events: none; white-space: pre-line;
-        }
-        .log-success { color: #0f0 !important; }
-        .log-error { color: #f00 !important; }
-
-        /* --- CROSSFADER UI --- */
-        #fader-container {
-            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
-            width: 400px; height: 20px; display: flex; align-items: center; z-index: 10;
-        }
-        #fader-track { width: 100%; height: 4px; background: #333; position: relative; }
+        /* --- MIXER CENTRAL --- */
+        #mixer-area { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        #fader-track-bg { width: 80%; height: 6px; background: #222; border-radius: 3px; position: relative; margin: 20px 0; }
         #fader-knob {
-            width: 10px; height: 20px; background: #0ff; position: absolute; top: -8px; left: 0%;
-            box-shadow: 0 0 10px #0ff; transform: translateX(-50%); transition: left 0.1s;
+            width: 40px; height: 20px; background: #0ff; position: absolute; top: -7px; left: 0%;
+            transform: translateX(-50%); border-radius: 2px; box-shadow: 0 0 15px #0ff; cursor: grab;
         }
-        .deck-label { position: absolute; bottom: 25px; font-size: 12px; color: #888; font-weight: bold; }
-        #label-a { left: 0; }
-        #label-b { right: 0; }
+        .deck-titles { width: 80%; display: flex; justify-content: space-between; font-weight: bold; color: #fff; font-size: 14px; }
 
-        #file-input { display: none; }
+        /* --- BOTONES DE CONTROL (DERECHA) --- */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .ctrl-btn {
+            background: rgba(0,255,255,0.1); border: 1px solid #0ff; color: #0ff;
+            padding: 10px; font-family: monospace; cursor: pointer; transition: all 0.2s;
+            font-size: 11px; text-transform: uppercase;
+        }
+        .ctrl-btn:hover { background: #0ff; color: #000; box-shadow: 0 0 10px #0ff; }
+        .ctrl-btn.active { background: #f00; border-color: #f00; color: #fff; }
+
+        /* --- TUTORIAL / BOOT SCREEN --- */
+        #boot-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+            backdrop-filter: blur(5px);
+        }
+        .boot-card {
+            border: 2px solid #0ff; padding: 40px; max-width: 600px; background: rgba(0,20,20,0.9);
+            box-shadow: 0 0 50px rgba(0,255,255,0.2);
+        }
+        .boot-title { font-size: 40px; color: #fff; margin-bottom: 10px; letter-spacing: 5px; }
+        .boot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; margin: 30px 0; color: #aaa; font-size: 13px; }
+        .key-bind { color: #0ff; font-weight: bold; border: 1px solid #0ff; padding: 1px 5px; margin-right: 5px; }
         
-        #notification {
-            position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); border: 1px solid #0ff; color: #0ff;
-            padding: 10px 30px; border-radius: 20px; font-weight: bold;
-            opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 15;
+        #start-btn {
+            padding: 15px 40px; font-size: 18px; background: #0ff; color: #000; border: none;
+            font-weight: bold; cursor: pointer; margin-top: 20px; letter-spacing: 2px;
+        }
+        #start-btn:hover { background: #fff; box-shadow: 0 0 20px #fff; }
+
+        /* --- MIDI MAPPER MODAL --- */
+        #midi-mapper {
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 300px; background: #111; border: 1px solid #0ff; z-index: 50; padding: 20px;
+        }
+        .mapper-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        .mapper-btn-small { background: #333; border: none; color: white; padding: 2px 8px; cursor: pointer; font-size: 10px; }
+        .mapper-btn-small.learning { background: #f00; animation: blink 0.5s infinite; }
+        @keyframes blink { 0% {opacity:1} 50% {opacity:0.5} 100% {opacity:1} }
+
+        /* --- NOTIFICACIONES --- */
+        #notify {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: #0ff; border: 1px solid #0ff;
+            padding: 10px 20px; font-family: monospace; opacity: 0; pointer-events: none; transition: opacity 0.3s;
         }
 
-        /* --- INTERFAZ DE MAPEO MIDI --- */
-        #midi-toggle-btn {
-            position: absolute; top: 20px; right: 20px; z-index: 50;
-            background: #222; border: 1px solid #555; color: #fff;
-            padding: 5px 10px; cursor: pointer; font-family: monospace;
-        }
-        #midi-toggle-btn:hover { background: #444; border-color: #0ff; color: #0ff; }
-
-        #midi-mapper-ui {
-            display: none; 
-            position: absolute; top: 60px; right: 20px; width: 250px;
-            background: rgba(0,0,0,0.95); border: 1px solid #0ff;
-            padding: 10px; z-index: 50; max-height: 80vh; overflow-y: auto;
-            box-shadow: -5px 5px 20px rgba(0,0,0,0.8);
-        }
-        .mapper-item {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;
-        }
-        .mapper-label { font-size: 12px; color: #aaa; }
-        .mapper-val { font-size: 11px; color: #0ff; font-family: monospace; }
-        .mapper-btn {
-            background: #333; border: none; color: #fff; font-size: 10px;
-            padding: 2px 6px; cursor: pointer; margin-left: 5px;
-        }
-        .mapper-btn.learning { background: #f00; color: #fff; animation: blink 0.5s infinite; }
-        @keyframes blink { 0%{opacity:1;} 50%{opacity:0.5;} 100%{opacity:1;} }
-
+        /* --- PROYECTOR MODE (CSS que se inyecta en la ventana nueva) --- */
+        .projector-mode body { background: #000; margin: 0; overflow: hidden; }
+        .projector-mode video { width: 100vw; height: 100vh; object-fit: cover; }
     </style>
 
     <script type="module">
@@ -104,16 +96,6 @@
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // --- GESTIÓN DE MAPEO DINÁMICO ---
-        let midiMapping = {
-            'crossfader': { type: 'cc', val: 1 }, 
-            'slot_a': { type: 'note', val: 36 },
-            'speed': { type: null, val: null },
-            'glitch': { type: null, val: null },
-            'cam_mix': { type: null, val: null }
-        };
-        let learningTarget = null;
-
         // --- ESTADO GLOBAL ---
         const state = {
             effectMode: 1, styleMode: 0, distortionType: 0, mixRatio: 0.0, 
@@ -122,6 +104,17 @@
             loadingSlot: null, loadingDeckTarget: null, crossfade: 0.0,
             deckA: "NONE", deckB: "NONE"
         };
+
+        // --- MIDI MAPPING ---
+        let midiMapping = {
+            'crossfader': { type: 'cc', val: 1 }, 
+            'slot_a': { type: 'note', val: 36 },
+            'speed': { type: null, val: null },
+            'glitch': { type: null, val: null },
+            'cam_mix': { type: null, val: null }
+        };
+        let learningTarget = null;
+        let projectorWindow = null;
 
         // --- AUDIO ENGINE ---
         class AudioEngine {
@@ -141,19 +134,18 @@
                 if(!this.ready) return { vol: 0, bass: 0, high: 0 };
                 this.analyser.getByteTimeDomainData(this.data);
                 this.analyser.getByteFrequencyData(this.freq);
-                let sum=0; for(let i=0;i<this.data.length;i++){ const v=(this.data[i]-128)/128; sum+=v*v; }
-                const vol = Math.sqrt(sum/this.data.length) * state.micGain;
+                const vol = Math.sqrt(this.data.reduce((a,b)=>a+((b-128)/128)**2, 0)/this.data.length) * state.micGain;
                 const bass = this.freq[5] / 255.0;
                 return { vol, bass };
             }
         }
         const audio = new AudioEngine();
 
-        // --- SCENE SETUP ---
+        // --- SCENE ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         camera.position.z = 9;
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); // IMPORTANTE: preserveDrawingBuffer para capturar stream
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
@@ -243,174 +235,171 @@
         const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
         const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85); composer.addPass(bloom);
 
-        // --- INPUTS & LOGIC ---
-        const fileInput = document.getElementById('file-input');
-        const faderKnob = document.getElementById('fader-knob');
-        const midiLog = document.getElementById('midi-debug-log');
-        const mapperUI = document.getElementById('midi-mapper-ui');
-        const toggleBtn = document.getElementById('midi-toggle-btn');
-
-        function logMidi(msg, type="neutral") {
-            midiLog.innerText = msg + "\n" + midiLog.innerText;
-            if(midiLog.innerText.length > 200) midiLog.innerText = midiLog.innerText.substring(0, 200);
-            midiLog.className = (type==="success") ? "log-success" : (type==="error") ? "log-error" : "";
-        }
-
-        // --- LÓGICA DE INTERFAZ DE MAPEO ---
-        toggleBtn.onclick = () => {
-            mapperUI.style.display = (mapperUI.style.display === 'block') ? 'none' : 'block';
-            updateMapperUI();
+        // --- FUNCIONES UI ---
+        const ui = {
+            deckA: document.getElementById('val-deck-a'),
+            deckB: document.getElementById('val-deck-b'),
+            mode: document.getElementById('val-mode'),
+            style: document.getElementById('val-style'),
+            dist: document.getElementById('val-dist'),
+            fader: document.getElementById('fader-knob'),
+            
+            update: () => {
+                ui.deckA.innerText = state.deckA.toUpperCase();
+                ui.deckB.innerText = state.deckB.toUpperCase();
+                ui.mode.innerText = state.effectMode;
+                ui.style.innerText = ["NORMAL","MALLA","PUNTOS","HEX","HOLO","BINARY"][state.styleMode];
+                ui.dist.innerText = ["FLOR","SIERRA","GRID","CRISTAL"][state.distortionType];
+                ui.fader.style.left = (state.crossfade * 100) + '%';
+                
+                // Active Colors
+                if(state.crossfade < 0.5) { ui.deckA.classList.add('active-deck'); ui.deckB.classList.remove('active-deck'); }
+                else { ui.deckB.classList.add('active-deck'); ui.deckA.classList.remove('active-deck'); }
+            },
+            
+            notify: (msg) => {
+                const n = document.getElementById('notify');
+                n.innerText = msg; n.style.opacity = 1;
+                setTimeout(() => n.style.opacity = 0, 2000);
+            }
         };
 
-        function updateMapperUI() {
-            mapperUI.innerHTML = '<div style="color:#fff; font-weight:bold; margin-bottom:10px; border-bottom:1px solid #0ff;">MAPEO MIDI</div>';
-            const mapKeys = Object.keys(midiMapping);
-            ['a','s','d','f','g','h','j','k','l'].forEach(k => {
-                if(!midiMapping[`slot_${k}`]) midiMapping[`slot_${k}`] = {type:null, val:null};
-            });
-
-            for (const key in midiMapping) {
-                const item = document.createElement('div');
-                item.className = 'mapper-item';
-                const label = document.createElement('span');
-                label.className = 'mapper-label';
-                label.innerText = key.toUpperCase().replace('_', ' ');
-                const val = document.createElement('span');
-                val.className = 'mapper-val';
-                const mapData = midiMapping[key];
-                val.innerText = mapData.val ? `${mapData.type.toUpperCase()}:${mapData.val}` : '--';
-                const btn = document.createElement('button');
-                btn.className = 'mapper-btn';
-                btn.innerText = (learningTarget === key) ? '...' : 'MAP';
-                if(learningTarget === key) btn.classList.add('learning');
-                
-                btn.onclick = () => {
-                    learningTarget = (learningTarget === key) ? null : key;
-                    updateMapperUI();
-                };
-                item.appendChild(label); item.appendChild(val); item.appendChild(btn);
-                mapperUI.appendChild(item);
-            }
-        }
-
+        // --- FUNCIONES LOGICA ---
         function handleInput(key) {
             key = key.toLowerCase();
-            if(!isNaN(parseInt(key))) { state.effectMode = (parseInt(key)===0)?10:parseInt(key); document.getElementById('hud-mode').innerText = state.effectMode; showNotify(`FX 2D: ${state.effectMode}`); }
+            if(!isNaN(parseInt(key))) { state.effectMode = (parseInt(key)===0)?10:parseInt(key); ui.notify(`FX 2D: ${state.effectMode}`); }
             const colors = { 'q': [1,0,0], 'w': [0,1,0], 'e': [0,0,1], 'r': [0,1,1], 't': [1,0,1], 'y': [1,1,0] };
-            if(colors[key]) { state.tint.setRGB(...colors[key]); state.tintMix = 1.0; document.getElementById('hud-color').innerText = key.toUpperCase(); document.getElementById('hud-color').style.color="#0ff"; }
-            if(key === 'u') { state.tintMix = 0.0; document.getElementById('hud-color').innerText = "OFF"; document.getElementById('hud-color').style.color="#fff"; }
+            if(colors[key]) { state.tint.setRGB(...colors[key]); state.tintMix = 1.0; ui.notify(`TINT: ${key.toUpperCase()}`); }
+            if(key === 'u') { state.tintMix = 0.0; ui.notify("TINT OFF"); }
             const styleMap = { 'z': 1, 'x': 2, 'c': 3, 'v': 4, 'b': 5 };
-            if(styleMap[key]) { state.styleMode = styleMap[key]; showNotify(`ESTILO: ${state.styleMode}`); document.getElementById('hud-style').innerText = ["","MALLA","PUNTOS","HEX","HOLO","BINARY"][state.styleMode]; }
+            if(styleMap[key]) { state.styleMode = styleMap[key]; ui.notify(`STYLE: ${key.toUpperCase()}`); }
             const distMap = { 'i': 1, 'o': 2, 'p': 3 };
-            if(distMap[key]) { state.distortionType = distMap[key]; showNotify(`DEFORM: ${state.distortionType}`); document.getElementById('hud-dist').innerText = ["FLOR","SIERRA","GRID","CRISTAL"][state.distortionType]; }
-            if(key === 'm') { state.styleMode=0; state.distortionType=0; document.getElementById('hud-style').innerText="NORMAL"; document.getElementById('hud-dist').innerText="FLOR"; showNotify("RESET"); }
+            if(distMap[key]) { state.distortionType = distMap[key]; ui.notify(`DIST: ${key.toUpperCase()}`); }
+            if(key === 'm') { state.styleMode=0; state.distortionType=0; ui.notify("RESET"); }
             if(key === 'n') {
                 if(state.mixRatio < 0.1) state.mixRatio = 0.5; else if(state.mixRatio === 0.5) state.mixRatio = 1.0; else state.mixRatio = 0.0;
                 if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
-                showNotify(state.mixRatio===0.5?"CAM: MIX":"CAM: SOLO");
+                ui.notify(state.mixRatio===0.5?"CAM MIX":"CAM SOLO");
             }
             const allSlots = ['a','s','d','f','g','h','j','k','l'];
             if (allSlots.includes(key)) {
                 const targetDeck = (state.crossfade < 0.5) ? 'B' : 'A';
-                if (!videoSlots[key]) { state.loadingSlot = key; state.loadingDeckTarget = targetDeck; fileInput.click(); } 
+                if (!videoSlots[key]) { state.loadingSlot = key; state.loadingDeckTarget = targetDeck; document.getElementById('file-input').click(); } 
                 else {
-                    if (targetDeck === 'A') { state.deckA=key; texA.image=videoSlots[key]; texA.needsUpdate=true; uniforms.uTexA.value=texA; document.getElementById('hud-deck-a').innerText=key.toUpperCase(); showNotify(`DECK A: ${key.toUpperCase()}`); } 
-                    else { state.deckB=key; texB.image=videoSlots[key]; texB.needsUpdate=true; uniforms.uTexB.value=texB; document.getElementById('hud-deck-b').innerText=key.toUpperCase(); showNotify(`DECK B: ${key.toUpperCase()}`); }
+                    if (targetDeck === 'A') { state.deckA=key; texA.image=videoSlots[key]; texA.needsUpdate=true; uniforms.uTexA.value=texA; ui.notify(`DECK A: ${key.toUpperCase()}`); } 
+                    else { state.deckB=key; texB.image=videoSlots[key]; texB.needsUpdate=true; uniforms.uTexB.value=texB; ui.notify(`DECK B: ${key.toUpperCase()}`); }
                 }
             }
+            ui.update();
         }
 
-        window.addEventListener('keydown', (e) => handleInput(e.key));
+        // --- PROYECTOR (VENTANA EXTERNA) ---
+        document.getElementById('btn-projector').onclick = () => {
+            if(projectorWindow && !projectorWindow.closed) {
+                projectorWindow.focus();
+            } else {
+                // Crear ventana limpia
+                projectorWindow = window.open("", "PROYECTOR", "width=800,height=600");
+                if(!projectorWindow) { alert("¡Permite las ventanas emergentes (Pop-ups)!"); return; }
+                
+                // Capturar el stream del canvas actual
+                const stream = renderer.domElement.captureStream(60); // 60 FPS
+                
+                // Inyectar contenido en la nueva ventana
+                projectorWindow.document.write(`
+                    <html><head><title>SALIDA PROYECTOR</title>
+                    <style>body{margin:0;background:#000;overflow:hidden;} video{width:100vw;height:100vh;object-fit:cover;}</style>
+                    </head><body><video id="v" autoplay></video></body></html>
+                `);
+                
+                // Asignar stream al video de la nueva ventana
+                setTimeout(() => {
+                    const vid = projectorWindow.document.getElementById('v');
+                    vid.srcObject = stream;
+                }, 100);
+            }
+        };
+        
+        document.getElementById('btn-map-midi').onclick = () => {
+             const m = document.getElementById('midi-mapper');
+             m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+             if(m.style.display === 'block') updateMapperUI();
+        };
 
-        // --- MIDI SYSTEM INITIALIZATION (ACTIVADO POR BOTÓN) ---
+        // --- SISTEMA MIDI (Igual que antes pero integrado) ---
         async function initMIDI() {
-            logMidi("Solicitando acceso MIDI...", "neutral");
-            if (!navigator.requestMIDIAccess) {
-                logMidi("ERROR: Web MIDI API no soportada en este navegador.", "error");
-                return;
-            }
+            if (!navigator.requestMIDIAccess) return;
             try {
-                // Pedimos acceso (esto disparará el popup en HTTPS)
                 const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
-                logMidi("MIDI: ACCESO CONCEDIDO", "success");
-                
-                const inputs = Array.from(midiAccess.inputs.values());
-                if(inputs.length === 0) {
-                    logMidi("ADVERTENCIA: No hay dispositivos MIDI conectados.", "error");
-                    logMidi("Conecta el AKAI y recarga la página.", "error");
-                } else {
-                    inputs.forEach(input => {
-                        logMidi(`Dispositivo detectado: ${input.name}`, "success");
-                        input.onmidimessage = getMIDIMessage;
-                    });
-                }
-                
-                // Detectar conexiones en caliente
-                midiAccess.onstatechange = (e) => {
-                    logMidi(`Estado MIDI: ${e.port.name} ${e.port.state}`, "neutral");
-                };
-
-            } catch (err) {
-                logMidi(`ERROR MIDI: ${err.message}`, "error");
-                logMidi("¿Permisos bloqueados en el candado de la URL?", "error");
-            }
+                for (var input of midiAccess.inputs.values()) input.onmidimessage = getMIDIMessage;
+            } catch (err) { console.log("MIDI Blocked"); }
         }
 
         function getMIDIMessage(msg) {
-            const command = msg.data[0];
-            const note = msg.data[1];
-            const velocity = (msg.data.length > 2) ? msg.data[2] : 0;
+            const command = msg.data[0]; const note = msg.data[1]; const velocity = (msg.data.length > 2) ? msg.data[2] : 0;
             const type = (command >= 176 && command <= 191) ? 'cc' : (command >= 144 && command <= 159) ? 'note' : null;
-
             if (!type) return;
 
-            // Debug en el log visual
-            // logMidi(`IN: ${type} ${note} val:${velocity}`);
-
-            // --- MODO APRENDIZAJE ---
             if (learningTarget) {
                 midiMapping[learningTarget] = { type: type, val: note };
-                logMidi(`ASIGNADO: ${learningTarget} -> ${type}:${note}`, "success");
                 learningTarget = null;
                 updateMapperUI();
                 return;
             }
 
-            // --- EJECUCIÓN ---
             for (const action in midiMapping) {
                 const map = midiMapping[action];
                 if (map.type === type && map.val === note) {
-                    if (action === 'crossfader') {
-                        state.crossfade = velocity / 127.0;
-                        faderKnob.style.left = (state.crossfade * 100) + '%';
-                    }
+                    if (action === 'crossfader') state.crossfade = velocity / 127.0;
                     else if (action === 'speed') state.speed = (velocity / 127.0) * 5.0;
                     else if (action === 'glitch') state.distortion = (velocity / 127.0) * 5.0;
-                    else if (action === 'cam_mix') { if (velocity > 0) handleInput('n'); }
-                    else if (action.startsWith('slot_')) { if (velocity > 0) handleInput(action.split('_')[1]); }
+                    else if (action === 'cam_mix' && velocity > 0) handleInput('n');
+                    else if (action.startsWith('slot_') && velocity > 0) handleInput(action.split('_')[1]);
+                    ui.update();
                 }
             }
         }
 
-        window.addEventListener('wheel', (e) => {
-            const delta = e.deltaY * 0.001;
-            state.crossfade = Math.max(0.0, Math.min(1.0, state.crossfade + delta));
-            faderKnob.style.left = (state.crossfade * 100) + '%';
-        });
+        function updateMapperUI() {
+            const container = document.getElementById('midi-list');
+            container.innerHTML = '';
+            ['crossfader','speed','glitch','cam_mix','slot_a','slot_b'].forEach(key => {
+                if(!midiMapping[key]) midiMapping[key] = {type:null, val:null};
+                const div = document.createElement('div');
+                div.className = 'mapper-row';
+                div.innerHTML = `<span style="color:#aaa; font-size:12px">${key.toUpperCase()}</span>`;
+                
+                const btn = document.createElement('button');
+                btn.className = 'mapper-btn-small';
+                const map = midiMapping[key];
+                btn.innerText = map.val ? `${map.type}:${map.val}` : 'LEARN';
+                if(learningTarget === key) btn.classList.add('learning');
+                
+                btn.onclick = () => { learningTarget = (learningTarget === key) ? null : key; updateMapperUI(); };
+                div.appendChild(btn);
+                container.appendChild(div);
+            });
+        }
 
-        fileInput.onchange = (e) => {
-            const file = e.target.files[0]; if(!file || !state.loadingSlot) return;
+        // --- EVENT LISTENERS ---
+        window.addEventListener('keydown', (e) => handleInput(e.key));
+        window.addEventListener('wheel', (e) => {
+            state.crossfade = Math.max(0.0, Math.min(1.0, state.crossfade + e.deltaY * 0.001));
+            ui.update();
+        });
+        document.getElementById('file-input').onchange = (e) => {
+            const file = e.target.files[0]; if(!file) return;
             const url = URL.createObjectURL(file);
-            const vid = document.createElement('video'); vid.src=url; vid.loop=true; vid.muted=true; vid.playsInline=true; vid.play(); 
+            const vid = document.createElement('video'); vid.src=url; vid.loop=true; vid.muted=true; vid.playsInline=true; vid.play();
             videoSlots[state.loadingSlot] = vid;
-            if (state.loadingDeckTarget === 'A') { state.deckA=state.loadingSlot; texA.image=vid; uniforms.uTexA.value=texA; document.getElementById('hud-deck-a').innerText=state.loadingSlot.toUpperCase(); } 
-            else { state.deckB=state.loadingSlot; texB.image=vid; uniforms.uTexB.value=texB; document.getElementById('hud-deck-b').innerText=state.loadingSlot.toUpperCase(); }
-            state.loadingSlot=null; fileInput.value=""; 
+            if (state.loadingDeckTarget === 'A') { state.deckA=state.loadingSlot; texA.image=vid; uniforms.uTexA.value=texA; ui.notify(`DECK A CARGADO`); }
+            else { state.deckB=state.loadingSlot; texB.image=vid; uniforms.uTexB.value=texB; ui.notify(`DECK B CARGADO`); }
+            state.loadingSlot=null; document.getElementById('file-input').value=""; ui.update();
         };
 
+        // --- INIT ---
         async function initWebcam() {
-            try { const s = await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720}}); webcamEl.srcObject=s; webcamEl.play(); uniforms.uTexCam.value=webcamTex; } 
-            catch(e) { console.error("No cam"); }
+            try { const s = await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720}}); webcamEl.srcObject=s; webcamEl.play(); uniforms.uTexCam.value=webcamTex; } catch(e){}
         }
 
         function animate() {
@@ -426,64 +415,77 @@
             if(webcamTex.image && webcamTex.image.readyState>=2) webcamTex.needsUpdate=true;
             composer.render();
         }
+
         window.onresize = () => { camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight); uniforms.uResolution.value.set(window.innerWidth, window.innerHeight); };
-        
-        // --- ARRANQUE CON GESTO DE USUARIO (IMPORTANTE PARA MIDI) ---
-        document.getElementById('start-btn').onclick = async () => { 
-            // 1. Audio
-            await audio.init();
-            // 2. MIDI (Ahora dentro del click para evitar bloqueos)
-            await initMIDI();
-            
-            document.getElementById('overlay').style.opacity=0; 
-            setTimeout(()=>document.getElementById('overlay').style.display='none', 500); 
-            animate(); 
+
+        document.getElementById('start-btn').onclick = async () => {
+            await audio.init(); await initMIDI();
+            document.getElementById('boot-screen').style.display = 'none';
+            animate();
         };
 
-        const gui = new GUI({ title: 'PANEL DE CONTROL' });
-        const folder1 = gui.addFolder('Audio & Video');
-        folder1.add(state, 'distortion', 0, 5).name('Fuerza Glitch');
-        folder1.add(state, 'micGain', 1, 10).name('Sensibilidad Mic');
-        folder1.add(state, 'bloom', 0, 3).name('Brillo Bloom');
-        const folder2 = gui.addFolder('Ajustes Visuales');
-        folder2.add(state, 'speed', 0.1, 5.0).name('Velocidad Tiempo');
-        folder2.add(state, 'rgbShift', 0.0, 0.2).name('Separación RGB');
-        folder2.add(state, 'geoStrength', 0.0, 10.0).name('Fuerza 3D (Bajos)');
+        // GUI
+        const gui = new GUI({ title: 'PARAMS', width: 200, container: document.getElementById('gui-container') });
+        gui.domElement.style.position = 'absolute'; gui.domElement.style.top = '0'; gui.domElement.style.right = '0';
+        gui.add(state, 'distortion', 0, 5).name('Glitch');
+        gui.add(state, 'micGain', 1, 10).name('Mic Gain');
+        gui.add(state, 'speed', 0.1, 5.0).name('Speed');
+        gui.add(state, 'rgbShift', 0.0, 0.2).name('RGB Shift');
+        gui.add(state, 'geoStrength', 0.0, 10.0).name('3D Force');
     </script>
 </head>
 <body>
-    <div id="midi-toggle-btn">MIDI CONFIG</div>
-    <div id="midi-mapper-ui"></div>
-
-    <div id="overlay">
-        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">VJ STATION - GITHUB VERSION</h1>
-        <button id="start-btn">INICIAR SISTEMA (CLICK PARA MIDI)</button>
-        <div class="keys-grid">
-            <div><span class="key">1-0</span> FX 2D<br><span class="key">Z-B</span> ESTILOS<br><span class="key">I,O,P</span> DEFORM 3D<br><span class="key">M</span> RESET</div>
-            <div><span class="key">A-L</span> 9 SLOTS<br><span class="key">SCROLL</span> MEZCLAR<br><span class="key">N</span> CAM: OFF/MIX/SOLO</div>
-            <div><span class="key">MIDI</span> CONECTAR USB<br><span class="key">Q-Y</span> TINTES</div>
+    <div id="boot-screen">
+        <div class="boot-card">
+            <div class="boot-title">ARTIMOTION V4.0</div>
+            <div style="color:#0ff; margin-bottom:20px;">SYSTEM READY // WAITING FOR PILOT</div>
+            <div class="boot-grid">
+                <div><span class="key-bind">A-L</span> Cargar Video</div>
+                <div><span class="key-bind">1-0</span> Efectos 2D</div>
+                <div><span class="key-bind">Z-B</span> Estilos Geo</div>
+                <div><span class="key-bind">I,O,P</span> Deformación 3D</div>
+                <div><span class="key-bind">N</span> Webcam Toggle</div>
+                <div><span class="key-bind">M</span> Reset Visuales</div>
+                <div><span class="key-bind">SCROLL</span> Crossfader</div>
+            </div>
+            <button id="start-btn">INICIAR SISTEMA</button>
         </div>
     </div>
 
-    <div id="hud">
-        <div class="hud-line">DEFORM: <span id="hud-dist" class="hud-value">FLOR</span></div>
-        <div class="hud-line">ESTILO: <span id="hud-style" class="hud-value">NORMAL</span></div>
-        <div class="hud-line">FX 2D: <span id="hud-mode" class="hud-value">1</span></div>
-        <div class="hud-line">COLOR: <span id="hud-color" class="hud-value" style="color:#fff">OFF</span></div>
-        <br>
-        <div class="hud-line">DECK A: <span id="hud-deck-a" class="hud-value">NONE</span></div>
-        <div class="hud-line">DECK B: <span id="hud-deck-b" class="hud-value">NONE</span></div>
-    </div>
-    
-    <div id="midi-debug-log">Esperando click en INICIAR...</div>
+    <div id="ui-layer">
+        <div class="panel-section">
+            <h3>MONITOR DE ESTADO</h3>
+            <div class="info-row"><span>DECK A:</span> <span id="val-deck-a" class="info-val">NONE</span></div>
+            <div class="info-row"><span>DECK B:</span> <span id="val-deck-b" class="info-val">NONE</span></div>
+            <div class="info-row"><span>FX MODE:</span> <span id="val-mode" class="info-val">1</span></div>
+            <div class="info-row"><span>STYLE:</span> <span id="val-style" class="info-val">NORMAL</span></div>
+            <div class="info-row"><span>DISTORT:</span> <span id="val-dist" class="info-val">FLOR</span></div>
+        </div>
 
-    <div id="fader-container">
-        <div class="deck-label" id="label-a">DECK A</div>
-        <div id="fader-track"><div id="fader-knob"></div></div>
-        <div class="deck-label" id="label-b">DECK B</div>
+        <div id="mixer-area">
+            <div class="deck-titles"><span>DECK A</span><span>DECK B</span></div>
+            <div id="fader-track-bg"><div id="fader-knob"></div></div>
+            <div style="font-size:10px; color:#555;">USA LA RUEDA DEL MOUSE (SCROLL)</div>
+        </div>
+
+        <div class="panel-section">
+            <h3>SISTEMA</h3>
+            <div class="btn-grid">
+                <button class="ctrl-btn" id="btn-projector">ABRIR PROYECTOR</button>
+                <button class="ctrl-btn" id="btn-map-midi">MAPEO MIDI</button>
+                <button class="ctrl-btn" onclick="document.getElementById('file-input').click()">CARGAR CLIP</button>
+            </div>
+            <div id="gui-container" style="position:relative; height:100px; margin-top:10px;"></div>
+        </div>
     </div>
 
-    <div id="notification">NOTIFICACIÓN</div>
-    <input type="file" id="file-input" accept="video/*">
+    <div id="midi-mapper">
+        <h3 style="color:#0ff; border-bottom:1px solid #0ff; padding-bottom:5px;">ASIGNAR MIDI</h3>
+        <div id="midi-list"></div>
+        <button onclick="document.getElementById('midi-mapper').style.display='none'" class="ctrl-btn" style="width:100%; margin-top:10px;">CERRAR</button>
+    </div>
+
+    <div id="notify">NOTIFICACION</div>
+    <input type="file" id="file-input" accept="video/*" style="display:none">
 </body>
 </html>
