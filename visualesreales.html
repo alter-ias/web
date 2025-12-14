@@ -2,91 +2,102 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>ARTIMOTION VJ SUITE - PRO</title>
+    <title>ARTIMOTION V5 - COMMAND CENTER</title>
     <style>
         /* --- CORE STYLES --- */
-        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Rajdhani', 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #050505; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; width: 100vw; height: 100vh; }
 
-        /* --- UI CONTAINER (DASHBOARD) --- */
+        /* --- UI CONTAINER (SCALABLE) --- */
+        #ui-wrapper {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 0;
+            display: flex; justify-content: center; align-items: flex-end;
+            pointer-events: none; /* Dejar pasar clicks al canvas si no es UI */
+            z-index: 10;
+        }
+
         #ui-layer {
-            position: absolute; bottom: 0; left: 0; width: 100%; height: 220px;
-            background: linear-gradient(to top, #000 90%, transparent);
-            display: grid; grid-template-columns: 250px 1fr 250px;
-            padding: 20px; box-sizing: border-box; z-index: 10;
+            width: 100%; height: 260px; /* Altura base */
+            background: linear-gradient(to top, #000 95%, rgba(0,0,0,0));
+            display: grid; grid-template-columns: 280px 1fr 280px;
+            padding: 20px 40px; box-sizing: border-box; 
             border-top: 1px solid #333; pointer-events: auto;
+            transform-origin: bottom center; /* Escalar desde abajo */
+            transition: transform 0.1s;
         }
 
         /* --- SECCIONES UI --- */
-        .panel-section { padding: 0 20px; border-right: 1px solid #333; display: flex; flex-direction: column; justify-content: space-between; }
+        .panel-section { 
+            padding: 0 20px; border-right: 1px solid #333; 
+            display: flex; flex-direction: column; justify-content: flex-end; gap: 10px;
+        }
         .panel-section:last-child { border-right: none; }
-        h3 { color: #888; margin: 0 0 10px 0; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+        h3 { color: #555; margin: 0 0 5px 0; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
 
         /* --- INFO DISPLAY (IZQUIERDA) --- */
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; color: #aaa; }
+        .info-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 12px; color: #888; }
         .info-val { color: #0ff; font-weight: bold; font-family: monospace; }
         .active-deck { color: #0f0; text-shadow: 0 0 5px #0f0; }
 
-        /* --- MIXER CENTRAL --- */
-        #mixer-area { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
-        #fader-track-bg { width: 80%; height: 6px; background: #222; border-radius: 3px; position: relative; margin: 20px 0; }
-        #fader-knob {
-            width: 40px; height: 20px; background: #0ff; position: absolute; top: -7px; left: 0%;
-            transform: translateX(-50%); border-radius: 2px; box-shadow: 0 0 15px #0ff; cursor: grab;
+        /* --- MIXER CENTRAL CON PREVIEWS --- */
+        #mixer-area { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; position: relative; height: 100%; }
+        
+        /* Monitores de Previo */
+        .monitor-row { display: flex; justify-content: space-between; width: 100%; margin-bottom: 10px; gap: 20px; }
+        .deck-preview { 
+            flex: 1; height: 80px; background: #111; border: 1px solid #333; 
+            position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
         }
-        .deck-titles { width: 80%; display: flex; justify-content: space-between; font-weight: bold; color: #fff; font-size: 14px; }
+        .deck-preview video { width: 100%; height: 100%; object-fit: cover; opacity: 0.5; }
+        .deck-preview.active-p video { opacity: 1; }
+        .deck-label { position: absolute; top: 2px; left: 5px; font-size: 10px; color: #fff; background: rgba(0,0,0,0.5); padding: 1px 4px; }
+
+        /* Fader */
+        #fader-track-bg { width: 100%; height: 10px; background: #222; border-radius: 5px; position: relative; margin-top: 5px; border: 1px solid #444; }
+        #fader-knob {
+            width: 60px; height: 24px; background: #0ff; position: absolute; top: -8px; left: 0%;
+            transform: translateX(-50%); border-radius: 4px; box-shadow: 0 0 15px #0ff; cursor: grab;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #fader-knob::after { content: '|||'; color: #000; font-size: 10px; font-weight: bold; }
 
         /* --- BOTONES DE CONTROL (DERECHA) --- */
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .ctrl-btn {
-            background: rgba(0,255,255,0.1); border: 1px solid #0ff; color: #0ff;
-            padding: 10px; font-family: monospace; cursor: pointer; transition: all 0.2s;
-            font-size: 11px; text-transform: uppercase;
+            background: rgba(0,255,255,0.05); border: 1px solid #0ff; color: #0ff;
+            padding: 8px; font-family: monospace; cursor: pointer; transition: all 0.2s;
+            font-size: 11px; text-transform: uppercase; text-align: center;
         }
-        .ctrl-btn:hover { background: #0ff; color: #000; box-shadow: 0 0 10px #0ff; }
-        .ctrl-btn.active { background: #f00; border-color: #f00; color: #fff; }
+        .ctrl-btn:hover { background: #0ff; color: #000; }
+        .ctrl-btn.danger { border-color: #f00; color: #f00; }
+        .ctrl-btn.danger:hover { background: #f00; color: #fff; }
+        .ctrl-btn.active { background: #f00; color: #fff; border-color: #f00; }
 
-        /* --- TUTORIAL / BOOT SCREEN --- */
+        /* --- ZOOM SLIDER --- */
+        #zoom-control { position: absolute; bottom: 10px; left: 10px; z-index: 100; display: flex; align-items: center; gap: 5px; }
+        #zoom-range { width: 100px; accent-color: #0ff; }
+        .zoom-label { color: #555; font-size: 10px; font-family: monospace; }
+
+        /* --- TUTORIAL SCREEN --- */
         #boot-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column;
+            background: #000; z-index: 100; display: flex; flex-direction: column;
             justify-content: center; align-items: center; text-align: center;
-            backdrop-filter: blur(5px);
         }
-        .boot-card {
-            border: 2px solid #0ff; padding: 40px; max-width: 600px; background: rgba(0,20,20,0.9);
-            box-shadow: 0 0 50px rgba(0,255,255,0.2);
-        }
-        .boot-title { font-size: 40px; color: #fff; margin-bottom: 10px; letter-spacing: 5px; }
-        .boot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; margin: 30px 0; color: #aaa; font-size: 13px; }
-        .key-bind { color: #0ff; font-weight: bold; border: 1px solid #0ff; padding: 1px 5px; margin-right: 5px; }
-        
-        #start-btn {
-            padding: 15px 40px; font-size: 18px; background: #0ff; color: #000; border: none;
-            font-weight: bold; cursor: pointer; margin-top: 20px; letter-spacing: 2px;
-        }
-        #start-btn:hover { background: #fff; box-shadow: 0 0 20px #fff; }
-
-        /* --- MIDI MAPPER MODAL --- */
-        #midi-mapper {
-            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 300px; background: #111; border: 1px solid #0ff; z-index: 50; padding: 20px;
-        }
-        .mapper-row { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        .mapper-btn-small { background: #333; border: none; color: white; padding: 2px 8px; cursor: pointer; font-size: 10px; }
-        .mapper-btn-small.learning { background: #f00; animation: blink 0.5s infinite; }
-        @keyframes blink { 0% {opacity:1} 50% {opacity:0.5} 100% {opacity:1} }
+        .boot-card { border: 1px solid #333; padding: 40px; background: #111; max-width: 500px; }
+        #start-btn { padding: 15px 40px; background: #0ff; color: #000; border: none; font-weight: bold; cursor: pointer; margin-top: 20px; }
 
         /* --- NOTIFICACIONES --- */
         #notify {
-            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: rgba(0,0,0,0.8); color: #0ff; border: 1px solid #0ff;
-            padding: 10px 20px; font-family: monospace; opacity: 0; pointer-events: none; transition: opacity 0.3s;
+            padding: 20px 40px; font-size: 20px; font-family: monospace; opacity: 0; pointer-events: none; transition: opacity 0.3s;
         }
 
-        /* --- PROYECTOR MODE (CSS que se inyecta en la ventana nueva) --- */
-        .projector-mode body { background: #000; margin: 0; overflow: hidden; }
-        .projector-mode video { width: 100vw; height: 100vh; object-fit: cover; }
+        /* --- MIDI MAPPER --- */
+        #midi-mapper { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #111; border: 1px solid #0ff; z-index: 50; padding: 20px; width: 300px; }
+        .mapper-row { display: flex; justify-content: space-between; margin-bottom: 5px; border-bottom: 1px solid #333; padding: 5px; font-size: 12px; color: #aaa; }
+
     </style>
 
     <script type="module">
@@ -96,33 +107,27 @@
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // --- ESTADO GLOBAL ---
+        // --- ESTADO ---
         const state = {
             effectMode: 1, styleMode: 0, distortionType: 0, mixRatio: 0.0, 
             distortion: 2.0, micGain: 5.0, bloom: 1.5, speed: 1.0, rgbShift: 0.05, geoStrength: 4.0,
             tint: new THREE.Color(1, 1, 1), tintMix: 0.0, 
-            loadingSlot: null, loadingDeckTarget: null, crossfade: 0.0,
-            deckA: "NONE", deckB: "NONE"
+            loadingSlot: null, crossfade: 0.0,
+            deckA: "NONE", deckB: "NONE",
+            isBlackout: false
         };
 
-        // --- MIDI MAPPING ---
-        let midiMapping = {
-            'crossfader': { type: 'cc', val: 1 }, 
-            'slot_a': { type: 'note', val: 36 },
-            'speed': { type: null, val: null },
-            'glitch': { type: null, val: null },
-            'cam_mix': { type: null, val: null }
-        };
-        let learningTarget = null;
         let projectorWindow = null;
+        let midiMapping = { 'crossfader': {type:'cc',val:1}, 'slot_a':{type:'note',val:36} }; 
+        let learningTarget = null;
 
-        // --- AUDIO ENGINE ---
+        // --- AUDIO ---
         class AudioEngine {
-            constructor() { this.ctx = null; this.analyser = null; this.data = null; this.freq = null; this.ready = false; }
+            constructor() { this.ctx=null; this.analyser=null; this.data=null; this.freq=null; this.ready=false; }
             async init() {
                 try {
                     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, autoGainControl: false } });
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false } });
                     this.analyser = this.ctx.createAnalyser(); this.analyser.fftSize = 512;
                     this.ctx.createMediaStreamSource(stream).connect(this.analyser);
                     this.data = new Uint8Array(this.analyser.frequencyBinCount);
@@ -131,7 +136,7 @@
                 } catch(e) { console.error(e); return false; }
             }
             getLevels() {
-                if(!this.ready) return { vol: 0, bass: 0, high: 0 };
+                if(!this.ready) return { vol: 0, bass: 0 };
                 this.analyser.getByteTimeDomainData(this.data);
                 this.analyser.getByteFrequencyData(this.freq);
                 const vol = Math.sqrt(this.data.reduce((a,b)=>a+((b-128)/128)**2, 0)/this.data.length) * state.micGain;
@@ -141,20 +146,19 @@
         }
         const audio = new AudioEngine();
 
-        // --- SCENE ---
+        // --- THREE.JS SETUP ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         camera.position.z = 9;
-        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); // IMPORTANTE: preserveDrawingBuffer para capturar stream
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // --- TEXTURES ---
-        const videoSlots = { 'a':null,'s':null,'d':null,'f':null,'g':null,'h':null,'j':null,'k':null,'l':null };
+        // --- VIDEOS ---
+        const videoSlots = {};
         const texA = new THREE.VideoTexture(document.createElement('video'));
         const texB = new THREE.VideoTexture(document.createElement('video'));
-        const webcamEl = document.createElement('video');
-        webcamEl.muted = true; webcamEl.playsInline = true;
+        const webcamEl = document.createElement('video'); webcamEl.muted=true; webcamEl.playsInline=true;
         const webcamTex = new THREE.VideoTexture(webcamEl);
         
         function createNoise() {
@@ -235,175 +239,123 @@
         const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
         const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85); composer.addPass(bloom);
 
-        // --- FUNCIONES UI ---
+        // --- INTERFAZ UI ---
         const ui = {
             deckA: document.getElementById('val-deck-a'),
             deckB: document.getElementById('val-deck-b'),
             mode: document.getElementById('val-mode'),
-            style: document.getElementById('val-style'),
-            dist: document.getElementById('val-dist'),
             fader: document.getElementById('fader-knob'),
+            vidPrevA: document.getElementById('video-preview-a'),
+            vidPrevB: document.getElementById('video-preview-b'),
             
             update: () => {
                 ui.deckA.innerText = state.deckA.toUpperCase();
                 ui.deckB.innerText = state.deckB.toUpperCase();
                 ui.mode.innerText = state.effectMode;
-                ui.style.innerText = ["NORMAL","MALLA","PUNTOS","HEX","HOLO","BINARY"][state.styleMode];
-                ui.dist.innerText = ["FLOR","SIERRA","GRID","CRISTAL"][state.distortionType];
                 ui.fader.style.left = (state.crossfade * 100) + '%';
                 
-                // Active Colors
-                if(state.crossfade < 0.5) { ui.deckA.classList.add('active-deck'); ui.deckB.classList.remove('active-deck'); }
-                else { ui.deckB.classList.add('active-deck'); ui.deckA.classList.remove('active-deck'); }
+                // Opacidad de los monitores de previo según el fader
+                document.getElementById('prev-container-a').style.opacity = (state.crossfade < 0.5) ? '1' : '0.4';
+                document.getElementById('prev-container-b').style.opacity = (state.crossfade > 0.5) ? '1' : '0.4';
             },
             
             notify: (msg) => {
                 const n = document.getElementById('notify');
                 n.innerText = msg; n.style.opacity = 1;
-                setTimeout(() => n.style.opacity = 0, 2000);
+                setTimeout(() => n.style.opacity = 0, 1500);
             }
         };
 
-        // --- FUNCIONES LOGICA ---
+        // --- MANEJO DE VIDEOS (Carga y Previo) ---
+        function loadVideo(file, targetDeck) {
+            const url = URL.createObjectURL(file);
+            const vid = document.createElement('video');
+            vid.src = url; vid.loop = true; vid.muted = true; vid.playsInline = true; vid.play();
+            
+            if (targetDeck === 'A') {
+                state.deckA = file.name;
+                texA.image = vid; 
+                uniforms.uTexA.value = texA; 
+                ui.vidPrevA.src = url; // Poner en el monitor pequeño
+                ui.vidPrevA.play();
+                ui.notify("CARGADO EN DECK A");
+            } else {
+                state.deckB = file.name;
+                texB.image = vid; 
+                uniforms.uTexB.value = texB; 
+                ui.vidPrevB.src = url; // Poner en el monitor pequeño
+                ui.vidPrevB.play();
+                ui.notify("CARGADO EN DECK B");
+            }
+            ui.update();
+        }
+
+        // --- INPUTS ---
         function handleInput(key) {
             key = key.toLowerCase();
-            if(!isNaN(parseInt(key))) { state.effectMode = (parseInt(key)===0)?10:parseInt(key); ui.notify(`FX 2D: ${state.effectMode}`); }
-            const colors = { 'q': [1,0,0], 'w': [0,1,0], 'e': [0,0,1], 'r': [0,1,1], 't': [1,0,1], 'y': [1,1,0] };
-            if(colors[key]) { state.tint.setRGB(...colors[key]); state.tintMix = 1.0; ui.notify(`TINT: ${key.toUpperCase()}`); }
-            if(key === 'u') { state.tintMix = 0.0; ui.notify("TINT OFF"); }
-            const styleMap = { 'z': 1, 'x': 2, 'c': 3, 'v': 4, 'b': 5 };
-            if(styleMap[key]) { state.styleMode = styleMap[key]; ui.notify(`STYLE: ${key.toUpperCase()}`); }
-            const distMap = { 'i': 1, 'o': 2, 'p': 3 };
-            if(distMap[key]) { state.distortionType = distMap[key]; ui.notify(`DIST: ${key.toUpperCase()}`); }
-            if(key === 'm') { state.styleMode=0; state.distortionType=0; ui.notify("RESET"); }
-            if(key === 'n') {
-                if(state.mixRatio < 0.1) state.mixRatio = 0.5; else if(state.mixRatio === 0.5) state.mixRatio = 1.0; else state.mixRatio = 0.0;
-                if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
-                ui.notify(state.mixRatio===0.5?"CAM MIX":"CAM SOLO");
-            }
+            if(!isNaN(parseInt(key))) { state.effectMode = (parseInt(key)===0)?10:parseInt(key); ui.notify(`FX: ${state.effectMode}`); }
+            
+            const colors = {'q':[1,0,0],'w':[0,1,0],'e':[0,0,1],'r':[0,1,1],'t':[1,0,1],'y':[1,1,0]};
+            if(colors[key]) { state.tint.setRGB(...colors[key]); state.tintMix=1.0; ui.notify("TINT ON"); }
+            if(key==='u') { state.tintMix=0.0; ui.notify("TINT OFF"); }
+            
+            const styles = {'z':1,'x':2,'c':3,'v':4,'b':5,'m':0};
+            if(styles[key] !== undefined) { state.styleMode=styles[key]; ui.notify("STYLE CHANGED"); }
+            
+            const dists = {'i':1,'o':2,'p':3};
+            if(dists[key]) { state.distortionType=dists[key]; ui.notify("DISTORTION CHANGED"); }
+
+            // Lógica de carga inteligente
             const allSlots = ['a','s','d','f','g','h','j','k','l'];
-            if (allSlots.includes(key)) {
-                const targetDeck = (state.crossfade < 0.5) ? 'B' : 'A';
-                if (!videoSlots[key]) { state.loadingSlot = key; state.loadingDeckTarget = targetDeck; document.getElementById('file-input').click(); } 
-                else {
-                    if (targetDeck === 'A') { state.deckA=key; texA.image=videoSlots[key]; texA.needsUpdate=true; uniforms.uTexA.value=texA; ui.notify(`DECK A: ${key.toUpperCase()}`); } 
-                    else { state.deckB=key; texB.image=videoSlots[key]; texB.needsUpdate=true; uniforms.uTexB.value=texB; ui.notify(`DECK B: ${key.toUpperCase()}`); }
-                }
+            if(allSlots.includes(key)) {
+                // Si el fader está en A (izquierda), cargamos en B para preparar la mezcla
+                const target = (state.crossfade < 0.5) ? 'B' : 'A';
+                state.loadingSlot = target;
+                document.getElementById('file-input').click();
             }
+
             ui.update();
         }
 
-        // --- PROYECTOR (VENTANA EXTERNA) ---
-        document.getElementById('btn-projector').onclick = () => {
-            if(projectorWindow && !projectorWindow.closed) {
-                projectorWindow.focus();
+        // --- PROYECTOR & BLACKOUT ---
+        document.getElementById('btn-blackout').onclick = () => {
+            state.isBlackout = !state.isBlackout;
+            const btn = document.getElementById('btn-blackout');
+            
+            if(state.isBlackout) {
+                btn.innerText = "BLACKOUT (ACTIVO)";
+                btn.classList.add('active');
+                if(projectorWindow) projectorWindow.document.body.style.background = "#000";
+                if(projectorWindow) projectorWindow.document.querySelector('video').style.opacity = 0;
             } else {
-                // Crear ventana limpia
-                projectorWindow = window.open("", "PROYECTOR", "width=800,height=600");
-                if(!projectorWindow) { alert("¡Permite las ventanas emergentes (Pop-ups)!"); return; }
-                
-                // Capturar el stream del canvas actual
-                const stream = renderer.domElement.captureStream(60); // 60 FPS
-                
-                // Inyectar contenido en la nueva ventana
-                projectorWindow.document.write(`
-                    <html><head><title>SALIDA PROYECTOR</title>
-                    <style>body{margin:0;background:#000;overflow:hidden;} video{width:100vw;height:100vh;object-fit:cover;}</style>
-                    </head><body><video id="v" autoplay></video></body></html>
-                `);
-                
-                // Asignar stream al video de la nueva ventana
-                setTimeout(() => {
-                    const vid = projectorWindow.document.getElementById('v');
-                    vid.srcObject = stream;
-                }, 100);
+                btn.innerText = "LIVE / BLACKOUT";
+                btn.classList.remove('active');
+                if(projectorWindow) projectorWindow.document.querySelector('video').style.opacity = 1;
             }
         };
-        
-        document.getElementById('btn-map-midi').onclick = () => {
-             const m = document.getElementById('midi-mapper');
-             m.style.display = (m.style.display === 'block') ? 'none' : 'block';
-             if(m.style.display === 'block') updateMapperUI();
+
+        document.getElementById('btn-projector').onclick = () => {
+            if(projectorWindow && !projectorWindow.closed) projectorWindow.focus();
+            else {
+                projectorWindow = window.open("", "PROJ", "width=800,height=600");
+                const stream = renderer.domElement.captureStream(60);
+                projectorWindow.document.write(`<html><body style="margin:0;background:#000;overflow:hidden"><video id="v" autoplay style="width:100vw;height:100vh;object-fit:cover"></video></body></html>`);
+                setTimeout(()=> projectorWindow.document.getElementById('v').srcObject = stream, 100);
+            }
         };
 
-        // --- SISTEMA MIDI (Igual que antes pero integrado) ---
-        async function initMIDI() {
-            if (!navigator.requestMIDIAccess) return;
-            try {
-                const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
-                for (var input of midiAccess.inputs.values()) input.onmidimessage = getMIDIMessage;
-            } catch (err) { console.log("MIDI Blocked"); }
-        }
-
-        function getMIDIMessage(msg) {
-            const command = msg.data[0]; const note = msg.data[1]; const velocity = (msg.data.length > 2) ? msg.data[2] : 0;
-            const type = (command >= 176 && command <= 191) ? 'cc' : (command >= 144 && command <= 159) ? 'note' : null;
-            if (!type) return;
-
-            if (learningTarget) {
-                midiMapping[learningTarget] = { type: type, val: note };
-                learningTarget = null;
-                updateMapperUI();
-                return;
-            }
-
-            for (const action in midiMapping) {
-                const map = midiMapping[action];
-                if (map.type === type && map.val === note) {
-                    if (action === 'crossfader') state.crossfade = velocity / 127.0;
-                    else if (action === 'speed') state.speed = (velocity / 127.0) * 5.0;
-                    else if (action === 'glitch') state.distortion = (velocity / 127.0) * 5.0;
-                    else if (action === 'cam_mix' && velocity > 0) handleInput('n');
-                    else if (action.startsWith('slot_') && velocity > 0) handleInput(action.split('_')[1]);
-                    ui.update();
-                }
-            }
-        }
-
-        function updateMapperUI() {
-            const container = document.getElementById('midi-list');
-            container.innerHTML = '';
-            ['crossfader','speed','glitch','cam_mix','slot_a','slot_b'].forEach(key => {
-                if(!midiMapping[key]) midiMapping[key] = {type:null, val:null};
-                const div = document.createElement('div');
-                div.className = 'mapper-row';
-                div.innerHTML = `<span style="color:#aaa; font-size:12px">${key.toUpperCase()}</span>`;
-                
-                const btn = document.createElement('button');
-                btn.className = 'mapper-btn-small';
-                const map = midiMapping[key];
-                btn.innerText = map.val ? `${map.type}:${map.val}` : 'LEARN';
-                if(learningTarget === key) btn.classList.add('learning');
-                
-                btn.onclick = () => { learningTarget = (learningTarget === key) ? null : key; updateMapperUI(); };
-                div.appendChild(btn);
-                container.appendChild(div);
-            });
-        }
-
-        // --- EVENT LISTENERS ---
-        window.addEventListener('keydown', (e) => handleInput(e.key));
-        window.addEventListener('wheel', (e) => {
-            state.crossfade = Math.max(0.0, Math.min(1.0, state.crossfade + e.deltaY * 0.001));
-            ui.update();
-        });
-        document.getElementById('file-input').onchange = (e) => {
-            const file = e.target.files[0]; if(!file) return;
-            const url = URL.createObjectURL(file);
-            const vid = document.createElement('video'); vid.src=url; vid.loop=true; vid.muted=true; vid.playsInline=true; vid.play();
-            videoSlots[state.loadingSlot] = vid;
-            if (state.loadingDeckTarget === 'A') { state.deckA=state.loadingSlot; texA.image=vid; uniforms.uTexA.value=texA; ui.notify(`DECK A CARGADO`); }
-            else { state.deckB=state.loadingSlot; texB.image=vid; uniforms.uTexB.value=texB; ui.notify(`DECK B CARGADO`); }
-            state.loadingSlot=null; document.getElementById('file-input').value=""; ui.update();
+        // --- ZOOM DE LA INTERFAZ ---
+        document.getElementById('zoom-range').oninput = (e) => {
+            const scale = e.target.value;
+            document.getElementById('ui-layer').style.transform = `scale(${scale})`;
+            document.getElementById('zoom-val').innerText = scale + 'x';
         };
 
-        // --- INIT ---
-        async function initWebcam() {
-            try { const s = await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720}}); webcamEl.srcObject=s; webcamEl.play(); uniforms.uTexCam.value=webcamTex; } catch(e){}
-        }
+        // --- LOOP ---
+        async function initWebcam() { try{const s=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720}}); webcamEl.srcObject=s; webcamEl.play(); uniforms.uTexCam.value=webcamTex;}catch(e){} }
 
         function animate() {
-            requestAnimationFrame(animate); const time = performance.now()*0.001; const lvls = audio.getLevels();
+            requestAnimationFrame(animate); const time=performance.now()*0.001; const lvls=audio.getLevels();
             uniforms.uTime.value=time; uniforms.uVol.value=lvls.vol; uniforms.uBass.value=lvls.bass;
             uniforms.uMix.value=state.mixRatio; uniforms.uMode.value=state.effectMode; uniforms.uStyle.value=state.styleMode;
             uniforms.uDistType.value=state.distortionType; uniforms.uTint.value=state.tint; uniforms.uTintMix.value=state.tintMix;
@@ -417,16 +369,14 @@
         }
 
         window.onresize = () => { camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight); uniforms.uResolution.value.set(window.innerWidth, window.innerHeight); };
+        window.addEventListener('keydown', (e)=>handleInput(e.key));
+        window.addEventListener('wheel', (e)=>{ state.crossfade = Math.max(0, Math.min(1, state.crossfade + e.deltaY*0.001)); ui.update(); });
+        document.getElementById('file-input').onchange = (e) => loadVideo(e.target.files[0], state.loadingSlot);
+        document.getElementById('start-btn').onclick = async () => { await audio.init(); document.getElementById('boot-screen').style.display='none'; animate(); };
 
-        document.getElementById('start-btn').onclick = async () => {
-            await audio.init(); await initMIDI();
-            document.getElementById('boot-screen').style.display = 'none';
-            animate();
-        };
-
-        // GUI
-        const gui = new GUI({ title: 'PARAMS', width: 200, container: document.getElementById('gui-container') });
-        gui.domElement.style.position = 'absolute'; gui.domElement.style.top = '0'; gui.domElement.style.right = '0';
+        // --- GUI ---
+        const gui = new GUI({ title: 'PARAMS', width: 220, container: document.getElementById('gui-container') });
+        gui.domElement.style.position = 'absolute'; gui.domElement.style.top='0'; gui.domElement.style.right='0';
         gui.add(state, 'distortion', 0, 5).name('Glitch');
         gui.add(state, 'micGain', 1, 10).name('Mic Gain');
         gui.add(state, 'speed', 0.1, 5.0).name('Speed');
@@ -437,55 +387,59 @@
 <body>
     <div id="boot-screen">
         <div class="boot-card">
-            <div class="boot-title">ARTIMOTION V4.0</div>
-            <div style="color:#0ff; margin-bottom:20px;">SYSTEM READY // WAITING FOR PILOT</div>
-            <div class="boot-grid">
-                <div><span class="key-bind">A-L</span> Cargar Video</div>
-                <div><span class="key-bind">1-0</span> Efectos 2D</div>
-                <div><span class="key-bind">Z-B</span> Estilos Geo</div>
-                <div><span class="key-bind">I,O,P</span> Deformación 3D</div>
-                <div><span class="key-bind">N</span> Webcam Toggle</div>
-                <div><span class="key-bind">M</span> Reset Visuales</div>
-                <div><span class="key-bind">SCROLL</span> Crossfader</div>
-            </div>
+            <h1>COMMAND CENTER V5</h1>
+            <p>1. Ajusta el UI SIZE abajo a la izquierda.<br>2. Carga videos con A-L.<br>3. Abre el Proyector.</p>
             <button id="start-btn">INICIAR SISTEMA</button>
         </div>
     </div>
 
-    <div id="ui-layer">
-        <div class="panel-section">
-            <h3>MONITOR DE ESTADO</h3>
-            <div class="info-row"><span>DECK A:</span> <span id="val-deck-a" class="info-val">NONE</span></div>
-            <div class="info-row"><span>DECK B:</span> <span id="val-deck-b" class="info-val">NONE</span></div>
-            <div class="info-row"><span>FX MODE:</span> <span id="val-mode" class="info-val">1</span></div>
-            <div class="info-row"><span>STYLE:</span> <span id="val-style" class="info-val">NORMAL</span></div>
-            <div class="info-row"><span>DISTORT:</span> <span id="val-dist" class="info-val">FLOR</span></div>
-        </div>
-
-        <div id="mixer-area">
-            <div class="deck-titles"><span>DECK A</span><span>DECK B</span></div>
-            <div id="fader-track-bg"><div id="fader-knob"></div></div>
-            <div style="font-size:10px; color:#555;">USA LA RUEDA DEL MOUSE (SCROLL)</div>
-        </div>
-
-        <div class="panel-section">
-            <h3>SISTEMA</h3>
-            <div class="btn-grid">
-                <button class="ctrl-btn" id="btn-projector">ABRIR PROYECTOR</button>
-                <button class="ctrl-btn" id="btn-map-midi">MAPEO MIDI</button>
-                <button class="ctrl-btn" onclick="document.getElementById('file-input').click()">CARGAR CLIP</button>
+    <div id="ui-wrapper">
+        <div id="ui-layer">
+            <div class="panel-section">
+                <h3>ESTADO</h3>
+                <div class="info-row"><span>DECK A:</span> <span id="val-deck-a" class="info-val">EMPTY</span></div>
+                <div class="info-row"><span>DECK B:</span> <span id="val-deck-b" class="info-val">EMPTY</span></div>
+                <div class="info-row"><span>FX MODE:</span> <span id="val-mode" class="info-val">1</span></div>
+                <div style="margin-top:auto; font-size:10px; color:#555;">
+                    A-L: Cargar Clips<br>1-0: Efectos<br>SCROLL: Mezclar
+                </div>
             </div>
-            <div id="gui-container" style="position:relative; height:100px; margin-top:10px;"></div>
+
+            <div id="mixer-area">
+                <div class="monitor-row">
+                    <div id="prev-container-a" class="deck-preview active-p">
+                        <span class="deck-label">DECK A</span>
+                        <video id="video-preview-a" muted loop></video>
+                    </div>
+                    <div id="prev-container-b" class="deck-preview">
+                        <span class="deck-label">DECK B</span>
+                        <video id="video-preview-b" muted loop></video>
+                    </div>
+                </div>
+                <div id="fader-track-bg"><div id="fader-knob"></div></div>
+            </div>
+
+            <div class="panel-section">
+                <h3>CONTROLES</h3>
+                <div class="btn-grid">
+                    <button class="ctrl-btn" id="btn-projector">ABRIR PROYECTOR</button>
+                    <button class="ctrl-btn danger" id="btn-blackout">LIVE / BLACKOUT</button>
+                    <button class="ctrl-btn" onclick="document.getElementById('file-input').click()">CARGAR CLIP</button>
+                    <button class="ctrl-btn" onclick="state.loadingSlot='A'; document.getElementById('file-input').click()">LOAD A</button>
+                </div>
+                <div id="gui-container" style="position:relative; height:100px; margin-top:5px;"></div>
+            </div>
         </div>
     </div>
 
-    <div id="midi-mapper">
-        <h3 style="color:#0ff; border-bottom:1px solid #0ff; padding-bottom:5px;">ASIGNAR MIDI</h3>
-        <div id="midi-list"></div>
-        <button onclick="document.getElementById('midi-mapper').style.display='none'" class="ctrl-btn" style="width:100%; margin-top:10px;">CERRAR</button>
+    <div id="zoom-control">
+        <span class="zoom-label">UI SIZE</span>
+        <input type="range" id="zoom-range" min="0.5" max="1.5" step="0.1" value="1.0">
+        <span class="zoom-label" id="zoom-val">1.0x</span>
     </div>
 
     <div id="notify">NOTIFICACION</div>
+    <div id="midi-mapper"></div>
     <input type="file" id="file-input" accept="video/*" style="display:none">
 </body>
 </html>
