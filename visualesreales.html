@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Organic Deck System</title>
+    <title>Artimotion - MIDI VJ Station</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', monospace; }
         
@@ -34,21 +34,23 @@
         }
         .hud-value { color: #0ff; font-weight: bold; }
 
-        /* Barra de Fader Central */
         #fader-container {
             position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
             width: 400px; height: 20px; display: flex; align-items: center; z-index: 10;
         }
-        #fader-track {
-            width: 100%; height: 4px; background: #333; position: relative;
-        }
+        #fader-track { width: 100%; height: 4px; background: #333; position: relative; }
         #fader-knob {
             width: 10px; height: 20px; background: #0ff; position: absolute; top: -8px; left: 0%;
-            box-shadow: 0 0 10px #0ff; transform: translateX(-50%);
+            box-shadow: 0 0 10px #0ff; transform: translateX(-50%); transition: left 0.1s;
         }
         .deck-label { position: absolute; bottom: 25px; font-size: 12px; color: #888; font-weight: bold; }
         #label-a { left: 0; }
         #label-b { right: 0; }
+
+        #midi-status {
+            position: absolute; top: 20px; right: 20px; color: #555; font-weight: bold; font-size: 12px;
+        }
+        .midi-active { color: #0ff !important; text-shadow: 0 0 5px #0ff; }
 
         #file-input { display: none; }
         
@@ -67,20 +69,34 @@
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
+        // --- MAPA MIDI (CONFIGURABLE) ---
+        // Cambia estos valores según lo que veas en la consola al presionar tu AKAI
+        const MIDI_MAP = {
+            fader: 1,      // CC ID del fader principal (para Crossfade)
+            knob1: 2,      // CC ID opcional
+            padBase: 36,   // Nota MIDI del primer pad (usualmente C1)
+            // Asignaremos pads secuenciales a slots A-L y Efectos
+        };
+
         // --- ESTADO GLOBAL ---
         const state = {
             effectMode: 1, 
             styleMode: 0,
-            distortionType: 0, // 0:Flor, 1:Sierra, 2:Grid, 3:Cristales
-            mixRatio: 0.0, 
-            distortion: 2.0,
+            distortionType: 0,
+            mixRatio: 0.0, // 0.0=Vid, 0.5=Mix, 1.0=Cam Solo
+            
+            // Ajustes Finos (GUI)
+            distortion: 2.0, // Glitch strength
             micGain: 5.0,
             bloom: 1.5,
+            speed: 1.0,      // Nueva: Velocidad tiempo
+            rgbShift: 0.05,  // Nueva: Separación RGB
+            geoStrength: 4.0,// Nueva: Fuerza deformación 3D
+
             tint: new THREE.Color(1, 1, 1),
             tintMix: 0.0, 
             loadingSlot: null,
-            // LOGICA DECK
-            crossfade: 0.0, // 0.0 = Deck A, 1.0 = Deck B
+            crossfade: 0.0,
             deckA: "NONE",
             deckB: "NONE"
         };
@@ -121,11 +137,7 @@
         document.body.appendChild(renderer.domElement);
 
         // --- TEXTURES ---
-        const videoSlots = { 
-            'a': null, 's': null, 'd': null, 'f': null,
-            'g': null, 'h': null, 'j': null, 'k': null, 'l': null 
-        };
-
+        const videoSlots = { 'a':null,'s':null,'d':null,'f':null,'g':null,'h':null,'j':null,'k':null,'l':null };
         const texA = new THREE.VideoTexture(document.createElement('video'));
         const texB = new THREE.VideoTexture(document.createElement('video'));
         const webcamEl = document.createElement('video');
@@ -157,10 +169,12 @@
             uDistType: { value: 0 },
             uTint: { value: new THREE.Color(1,1,1) },
             uTintMix: { value: 0.0 },
+            // Nuevos Uniforms
+            uSpeed: { value: 1.0 },
+            uRGBShift: { value: 0.05 },
             uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         };
 
-        // --- FRAGMENT SHADER ---
         const fragmentShader = `
             uniform sampler2D uTexA;
             uniform sampler2D uTexB;
@@ -169,15 +183,17 @@
             uniform float uMix;
             uniform float uTime;
             uniform float uBass;
-            uniform float uHigh;
             uniform float uVol;
             uniform int uMode;
             uniform int uStyle;
             uniform vec3 uTint;
             uniform float uTintMix;
+            uniform float uSpeed;
+            uniform float uRGBShift;
             varying vec2 vUv;
 
             float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+            
             vec3 rgbSplit(sampler2D tex, vec2 uv, float amount) {
                 float r = texture2D(tex, uv - vec2(amount, 0.0)).r;
                 float g = texture2D(tex, uv).g;
@@ -187,8 +203,9 @@
 
             void main() {
                 vec2 uv = vUv;
-                
-                // Efectos 2D
+                float t = uTime * uSpeed; // Usar velocidad
+
+                // FX 2D
                 if(uMode == 3) uv.x = abs(uv.x - 0.5) + 0.5;
                 if(uMode == 4) {
                     vec2 c = uv - 0.5; float r = length(c); float a = atan(c.y, c.x);
@@ -201,18 +218,23 @@
                     uv = 0.5 + d * vec2(cos(a), sin(a));
                 }
                 if(uMode == 9) {
-                    uv.x += sin(uv.y * 10.0 + uTime) * 0.05 * uVol;
-                    uv.y += cos(uv.x * 10.0 + uTime) * 0.05 * uVol;
+                    uv.x += sin(uv.y * 10.0 + t) * 0.05 * uVol;
+                    uv.y += cos(uv.x * 10.0 + t) * 0.05 * uVol;
                 }
 
-                // Sampling A/B
-                vec3 cA = (uMode==2) ? rgbSplit(uTexA, uv, uBass*0.05) : texture2D(uTexA, uv).rgb;
-                vec3 cB = (uMode==2) ? rgbSplit(uTexB, uv, uBass*0.05) : texture2D(uTexB, uv).rgb;
+                // Sampling con RGB Shift Variable
+                vec3 cA, cB, cCam;
+                
+                // Aplicar aberracion si uMode=2 O si el usuario subió el slider uRGBShift
+                float shift = (uMode==2) ? uBass*0.05 : uRGBShift * uBass;
+                
+                cA = rgbSplit(uTexA, uv, shift);
+                cB = rgbSplit(uTexB, uv, shift);
                 vec3 col = mix(cA, cB, uCrossfade);
 
-                // Webcam Mix
-                vec3 cCam = texture2D(uTexCam, uv).rgb;
-                if(uMode==2) cCam = rgbSplit(uTexCam, uv, uBass*0.05);
+                cCam = rgbSplit(uTexCam, uv, shift);
+                
+                // Logic para Mix Ratio: 0=Vid, 1=Cam
                 col = mix(col, cCam, uMix);
 
                 // Post FX
@@ -221,72 +243,58 @@
                     vec3 c1 = mix(texture2D(uTexA, uv+0.002).rgb, texture2D(uTexB, uv+0.002).rgb, uCrossfade);
                     col = length(abs(col - c1)) * vec3(0.0, 1.0, 1.0) * 4.0; 
                 }
-                if(uMode == 10 && rand(floor(uv*10.0)+floor(uTime*10.0)) < uBass*0.5) col = vec3(1.0);
-                if(uMode == 1) col *= (0.8 + 0.2 * (sin(uv.y*800.0+uTime*5.0)*0.5+0.5));
+                if(uMode == 10 && rand(floor(uv*10.0)+floor(t*10.0)) < uBass*0.5) col = vec3(1.0);
+                if(uMode == 1) col *= (0.8 + 0.2 * (sin(uv.y*800.0+t*5.0)*0.5+0.5));
 
-                // Estilos Geométricos
+                // Estilos
                 float lum = dot(col, vec3(0.33));
-                if (uStyle == 1) col = col * (step(0.9, fract(uv.x*40.0+uTime*0.5)) + step(0.9, fract(uv.y*40.0))) * 2.0;
+                if (uStyle == 1) col = col * (step(0.9, fract(uv.x*40.0+t*0.5)) + step(0.9, fract(uv.y*40.0))) * 2.0;
                 if (uStyle == 2) col = col * step(distance(fract(uv*80.0), vec2(0.5)), lum*0.5) * 1.5;
                 if (uStyle == 3) col = col * (sin(uv.x*50.0)*sin(uv.y*50.0) > 0.0 ? 1.5 : 0.2);
-                if (uStyle == 4) col = mix(col, vec3(0.0, 1.0, 0.8)*lum, 0.8) * step(0.5, sin(uv.y*200.0+uTime*10.0));
-                if (uStyle == 5) col = vec3(0.0, 1.0, 0.2) * step(0.5, rand(floor(uv*vec2(40.,20.)) + floor(uTime))) * lum * 2.0;
+                if (uStyle == 4) col = mix(col, vec3(0.0, 1.0, 0.8)*lum, 0.8) * step(0.5, sin(uv.y*200.0+t*10.0));
+                if (uStyle == 5) col = vec3(0.0, 1.0, 0.2) * step(0.5, rand(floor(uv*vec2(40.,20.)) + floor(t))) * lum * 2.0;
 
                 col = mix(col, col * uTint, uTintMix);
                 gl_FragColor = vec4(col, 1.0);
             }
         `;
 
-        // --- VERTEX SHADER (Deformaciones Agresivas) ---
         const vertexShader = `
             uniform float uVol;
-            uniform float uBass;
             uniform float uTime;
-            uniform int uDistType; // 0=Flor, 1=Sierra, 2=Grid, 3=Cristales
+            uniform float uSpeed;
+            uniform float uGeoStrength; // Nuevo control
+            uniform int uDistType; 
             varying vec2 vUv;
 
-            // Simple noise function
             float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
 
             void main() {
                 vUv = uv;
                 vec3 pos = position;
                 float d = 0.0;
+                float t = uTime * uSpeed;
 
-                // 0: FLOR / OLAS (Suave, por defecto)
-                if (uDistType == 0) {
-                    d = sin(pos.x * 2.0 + uTime) * cos(pos.y * 1.5 + uTime);
+                if (uDistType == 0) { // Flor
+                    d = sin(pos.x * 2.0 + t) * cos(pos.y * 1.5 + t);
                 }
-                
-                // 1: SIERRA GLITCH (Agresivo, Tecla I)
-                // Líneas de interferencia rápidas
-                else if (uDistType == 1) {
-                    float wave = sin(pos.y * 50.0 + uTime * 10.0);
+                else if (uDistType == 1) { // Sierra
+                    float wave = sin(pos.y * 50.0 + t * 10.0);
                     d = (wave > 0.0 ? 1.0 : -1.0) * 0.5 * sin(pos.x * 10.0);
                 }
-
-                // 2: DIGITAL GRID (Piramides, Tecla O)
-                // El que te gustó
-                else if (uDistType == 2) {
-                    d = sin(pos.y * 30.0 + uTime * 2.0) * sin(pos.x * 30.0);
-                    // Clip para hacerlo más geométrico
-                    if (d > 0.5) d = 0.8;
-                    else if (d < -0.5) d = -0.8;
-                    else d = 0.0;
+                else if (uDistType == 2) { // Grid
+                    d = sin(pos.y * 30.0 + t * 2.0) * sin(pos.x * 30.0);
+                    if (d > 0.5) d = 0.8; else if (d < -0.5) d = -0.8; else d = 0.0;
                 }
-
-                // 3: CRISTALES / PICOS (Random, Tecla P)
-                // Picos aleatorios que surgen con el bajo
-                else if (uDistType == 3) {
+                else if (uDistType == 3) { // Cristal
                     vec2 block = floor(uv * 10.0);
                     float r = rand(block);
-                    // Solo subir si hay bajo
                     d = (r > 0.7) ? r : 0.0;
-                    d *= sin(uTime * 5.0 + r * 10.0); 
+                    d *= sin(t * 5.0 + r * 10.0); 
                 }
 
-                // Intensidad global
-                pos.z += d * uVol * 4.0;
+                // Aplicar uGeoStrength
+                pos.z += d * uVol * uGeoStrength; 
 
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
             }
@@ -296,7 +304,7 @@
             uniforms: uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide
         });
 
-        const geometry = new THREE.PlaneGeometry(16, 9, 140, 140); // Alta densidad para picos
+        const geometry = new THREE.PlaneGeometry(16, 9, 140, 140);
         const plane = new THREE.Mesh(geometry, material);
         scene.add(plane);
 
@@ -305,19 +313,10 @@
         const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         composer.addPass(bloom);
 
-        // --- INPUTS ---
+        // --- INPUTS & LOGIC ---
         const fileInput = document.getElementById('file-input');
-        const hudMode = document.getElementById('hud-mode');
-        const hudStyle = document.getElementById('hud-style');
-        const hudDist = document.getElementById('hud-dist');
-        const hudDeckA = document.getElementById('hud-deck-a');
-        const hudDeckB = document.getElementById('hud-deck-b');
-        const hudColor = document.getElementById('hud-color');
         const faderKnob = document.getElementById('fader-knob');
-
-        const colors = { 'q': [1,0,0], 'w': [0,1,0], 'e': [0,0,1], 'r': [0,1,1], 't': [1,0,1], 'y': [1,1,0] };
-        const styleMap = { 'z': 1, 'x': 2, 'c': 3, 'v': 4, 'b': 5 };
-        const distMap = { 'i': 1, 'o': 2, 'p': 3 };
+        const midiStatus = document.getElementById('midi-status');
 
         function showNotify(msg) {
             const n = document.getElementById('notification');
@@ -325,134 +324,168 @@
             setTimeout(() => n.style.opacity = 0, 2000);
         }
 
-        // --- GESTIÓN DE SCROLL (FADER ORGÁNICO) ---
-        window.addEventListener('wheel', (e) => {
-            const delta = e.deltaY * 0.001;
-            // Fader continuo 0 a 1
-            state.crossfade = Math.max(0.0, Math.min(1.0, state.crossfade + delta));
-            // Actualizar UI Knob (0% a 100%)
-            faderKnob.style.left = (state.crossfade * 100) + '%';
-        });
-
-        // --- TECLADO ---
-        window.addEventListener('keydown', (e) => {
-            const key = e.key.toLowerCase();
-
+        // --- MANEJO DE TECLADO (CORE) ---
+        function handleInput(key) {
+            key = key.toLowerCase();
+            
             // FX 1-0
             if(!isNaN(parseInt(key))) {
                 state.effectMode = (parseInt(key) === 0) ? 10 : parseInt(key);
-                hudMode.innerText = state.effectMode;
+                document.getElementById('hud-mode').innerText = state.effectMode;
                 showNotify(`FX 2D: ${state.effectMode}`);
             }
 
             // Colores Q-Y
+            const colors = { 'q': [1,0,0], 'w': [0,1,0], 'e': [0,0,1], 'r': [0,1,1], 't': [1,0,1], 'y': [1,1,0] };
             if(colors[key]) {
-                state.tint.setRGB(...colors[key]);
-                state.tintMix = 1.0;
-                hudColor.innerText = key.toUpperCase(); hudColor.style.color = "#0ff";
+                state.tint.setRGB(...colors[key]); state.tintMix = 1.0;
+                const h = document.getElementById('hud-color'); h.innerText = key.toUpperCase(); h.style.color="#0ff";
             }
-            if(key === 'u') { state.tintMix = 0.0; hudColor.innerText = "OFF"; hudColor.style.color = "#fff"; }
+            if(key === 'u') { state.tintMix = 0.0; document.getElementById('hud-color').innerText = "OFF"; document.getElementById('hud-color').style.color="#fff"; }
 
-            // Estilos Z-B
+            // Estilos
+            const styleMap = { 'z': 1, 'x': 2, 'c': 3, 'v': 4, 'b': 5 };
             if(styleMap[key]) {
                 state.styleMode = styleMap[key];
                 const names = ["", "MALLA", "PUNTOS", "HEX", "HOLO", "BINARY"];
-                hudStyle.innerText = names[state.styleMode];
+                document.getElementById('hud-style').innerText = names[state.styleMode];
                 showNotify(`ESTILO: ${names[state.styleMode]}`);
             }
 
-            // --- DEFORMACIONES (I, O, P) ---
+            // Deformaciones
+            const distMap = { 'i': 1, 'o': 2, 'p': 3 };
             if(distMap[key]) {
                 state.distortionType = distMap[key];
                 const dNames = ["FLOR", "SIERRA", "GRID", "CRISTAL"];
-                hudDist.innerText = dNames[state.distortionType];
-                showNotify(`DEFORMACIÓN: ${dNames[state.distortionType]}`);
+                document.getElementById('hud-dist').innerText = dNames[state.distortionType];
+                showNotify(`DEFORM: ${dNames[state.distortionType]}`);
             }
 
-            // M: RESET
+            // RESET
             if(key === 'm') { 
                 state.styleMode = 0; state.distortionType = 0; 
-                hudStyle.innerText = "NORMAL"; hudDist.innerText = "FLOR";
+                document.getElementById('hud-style').innerText = "NORMAL"; document.getElementById('hud-dist').innerText = "FLOR";
                 showNotify("RESET VISUALES"); 
             }
 
-            // Cam Mix N
+            // CAM MIX / SOLO (Tecla N) - Lógica de 3 pasos
             if(key === 'n') {
-                state.mixRatio = (state.mixRatio > 0.1) ? 0.0 : 0.5;
+                if(state.mixRatio < 0.1) state.mixRatio = 0.5;      // Off -> Mix
+                else if(state.mixRatio === 0.5) state.mixRatio = 1.0; // Mix -> Solo
+                else state.mixRatio = 0.0;                            // Solo -> Off
+                
                 if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
-                showNotify(state.mixRatio > 0 ? "CAM: ON" : "CAM: OFF");
+                
+                let msg = "CAM: OFF";
+                if(state.mixRatio === 0.5) msg = "CAM: MIX (50%)";
+                if(state.mixRatio === 1.0) msg = "CAM: SOLO (100%)";
+                showNotify(msg);
             }
 
-            // --- GESTIÓN INTELIGENTE DE DECKS (A-L) ---
+            // Video Slots
             const allSlots = ['a','s','d','f','g','h','j','k','l'];
             if (allSlots.includes(key)) {
-                
-                // 1. Determinar en qué Deck cargar
-                // Si el fader está mayormente en A (<0.5), cargamos en B.
-                // Si el fader está mayormente en B (>0.5), cargamos en A.
                 const targetDeck = (state.crossfade < 0.5) ? 'B' : 'A';
-
                 if (!videoSlots[key]) {
-                    // Cargar nuevo archivo
-                    state.loadingSlot = key;
-                    state.loadingDeckTarget = targetDeck; // Recordar donde iba
+                    state.loadingSlot = key; state.loadingDeckTarget = targetDeck;
                     fileInput.click();
                 } else {
-                    // Usar video ya cargado
                     if (targetDeck === 'A') {
-                        state.deckA = key;
-                        texA.image = videoSlots[key];
-                        texA.needsUpdate = true;
-                        uniforms.uTexA.value = texA;
-                        hudDeckA.innerText = key.toUpperCase();
+                        state.deckA = key; texA.image = videoSlots[key]; texA.needsUpdate = true;
+                        uniforms.uTexA.value = texA; document.getElementById('hud-deck-a').innerText = key.toUpperCase();
                         showNotify(`DECK A: ${key.toUpperCase()}`);
                     } else {
-                        state.deckB = key;
-                        texB.image = videoSlots[key];
-                        texB.needsUpdate = true;
-                        uniforms.uTexB.value = texB;
-                        hudDeckB.innerText = key.toUpperCase();
+                        state.deckB = key; texB.image = videoSlots[key]; texB.needsUpdate = true;
+                        uniforms.uTexB.value = texB; document.getElementById('hud-deck-b').innerText = key.toUpperCase();
                         showNotify(`DECK B: ${key.toUpperCase()}`);
                     }
                 }
             }
+        }
+
+        window.addEventListener('keydown', (e) => handleInput(e.key));
+
+        // --- MIDI IMPLEMENTATION ---
+        if (navigator.requestMIDIAccess) {
+            navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
+        } else {
+            midiStatus.innerText = "MIDI NO SOPORTADO";
+        }
+
+        function onMIDISuccess(midiAccess) {
+            midiStatus.innerText = "MIDI READY";
+            midiStatus.classList.add('midi-active');
+            for (var input of midiAccess.inputs.values()) {
+                input.onmidimessage = getMIDIMessage;
+            }
+        }
+        function onMIDIFailure() { midiStatus.innerText = "MIDI ERROR"; }
+
+        function getMIDIMessage(msg) {
+            const command = msg.data[0];
+            const note = msg.data[1];
+            const velocity = (msg.data.length > 2) ? msg.data[2] : 0;
+
+            // Debug en consola para que el usuario mapee su AKAI
+            // console.log(`[MIDI] Cmd:${command} Note/CC:${note} Val:${velocity}`);
+
+            // 1. CONTROL CHANGE (Knobs/Faders) - Usualmente Cmd 176
+            if (command >= 176 && command <= 191) {
+                if (note === MIDI_MAP.fader) { // Crossfader
+                    state.crossfade = velocity / 127.0;
+                    faderKnob.style.left = (state.crossfade * 100) + '%';
+                }
+            }
+
+            // 2. NOTE ON (Pads) - Usualmente Cmd 144
+            if (command >= 144 && command <= 159 && velocity > 0) {
+                
+                // Mapeo de Slots (Notas secuenciales desde padBase)
+                const slots = ['a','s','d','f','g','h','j','k','l'];
+                const index = note - MIDI_MAP.padBase;
+                if(index >= 0 && index < slots.length) {
+                    handleInput(slots[index]);
+                }
+
+                // Mapeo extra de efectos en notas altas (ejemplo)
+                if(index === 12) handleInput('1'); // Efecto 1
+                if(index === 13) handleInput('2'); // Efecto 2
+                if(index === 15) handleInput('n'); // Cam Toggle
+            }
+        }
+
+        // --- MOUSE CROSSFADE ---
+        window.addEventListener('wheel', (e) => {
+            const delta = e.deltaY * 0.001;
+            state.crossfade = Math.max(0.0, Math.min(1.0, state.crossfade + delta));
+            faderKnob.style.left = (state.crossfade * 100) + '%';
         });
 
-        // Carga de archivo
+        // --- VIDEO LOAD ---
         fileInput.onchange = (e) => {
             const file = e.target.files[0];
             if(!file || !state.loadingSlot) return;
             const url = URL.createObjectURL(file);
             const vid = document.createElement('video');
-            vid.src = url; vid.loop = true; vid.muted = true; vid.playsInline = true;
-            vid.play(); 
+            vid.src = url; vid.loop = true; vid.muted = true; vid.playsInline = true; vid.play(); 
             videoSlots[state.loadingSlot] = vid;
 
-            // Asignar al Deck Objetivo
             if (state.loadingDeckTarget === 'A') {
-                state.deckA = state.loadingSlot;
-                texA.image = vid;
-                uniforms.uTexA.value = texA;
-                hudDeckA.innerText = state.loadingSlot.toUpperCase();
-                showNotify(`CARGADO EN DECK A: ${state.loadingSlot.toUpperCase()}`);
+                state.deckA = state.loadingSlot; texA.image = vid; uniforms.uTexA.value = texA;
+                document.getElementById('hud-deck-a').innerText = state.loadingSlot.toUpperCase();
+                showNotify(`DECK A: ${state.loadingSlot.toUpperCase()}`);
             } else {
-                state.deckB = state.loadingSlot;
-                texB.image = vid;
-                uniforms.uTexB.value = texB;
-                hudDeckB.innerText = state.loadingSlot.toUpperCase();
-                showNotify(`CARGADO EN DECK B: ${state.loadingSlot.toUpperCase()}`);
+                state.deckB = state.loadingSlot; texB.image = vid; uniforms.uTexB.value = texB;
+                document.getElementById('hud-deck-b').innerText = state.loadingSlot.toUpperCase();
+                showNotify(`DECK B: ${state.loadingSlot.toUpperCase()}`);
             }
-
-            state.loadingSlot = null;
-            fileInput.value = ""; 
+            state.loadingSlot = null; fileInput.value = ""; 
         };
 
         async function initWebcam() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-                webcamEl.srcObject = stream;
-                webcamEl.play();
-                uniforms.uTexCam.value = webcamTex;
+                webcamEl.srcObject = stream; webcamEl.play(); uniforms.uTexCam.value = webcamTex;
             } catch(e) { console.error("No cam"); }
         }
 
@@ -464,7 +497,6 @@
             uniforms.uTime.value = time;
             uniforms.uVol.value = lvls.vol;
             uniforms.uBass.value = lvls.bass;
-            uniforms.uHigh.value = lvls.high;
             uniforms.uMix.value = state.mixRatio;
             uniforms.uMode.value = state.effectMode;
             uniforms.uStyle.value = state.styleMode;
@@ -472,12 +504,15 @@
             uniforms.uTint.value = state.tint;
             uniforms.uTintMix.value = state.tintMix;
             uniforms.uCrossfade.value = state.crossfade;
+            
+            // Nuevos Params
+            uniforms.uSpeed.value = state.speed;
+            uniforms.uRGBShift.value = state.rgbShift;
+            uniforms.uGeoStrength.value = state.geoStrength;
 
             bloom.strength = state.bloom + (lvls.vol * 1.5);
             
-            // Movimiento sutil extra
-            if(lvls.bass > 0.5) plane.rotation.z = (Math.random()-0.5)*0.02;
-            else plane.rotation.z *= 0.9;
+            if(lvls.bass > 0.5) plane.rotation.z = (Math.random()-0.5)*0.02; else plane.rotation.z *= 0.9;
 
             if(texA.image && texA.image.tagName === 'VIDEO' && texA.image.readyState >= 2) texA.needsUpdate = true;
             if(texB.image && texB.image.tagName === 'VIDEO' && texB.image.readyState >= 2) texB.needsUpdate = true;
@@ -500,15 +535,24 @@
             }
         };
 
-        const gui = new GUI({ title: 'Ajustes' });
-        gui.add(state, 'distortion', 0, 5).name('Fuerza Glitch');
-        gui.add(state, 'micGain', 1, 10).name('Sensibilidad');
-        gui.add(state, 'bloom', 0, 3).name('Brillo');
+        // --- GUI AJUSTES ---
+        const gui = new GUI({ title: 'PANEL DE CONTROL' });
+        
+        const folder1 = gui.addFolder('Audio & Video');
+        folder1.add(state, 'distortion', 0, 5).name('Fuerza Glitch');
+        folder1.add(state, 'micGain', 1, 10).name('Sensibilidad Mic');
+        folder1.add(state, 'bloom', 0, 3).name('Brillo Bloom');
+        
+        const folder2 = gui.addFolder('Ajustes Visuales');
+        folder2.add(state, 'speed', 0.1, 5.0).name('Velocidad Tiempo');
+        folder2.add(state, 'rgbShift', 0.0, 0.2).name('Separación RGB');
+        folder2.add(state, 'geoStrength', 0.0, 10.0).name('Fuerza 3D (Bajos)');
+
     </script>
 </head>
 <body>
     <div id="overlay">
-        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">ORGANIC DECK SYSTEM</h1>
+        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">MIDI VJ STATION</h1>
         <button id="start-btn">INICIAR SISTEMA</button>
         
         <div class="keys-grid">
@@ -520,18 +564,18 @@
             </div>
             <div>
                 <span class="key">A-L</span> 9 SLOTS<br>
-                (Se cargan en<br>el Deck oculto)<br>
-                <span class="key">SCROLL</span> MEZCLAR
+                <span class="key">SCROLL</span> MEZCLAR<br>
+                <span class="key">N</span> CAM: OFF/MIX/SOLO
             </div>
             <div>
-                <span class="key">N</span> CAM MIX<br>
+                <span class="key">MIDI</span> CONECTAR USB<br>
                 <span class="key">Q-Y</span> TINTES
             </div>
         </div>
     </div>
 
     <div id="hud">
-        <div class="hud-line">DEFORM 3D: <span id="hud-dist" class="hud-value">FLOR</span></div>
+        <div class="hud-line">DEFORM: <span id="hud-dist" class="hud-value">FLOR</span></div>
         <div class="hud-line">ESTILO: <span id="hud-style" class="hud-value">NORMAL</span></div>
         <div class="hud-line">FX 2D: <span id="hud-mode" class="hud-value">1</span></div>
         <div class="hud-line">COLOR: <span id="hud-color" class="hud-value" style="color:#fff">OFF</span></div>
@@ -540,6 +584,8 @@
         <div class="hud-line">DECK B: <span id="hud-deck-b" class="hud-value">NONE</span></div>
     </div>
     
+    <div id="midi-status">MIDI: WAITING...</div>
+
     <div id="fader-container">
         <div class="deck-label" id="label-a">DECK A</div>
         <div id="fader-track">
