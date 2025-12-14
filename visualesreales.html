@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>AIRIS - VJ CONTROLLER</title>
+    <title>AIRIS - VISUAL PERFORMANCE TOOL</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;700&display=swap" rel="stylesheet">
@@ -10,7 +10,6 @@
     <style>
         :root {
             --bg-color: #0F121B;
-            --text-color: #FFFFFF;
             --accent-color: #00E5FF;
             --panel-bg: rgba(15, 18, 27, 0.85);
         }
@@ -19,25 +18,20 @@
             margin: 0; overflow: hidden; 
             background-color: var(--bg-color); 
             font-family: 'Montserrat', sans-serif;
-            color: var(--text-color);
+            color: #fff;
         }
 
-        /* --- CAPAS DE CANVAS --- */
-        #bg-canvas {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -1; /* Fondo decorativo */
-        }
-        
+        /* --- MOTOR VISUAL (FONDO) --- */
         #vj-canvas {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: -2; opacity: 0; pointer-events: none; /* Motor oculto pero activo */
+            z-index: 0; /* Al fondo pero visible */
         }
 
-        /* --- UI WRAPPER (ESCALABLE) --- */
+        /* --- INTERFAZ FLOTANTE (DASHBOARD) --- */
         #ui-wrapper {
             position: absolute; bottom: 0; left: 0; width: 100%;
             display: flex; justify-content: center; align-items: flex-end;
-            pointer-events: none;
+            pointer-events: none; /* Click-through */
             z-index: 10;
             padding-bottom: 20px;
         }
@@ -52,93 +46,63 @@
             display: grid; 
             grid-template-columns: 250px 1fr 250px;
             gap: 20px;
-            pointer-events: auto;
+            pointer-events: auto; /* Activar clicks aquí */
             transform-origin: bottom center;
             transition: transform 0.1s ease;
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
         }
 
-        /* --- SECCIONES --- */
-        .panel-col {
-            display: flex; flex-direction: column; justify-content: space-between;
-        }
+        /* --- COLUMNAS --- */
+        .panel-col { display: flex; flex-direction: column; justify-content: space-between; }
+        
         h3 { 
             font-size: 10px; letter-spacing: 2px; text-transform: uppercase; 
             color: rgba(255,255,255,0.5); margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);
             padding-bottom: 5px;
         }
 
-        /* --- DATA DISPLAY --- */
-        .data-row { 
-            display: flex; justify-content: space-between; font-size: 12px; 
-            margin-bottom: 5px; font-weight: 500; 
-        }
-        .data-val { color: var(--accent-color); text-transform: uppercase; }
-        .data-active { text-shadow: 0 0 10px var(--accent-color); }
+        /* --- DATOS --- */
+        .data-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; font-weight: 500; }
+        .data-val { color: var(--accent-color); text-transform: uppercase; font-weight: 700; }
 
-        /* --- MIXER --- */
+        /* --- MIXER CENTRAL --- */
         .deck-names {
             display: flex; justify-content: space-between; width: 100%;
             font-size: 24px; font-weight: 700; color: rgba(255,255,255,0.2);
-            margin-bottom: 10px;
+            margin-bottom: 10px; transition: color 0.2s;
         }
-        .deck-name-active { color: #fff; text-shadow: 0 0 15px var(--accent-color); }
+        .active-deck { color: #fff; text-shadow: 0 0 15px var(--accent-color); }
 
-        #fader-container {
-            width: 100%; height: 40px; position: relative;
-            display: flex; align-items: center;
-        }
-        #fader-line {
-            width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px;
-        }
+        #fader-container { width: 100%; height: 40px; position: relative; display: flex; align-items: center; }
+        #fader-line { width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
         #fader-handle {
             width: 60px; height: 16px; background: var(--accent-color);
             position: absolute; left: 0%; top: 12px; transform: translateX(-50%);
             border-radius: 8px; cursor: grab; box-shadow: 0 0 20px var(--accent-color);
             transition: height 0.2s;
         }
-        #fader-handle:active { height: 20px; cursor: grabbing; background: #fff; }
 
         /* --- BOTONES --- */
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        
         .airis-btn {
-            background: transparent;
-            border: 1px solid var(--accent-color);
-            color: var(--text-color);
-            padding: 10px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 10px; font-weight: 700;
-            border-radius: 20px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
+            background: transparent; border: 1px solid var(--accent-color); color: #fff;
+            padding: 10px; font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 700;
+            border-radius: 20px; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase;
         }
-        .airis-btn:hover {
-            background: var(--accent-color);
-            color: var(--bg-color);
-            box-shadow: 0 0 15px var(--accent-color);
-        }
-        .airis-btn.danger { border-color: #ff3366; color: #ff3366; }
-        .airis-btn.danger:hover { background: #ff3366; color: white; box-shadow: 0 0 15px #ff3366; }
-        .airis-btn.active { background: #ff3366; color: white; border-color: #ff3366; }
+        .airis-btn:hover { background: var(--accent-color); color: var(--bg-color); box-shadow: 0 0 15px var(--accent-color); }
+        
+        /* Botón BLACKOUT/LIVE con estado */
+        #btn-blackout { border-color: #ff3366; color: #ff3366; }
+        #btn-blackout:hover { background: #ff3366; color: white; box-shadow: 0 0 15px #ff3366; }
+        #btn-blackout.live { background: #00ff66; border-color: #00ff66; color: #000; box-shadow: 0 0 15px #00ff66; }
 
-        /* --- ESCALADOR UI --- */
-        #scaler-container {
-            position: fixed; bottom: 10px; left: 20px; z-index: 50;
-            display: flex; align-items: center; gap: 10px;
-            font-size: 10px; color: rgba(255,255,255,0.5);
-        }
-        input[type=range] { width: 80px; accent-color: var(--accent-color); }
-
-        /* --- PANTALLA DE INICIO --- */
+        /* --- PANTALLA CARGA --- */
         #boot-layer {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15,18,27,0.95); z-index: 100;
+            background: rgba(15,18,27,0.98); z-index: 100;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
         .logo-big { font-size: 60px; font-weight: 700; letter-spacing: 10px; margin-bottom: 20px; color: #fff; }
-        .logo-cyan { color: var(--accent-color); }
         .start-btn-big {
             padding: 15px 50px; font-size: 16px; letter-spacing: 2px;
             background: transparent; border: 2px solid var(--accent-color); color: #fff;
@@ -147,20 +111,27 @@
         }
         .start-btn-big:hover { background: var(--accent-color); color: var(--bg-color); box-shadow: 0 0 30px var(--accent-color); }
 
-        /* --- UTILS --- */
+        /* --- UI SCALER --- */
+        #scaler-container {
+            position: fixed; bottom: 10px; left: 20px; z-index: 50;
+            display: flex; align-items: center; gap: 10px;
+            font-size: 10px; color: rgba(255,255,255,0.5); pointer-events: auto;
+        }
+        input[type=range] { width: 80px; accent-color: var(--accent-color); cursor: pointer; }
+
+        /* --- NOTIFICACIONES & MIDI --- */
         #notification {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             font-size: 24px; font-weight: 300; letter-spacing: 5px;
             color: var(--accent-color); opacity: 0; pointer-events: none; transition: opacity 0.5s;
             text-shadow: 0 0 20px var(--accent-color); z-index: 60;
         }
-        
         #midi-modal {
             display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: var(--bg-color); border: 1px solid var(--accent-color);
             padding: 20px; z-index: 200; border-radius: 10px; width: 300px;
         }
-        .midi-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px; }
+        .midi-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
         .learn-btn { background: #333; border: none; color: #fff; padding: 2px 8px; cursor: pointer; border-radius: 4px; }
         .learn-btn.learning { background: #ff3366; animation: blink 0.5s infinite; }
         @keyframes blink { 0%{opacity:1} 50%{opacity:0.5} 100%{opacity:1} }
@@ -174,69 +145,22 @@
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // ==========================================
-        // 1. FONDO DECORATIVO (Estilo Alter.Lab)
-        // ==========================================
-        function initBackground() {
-            const canvas = document.getElementById('bg-canvas');
-            const renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 5;
-
-            // Partículas
-            const particlesGeo = new THREE.BufferGeometry();
-            const count = 700;
-            const pos = new Float32Array(count * 3);
-            for(let i=0; i<count*3; i++) pos[i] = (Math.random()-0.5) * 15;
-            particlesGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-            const particlesMat = new THREE.PointsMaterial({ size: 0.02, color: 0x00E5FF, transparent: true, opacity: 0.6 });
-            const particles = new THREE.Points(particlesGeo, particlesMat);
-            scene.add(particles);
-
-            // Esfera Wireframe
-            const sphereGeo = new THREE.IcosahedronGeometry(4, 1);
-            const sphereMat = new THREE.MeshBasicMaterial({ color: 0x00E5FF, wireframe: true, transparent: true, opacity: 0.05 });
-            const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-            scene.add(sphere);
-
-            // Animación Fondo
-            const animateBg = () => {
-                requestAnimationFrame(animateBg);
-                sphere.rotation.y += 0.002;
-                sphere.rotation.x += 0.001;
-                particles.rotation.y += 0.001;
-                renderer.render(scene, camera);
-            };
-            animateBg();
-
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-        }
-
-        // ==========================================
-        // 2. MOTOR VJ (Invisible hasta proyectar)
-        // ==========================================
-        
-        // Estado
+        // --- ESTADO ---
         const state = {
             effectMode: 1, styleMode: 0, distortionType: 0, mixRatio: 0.0, 
             distortion: 2.0, micGain: 5.0, bloom: 1.5, speed: 1.0, rgbShift: 0.05, geoStrength: 4.0,
             tint: new THREE.Color(1, 1, 1), tintMix: 0.0, 
             loadingSlot: null, crossfade: 0.0,
-            deckA: "VACÍO", deckB: "VACÍO"
+            deckA: "VACÍO", deckB: "VACÍO",
+            isLive: false // Controla si el proyector ve imagen o negro
         };
 
-        // Variables Globales
         let projectorWindow = null;
         let midiMapping = { 'crossfader': {type:'cc',val:1}, 'slot_a':{type:'note',val:36} }; 
         let learningTarget = null;
-        const videoSlots = {}; // Almacena elementos de video en memoria
+        const videoSlots = {};
 
-        // Audio Engine
+        // --- AUDIO ENGINE ---
         class AudioEngine {
             constructor() { this.ctx=null; this.analyser=null; this.data=null; this.freq=null; this.ready=false; }
             async init() {
@@ -248,7 +172,7 @@
                     this.data = new Uint8Array(this.analyser.frequencyBinCount);
                     this.freq = new Uint8Array(this.analyser.frequencyBinCount);
                     this.ready = true; return true;
-                } catch(e) { console.error("Audio Fail", e); return false; }
+                } catch(e) { console.error(e); return false; }
             }
             getLevels() {
                 if(!this.ready) return { vol: 0, bass: 0 };
@@ -261,13 +185,13 @@
         }
         const audio = new AudioEngine();
 
-        // Configuración Three.js VJ (Canvas Oculto)
-        const vjCanvas = document.getElementById('vj-canvas');
-        const vjRenderer = new THREE.WebGLRenderer({ canvas: vjCanvas, antialias: true, preserveDrawingBuffer: true });
-        vjRenderer.setSize(window.innerWidth, window.innerHeight);
-        const vjScene = new THREE.Scene();
-        const vjCamera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        vjCamera.position.z = 9;
+        // --- VISUAL ENGINE (THREE.JS) ---
+        const canvas = document.getElementById('vj-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.z = 9;
 
         // Texturas
         const texA = new THREE.VideoTexture(document.createElement('video'));
@@ -275,13 +199,12 @@
         const webcamEl = document.createElement('video'); webcamEl.muted=true; webcamEl.playsInline=true;
         const webcamTex = new THREE.VideoTexture(webcamEl);
         
-        // Placeholder Ruido
         const c=document.createElement('canvas'); c.width=64; c.height=64;
-        const x=c.getContext('2d'); x.fillStyle='#111'; x.fillRect(0,0,64,64);
+        const x=c.getContext('2d'); x.fillStyle='#000'; x.fillRect(0,0,64,64); // Fondo negro por defecto
         const noiseTex = new THREE.CanvasTexture(c);
         texA.image = noiseTex.image; texB.image = noiseTex.image;
 
-        // Shaders (Mismo código potente anterior)
+        // Shader Config
         const uniforms = {
             uTexA: { value: noiseTex }, uTexB: { value: noiseTex }, uCrossfade: { value: 0.0 },
             uTexCam: { value: noiseTex }, uMix: { value: 0.0 }, uTime: { value: 0.0 },
@@ -306,23 +229,19 @@
             }
             void main() {
                 vec2 uv = vUv; float t = uTime * uSpeed;
-                // FX Geometria 2D
                 if(uMode == 3) uv.x = abs(uv.x - 0.5) + 0.5;
                 if(uMode == 4) { vec2 c = uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,1.047); a=abs(a-0.523); uv=0.5+r*vec2(cos(a),sin(a)); }
                 if(uMode == 5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
                 if(uMode == 9) { uv.x+=sin(uv.y*10.0+t)*0.05*uVol; uv.y+=cos(uv.x*10.0+t)*0.05*uVol; }
-                // Sampling
                 float shift = (uMode==2) ? uBass*0.05 : uRGBShift * uBass;
                 vec3 cA = rgbSplit(uTexA, uv, shift); vec3 cB = rgbSplit(uTexB, uv, shift);
                 vec3 col = mix(cA, cB, uCrossfade);
                 vec3 cCam = rgbSplit(uTexCam, uv, shift);
                 col = mix(col, cCam, uMix);
-                // FX Color
                 if(uMode == 7 && uBass > 0.6) col = 1.0 - col;
                 if(uMode == 8) { vec3 c1=mix(texture2D(uTexA,uv+0.002).rgb,texture2D(uTexB,uv+0.002).rgb,uCrossfade); col=length(abs(col-c1))*vec3(0,1,1)*4.0; }
                 if(uMode == 10 && rand(floor(uv*10.0)+floor(t*10.0))<uBass*0.5) col=vec3(1.0);
                 if(uMode == 1) col *= (0.8 + 0.2 * (sin(uv.y*800.0+t*5.0)*0.5+0.5));
-                // Estilos
                 float lum = dot(col, vec3(0.33));
                 if (uStyle == 1) col *= (step(0.9, fract(uv.x*40.0+t*0.5)) + step(0.9, fract(uv.y*40.0))) * 2.0;
                 if (uStyle == 2) col *= step(distance(fract(uv*80.0), vec2(0.5)), lum*0.5) * 1.5;
@@ -351,14 +270,11 @@
 
         const material = new THREE.ShaderMaterial({ uniforms: uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide });
         const geometry = new THREE.PlaneGeometry(16, 9, 140, 140);
-        const plane = new THREE.Mesh(geometry, material); vjScene.add(plane);
-        const composer = new EffectComposer(vjRenderer); composer.addPass(new RenderPass(vjScene, vjCamera));
+        const plane = new THREE.Mesh(geometry, material); scene.add(plane);
+        const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
         const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85); composer.addPass(bloom);
 
-        // ==========================================
-        // 3. LOGICA INTERFAZ & CONTROL
-        // ==========================================
-
+        // --- CONTROL Y LÓGICA ---
         const ui = {
             deckA: document.getElementById('name-deck-a'),
             deckB: document.getElementById('name-deck-b'),
@@ -370,16 +286,15 @@
             titlesB: document.getElementById('title-b'),
             
             update: () => {
-                ui.deckA.innerText = state.deckA.length > 20 ? state.deckA.substring(0,18)+'...' : state.deckA;
-                ui.deckB.innerText = state.deckB.length > 20 ? state.deckB.substring(0,18)+'...' : state.deckB;
+                ui.deckA.innerText = state.deckA;
+                ui.deckB.innerText = state.deckB;
                 ui.mode.innerText = state.effectMode;
                 ui.style.innerText = ["NORMAL","MALLA","PUNTOS","HEX","HOLO","BINARY"][state.styleMode];
                 ui.dist.innerText = ["FLOR","SIERRA","GRID","CRISTAL"][state.distortionType];
                 ui.fader.style.left = (state.crossfade * 100) + '%';
                 
-                // Brillo de titulos segun fader
-                if(state.crossfade < 0.5) { ui.titlesA.classList.add('deck-name-active'); ui.titlesB.classList.remove('deck-name-active'); }
-                else { ui.titlesB.classList.add('deck-name-active'); ui.titlesA.classList.remove('deck-name-active'); }
+                if(state.crossfade < 0.5) { ui.titlesA.classList.add('active-deck'); ui.titlesB.classList.remove('active-deck'); }
+                else { ui.titlesB.classList.add('active-deck'); ui.titlesA.classList.remove('active-deck'); }
             },
             
             notify: (msg) => {
@@ -389,34 +304,23 @@
             }
         };
 
-        // --- INPUT HANDLING ---
         function handleInput(key) {
             key = key.toLowerCase();
-            
-            // Efectos
             if(!isNaN(parseInt(key))) { state.effectMode = (parseInt(key)===0)?10:parseInt(key); ui.notify(`FX MODE: ${state.effectMode}`); }
-            
             const colors = {'q':[1,0,0],'w':[0,1,0],'e':[0,0,1],'r':[0,1,1],'t':[1,0,1],'y':[1,1,0]};
             if(colors[key]) { state.tint.setRGB(...colors[key]); state.tintMix=1.0; ui.notify("TINT ON"); }
             if(key==='u') { state.tintMix=0.0; ui.notify("TINT OFF"); }
-            
             const styles = {'z':1,'x':2,'c':3,'v':4,'b':5,'m':0};
             if(styles[key] !== undefined) { state.styleMode=styles[key]; ui.notify(styles[key]===0?"RESET STYLE":"STYLE CHANGE"); }
-            
             const dists = {'i':1,'o':2,'p':3};
             if(dists[key]) { state.distortionType=dists[key]; ui.notify("GEOMETRY CHANGE"); }
-
-            // Webcam
             if(key === 'n') {
                 if(state.mixRatio < 0.1) state.mixRatio = 0.5; else if(state.mixRatio === 0.5) state.mixRatio = 1.0; else state.mixRatio = 0.0;
                 if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
                 ui.notify(state.mixRatio===0.5?"CAM MIX":"CAM SOLO");
             }
-
-            // Carga de Video Inteligente (A-L)
             const allSlots = ['a','s','d','f','g','h','j','k','l'];
             if(allSlots.includes(key)) {
-                // Si el fader está a la izquierda (A), cargamos en la derecha (B)
                 const target = (state.crossfade < 0.5) ? 'B' : 'A';
                 state.loadingSlot = target;
                 document.getElementById('file-input').click();
@@ -424,34 +328,42 @@
             ui.update();
         }
 
-        // --- PROYECTOR ---
+        // --- PROYECTOR & BLACKOUT ---
         document.getElementById('btn-projector').onclick = () => {
             if(projectorWindow && !projectorWindow.closed) { projectorWindow.focus(); } 
             else {
                 projectorWindow = window.open("", "AIRIS_PROJ", "width=800,height=600");
-                const stream = vjRenderer.domElement.captureStream(60);
+                const stream = canvas.captureStream(60);
                 projectorWindow.document.write(`
                     <html><head><title>AIRIS OUTPUT</title>
-                    <style>body{margin:0;background:#000;overflow:hidden;} video{width:100vw;height:100vh;object-fit:cover;}</style>
+                    <style>body{margin:0;background:#000;overflow:hidden;} video{width:100vw;height:100vh;object-fit:cover; opacity:0; transition: opacity 0.5s;}</style>
                     </head><body><video id="v" autoplay></video></body></html>
                 `);
-                setTimeout(()=> projectorWindow.document.getElementById('v').srcObject = stream, 100);
+                // Si ya estaba en LIVE, mostrar, si no, mantener oculto
+                setTimeout(()=> {
+                    const v = projectorWindow.document.getElementById('v');
+                    v.srcObject = stream;
+                    if(state.isLive) v.style.opacity = 1;
+                }, 100);
             }
         };
 
-        // --- BLACKOUT ---
         document.getElementById('btn-blackout').onclick = () => {
+            state.isLive = !state.isLive;
             const btn = document.getElementById('btn-blackout');
-            if(btn.classList.contains('active')) {
-                btn.classList.remove('active');
-                if(projectorWindow) projectorWindow.document.querySelector('video').style.opacity = 1;
+            
+            if(state.isLive) {
+                btn.innerText = "ESTADO: LIVE";
+                btn.classList.add('live');
+                if(projectorWindow) projectorWindow.document.getElementById('v').style.opacity = 1;
             } else {
-                btn.classList.add('active');
-                if(projectorWindow) projectorWindow.document.querySelector('video').style.opacity = 0;
+                btn.innerText = "ESTADO: BLACKOUT";
+                btn.classList.remove('live');
+                if(projectorWindow) projectorWindow.document.getElementById('v').style.opacity = 0;
             }
         };
 
-        // --- MIDI MAPPER ---
+        // --- MIDI ---
         async function initMIDI() {
             if (!navigator.requestMIDIAccess) return;
             try {
@@ -515,7 +427,6 @@
             const time = performance.now()*0.001;
             const lvls = audio.getLevels();
 
-            // Actualizar VJ Engine
             uniforms.uTime.value=time; uniforms.uVol.value=lvls.vol; uniforms.uBass.value=lvls.bass;
             uniforms.uMix.value=state.mixRatio; uniforms.uMode.value=state.effectMode; uniforms.uStyle.value=state.styleMode;
             uniforms.uDistType.value=state.distortionType; uniforms.uTint.value=state.tint; uniforms.uTintMix.value=state.tintMix;
@@ -527,63 +438,51 @@
             if(texB.image && texB.image.readyState>=2) texB.needsUpdate=true;
             if(webcamTex.image && webcamTex.image.readyState>=2) webcamTex.needsUpdate=true;
             
-            composer.render(); // Render VJ (Invisible)
+            composer.render();
         }
 
-        window.onresize = () => { 
-            vjCamera.aspect=window.innerWidth/window.innerHeight; vjCamera.updateProjectionMatrix(); 
-            vjRenderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight); 
-            uniforms.uResolution.value.set(window.innerWidth, window.innerHeight); 
-        };
+        window.onresize = () => { camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight); uniforms.uResolution.value.set(window.innerWidth, window.innerHeight); };
 
-        // Loaders
         document.getElementById('file-input').onchange = (e) => {
             const file = e.target.files[0]; if(!file) return;
             const url = URL.createObjectURL(file);
             const vid = document.createElement('video'); vid.src=url; vid.loop=true; vid.muted=true; vid.playsInline=true; vid.play();
-            
-            // Si el video tiene nombre largo, solo mostrar ultimos caracteres
-            const name = file.name;
-
-            if (state.loadingSlot === 'A') { state.deckA=name; texA.image=vid; uniforms.uTexA.value=texA; ui.notify("DECK A: LOADED"); }
-            else { state.deckB=name; texB.image=vid; uniforms.uTexB.value=texB; ui.notify("DECK B: LOADED"); }
-            
+            const name = file.name.length > 15 ? file.name.substring(0,12)+'...' : file.name;
+            if (state.loadingSlot === 'A') { state.deckA=name; texA.image=vid; uniforms.uTexA.value=texA; ui.notify("DECK A LOADED"); }
+            else { state.deckB=name; texB.image=vid; uniforms.uTexB.value=texB; ui.notify("DECK B LOADED"); }
             document.getElementById('file-input').value=""; ui.update();
         };
 
-        // Eventos
         window.addEventListener('keydown', (e)=>handleInput(e.key));
         window.addEventListener('wheel', (e)=>{ state.crossfade = Math.max(0, Math.min(1, state.crossfade + e.deltaY*0.001)); ui.update(); });
         
-        // UI SCALER
         document.getElementById('ui-scaler').oninput = (e) => {
             document.getElementById('ui-dashboard').style.transform = `scale(${e.target.value})`;
         };
 
-        // BOOT
         document.getElementById('start-btn-big').onclick = async () => {
             await audio.init(); 
             await initMIDI();
             document.getElementById('boot-layer').style.display = 'none';
-            initBackground(); // Iniciar particulas
-            animate(); // Iniciar VJ Engine
+            animate();
         };
 
-        // GUI
-        const gui = new GUI({ title: 'AJUSTES', width: 200, container: document.getElementById('gui-wrap') });
+        const gui = new GUI({ title: 'AJUSTES FINOS', width: 200, container: document.getElementById('gui-wrap') });
         gui.domElement.style.position='absolute'; gui.domElement.style.top='0'; gui.domElement.style.right='0';
-        gui.add(state, 'distortion', 0, 5).name('Glitch Force');
+        gui.add(state, 'distortion', 0, 5).name('Glitch');
         gui.add(state, 'micGain', 1, 10).name('Mic Sens');
         gui.add(state, 'speed', 0.1, 5.0).name('Velocidad');
         gui.add(state, 'rgbShift', 0.0, 0.2).name('RGB Aberr');
-        gui.add(state, 'geoStrength', 0.0, 10.0).name('3D React');
+        gui.add(state, 'geoStrength', 0.0, 10.0).name('3D Force');
 
     </script>
 </head>
 <body>
 
-    <canvas id="bg-canvas"></canvas> <canvas id="vj-canvas"></canvas> <div id="boot-layer">
-        <div class="logo-big">AIRIS <span class="logo-cyan">1.0</span></div>
+    <canvas id="vj-canvas"></canvas>
+
+    <div id="boot-layer">
+        <div class="logo-big">AIRIS <span style="color:#00E5FF">2.0</span></div>
         <button id="start-btn-big" class="start-btn-big">INICIAR SISTEMA</button>
         <div style="margin-top:20px; color:#555; font-size:12px;">VJ PERFORMANCE TOOL // ALTER.LAB</div>
     </div>
@@ -598,20 +497,11 @@
                 <div class="data-row"><span>DEFORM</span> <span id="val-dist" class="data-val">FLOR</span></div>
                 <div class="data-row"><span>DECK A</span> <span id="name-deck-a" class="data-val">VACÍO</span></div>
                 <div class="data-row"><span>DECK B</span> <span id="name-deck-b" class="data-val">VACÍO</span></div>
-                <br>
-                <h3>SHORTCUTS</h3>
-                <div style="font-size:10px; color:#aaa; line-height:1.6;">
-                    A-L: Cargar (Auto A/B)<br>
-                    1-0: Efectos 2D<br>
-                    Z-B: Estilos Geo<br>
-                    I-P: Deformación 3D<br>
-                    N: Webcam Toggle
-                </div>
             </div>
 
             <div class="panel-col" style="justify-content: flex-end;">
                 <div class="deck-names">
-                    <span id="title-a" class="deck-name-active">A</span>
+                    <span id="title-a" class="active-deck">A</span>
                     <span id="title-b">B</span>
                 </div>
                 <div id="fader-container">
@@ -619,16 +509,16 @@
                     <div id="fader-handle"></div>
                 </div>
                 <div style="text-align:center; font-size:10px; color:rgba(255,255,255,0.3); margin-top:10px;">
-                    USE MOUSE SCROLL TO MIX
+                    USE SCROLL TO MIX
                 </div>
             </div>
 
             <div class="panel-col">
-                <h3>SISTEMA</h3>
+                <h3>CONTROL</h3>
                 <div class="btn-grid">
-                    <button class="airis-btn" id="btn-projector">ABRIR PROYECTOR</button>
-                    <button class="airis-btn danger" id="btn-blackout">BLACKOUT</button>
-                    <button class="airis-btn" id="btn-midi">MIDI CONFIG</button>
+                    <button class="airis-btn" id="btn-projector">PROYECTOR</button>
+                    <button class="airis-btn" id="btn-blackout">BLACKOUT / LIVE</button>
+                    <button class="airis-btn" id="btn-midi">MIDI</button>
                     <button class="airis-btn" onclick="state.loadingSlot='A'; document.getElementById('file-input').click()">LOAD A</button>
                 </div>
                 <div id="gui-wrap" style="position:relative; height:120px; margin-top:10px;"></div>
