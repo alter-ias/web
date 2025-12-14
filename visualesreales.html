@@ -2,140 +2,159 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>AIRIS - VISUAL PERFORMANCE TOOL</title>
+    <title>AIRIS v3 - PERFORMANCE SUITE</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Montserrat:wght@300;500&display=swap" rel="stylesheet">
     
     <style>
         :root {
             --bg-color: #0F121B;
-            --accent-color: #00E5FF;
-            --panel-bg: rgba(15, 18, 27, 0.85);
+            --panel-bg: #151925;
+            --accent: #00E5FF;
+            --text: #FFFFFF;
+            --text-dim: #6c7a9c;
+            --ui-scale: 1.0; /* Variable dinámica */
         }
 
         body { 
-            margin: 0; overflow: hidden; 
-            background-color: var(--bg-color); 
-            font-family: 'Montserrat', sans-serif;
-            color: #fff;
+            margin: 0; overflow: hidden; background-color: var(--bg-color); 
+            font-family: 'Rajdhani', sans-serif; color: var(--text);
+            display: flex; flex-direction: column; height: 100vh;
         }
 
-        /* --- MOTOR VISUAL (FONDO) --- */
+        /* --- 1. AREA DE VISUALIZACIÓN (Arriba) --- */
+        #viewport {
+            flex-grow: 1; /* Ocupa todo el espacio disponible */
+            position: relative;
+            background: #000;
+            overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+        }
+        
         #vj-canvas {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0; /* Al fondo pero visible */
+            width: 100%; height: 100%; object-fit: contain; /* Mantiene proporción */
+            box-shadow: 0 0 50px rgba(0,229,255,0.1);
         }
 
-        /* --- INTERFAZ FLOTANTE (DASHBOARD) --- */
-        #ui-wrapper {
-            position: absolute; bottom: 0; left: 0; width: 100%;
-            display: flex; justify-content: center; align-items: flex-end;
-            pointer-events: none; /* Click-through */
-            z-index: 10;
-            padding-bottom: 20px;
-        }
-
-        #ui-dashboard {
-            width: 95%; max-width: 1400px;
+        /* --- 2. AREA DE CONTROL (Abajo) --- */
+        #ui-container {
+            height: calc(280px * var(--ui-scale)); /* Altura basada en escala */
             background: var(--panel-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 15px;
-            padding: 20px 30px;
-            display: grid; 
-            grid-template-columns: 250px 1fr 250px;
-            gap: 20px;
-            pointer-events: auto; /* Activar clicks aquí */
-            transform-origin: bottom center;
-            transition: transform 0.1s ease;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            border-top: 1px solid rgba(0,229,255,0.2);
+            flex-shrink: 0; /* No se aplasta */
+            position: relative;
+            z-index: 10;
+            transition: height 0.1s ease;
         }
 
-        /* --- COLUMNAS --- */
-        .panel-col { display: flex; flex-direction: column; justify-content: space-between; }
+        #dashboard {
+            width: 100%; height: 100%;
+            transform-origin: top center;
+            transform: scale(var(--ui-scale));
+            display: grid; 
+            grid-template-columns: 280px 1fr 300px; /* 3 Columnas */
+            padding: 20px 40px; box-sizing: border-box;
+            gap: 30px;
+        }
+
+        /* --- ESTILOS DE PANELES --- */
+        .panel { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
         
         h3 { 
-            font-size: 10px; letter-spacing: 2px; text-transform: uppercase; 
-            color: rgba(255,255,255,0.5); margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 5px;
+            font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 3px; 
+            color: var(--text-dim); margin: 0 0 15px 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;
         }
 
-        /* --- DATOS --- */
-        .data-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; font-weight: 500; }
-        .data-val { color: var(--accent-color); text-transform: uppercase; font-weight: 700; }
-
-        /* --- MIXER CENTRAL --- */
-        .deck-names {
-            display: flex; justify-content: space-between; width: 100%;
-            font-size: 24px; font-weight: 700; color: rgba(255,255,255,0.2);
-            margin-bottom: 10px; transition: color 0.2s;
-        }
-        .active-deck { color: #fff; text-shadow: 0 0 15px var(--accent-color); }
-
-        #fader-container { width: 100%; height: 40px; position: relative; display: flex; align-items: center; }
-        #fader-line { width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; }
-        #fader-handle {
-            width: 60px; height: 16px; background: var(--accent-color);
-            position: absolute; left: 0%; top: 12px; transform: translateX(-50%);
-            border-radius: 8px; cursor: grab; box-shadow: 0 0 20px var(--accent-color);
-            transition: height 0.2s;
+        /* Shortcuts Panel */
+        .shortcut-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; color: #aaa; }
+        .key-badge { 
+            background: rgba(0,229,255,0.1); color: var(--accent); 
+            padding: 1px 6px; border-radius: 4px; font-weight: 700; font-size: 11px; border: 1px solid rgba(0,229,255,0.3);
         }
 
-        /* --- BOTONES --- */
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .airis-btn {
-            background: transparent; border: 1px solid var(--accent-color); color: #fff;
-            padding: 10px; font-family: 'Montserrat', sans-serif; font-size: 10px; font-weight: 700;
-            border-radius: 20px; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase;
+        /* Mixer Central */
+        .mixer-display { 
+            display: flex; justify-content: space-between; align-items: flex-end; 
+            font-size: 30px; font-weight: 700; color: #333; margin-bottom: 10px;
         }
-        .airis-btn:hover { background: var(--accent-color); color: var(--bg-color); box-shadow: 0 0 15px var(--accent-color); }
+        .active-deck-text { color: #fff; text-shadow: 0 0 20px var(--accent); }
+
+        #crossfader-track {
+            width: 100%; height: 12px; background: #000; border-radius: 6px; position: relative;
+            border: 1px solid #333; margin-bottom: 20px;
+        }
+        #crossfader-handle {
+            width: 80px; height: 24px; background: var(--accent); position: absolute; top: -7px; left: 0%;
+            transform: translateX(-50%); border-radius: 4px; cursor: ew-resize;
+            box-shadow: 0 0 20px var(--accent); display: flex; align-items: center; justify-content: center;
+        }
+        #crossfader-handle::after { content: '|||'; color: #000; font-size: 10px; font-weight: 900; letter-spacing: 2px; }
+
+        /* Botones y Params */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         
-        /* Botón BLACKOUT/LIVE con estado */
-        #btn-blackout { border-color: #ff3366; color: #ff3366; }
-        #btn-blackout:hover { background: #ff3366; color: white; box-shadow: 0 0 15px #ff3366; }
-        #btn-blackout.live { background: #00ff66; border-color: #00ff66; color: #000; box-shadow: 0 0 15px #00ff66; }
+        .action-btn {
+            background: transparent; border: 1px solid var(--text-dim); color: var(--text-dim);
+            padding: 12px; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 12px;
+            cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .action-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.05); }
+        .action-btn.primary { border-color: var(--accent); color: var(--accent); }
+        .action-btn.active { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
+        .action-btn.danger.active { background: #ff0055; border-color: #ff0055; color: #fff; box-shadow: 0 0 15px #ff0055; }
 
-        /* --- PANTALLA CARGA --- */
-        #boot-layer {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15,18,27,0.98); z-index: 100;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-        }
-        .logo-big { font-size: 60px; font-weight: 700; letter-spacing: 10px; margin-bottom: 20px; color: #fff; }
-        .start-btn-big {
-            padding: 15px 50px; font-size: 16px; letter-spacing: 2px;
-            background: transparent; border: 2px solid var(--accent-color); color: #fff;
-            border-radius: 30px; cursor: pointer; transition: 0.3s;
-            font-family: 'Montserrat', sans-serif; font-weight: 700;
-        }
-        .start-btn-big:hover { background: var(--accent-color); color: var(--bg-color); box-shadow: 0 0 30px var(--accent-color); }
+        /* Sliders de Ajuste Fino (Custom CSS) */
+        .param-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
+        .param-label { color: #888; width: 80px; }
+        .param-slider { flex-grow: 1; accent-color: var(--accent); height: 4px; }
 
-        /* --- UI SCALER --- */
-        #scaler-container {
-            position: fixed; bottom: 10px; left: 20px; z-index: 50;
-            display: flex; align-items: center; gap: 10px;
-            font-size: 10px; color: rgba(255,255,255,0.5); pointer-events: auto;
+        /* --- 3. UI SCALER VERTICAL --- */
+        #scaler-wrapper {
+            position: absolute; left: 10px; bottom: 20px;
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            z-index: 100;
         }
-        input[type=range] { width: 80px; accent-color: var(--accent-color); cursor: pointer; }
+        #ui-scaler {
+            writing-mode: bt-lr; /* Vertical antiguo */
+            -webkit-appearance: slider-vertical; /* Vertical moderno */
+            width: 8px; height: 100px;
+            accent-color: #555;
+        }
+        .scale-icon { font-size: 10px; color: #555; writing-mode: vertical-rl; text-orientation: mixed; }
 
-        /* --- NOTIFICACIONES & MIDI --- */
-        #notification {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 24px; font-weight: 300; letter-spacing: 5px;
-            color: var(--accent-color); opacity: 0; pointer-events: none; transition: opacity 0.5s;
-            text-shadow: 0 0 20px var(--accent-color); z-index: 60;
+        /* --- 4. MIDI MAPPER OVERLAY --- */
+        #midi-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 200; backdrop-filter: blur(5px);
+            justify-content: center; align-items: center;
         }
-        #midi-modal {
-            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: var(--bg-color); border: 1px solid var(--accent-color);
-            padding: 20px; z-index: 200; border-radius: 10px; width: 300px;
+        #midi-panel {
+            width: 600px; height: 80vh; background: #111; border: 1px solid var(--accent);
+            padding: 30px; overflow-y: auto; display: flex; flex-direction: column;
         }
-        .midi-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; }
-        .learn-btn { background: #333; border: none; color: #fff; padding: 2px 8px; cursor: pointer; border-radius: 4px; }
-        .learn-btn.learning { background: #ff3366; animation: blink 0.5s infinite; }
+        .midi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .midi-item { 
+            background: #222; padding: 10px; display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid #333;
+        }
+        .midi-btn { background: #444; border: none; color: #fff; padding: 5px 10px; cursor: pointer; font-size: 10px; width: 80px;}
+        .midi-btn.learning { background: #ff0055; animation: blink 0.5s infinite; }
         @keyframes blink { 0%{opacity:1} 50%{opacity:0.5} 100%{opacity:1} }
 
+        /* NOTIFY */
+        #notify {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 40px; font-weight: 300; letter-spacing: 10px; color: var(--accent);
+            opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 999;
+            text-shadow: 0 0 30px var(--accent); background: rgba(0,0,0,0.5); padding: 20px;
+        }
+
+        /* BOOT SCREEN */
+        #boot {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 500;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
     </style>
 
     <script type="module">
@@ -143,21 +162,37 @@
         import { EffectComposer } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/EffectComposer.js';
         import { RenderPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
-        import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // --- ESTADO ---
+        // --- ESTADO Y CONFIGURACIÓN ---
         const state = {
             effectMode: 1, styleMode: 0, distortionType: 0, mixRatio: 0.0, 
             distortion: 2.0, micGain: 5.0, bloom: 1.5, speed: 1.0, rgbShift: 0.05, geoStrength: 4.0,
             tint: new THREE.Color(1, 1, 1), tintMix: 0.0, 
             loadingSlot: null, crossfade: 0.0,
             deckA: "VACÍO", deckB: "VACÍO",
-            isLive: false // Controla si el proyector ve imagen o negro
+            isBlackout: false
         };
 
+        // Lista completa de parámetros para mapeo MIDI
+        const midiParams = {
+            'crossfader': { label: 'Crossfader (A/B)', type: 'cc', val: 1 },
+            'speed': { label: 'Velocidad Global', type: null, val: null },
+            'distortion': { label: 'Fuerza Glitch', type: null, val: null },
+            'geoStrength': { label: 'Reacción 3D', type: null, val: null },
+            'rgbShift': { label: 'Aberración RGB', type: null, val: null },
+            'bloom': { label: 'Brillo (Bloom)', type: null, val: null },
+            'micGain': { label: 'Sensibilidad Mic', type: null, val: null },
+            'slot_a': { label: 'Cargar Deck A', type: 'note', val: 36 }, // C1
+            'slot_b': { label: 'Cargar Deck B', type: 'note', val: 37 }, 
+            'fx_next': { label: 'Siguiente FX', type: null, val: null },
+            'style_next': { label: 'Siguiente Estilo', type: null, val: null },
+            'geo_next': { label: 'Siguiente Geo', type: null, val: null },
+            'blackout': { label: 'Toggle Blackout', type: null, val: null },
+            'cam_toggle': { label: 'Toggle Webcam', type: null, val: null }
+        };
+
+        let learningKey = null;
         let projectorWindow = null;
-        let midiMapping = { 'crossfader': {type:'cc',val:1}, 'slot_a':{type:'note',val:36} }; 
-        let learningTarget = null;
         const videoSlots = {};
 
         // --- AUDIO ENGINE ---
@@ -185,26 +220,23 @@
         }
         const audio = new AudioEngine();
 
-        // --- VISUAL ENGINE (THREE.JS) ---
+        // --- MOTOR GRAFICO ---
         const canvas = document.getElementById('vj-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         camera.position.z = 9;
 
-        // Texturas
         const texA = new THREE.VideoTexture(document.createElement('video'));
         const texB = new THREE.VideoTexture(document.createElement('video'));
         const webcamEl = document.createElement('video'); webcamEl.muted=true; webcamEl.playsInline=true;
         const webcamTex = new THREE.VideoTexture(webcamEl);
         
         const c=document.createElement('canvas'); c.width=64; c.height=64;
-        const x=c.getContext('2d'); x.fillStyle='#000'; x.fillRect(0,0,64,64); // Fondo negro por defecto
+        const x=c.getContext('2d'); x.fillStyle='#000'; x.fillRect(0,0,64,64);
         const noiseTex = new THREE.CanvasTexture(c);
         texA.image = noiseTex.image; texB.image = noiseTex.image;
 
-        // Shader Config
         const uniforms = {
             uTexA: { value: noiseTex }, uTexB: { value: noiseTex }, uCrossfade: { value: 0.0 },
             uTexCam: { value: noiseTex }, uMix: { value: 0.0 }, uTime: { value: 0.0 },
@@ -214,6 +246,7 @@
             uDistType: { value: 0 }, uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         };
 
+        // Shader Code (Compactado para eficiencia)
         const fragmentShader = `
             uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
             uniform sampler2D uTexCam; uniform float uMix; uniform float uTime;
@@ -230,14 +263,13 @@
             void main() {
                 vec2 uv = vUv; float t = uTime * uSpeed;
                 if(uMode == 3) uv.x = abs(uv.x - 0.5) + 0.5;
-                if(uMode == 4) { vec2 c = uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,1.047); a=abs(a-0.523); uv=0.5+r*vec2(cos(a),sin(a)); }
+                if(uMode == 4) { vec2 c=uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,1.047); a=abs(a-0.523); uv=0.5+r*vec2(cos(a),sin(a)); }
                 if(uMode == 5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
                 if(uMode == 9) { uv.x+=sin(uv.y*10.0+t)*0.05*uVol; uv.y+=cos(uv.x*10.0+t)*0.05*uVol; }
                 float shift = (uMode==2) ? uBass*0.05 : uRGBShift * uBass;
                 vec3 cA = rgbSplit(uTexA, uv, shift); vec3 cB = rgbSplit(uTexB, uv, shift);
                 vec3 col = mix(cA, cB, uCrossfade);
-                vec3 cCam = rgbSplit(uTexCam, uv, shift);
-                col = mix(col, cCam, uMix);
+                col = mix(col, rgbSplit(uTexCam, uv, shift), uMix);
                 if(uMode == 7 && uBass > 0.6) col = 1.0 - col;
                 if(uMode == 8) { vec3 c1=mix(texture2D(uTexA,uv+0.002).rgb,texture2D(uTexB,uv+0.002).rgb,uCrossfade); col=length(abs(col-c1))*vec3(0,1,1)*4.0; }
                 if(uMode == 10 && rand(floor(uv*10.0)+floor(t*10.0))<uBass*0.5) col=vec3(1.0);
@@ -247,7 +279,7 @@
                 if (uStyle == 2) col *= step(distance(fract(uv*80.0), vec2(0.5)), lum*0.5) * 1.5;
                 if (uStyle == 3) col *= (sin(uv.x*50.0)*sin(uv.y*50.0)>0.0 ? 1.5 : 0.2);
                 if (uStyle == 4) col = mix(col, vec3(0.0, 1.0, 0.8)*lum, 0.8) * step(0.5, sin(uv.y*200.0+t*10.0));
-                if (uStyle == 5) col = vec3(0.0, 1.0, 0.2) * step(0.5, rand(floor(uv*vec2(40.,20.)) + floor(t))) * lum * 2.0;
+                if (uStyle == 5) col = vec3(0.0, 1.0, 0.2) * step(0.5, rand(floor(uv*vec2(40.,20.0)) + floor(t))) * lum * 2.0;
                 col = mix(col, col * uTint, uTintMix);
                 gl_FragColor = vec4(col, 1.0);
             }
@@ -274,267 +306,317 @@
         const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
         const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85); composer.addPass(bloom);
 
-        // --- CONTROL Y LÓGICA ---
-        const ui = {
-            deckA: document.getElementById('name-deck-a'),
-            deckB: document.getElementById('name-deck-b'),
-            mode: document.getElementById('val-mode'),
-            style: document.getElementById('val-style'),
-            dist: document.getElementById('val-dist'),
-            fader: document.getElementById('fader-handle'),
-            titlesA: document.getElementById('title-a'),
-            titlesB: document.getElementById('title-b'),
+        // --- UI UPDATES ---
+        function updateUI() {
+            // Textos
+            document.getElementById('deck-a-name').innerText = state.deckA.length>15 ? state.deckA.substring(0,12)+'...' : state.deckA;
+            document.getElementById('deck-b-name').innerText = state.deckB.length>15 ? state.deckB.substring(0,12)+'...' : state.deckB;
             
-            update: () => {
-                ui.deckA.innerText = state.deckA;
-                ui.deckB.innerText = state.deckB;
-                ui.mode.innerText = state.effectMode;
-                ui.style.innerText = ["NORMAL","MALLA","PUNTOS","HEX","HOLO","BINARY"][state.styleMode];
-                ui.dist.innerText = ["FLOR","SIERRA","GRID","CRISTAL"][state.distortionType];
-                ui.fader.style.left = (state.crossfade * 100) + '%';
-                
-                if(state.crossfade < 0.5) { ui.titlesA.classList.add('active-deck'); ui.titlesB.classList.remove('active-deck'); }
-                else { ui.titlesB.classList.add('active-deck'); ui.titlesA.classList.remove('active-deck'); }
-            },
+            // Fader (Horizontal)
+            document.getElementById('crossfader-handle').style.left = (state.crossfade * 100) + '%';
             
-            notify: (msg) => {
-                const n = document.getElementById('notification');
-                n.innerText = msg; n.style.opacity = 1;
-                setTimeout(() => n.style.opacity = 0, 1500);
-            }
-        };
+            // Colores activos
+            const tA = document.getElementById('title-a');
+            const tB = document.getElementById('title-b');
+            if(state.crossfade < 0.5) { tA.classList.add('active-deck-text'); tB.classList.remove('active-deck-text'); }
+            else { tB.classList.add('active-deck-text'); tA.classList.remove('active-deck-text'); }
 
-        function handleInput(key) {
-            key = key.toLowerCase();
-            if(!isNaN(parseInt(key))) { state.effectMode = (parseInt(key)===0)?10:parseInt(key); ui.notify(`FX MODE: ${state.effectMode}`); }
-            const colors = {'q':[1,0,0],'w':[0,1,0],'e':[0,0,1],'r':[0,1,1],'t':[1,0,1],'y':[1,1,0]};
-            if(colors[key]) { state.tint.setRGB(...colors[key]); state.tintMix=1.0; ui.notify("TINT ON"); }
-            if(key==='u') { state.tintMix=0.0; ui.notify("TINT OFF"); }
-            const styles = {'z':1,'x':2,'c':3,'v':4,'b':5,'m':0};
-            if(styles[key] !== undefined) { state.styleMode=styles[key]; ui.notify(styles[key]===0?"RESET STYLE":"STYLE CHANGE"); }
-            const dists = {'i':1,'o':2,'p':3};
-            if(dists[key]) { state.distortionType=dists[key]; ui.notify("GEOMETRY CHANGE"); }
-            if(key === 'n') {
-                if(state.mixRatio < 0.1) state.mixRatio = 0.5; else if(state.mixRatio === 0.5) state.mixRatio = 1.0; else state.mixRatio = 0.0;
-                if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
-                ui.notify(state.mixRatio===0.5?"CAM MIX":"CAM SOLO");
-            }
-            const allSlots = ['a','s','d','f','g','h','j','k','l'];
-            if(allSlots.includes(key)) {
-                const target = (state.crossfade < 0.5) ? 'B' : 'A';
-                state.loadingSlot = target;
-                document.getElementById('file-input').click();
-            }
-            ui.update();
+            // Sliders valores
+            document.getElementById('sl-speed').value = state.speed;
+            document.getElementById('sl-dist').value = state.distortion;
+            document.getElementById('sl-geo').value = state.geoStrength;
+            document.getElementById('sl-rgb').value = state.rgbShift;
         }
 
-        // --- PROYECTOR & BLACKOUT ---
-        document.getElementById('btn-projector').onclick = () => {
-            if(projectorWindow && !projectorWindow.closed) { projectorWindow.focus(); } 
-            else {
-                projectorWindow = window.open("", "AIRIS_PROJ", "width=800,height=600");
-                const stream = canvas.captureStream(60);
-                projectorWindow.document.write(`
-                    <html><head><title>AIRIS OUTPUT</title>
-                    <style>body{margin:0;background:#000;overflow:hidden;} video{width:100vw;height:100vh;object-fit:cover; opacity:0; transition: opacity 0.5s;}</style>
-                    </head><body><video id="v" autoplay></video></body></html>
-                `);
-                // Si ya estaba en LIVE, mostrar, si no, mantener oculto
-                setTimeout(()=> {
-                    const v = projectorWindow.document.getElementById('v');
-                    v.srcObject = stream;
-                    if(state.isLive) v.style.opacity = 1;
-                }, 100);
-            }
+        function notify(msg) {
+            const n = document.getElementById('notify');
+            n.innerText = msg; n.style.opacity = 1;
+            setTimeout(()=>n.style.opacity=0, 1500);
+        }
+
+        // --- CONTROL ACTIONS ---
+        const actions = {
+            loadA: () => { state.loadingSlot = 'A'; document.getElementById('file-input').click(); },
+            loadB: () => { state.loadingSlot = 'B'; document.getElementById('file-input').click(); },
+            toggleBlackout: () => {
+                state.isBlackout = !state.isBlackout;
+                const btn = document.getElementById('btn-blackout');
+                btn.classList.toggle('active', state.isBlackout);
+                if(projectorWindow && !projectorWindow.closed) {
+                    projectorWindow.document.body.style.background = state.isBlackout ? '#000' : '#000';
+                    projectorWindow.document.querySelector('video').style.opacity = state.isBlackout ? 0 : 1;
+                }
+                notify(state.isBlackout ? "BLACKOUT ON" : "LIVE");
+            },
+            toggleCam: () => {
+                if(state.mixRatio===0) state.mixRatio=0.5; else if(state.mixRatio===0.5) state.mixRatio=1; else state.mixRatio=0;
+                if(state.mixRatio>0 && !webcamEl.srcObject) navigator.mediaDevices.getUserMedia({video:{width:1280}}).then(s=>{webcamEl.srcObject=s;webcamEl.play();uniforms.uTexCam.value=webcamTex;});
+                notify("CAM: " + state.mixRatio);
+            },
+            nextFX: () => { state.effectMode = (state.effectMode % 10) + 1; notify(`FX: ${state.effectMode}`); },
+            nextStyle: () => { state.styleMode = (state.styleMode + 1) % 6; notify(`STYLE: ${state.styleMode}`); },
+            nextGeo: () => { state.distortionType = (state.distortionType + 1) % 4; notify(`GEO: ${state.distortionType}`); },
+            reset: () => { state.styleMode=0; state.distortionType=0; state.effectMode=1; notify("RESET"); }
         };
 
-        document.getElementById('btn-blackout').onclick = () => {
-            state.isLive = !state.isLive;
-            const btn = document.getElementById('btn-blackout');
-            
-            if(state.isLive) {
-                btn.innerText = "ESTADO: LIVE";
-                btn.classList.add('live');
-                if(projectorWindow) projectorWindow.document.getElementById('v').style.opacity = 1;
-            } else {
-                btn.innerText = "ESTADO: BLACKOUT";
-                btn.classList.remove('live');
-                if(projectorWindow) projectorWindow.document.getElementById('v').style.opacity = 0;
-            }
-        };
-
-        // --- MIDI ---
+        // --- MIDI SYSTEM (DINÁMICO) ---
         async function initMIDI() {
             if (!navigator.requestMIDIAccess) return;
             try {
-                const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
-                for (var input of midiAccess.inputs.values()) input.onmidimessage = getMIDIMessage;
-            } catch (err) {}
+                const midi = await navigator.requestMIDIAccess();
+                for (var input of midi.inputs.values()) input.onmidimessage = handleMIDIMessage;
+            } catch(e) {}
         }
 
-        function getMIDIMessage(msg) {
-            const command = msg.data[0]; const note = msg.data[1]; const velocity = (msg.data.length > 2) ? msg.data[2] : 0;
-            const type = (command >= 176 && command <= 191) ? 'cc' : (command >= 144 && command <= 159) ? 'note' : null;
-            if (!type) return;
+        function handleMIDIMessage(msg) {
+            const [cmd, note, vel] = msg.data;
+            const type = (cmd >= 176 && cmd <= 191) ? 'cc' : (cmd >= 144 && cmd <= 159) ? 'note' : null;
+            if(!type || vel===0 && type==='note') return; // Ignore note off
 
-            if (learningTarget) {
-                midiMapping[learningTarget] = { type: type, val: note };
-                learningTarget = null;
-                updateMapperUI();
+            // APRENDIZAJE
+            if(learningKey) {
+                midiParams[learningKey].type = type;
+                midiParams[learningKey].val = note;
+                notify(`MAPPED: ${midiParams[learningKey].label}`);
+                learningKey = null;
+                renderMidiUI();
                 return;
             }
 
-            for (const action in midiMapping) {
-                const map = midiMapping[action];
-                if (map.type === type && map.val === note) {
-                    if (action === 'crossfader') state.crossfade = velocity / 127.0;
-                    else if (action === 'speed') state.speed = (velocity / 127.0) * 5.0;
-                    else if (action === 'glitch') state.distortion = (velocity / 127.0) * 5.0;
-                    else if (action === 'cam_mix' && velocity > 0) handleInput('n');
-                    else if (action.startsWith('slot_') && velocity > 0) handleInput(action.split('_')[1]);
-                    ui.update();
+            // EJECUCIÓN
+            Object.entries(midiParams).forEach(([key, map]) => {
+                if(map.type === type && map.val === note) {
+                    const norm = vel / 127.0;
+                    if(key === 'crossfader') state.crossfade = norm;
+                    if(key === 'speed') state.speed = norm * 5;
+                    if(key === 'distortion') state.distortion = norm * 5;
+                    if(key === 'geoStrength') state.geoStrength = norm * 10;
+                    if(key === 'rgbShift') state.rgbShift = norm * 0.2;
+                    if(key === 'micGain') state.micGain = norm * 10;
+                    if(key === 'slot_a') actions.loadA();
+                    if(key === 'slot_b') actions.loadB();
+                    if(key === 'blackout') actions.toggleBlackout();
+                    if(key === 'fx_next') actions.nextFX();
+                    if(key === 'style_next') actions.nextStyle();
+                    if(key === 'geo_next') actions.nextGeo();
+                    if(key === 'cam_toggle') actions.toggleCam();
+                    updateUI();
                 }
-            }
-        }
-
-        function updateMapperUI() {
-            const container = document.getElementById('midi-list');
-            container.innerHTML = '';
-            ['crossfader','speed','glitch','cam_mix','slot_a'].forEach(key => {
-                const div = document.createElement('div'); div.className = 'midi-row';
-                div.innerHTML = `<span style="color:#aaa">${key.toUpperCase()}</span>`;
-                const btn = document.createElement('button');
-                btn.className = 'learn-btn';
-                const map = midiMapping[key] || {};
-                btn.innerText = map.val ? `${map.type}:${map.val}` : 'LEARN';
-                if(learningTarget === key) btn.classList.add('learning');
-                btn.onclick = () => { learningTarget = (learningTarget === key) ? null : key; updateMapperUI(); };
-                div.appendChild(btn); container.appendChild(div);
             });
         }
 
-        document.getElementById('btn-midi').onclick = () => {
-            const m = document.getElementById('midi-modal');
-            m.style.display = (m.style.display === 'block') ? 'none' : 'block';
-            if(m.style.display === 'block') updateMapperUI();
-        };
-
-        // --- SISTEMA ---
-        async function initWebcam() { try{const s=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720}}); webcamEl.srcObject=s; webcamEl.play(); uniforms.uTexCam.value=webcamTex;}catch(e){} }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            const time = performance.now()*0.001;
-            const lvls = audio.getLevels();
-
-            uniforms.uTime.value=time; uniforms.uVol.value=lvls.vol; uniforms.uBass.value=lvls.bass;
-            uniforms.uMix.value=state.mixRatio; uniforms.uMode.value=state.effectMode; uniforms.uStyle.value=state.styleMode;
-            uniforms.uDistType.value=state.distortionType; uniforms.uTint.value=state.tint; uniforms.uTintMix.value=state.tintMix;
-            uniforms.uCrossfade.value=state.crossfade; uniforms.uSpeed.value=state.speed; uniforms.uRGBShift.value=state.rgbShift; uniforms.uGeoStrength.value=state.geoStrength;
-            bloom.strength = state.bloom + (lvls.vol * 1.5);
-            
-            if(lvls.bass > 0.5) plane.rotation.z = (Math.random()-0.5)*0.02; else plane.rotation.z *= 0.9;
-            if(texA.image && texA.image.readyState>=2) texA.needsUpdate=true;
-            if(texB.image && texB.image.readyState>=2) texB.needsUpdate=true;
-            if(webcamTex.image && webcamTex.image.readyState>=2) webcamTex.needsUpdate=true;
-            
-            composer.render();
+        function renderMidiUI() {
+            const list = document.getElementById('midi-list');
+            list.innerHTML = '';
+            Object.entries(midiParams).forEach(([key, map]) => {
+                const div = document.createElement('div');
+                div.className = 'midi-item';
+                div.innerHTML = `
+                    <span style="color:#aaa; font-size:12px;">${map.label}</span>
+                    <button class="midi-btn ${learningKey===key?'learning':''}">
+                        ${map.val !== null ? (map.type.toUpperCase() + ':' + map.val) : 'LEARN'}
+                    </button>
+                `;
+                div.querySelector('button').onclick = () => { learningKey = key; renderMidiUI(); };
+                list.appendChild(div);
+            });
         }
 
-        window.onresize = () => { camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight); uniforms.uResolution.value.set(window.innerWidth, window.innerHeight); };
+        // --- EVENTOS ---
+        // Resize Canvas para que no se deforme al cambiar altura de UI
+        const resize = () => {
+            const h = window.innerHeight - document.getElementById('ui-container').offsetHeight;
+            const w = window.innerWidth;
+            camera.aspect = w/h; camera.updateProjectionMatrix();
+            renderer.setSize(w, h); composer.setSize(w, h);
+            uniforms.uResolution.value.set(w, h);
+        };
+        window.addEventListener('resize', resize);
 
+        // Sliders Input
+        document.getElementById('sl-speed').oninput = (e) => state.speed = parseFloat(e.target.value);
+        document.getElementById('sl-dist').oninput = (e) => state.distortion = parseFloat(e.target.value);
+        document.getElementById('sl-geo').oninput = (e) => state.geoStrength = parseFloat(e.target.value);
+        document.getElementById('sl-rgb').oninput = (e) => state.rgbShift = parseFloat(e.target.value);
+
+        // File Input
         document.getElementById('file-input').onchange = (e) => {
             const file = e.target.files[0]; if(!file) return;
             const url = URL.createObjectURL(file);
             const vid = document.createElement('video'); vid.src=url; vid.loop=true; vid.muted=true; vid.playsInline=true; vid.play();
-            const name = file.name.length > 15 ? file.name.substring(0,12)+'...' : file.name;
-            if (state.loadingSlot === 'A') { state.deckA=name; texA.image=vid; uniforms.uTexA.value=texA; ui.notify("DECK A LOADED"); }
-            else { state.deckB=name; texB.image=vid; uniforms.uTexB.value=texB; ui.notify("DECK B LOADED"); }
-            document.getElementById('file-input').value=""; ui.update();
+            const name = file.name;
+            if(state.loadingSlot === 'A') { state.deckA=name; texA.image=vid; uniforms.uTexA.value=texA; }
+            else { state.deckB=name; texB.image=vid; uniforms.uTexB.value=texB; }
+            document.getElementById('file-input').value = "";
+            updateUI();
         };
 
-        window.addEventListener('keydown', (e)=>handleInput(e.key));
-        window.addEventListener('wheel', (e)=>{ state.crossfade = Math.max(0, Math.min(1, state.crossfade + e.deltaY*0.001)); ui.update(); });
-        
+        // Scroll
+        window.addEventListener('wheel', (e) => {
+            state.crossfade = Math.max(0, Math.min(1, state.crossfade + e.deltaY * 0.001));
+            updateUI();
+        });
+
+        // UI Scale Vertical
         document.getElementById('ui-scaler').oninput = (e) => {
-            document.getElementById('ui-dashboard').style.transform = `scale(${e.target.value})`;
+            document.documentElement.style.setProperty('--ui-scale', e.target.value);
+            setTimeout(resize, 150); // Ajustar canvas despues de la animacion
         };
 
-        document.getElementById('start-btn-big').onclick = async () => {
-            await audio.init(); 
-            await initMIDI();
-            document.getElementById('boot-layer').style.display = 'none';
-            animate();
+        // Keyboard Shortcuts (AlterLab Style)
+        window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            if(['a','s','d','f','g','h','j','k','l'].includes(k)) {
+                // Carga inteligente: carga en el deck opuesto al fader
+                state.loadingSlot = (state.crossfade < 0.5) ? 'B' : 'A';
+                document.getElementById('file-input').click();
+            }
+            if(!isNaN(parseInt(k))) { state.effectMode = (parseInt(k)===0)?10:parseInt(k); notify(`FX ${state.effectMode}`); }
+            if(k==='m') actions.reset();
+            if(k==='n') actions.toggleCam();
+            if(['z','x','c','v','b'].includes(k)) { 
+                state.styleMode = {'z':1,'x':2,'c':3,'v':4,'b':5}[k]; notify("STYLE CHG"); 
+            }
+            if(['i','o','p'].includes(k)) {
+                state.distortionType = {'i':1,'o':2,'p':3}[k]; notify("GEO CHG");
+            }
+            updateUI();
+        });
+
+        // Loop Principal
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = performance.now()*0.001;
+            const lvls = audio.getLevels();
+            
+            // Update Uniforms
+            uniforms.uTime.value=t; uniforms.uVol.value=lvls.vol; uniforms.uBass.value=lvls.bass;
+            uniforms.uMix.value=state.mixRatio; uniforms.uMode.value=state.effectMode;
+            uniforms.uStyle.value=state.styleMode; uniforms.uDistType.value=state.distortionType;
+            uniforms.uTint.value=state.tint; uniforms.uTintMix.value=state.tintMix;
+            uniforms.uCrossfade.value=state.crossfade; uniforms.uSpeed.value=state.speed;
+            uniforms.uRGBShift.value=state.rgbShift; uniforms.uGeoStrength.value=state.geoStrength;
+            
+            bloom.strength = state.bloom + (lvls.vol * 1.5);
+            
+            if(lvls.bass>0.5) plane.rotation.z = (Math.random()-0.5)*0.02; else plane.rotation.z*=0.9;
+            if(texA.image?.readyState>=2) texA.needsUpdate=true;
+            if(texB.image?.readyState>=2) texB.needsUpdate=true;
+            if(webcamTex.image?.readyState>=2) webcamTex.needsUpdate=true;
+
+            composer.render();
+        }
+
+        // Init
+        document.getElementById('btn-start').onclick = async () => {
+            await audio.init(); await initMIDI();
+            document.getElementById('boot').style.display='none';
+            resize(); animate();
         };
 
-        const gui = new GUI({ title: 'AJUSTES FINOS', width: 200, container: document.getElementById('gui-wrap') });
-        gui.domElement.style.position='absolute'; gui.domElement.style.top='0'; gui.domElement.style.right='0';
-        gui.add(state, 'distortion', 0, 5).name('Glitch');
-        gui.add(state, 'micGain', 1, 10).name('Mic Sens');
-        gui.add(state, 'speed', 0.1, 5.0).name('Velocidad');
-        gui.add(state, 'rgbShift', 0.0, 0.2).name('RGB Aberr');
-        gui.add(state, 'geoStrength', 0.0, 10.0).name('3D Force');
+        // Proyector (Clonar Canvas)
+        document.getElementById('btn-proj').onclick = () => {
+            if(projectorWindow && !projectorWindow.closed) projectorWindow.focus();
+            else {
+                projectorWindow = window.open("", "PROJ", "width=800,height=600");
+                const stream = canvas.captureStream(60);
+                projectorWindow.document.write(`<body style="margin:0;background:#000;overflow:hidden"><video id="v" autoplay style="width:100vw;height:100vh;object-fit:cover; opacity:${state.isBlackout?0:1}"></video></body>`);
+                setTimeout(()=> projectorWindow.document.getElementById('v').srcObject = stream, 200);
+            }
+        };
+
+        // Botones UI
+        document.getElementById('btn-load-a').onclick = actions.loadA;
+        document.getElementById('btn-load-b').onclick = actions.loadB;
+        document.getElementById('btn-blackout').onclick = actions.toggleBlackout;
+        document.getElementById('btn-midi').onclick = () => {
+            document.getElementById('midi-overlay').style.display = 'flex';
+            renderMidiUI();
+        };
+        document.getElementById('btn-close-midi').onclick = () => document.getElementById('midi-overlay').style.display = 'none';
 
     </script>
 </head>
 <body>
 
-    <canvas id="vj-canvas"></canvas>
-
-    <div id="boot-layer">
-        <div class="logo-big">AIRIS <span style="color:#00E5FF">2.0</span></div>
-        <button id="start-btn-big" class="start-btn-big">INICIAR SISTEMA</button>
-        <div style="margin-top:20px; color:#555; font-size:12px;">VJ PERFORMANCE TOOL // ALTER.LAB</div>
+    <div id="boot">
+        <h1 style="font-size:60px; letter-spacing:10px; color:#fff; margin-bottom:10px;">AIRIS <span style="color:#00E5FF">v3</span></h1>
+        <p style="color:#666; font-family:'Montserrat'; letter-spacing:2px; font-size:12px; margin-bottom:30px;">VISUAL PERFORMANCE SUITE</p>
+        <button id="btn-start" style="padding:15px 40px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; cursor:pointer;">INICIAR SISTEMA</button>
     </div>
 
-    <div id="ui-wrapper">
-        <div id="ui-dashboard">
+    <div id="viewport">
+        <canvas id="vj-canvas"></canvas>
+    </div>
+
+    <div id="ui-container">
+        <div id="dashboard">
             
-            <div class="panel-col">
-                <h3>STATUS</h3>
-                <div class="data-row"><span>FX MODE</span> <span id="val-mode" class="data-val">1</span></div>
-                <div class="data-row"><span>STYLE</span> <span id="val-style" class="data-val">NORMAL</span></div>
-                <div class="data-row"><span>DEFORM</span> <span id="val-dist" class="data-val">FLOR</span></div>
-                <div class="data-row"><span>DECK A</span> <span id="name-deck-a" class="data-val">VACÍO</span></div>
-                <div class="data-row"><span>DECK B</span> <span id="name-deck-b" class="data-val">VACÍO</span></div>
-            </div>
-
-            <div class="panel-col" style="justify-content: flex-end;">
-                <div class="deck-names">
-                    <span id="title-a" class="active-deck">A</span>
-                    <span id="title-b">B</span>
-                </div>
-                <div id="fader-container">
-                    <div id="fader-line"></div>
-                    <div id="fader-handle"></div>
-                </div>
-                <div style="text-align:center; font-size:10px; color:rgba(255,255,255,0.3); margin-top:10px;">
-                    USE SCROLL TO MIX
+            <div class="panel">
+                <h3>ATAJOS</h3>
+                <div class="shortcut-row"><span>Cargar Video</span> <span class="key-badge">A-L</span></div>
+                <div class="shortcut-row"><span>Efectos 2D</span> <span class="key-badge">1-0</span></div>
+                <div class="shortcut-row"><span>Estilos Geo</span> <span class="key-badge">Z-B</span></div>
+                <div class="shortcut-row"><span>Deformación</span> <span class="key-badge">I,O,P</span></div>
+                <div class="shortcut-row"><span>Reset</span> <span class="key-badge">M</span></div>
+                <div class="shortcut-row"><span>Webcam</span> <span class="key-badge">N</span></div>
+                <div style="margin-top:auto; border-top:1px solid rgba(255,255,255,0.1); padding-top:10px;">
+                    <div style="font-size:10px; color:#555;">ALTER.LAB // 2025</div>
                 </div>
             </div>
 
-            <div class="panel-col">
-                <h3>CONTROL</h3>
+            <div class="panel" style="align-items: center; justify-content: flex-end;">
+                <div style="width:100%;">
+                    <div class="mixer-display">
+                        <span id="title-a" class="active-deck-text">A</span>
+                        <span id="title-b">B</span>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:space-between; color:#00E5FF; font-size:10px; margin-bottom:5px;">
+                        <span id="deck-a-name">VACÍO</span>
+                        <span id="deck-b-name">VACÍO</span>
+                    </div>
+
+                    <div id="crossfader-track">
+                        <div id="crossfader-handle"></div>
+                    </div>
+                    
+                    <div style="text-align:center; font-size:10px; color:#444;">SCROLL PARA MEZCLAR</div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>CONTROL CENTRAL</h3>
+                
                 <div class="btn-grid">
-                    <button class="airis-btn" id="btn-projector">PROYECTOR</button>
-                    <button class="airis-btn" id="btn-blackout">BLACKOUT / LIVE</button>
-                    <button class="airis-btn" id="btn-midi">MIDI</button>
-                    <button class="airis-btn" onclick="state.loadingSlot='A'; document.getElementById('file-input').click()">LOAD A</button>
+                    <button id="btn-load-a" class="action-btn">LOAD A</button>
+                    <button id="btn-load-b" class="action-btn">LOAD B</button>
+                    <button id="btn-midi" class="action-btn">MIDI MAP</button>
+                    <button id="btn-proj" class="action-btn primary">PROYECTOR</button>
                 </div>
-                <div id="gui-wrap" style="position:relative; height:120px; margin-top:10px;"></div>
+                
+                <button id="btn-blackout" class="action-btn danger" style="width:100%; margin-bottom:15px;">BLACKOUT</button>
+
+                <div class="param-row"><span class="param-label">SPEED</span> <input type="range" id="sl-speed" min="0.1" max="5" step="0.1" value="1" class="param-slider"></div>
+                <div class="param-row"><span class="param-label">GLITCH</span> <input type="range" id="sl-dist" min="0" max="5" step="0.1" value="2" class="param-slider"></div>
+                <div class="param-row"><span class="param-label">3D GEO</span> <input type="range" id="sl-geo" min="0" max="10" step="0.1" value="4" class="param-slider"></div>
+                <div class="param-row"><span class="param-label">RGB</span> <input type="range" id="sl-rgb" min="0" max="0.2" step="0.01" value="0.05" class="param-slider"></div>
             </div>
 
         </div>
+        
+        <div id="scaler-wrapper">
+            <input type="range" id="ui-scaler" min="0.6" max="1.2" step="0.1" value="1.0">
+            <span class="scale-icon">UI SIZE</span>
+        </div>
     </div>
 
-    <div id="scaler-container">
-        UI SCALE <input type="range" id="ui-scaler" min="0.6" max="1.4" step="0.1" value="1.0">
-    </div>
-
-    <div id="midi-modal">
-        <h3 style="color:#00E5FF; border-bottom:1px solid #00E5FF;">MIDI LEARN</h3>
-        <div id="midi-list"></div>
-        <button class="airis-btn" onclick="document.getElementById('midi-modal').style.display='none'" style="width:100%; margin-top:10px;">CERRAR</button>
+    <div id="midi-overlay">
+        <div id="midi-panel">
+            <h2 style="color:#00E5FF; border-bottom:1px solid #00E5FF; padding-bottom:10px; margin-bottom:20px;">MAPEO MIDI COMPLETO</h2>
+            <div id="midi-list" class="midi-grid"></div>
+            <button id="btn-close-midi" class="action-btn" style="margin-top:20px;">GUARDAR Y CERRAR</button>
+        </div>
     </div>
 
     <div id="notification">NOTIFICACIÓN</div>
