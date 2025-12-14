@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Vertex Reaction System</title>
+    <title>Artimotion - Organic Deck System</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', monospace; }
         
@@ -30,24 +30,30 @@
         #hud {
             position: absolute; top: 20px; left: 20px; z-index: 10;
             color: #fff; text-shadow: 0 0 5px #000; pointer-events: none;
+            line-height: 1.5;
         }
-        .hud-line { margin-bottom: 5px; font-size: 12px; opacity: 0.8; }
         .hud-value { color: #0ff; font-weight: bold; }
 
-        #fader-bar {
+        /* Barra de Fader Central */
+        #fader-container {
             position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
-            width: 300px; height: 10px; background: #333; border: 1px solid #555;
-            border-radius: 5px; overflow: hidden; z-index: 10;
+            width: 400px; height: 20px; display: flex; align-items: center; z-index: 10;
         }
-        #fader-fill {
-            width: 0%; height: 100%; background: linear-gradient(90deg, #00f, #0ff);
-            transition: width 0.1s linear;
+        #fader-track {
+            width: 100%; height: 4px; background: #333; position: relative;
         }
+        #fader-knob {
+            width: 10px; height: 20px; background: #0ff; position: absolute; top: -8px; left: 0%;
+            box-shadow: 0 0 10px #0ff; transform: translateX(-50%);
+        }
+        .deck-label { position: absolute; bottom: 25px; font-size: 12px; color: #888; font-weight: bold; }
+        #label-a { left: 0; }
+        #label-b { right: 0; }
 
         #file-input { display: none; }
         
         #notification {
-            position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.8); border: 1px solid #0ff; color: #0ff;
             padding: 10px 30px; border-radius: 20px; font-weight: bold;
             opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 15;
@@ -65,7 +71,7 @@
         const state = {
             effectMode: 1, 
             styleMode: 0,
-            distortionType: 0, // 0:Flor, 1:Onda, 2:Picos, 3:Bombeo
+            distortionType: 0, // 0:Flor, 1:Sierra, 2:Grid, 3:Cristales
             mixRatio: 0.0, 
             distortion: 2.0,
             micGain: 5.0,
@@ -73,9 +79,10 @@
             tint: new THREE.Color(1, 1, 1),
             tintMix: 0.0, 
             loadingSlot: null,
-            crossfade: 0.0,
-            slotCurrent: null,
-            slotNext: null
+            // LOGICA DECK
+            crossfade: 0.0, // 0.0 = Deck A, 1.0 = Deck B
+            deckA: "NONE",
+            deckB: "NONE"
         };
 
         // --- AUDIO ENGINE ---
@@ -147,13 +154,13 @@
             uVol: { value: 0.0 },
             uMode: { value: 1 },
             uStyle: { value: 0 },
-            uDistType: { value: 0 }, // NUEVO: Tipo de deformación
+            uDistType: { value: 0 },
             uTint: { value: new THREE.Color(1,1,1) },
             uTintMix: { value: 0.0 },
             uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         };
 
-        // --- FRAGMENT SHADER (Visuales 2D) ---
+        // --- FRAGMENT SHADER ---
         const fragmentShader = `
             uniform sampler2D uTexA;
             uniform sampler2D uTexB;
@@ -198,11 +205,12 @@
                     uv.y += cos(uv.x * 10.0 + uTime) * 0.05 * uVol;
                 }
 
-                // Sampling
+                // Sampling A/B
                 vec3 cA = (uMode==2) ? rgbSplit(uTexA, uv, uBass*0.05) : texture2D(uTexA, uv).rgb;
                 vec3 cB = (uMode==2) ? rgbSplit(uTexB, uv, uBass*0.05) : texture2D(uTexB, uv).rgb;
                 vec3 col = mix(cA, cB, uCrossfade);
 
+                // Webcam Mix
                 vec3 cCam = texture2D(uTexCam, uv).rgb;
                 if(uMode==2) cCam = rgbSplit(uTexCam, uv, uBass*0.05);
                 col = mix(col, cCam, uMix);
@@ -216,7 +224,7 @@
                 if(uMode == 10 && rand(floor(uv*10.0)+floor(uTime*10.0)) < uBass*0.5) col = vec3(1.0);
                 if(uMode == 1) col *= (0.8 + 0.2 * (sin(uv.y*800.0+uTime*5.0)*0.5+0.5));
 
-                // Estilos
+                // Estilos Geométricos
                 float lum = dot(col, vec3(0.33));
                 if (uStyle == 1) col = col * (step(0.9, fract(uv.x*40.0+uTime*0.5)) + step(0.9, fract(uv.y*40.0))) * 2.0;
                 if (uStyle == 2) col = col * step(distance(fract(uv*80.0), vec2(0.5)), lum*0.5) * 1.5;
@@ -229,48 +237,56 @@
             }
         `;
 
-        // --- VERTEX SHADER (Deformación 3D) ---
+        // --- VERTEX SHADER (Deformaciones Agresivas) ---
         const vertexShader = `
             uniform float uVol;
             uniform float uBass;
             uniform float uTime;
-            uniform int uDistType; // 0=Flor, 1=Onda, 2=Picos, 3=Pump
+            uniform int uDistType; // 0=Flor, 1=Sierra, 2=Grid, 3=Cristales
             varying vec2 vUv;
+
+            // Simple noise function
+            float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
 
             void main() {
                 vUv = uv;
                 vec3 pos = position;
-                float displacement = 0.0;
+                float d = 0.0;
 
-                // 0: FLOR (Default)
+                // 0: FLOR / OLAS (Suave, por defecto)
                 if (uDistType == 0) {
-                    displacement = sin(pos.x * 2.0 + uTime) * cos(pos.y * 1.5 + uTime);
+                    d = sin(pos.x * 2.0 + uTime) * cos(pos.y * 1.5 + uTime);
                 }
                 
-                // 1: ONDA EXPANSIVA (Impact) - Tecla I
+                // 1: SIERRA GLITCH (Agresivo, Tecla I)
+                // Líneas de interferencia rápidas
                 else if (uDistType == 1) {
-                    float dist = length(uv - 0.5);
-                    displacement = sin(dist * 20.0 - uTime * 5.0);
+                    float wave = sin(pos.y * 50.0 + uTime * 10.0);
+                    d = (wave > 0.0 ? 1.0 : -1.0) * 0.5 * sin(pos.x * 10.0);
                 }
 
-                // 2: PICOS DIGITALES (Oscillate) - Tecla O
+                // 2: DIGITAL GRID (Piramides, Tecla O)
+                // El que te gustó
                 else if (uDistType == 2) {
-                    displacement = sin(pos.y * 30.0 + uTime * 2.0) * sin(pos.x * 30.0);
-                    // Hacerlo más puntiagudo
-                    if (displacement > 0.5) displacement = 1.0;
-                    else if (displacement < -0.5) displacement = -1.0;
-                    else displacement = 0.0;
+                    d = sin(pos.y * 30.0 + uTime * 2.0) * sin(pos.x * 30.0);
+                    // Clip para hacerlo más geométrico
+                    if (d > 0.5) d = 0.8;
+                    else if (d < -0.5) d = -0.8;
+                    else d = 0.0;
                 }
 
-                // 3: BOMBEO (Pump) - Tecla P
+                // 3: CRISTALES / PICOS (Random, Tecla P)
+                // Picos aleatorios que surgen con el bajo
                 else if (uDistType == 3) {
-                    float dist = length(uv - 0.5);
-                    // Una curva suave que levanta el centro
-                    displacement = smoothstep(0.6, 0.0, dist); 
+                    vec2 block = floor(uv * 10.0);
+                    float r = rand(block);
+                    // Solo subir si hay bajo
+                    d = (r > 0.7) ? r : 0.0;
+                    d *= sin(uTime * 5.0 + r * 10.0); 
                 }
 
-                // Aplicar fuerza del audio
-                pos.z += displacement * uVol * 4.0;
+                // Intensidad global
+                pos.z += d * uVol * 4.0;
 
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
             }
@@ -280,7 +296,7 @@
             uniforms: uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide
         });
 
-        const geometry = new THREE.PlaneGeometry(16, 9, 120, 120); // Más polígonos para mejor deformación
+        const geometry = new THREE.PlaneGeometry(16, 9, 140, 140); // Alta densidad para picos
         const plane = new THREE.Mesh(geometry, material);
         scene.add(plane);
 
@@ -293,16 +309,14 @@
         const fileInput = document.getElementById('file-input');
         const hudMode = document.getElementById('hud-mode');
         const hudStyle = document.getElementById('hud-style');
-        const hudDist = document.getElementById('hud-dist'); // Nuevo HUD
-        const hudSlot = document.getElementById('hud-slot');
-        const hudNext = document.getElementById('hud-next');
+        const hudDist = document.getElementById('hud-dist');
+        const hudDeckA = document.getElementById('hud-deck-a');
+        const hudDeckB = document.getElementById('hud-deck-b');
         const hudColor = document.getElementById('hud-color');
-        const faderFill = document.getElementById('fader-fill');
+        const faderKnob = document.getElementById('fader-knob');
 
         const colors = { 'q': [1,0,0], 'w': [0,1,0], 'e': [0,0,1], 'r': [0,1,1], 't': [1,0,1], 'y': [1,1,0] };
         const styleMap = { 'z': 1, 'x': 2, 'c': 3, 'v': 4, 'b': 5 };
-        
-        // Mapa de Deformaciones
         const distMap = { 'i': 1, 'o': 2, 'p': 3 };
 
         function showNotify(msg) {
@@ -311,38 +325,24 @@
             setTimeout(() => n.style.opacity = 0, 2000);
         }
 
-        // --- GESTIÓN DE SCROLL (CROSSFADER) ---
+        // --- GESTIÓN DE SCROLL (FADER ORGÁNICO) ---
         window.addEventListener('wheel', (e) => {
-            if (!state.slotNext || !videoSlots[state.slotNext]) return;
             const delta = e.deltaY * 0.001;
+            // Fader continuo 0 a 1
             state.crossfade = Math.max(0.0, Math.min(1.0, state.crossfade + delta));
-            faderFill.style.width = (state.crossfade * 100) + '%';
-
-            if (state.crossfade >= 1.0) {
-                state.slotCurrent = state.slotNext;
-                state.slotNext = null;
-                state.crossfade = 0.0;
-                texA.image = videoSlots[state.slotCurrent];
-                texA.needsUpdate = true;
-                uniforms.uTexA.value = texA;
-                texB.image = noiseTex.image;
-                uniforms.uTexB.value = texB;
-                faderFill.style.width = '0%';
-                hudSlot.innerText = state.slotCurrent.toUpperCase();
-                hudNext.innerText = "NONE";
-                showNotify("TRANSICIÓN COMPLETADA");
-            }
+            // Actualizar UI Knob (0% a 100%)
+            faderKnob.style.left = (state.crossfade * 100) + '%';
         });
 
         // --- TECLADO ---
         window.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
 
-            // Efectos 1-0
+            // FX 1-0
             if(!isNaN(parseInt(key))) {
                 state.effectMode = (parseInt(key) === 0) ? 10 : parseInt(key);
                 hudMode.innerText = state.effectMode;
-                showNotify(`EFECTO 2D: ${state.effectMode}`);
+                showNotify(`FX 2D: ${state.effectMode}`);
             }
 
             // Colores Q-Y
@@ -361,43 +361,59 @@
                 showNotify(`ESTILO: ${names[state.styleMode]}`);
             }
 
-            // --- NUEVO: DEFORMACIONES (I, O, P) ---
+            // --- DEFORMACIONES (I, O, P) ---
             if(distMap[key]) {
                 state.distortionType = distMap[key];
-                const dNames = ["FLOR", "ONDA", "PICOS", "PUMP"];
+                const dNames = ["FLOR", "SIERRA", "GRID", "CRISTAL"];
                 hudDist.innerText = dNames[state.distortionType];
                 showNotify(`DEFORMACIÓN: ${dNames[state.distortionType]}`);
             }
 
-            // M: RESET GENERAL (Estilo + Deformación)
+            // M: RESET
             if(key === 'm') { 
-                state.styleMode = 0; 
-                state.distortionType = 0; // Vuelve a Flor
-                hudStyle.innerText = "NORMAL"; 
-                hudDist.innerText = "FLOR";
-                showNotify("RESET: NORMAL + FLOR"); 
+                state.styleMode = 0; state.distortionType = 0; 
+                hudStyle.innerText = "NORMAL"; hudDist.innerText = "FLOR";
+                showNotify("RESET VISUALES"); 
             }
 
             // Cam Mix N
             if(key === 'n') {
                 state.mixRatio = (state.mixRatio > 0.1) ? 0.0 : 0.5;
                 if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
-                showNotify(state.mixRatio > 0 ? "CAM MIX: ON" : "CAM MIX: OFF");
+                showNotify(state.mixRatio > 0 ? "CAM: ON" : "CAM: OFF");
             }
 
-            // Video Slots (A-L)
+            // --- GESTIÓN INTELIGENTE DE DECKS (A-L) ---
             const allSlots = ['a','s','d','f','g','h','j','k','l'];
             if (allSlots.includes(key)) {
+                
+                // 1. Determinar en qué Deck cargar
+                // Si el fader está mayormente en A (<0.5), cargamos en B.
+                // Si el fader está mayormente en B (>0.5), cargamos en A.
+                const targetDeck = (state.crossfade < 0.5) ? 'B' : 'A';
+
                 if (!videoSlots[key]) {
+                    // Cargar nuevo archivo
                     state.loadingSlot = key;
+                    state.loadingDeckTarget = targetDeck; // Recordar donde iba
                     fileInput.click();
                 } else {
-                    state.slotNext = key;
-                    texB.image = videoSlots[key];
-                    texB.needsUpdate = true;
-                    uniforms.uTexB.value = texB;
-                    hudNext.innerText = key.toUpperCase();
-                    showNotify(`SIGUIENTE: ${key.toUpperCase()}`);
+                    // Usar video ya cargado
+                    if (targetDeck === 'A') {
+                        state.deckA = key;
+                        texA.image = videoSlots[key];
+                        texA.needsUpdate = true;
+                        uniforms.uTexA.value = texA;
+                        hudDeckA.innerText = key.toUpperCase();
+                        showNotify(`DECK A: ${key.toUpperCase()}`);
+                    } else {
+                        state.deckB = key;
+                        texB.image = videoSlots[key];
+                        texB.needsUpdate = true;
+                        uniforms.uTexB.value = texB;
+                        hudDeckB.innerText = key.toUpperCase();
+                        showNotify(`DECK B: ${key.toUpperCase()}`);
+                    }
                 }
             }
         });
@@ -412,15 +428,21 @@
             vid.play(); 
             videoSlots[state.loadingSlot] = vid;
 
-            if (!state.slotCurrent) {
-                state.slotCurrent = state.loadingSlot;
+            // Asignar al Deck Objetivo
+            if (state.loadingDeckTarget === 'A') {
+                state.deckA = state.loadingSlot;
                 texA.image = vid;
                 uniforms.uTexA.value = texA;
-                hudSlot.innerText = state.loadingSlot.toUpperCase();
-                showNotify(`CARGADO EN ${state.loadingSlot.toUpperCase()}`);
+                hudDeckA.innerText = state.loadingSlot.toUpperCase();
+                showNotify(`CARGADO EN DECK A: ${state.loadingSlot.toUpperCase()}`);
             } else {
-                showNotify(`CARGADO EN ${state.loadingSlot.toUpperCase()}`);
+                state.deckB = state.loadingSlot;
+                texB.image = vid;
+                uniforms.uTexB.value = texB;
+                hudDeckB.innerText = state.loadingSlot.toUpperCase();
+                showNotify(`CARGADO EN DECK B: ${state.loadingSlot.toUpperCase()}`);
             }
+
             state.loadingSlot = null;
             fileInput.value = ""; 
         };
@@ -446,19 +468,16 @@
             uniforms.uMix.value = state.mixRatio;
             uniforms.uMode.value = state.effectMode;
             uniforms.uStyle.value = state.styleMode;
-            uniforms.uDistType.value = state.distortionType; // Enviar tipo de deformación
+            uniforms.uDistType.value = state.distortionType; 
             uniforms.uTint.value = state.tint;
             uniforms.uTintMix.value = state.tintMix;
             uniforms.uCrossfade.value = state.crossfade;
 
             bloom.strength = state.bloom + (lvls.vol * 1.5);
             
-            // Movimiento físico extra (rotación sutil)
-            if(lvls.bass > 0.5) {
-                plane.rotation.z = (Math.random()-0.5)*0.02;
-            } else {
-                plane.rotation.z *= 0.9;
-            }
+            // Movimiento sutil extra
+            if(lvls.bass > 0.5) plane.rotation.z = (Math.random()-0.5)*0.02;
+            else plane.rotation.z *= 0.9;
 
             if(texA.image && texA.image.tagName === 'VIDEO' && texA.image.readyState >= 2) texA.needsUpdate = true;
             if(texB.image && texB.image.tagName === 'VIDEO' && texB.image.readyState >= 2) texB.needsUpdate = true;
@@ -489,22 +508,20 @@
 </head>
 <body>
     <div id="overlay">
-        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">VERTEX REACTION SYSTEM</h1>
+        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">ORGANIC DECK SYSTEM</h1>
         <button id="start-btn">INICIAR SISTEMA</button>
         
         <div class="keys-grid">
             <div>
                 <span class="key">1-0</span> FX 2D<br>
                 <span class="key">Z-B</span> ESTILOS<br>
-                <span class="key">I</span> ONDA<br>
-                <span class="key">O</span> PICOS<br>
-                <span class="key">P</span> PUMP<br>
-                <span class="key">M</span> RESET ALL
+                <span class="key">I,O,P</span> DEFORM 3D<br>
+                <span class="key">M</span> RESET
             </div>
             <div>
                 <span class="key">A-L</span> 9 SLOTS<br>
-                (Selecciona y usa<br>
-                la rueda del mouse)<br>
+                (Se cargan en<br>el Deck oculto)<br>
+                <span class="key">SCROLL</span> MEZCLAR
             </div>
             <div>
                 <span class="key">N</span> CAM MIX<br>
@@ -514,14 +531,22 @@
     </div>
 
     <div id="hud">
-        <div class="hud-line">DEFORM: <span id="hud-dist" class="hud-value">FLOR</span></div>
+        <div class="hud-line">DEFORM 3D: <span id="hud-dist" class="hud-value">FLOR</span></div>
         <div class="hud-line">ESTILO: <span id="hud-style" class="hud-value">NORMAL</span></div>
         <div class="hud-line">FX 2D: <span id="hud-mode" class="hud-value">1</span></div>
-        <div class="hud-line" style="margin-top:10px">SLOT: <span id="hud-slot" class="hud-value">NONE</span></div>
-        <div class="hud-line">NEXT: <span id="hud-next" class="hud-value" style="color:#888">NONE</span></div>
+        <div class="hud-line">COLOR: <span id="hud-color" class="hud-value" style="color:#fff">OFF</span></div>
+        <br>
+        <div class="hud-line">DECK A: <span id="hud-deck-a" class="hud-value">NONE</span></div>
+        <div class="hud-line">DECK B: <span id="hud-deck-b" class="hud-value">NONE</span></div>
     </div>
     
-    <div id="fader-bar"><div id="fader-fill"></div></div>
+    <div id="fader-container">
+        <div class="deck-label" id="label-a">DECK A</div>
+        <div id="fader-track">
+            <div id="fader-knob"></div>
+        </div>
+        <div class="deck-label" id="label-b">DECK B</div>
+    </div>
 
     <div id="notification">NOTIFICACIÓN</div>
     <input type="file" id="file-input" accept="video/*">
