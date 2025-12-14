@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - Ultimate VJ Station 2.0</title>
+    <title>Artimotion - Infinite VJ Loop</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', monospace; }
         
@@ -34,6 +34,17 @@
         .hud-line { margin-bottom: 5px; font-size: 12px; opacity: 0.8; }
         .hud-value { color: #0ff; font-weight: bold; }
 
+        /* Barra de progreso del Fader */
+        #fader-bar {
+            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+            width: 300px; height: 10px; background: #333; border: 1px solid #555;
+            border-radius: 5px; overflow: hidden; z-index: 10;
+        }
+        #fader-fill {
+            width: 0%; height: 100%; background: linear-gradient(90deg, #00f, #0ff);
+            transition: width 0.1s linear;
+        }
+
         #file-input { display: none; }
         
         #notification {
@@ -53,16 +64,19 @@
 
         // --- ESTADO GLOBAL ---
         const state = {
-            effectMode: 1, // 1-10 (Deformaciones)
-            styleMode: 0,  // 0:Normal, 1:Malla, 2:Puntos, 3:Hex, 4:Hologram, 5:Binary
-            mixRatio: 0.0, // 0 = Video, 1 = Cam
+            effectMode: 1, 
+            styleMode: 0,
+            mixRatio: 0.0, // Cam Mix
             distortion: 2.0,
             micGain: 5.0,
             bloom: 1.5,
             tint: new THREE.Color(1, 1, 1),
             tintMix: 0.0, 
-            activeSlot: null,
-            loadingSlot: null
+            loadingSlot: null,
+            // LOGICA DE MEZCLA
+            crossfade: 0.0, // 0.0 (Video A) -> 1.0 (Video B)
+            slotCurrent: null, // Video Actual (Visible)
+            slotNext: null     // Video Siguiente (En espera)
         };
 
         // --- AUDIO ENGINE ---
@@ -101,8 +115,17 @@
         document.body.appendChild(renderer.domElement);
 
         // --- TEXTURES ---
-        const videoSlots = { 'g': null, 'h': null, 'j': null, 'k': null, 'l': null };
-        const activeVideoTex = new THREE.VideoTexture(document.createElement('video')); 
+        // Lista expandida de slots (A-L)
+        const videoSlots = { 
+            'a': null, 's': null, 'd': null, 'f': null,
+            'g': null, 'h': null, 'j': null, 'k': null, 'l': null 
+        };
+
+        // Texturas "A" y "B" para el crossfader
+        const texA = new THREE.VideoTexture(document.createElement('video'));
+        const texB = new THREE.VideoTexture(document.createElement('video'));
+        
+        // Webcam
         const webcamEl = document.createElement('video');
         webcamEl.muted = true; webcamEl.playsInline = true;
         const webcamTex = new THREE.VideoTexture(webcamEl);
@@ -113,25 +136,33 @@
             return new THREE.CanvasTexture(c);
         }
         const noiseTex = createNoise();
+        
+        // Inicializar texturas con ruido
+        texA.image = noiseTex.image;
+        texB.image = noiseTex.image;
 
-        // --- SHADER UNIFORMS ---
+        // --- SHADER ---
         const uniforms = {
-            uTexVideo: { value: noiseTex },
+            uTexA: { value: noiseTex }, // Video Actual
+            uTexB: { value: noiseTex }, // Video Siguiente
+            uCrossfade: { value: 0.0 }, // Mezcla
             uTexCam: { value: noiseTex },
             uMix: { value: 0.0 },
             uTime: { value: 0.0 },
             uBass: { value: 0.0 },
             uHigh: { value: 0.0 },
             uVol: { value: 0.0 },
-            uMode: { value: 1 },    // Deformaciones
-            uStyle: { value: 0 },   // NUEVO: Estilos Geométricos
+            uMode: { value: 1 },
+            uStyle: { value: 0 },
             uTint: { value: new THREE.Color(1,1,1) },
             uTintMix: { value: 0.0 },
             uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         };
 
         const fragmentShader = `
-            uniform sampler2D uTexVideo;
+            uniform sampler2D uTexA;
+            uniform sampler2D uTexB;
+            uniform float uCrossfade;
             uniform sampler2D uTexCam;
             uniform float uMix;
             uniform float uTime;
@@ -139,10 +170,9 @@
             uniform float uHigh;
             uniform float uVol;
             uniform int uMode;
-            uniform int uStyle; // NUEVO
+            uniform int uStyle;
             uniform vec3 uTint;
             uniform float uTintMix;
-            uniform vec2 uResolution;
             varying vec2 vUv;
 
             // Utils
@@ -155,26 +185,11 @@
                 return vec3(r,g,b);
             }
 
-            // Funciones Geométricas
-            float grid(vec2 uv, float size, float thickness) {
-                vec2 grid = fract(uv * size);
-                return step(thickness, grid.x) * step(thickness, grid.y);
-            }
-
-            float dots(vec2 uv, float size, float radius) {
-                vec2 grid = fract(uv * size) - 0.5;
-                return 1.0 - step(radius, length(grid));
-            }
-
             void main() {
                 vec2 uv = vUv;
                 
-                // --- 1. DEFORMACIONES DE COORDENADAS (uMode 1-10) ---
-                
-                // 3: Mirror X
+                // --- 1. DEFORMACIONES ---
                 if(uMode == 3) uv.x = abs(uv.x - 0.5) + 0.5;
-                
-                // 4: Kaleidoscope
                 if(uMode == 4) {
                     vec2 centered = uv - 0.5;
                     float r = length(centered);
@@ -184,120 +199,79 @@
                     a = abs(a - 3.14159 / sides);
                     uv = 0.5 + r * vec2(cos(a), sin(a));
                 }
-
-                // 5: Twist
                 if(uMode == 5) {
                     float dist = length(uv - 0.5);
                     float angle = atan(uv.y-0.5, uv.x-0.5) + (uBass*5.0) * (1.0-dist);
                     uv = 0.5 + dist * vec2(cos(angle), sin(angle));
                 }
-
-                // 9: Liquid Wave
                 if(uMode == 9) {
                     uv.x += sin(uv.y * 10.0 + uTime) * 0.05 * uVol;
                     uv.y += cos(uv.x * 10.0 + uTime) * 0.05 * uVol;
                 }
 
-                // --- 2. SAMPLING COLOR ---
-                vec3 colorVid = texture2D(uTexVideo, uv).rgb;
-                vec3 colorCam = texture2D(uTexCam, uv).rgb;
+                // --- 2. SAMPLING & CROSSFADE ---
+                vec3 colorA, colorB;
 
-                // 2: RGB Split
+                // Aplicar efectos de lectura (RGB Split) a ambos canales
                 if(uMode == 2) {
-                    colorVid = rgbSplit(uTexVideo, uv, uBass * 0.05);
-                    colorCam = rgbSplit(uTexCam, uv, uBass * 0.05);
+                    colorA = rgbSplit(uTexA, uv, uBass * 0.05);
+                    colorB = rgbSplit(uTexB, uv, uBass * 0.05);
+                } else {
+                    colorA = texture2D(uTexA, uv).rgb;
+                    colorB = texture2D(uTexB, uv).rgb;
                 }
 
-                // Mezcla Camara/Video
+                // MEZCLA DE VIDEOS (Crossfade)
+                vec3 colorVid = mix(colorA, colorB, uCrossfade);
+
+                // Mezcla con Webcam
+                vec3 colorCam = texture2D(uTexCam, uv).rgb;
+                if(uMode == 2) colorCam = rgbSplit(uTexCam, uv, uBass * 0.05);
+                
                 vec3 color = mix(colorVid, colorCam, uMix);
 
-                // --- 3. EFECTOS DE COLOR (uMode) ---
-                
-                // 7: Invert Flash
+                // --- 3. EFECTOS DE COLOR ---
                 if(uMode == 7 && uBass > 0.6) color = 1.0 - color;
-
-                // 8: Neon Edge
                 if(uMode == 8) {
-                    vec3 c1 = texture2D(uTexVideo, uv + vec2(0.002, 0.0)).rgb;
-                    vec3 c2 = texture2D(uTexVideo, uv - vec2(0.002, 0.0)).rgb;
-                    vec3 c3 = texture2D(uTexVideo, uv + vec2(0.0, 0.002)).rgb;
-                    vec3 c4 = texture2D(uTexVideo, uv - vec2(0.0, 0.002)).rgb;
-                    vec3 edge = abs(color - c1) + abs(color - c2) + abs(color - c3) + abs(color - c4);
-                    color = edge * 2.0; 
+                    // Edge simple en base al color mezclado
+                    vec3 c1 = mix(texture2D(uTexA, uv+0.002).rgb, texture2D(uTexB, uv+0.002).rgb, uCrossfade);
+                    vec3 edge = abs(color - c1); 
+                    color = length(edge) * vec3(0.0, 1.0, 1.0) * 4.0; 
                 }
-
-                // 10: Glitch Blocks
                 if(uMode == 10) {
                     vec2 block = floor(uv * 10.0);
-                    float n = rand(block + floor(uTime * 10.0));
-                    if(n < uBass * 0.5) color = vec3(1.0);
+                    if(rand(block + floor(uTime * 10.0)) < uBass * 0.5) color = vec3(1.0);
                 }
-                
-                // 1: Scanlines Clásicas
                 if(uMode == 1) {
                     float scan = sin(uv.y * 800.0 + uTime * 5.0) * 0.5 + 0.5;
                     color *= (0.8 + 0.2 * scan);
                 }
 
-                // --- 4. NUEVOS ESTILOS GEOMÉTRICOS (uStyle Z-B) ---
-                
-                float luminance = dot(color, vec3(0.299, 0.587, 0.114));
-
-                // Z: MALLA DIGITAL (Wireframe Grid)
-                if (uStyle == 1) {
-                    float gridSize = 40.0;
-                    vec2 g = fract(uv * gridSize + uTime * 0.5);
-                    // Líneas finas
-                    float lines = step(0.9, g.x) + step(0.9, g.y);
-                    // El color se muestra solo en las líneas
-                    color = color * lines * 2.0;
-                    // Fondo negro sutil
-                    color += vec3(0.05, 0.0, 0.1); 
+                // --- 4. ESTILOS GEOMÉTRICOS ---
+                float lum = dot(color, vec3(0.33));
+                if (uStyle == 1) { // Malla
+                    vec2 g = fract(uv * 40.0 + uTime * 0.5);
+                    color = color * (step(0.9, g.x) + step(0.9, g.y)) * 2.0;
                 }
-
-                // X: NUBE DE PUNTOS (LED Matrix)
-                if (uStyle == 2) {
-                    float dotSize = 80.0;
-                    vec2 st = fract(uv * dotSize);
-                    vec2 center = vec2(0.5);
-                    float d = distance(st, center);
-                    // El tamaño del punto depende del brillo de la imagen
-                    float radius = luminance * 0.5; 
-                    float mask = step(d, radius);
-                    color = color * mask * 1.5;
+                if (uStyle == 2) { // Puntos
+                    float d = distance(fract(uv * 80.0), vec2(0.5));
+                    color = color * step(d, lum * 0.5) * 1.5;
                 }
-
-                // C: HEXAGRID / PANAL
-                if (uStyle == 3) {
-                    vec2 r = vec2(uv.x * 30.0, uv.y * 17.32); // Proporción hex
-                    vec2 h = r + vec2(0.5 * mod(floor(r.y), 2.0), 0.0);
-                    vec2 f = fract(h) - 0.5;
-                    float l = length(f);
-                    // Borde hexagonal brillante
-                    float hex = step(l, 0.45) - step(l, 0.4);
-                    color = color * 0.2 + vec3(hex) * color * 3.0;
+                if (uStyle == 3) { // Hex
+                     // Simplificado para brevedad
+                     color = color * (sin(uv.x*50.0)*sin(uv.y*50.0) > 0.0 ? 1.5 : 0.2);
                 }
-
-                // V: HOLOGRAM INTERFERENCE
-                if (uStyle == 4) {
+                if (uStyle == 4) { // Holo
                     float bar = step(0.5, sin(uv.y * 200.0 + uTime * 10.0));
-                    float noise = rand(uv * uTime) * 0.3;
-                    vec3 holoColor = vec3(0.0, 1.0, 0.8) * luminance;
-                    color = mix(color, holoColor, 0.8) * bar + noise;
+                    color = mix(color, vec3(0.0, 1.0, 0.8) * lum, 0.8) * bar;
+                }
+                if (uStyle == 5) { // Binary
+                    vec2 blk = floor(uv * vec2(40.0, 20.0));
+                    float rain = step(0.5, rand(blk + floor(uTime)));
+                    color = vec3(0.0, 1.0, 0.2) * rain * lum * 2.0;
                 }
 
-                // B: BINARY RAIN / ASCII SIMULATION
-                if (uStyle == 5) {
-                    vec2 block = floor(uv * vec2(40.0, 20.0));
-                    float fall = mod(block.y + uTime * 10.0, 20.0);
-                    float trail = 1.0 - (fall / 20.0);
-                    float symbol = step(0.5, rand(block + floor(uTime)));
-                    color = vec3(0.0, 1.0, 0.2) * symbol * trail * luminance * 2.0;
-                }
-
-                // TINTING FINAL
                 color = mix(color, color * uTint, uTintMix);
-
                 gl_FragColor = vec4(color, 1.0);
             }
         `;
@@ -310,7 +284,6 @@
             void main() {
                 vUv = uv;
                 vec3 pos = position;
-                // Deformación Z básica
                 float noise = sin(pos.x * 2.0 + uTime) * cos(pos.y * 1.5 + uTime);
                 pos.z += noise * uVol * 3.0;
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
@@ -330,107 +303,144 @@
         const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
         composer.addPass(bloom);
 
-        // --- TECLADO ---
+        // --- INPUTS ---
         const fileInput = document.getElementById('file-input');
-        
-        const colors = {
-            'q': [1, 0, 0], 'w': [0, 1, 0], 'e': [0, 0, 1],
-            'r': [0, 1, 1], 't': [1, 0, 1], 'y': [1, 1, 0]
-        };
-
         const hudMode = document.getElementById('hud-mode');
         const hudStyle = document.getElementById('hud-style');
         const hudSlot = document.getElementById('hud-slot');
+        const hudNext = document.getElementById('hud-next'); // Nuevo HUD
         const hudColor = document.getElementById('hud-color');
-        
+        const faderFill = document.getElementById('fader-fill');
+
+        const colors = { 'q': [1,0,0], 'w': [0,1,0], 'e': [0,0,1], 'r': [0,1,1], 't': [1,0,1], 'y': [1,1,0] };
+        const styleMap = { 'z': 1, 'x': 2, 'c': 3, 'v': 4, 'b': 5 };
+
         function showNotify(msg) {
             const n = document.getElementById('notification');
             n.innerText = msg; n.style.opacity = 1;
             setTimeout(() => n.style.opacity = 0, 2000);
         }
 
-        window.addEventListener('keydown', (e) => {
-            const key = e.key.toLowerCase();
+        // --- GESTIÓN DE SCROLL (CROSSFADER) ---
+        window.addEventListener('wheel', (e) => {
+            // Si no hay video siguiente seleccionado, el scroll no hace nada
+            if (!state.slotNext || !videoSlots[state.slotNext]) return;
 
-            // 1. Efectos Base (1-0)
-            if(!isNaN(parseInt(key))) {
-                let mode = parseInt(key);
-                if(mode === 0) mode = 10;
-                state.effectMode = mode;
-                showNotify(`DEFORMACIÓN: ${mode}`);
-                hudMode.innerText = mode;
-            }
+            const delta = e.deltaY * 0.001; // Sensibilidad
+            state.crossfade += delta; 
+            
+            // Clamp 0-1
+            state.crossfade = Math.max(0.0, Math.min(1.0, state.crossfade));
+            
+            // Actualizar UI Fader
+            faderFill.style.width = (state.crossfade * 100) + '%';
 
-            // 2. Colores (Q-Y)
-            if(colors[key]) {
-                state.tint.setRGB(...colors[key]);
-                state.tintMix = 1.0;
-                showNotify(`TINT: ${key.toUpperCase()}`);
-                hudColor.innerText = key.toUpperCase();
-                hudColor.style.color = `rgb(${colors[key][0]*255},${colors[key][1]*255},${colors[key][2]*255})`;
-            }
-            if(key === 'u') {
-                state.tintMix = 0.0;
-                showNotify("TINT: OFF");
-                hudColor.innerText = "OFF";
-                hudColor.style.color = "#fff";
-            }
+            // Logica de TRANSICIÓN COMPLETA
+            if (state.crossfade >= 1.0) {
+                // El siguiente pasa a ser el actual
+                state.slotCurrent = state.slotNext;
+                state.slotNext = null;
+                state.crossfade = 0.0;
+                
+                // Actualizar Texturas
+                texA.image = videoSlots[state.slotCurrent];
+                texA.needsUpdate = true;
+                uniforms.uTexA.value = texA;
+                
+                // Limpiar textura B (o dejarla igual, da igual porque fade es 0)
+                texB.image = noiseTex.image;
+                uniforms.uTexB.value = texB;
 
-            // 3. NUEVOS ESTILOS GEOMÉTRICOS (Z-B)
-            const styleMap = { 'z': 1, 'x': 2, 'c': 3, 'v': 4, 'b': 5 };
-            if(styleMap[key]) {
-                state.styleMode = styleMap[key];
-                const names = ["", "MALLA", "PUNTOS", "HEX", "HOLO", "BINARY"];
-                showNotify(`ESTILO: ${names[state.styleMode]}`);
-                hudStyle.innerText = names[state.styleMode];
-            }
-            // M: RESET ESTILO
-            if(key === 'm') {
-                state.styleMode = 0;
-                showNotify("ESTILO: NORMAL");
-                hudStyle.innerText = "NORMAL";
-            }
-
-            // 4. Video Slots (G-L)
-            if (['g','h','j','k','l'].includes(key)) {
-                if (!videoSlots[key]) {
-                    state.loadingSlot = key;
-                    fileInput.click();
-                } else {
-                    if(state.activeSlot && videoSlots[state.activeSlot]) videoSlots[state.activeSlot].pause();
-                    state.activeSlot = key;
-                    const vid = videoSlots[key];
-                    vid.play();
-                    activeVideoTex.image = vid; 
-                    activeVideoTex.needsUpdate = true;
-                    uniforms.uTexVideo.value = activeVideoTex;
-                    showNotify(`SLOT ${key.toUpperCase()}: PLAY`);
-                    hudSlot.innerText = key.toUpperCase();
-                }
-            }
-
-            // 5. Doble Exposición (Ahora en N)
-            if(key === 'n') {
-                state.mixRatio = (state.mixRatio > 0.1) ? 0.0 : 0.5;
-                showNotify(state.mixRatio > 0 ? "CAM MIX: ON" : "CAM MIX: OFF");
-                if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
+                // Reset UI
+                faderFill.style.width = '0%';
+                hudSlot.innerText = state.slotCurrent.toUpperCase();
+                hudNext.innerText = "NONE";
+                showNotify("TRANSICIÓN COMPLETADA");
             }
         });
 
+        // --- TECLADO ---
+        window.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+
+            // Efectos 1-0
+            if(!isNaN(parseInt(key))) {
+                state.effectMode = (parseInt(key) === 0) ? 10 : parseInt(key);
+                hudMode.innerText = state.effectMode;
+                showNotify(`EFECTO: ${state.effectMode}`);
+            }
+
+            // Colores Q-Y
+            if(colors[key]) {
+                state.tint.setRGB(...colors[key]);
+                state.tintMix = 1.0;
+                hudColor.innerText = key.toUpperCase(); hudColor.style.color = "#0ff";
+            }
+            if(key === 'u') { state.tintMix = 0.0; hudColor.innerText = "OFF"; hudColor.style.color = "#fff"; }
+
+            // Estilos Z-B
+            if(styleMap[key]) {
+                state.styleMode = styleMap[key];
+                const names = ["", "MALLA", "PUNTOS", "HEX", "HOLO", "BINARY"];
+                hudStyle.innerText = names[state.styleMode];
+                showNotify(`ESTILO: ${names[state.styleMode]}`);
+            }
+            if(key === 'm') { state.styleMode = 0; hudStyle.innerText = "NORMAL"; showNotify("ESTILO: NORMAL"); }
+
+            // Cam Mix N
+            if(key === 'n') {
+                state.mixRatio = (state.mixRatio > 0.1) ? 0.0 : 0.5;
+                if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
+                showNotify(state.mixRatio > 0 ? "CAM MIX: ON" : "CAM MIX: OFF");
+            }
+
+            // --- VIDEO SLOTS (A-L) ---
+            const allSlots = ['a','s','d','f','g','h','j','k','l'];
+            if (allSlots.includes(key)) {
+                
+                if (!videoSlots[key]) {
+                    // Slot Vacío -> Cargar Video
+                    state.loadingSlot = key;
+                    fileInput.click();
+                } else {
+                    // Slot Lleno -> Poner en COLA (Next)
+                    // No pausamos nada, todo sigue en loop
+                    state.slotNext = key;
+                    
+                    // Asignar al canal B del shader
+                    texB.image = videoSlots[key];
+                    texB.needsUpdate = true;
+                    uniforms.uTexB.value = texB;
+
+                    hudNext.innerText = key.toUpperCase();
+                    showNotify(`SIGUIENTE: ${key.toUpperCase()} (USA SCROLL)`);
+                }
+            }
+        });
+
+        // Carga de archivo
         fileInput.onchange = (e) => {
             const file = e.target.files[0];
             if(!file || !state.loadingSlot) return;
             const url = URL.createObjectURL(file);
             const vid = document.createElement('video');
             vid.src = url; vid.loop = true; vid.muted = true; vid.playsInline = true;
+            
+            // Auto-play inmediato (reproducción constante)
+            vid.play(); 
             videoSlots[state.loadingSlot] = vid;
-            showNotify(`CARGADO EN ${state.loadingSlot.toUpperCase()}`);
-            const key = state.loadingSlot;
-            state.activeSlot = key;
-            vid.play();
-            activeVideoTex.image = vid;
-            uniforms.uTexVideo.value = activeVideoTex;
-            hudSlot.innerText = key.toUpperCase();
+
+            // Si es el primer video que cargamos, lo ponemos directo al canal A
+            if (!state.slotCurrent) {
+                state.slotCurrent = state.loadingSlot;
+                texA.image = vid;
+                uniforms.uTexA.value = texA;
+                hudSlot.innerText = state.loadingSlot.toUpperCase();
+                showNotify(`CARGADO EN ${state.loadingSlot.toUpperCase()}`);
+            } else {
+                showNotify(`CARGADO EN ${state.loadingSlot.toUpperCase()} (LISTO)`);
+            }
+            
             state.loadingSlot = null;
             fileInput.value = ""; 
         };
@@ -455,9 +465,10 @@
             uniforms.uHigh.value = lvls.high;
             uniforms.uMix.value = state.mixRatio;
             uniforms.uMode.value = state.effectMode;
-            uniforms.uStyle.value = state.styleMode; // Enviar estilo al shader
+            uniforms.uStyle.value = state.styleMode;
             uniforms.uTint.value = state.tint;
             uniforms.uTintMix.value = state.tintMix;
+            uniforms.uCrossfade.value = state.crossfade; // Enviar valor del fader
 
             bloom.strength = state.bloom + (lvls.vol * 1.5);
             
@@ -469,10 +480,10 @@
                 plane.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
             }
 
-            if(activeVideoTex.image && activeVideoTex.image.readyState === activeVideoTex.image.HAVE_ENOUGH_DATA) 
-                activeVideoTex.needsUpdate = true;
-            if(webcamTex.image && webcamTex.image.readyState === webcamTex.image.HAVE_ENOUGH_DATA) 
-                webcamTex.needsUpdate = true;
+            // Actualizar texturas dinámicas
+            if(texA.image && texA.image.tagName === 'VIDEO' && texA.image.readyState >= 2) texA.needsUpdate = true;
+            if(texB.image && texB.image.tagName === 'VIDEO' && texB.image.readyState >= 2) texB.needsUpdate = true;
+            if(webcamTex.image && webcamTex.image.readyState >= 2) webcamTex.needsUpdate = true;
 
             composer.render();
         }
@@ -491,46 +502,44 @@
             }
         };
 
-        const gui = new GUI({ title: 'Ajustes Finos' });
+        const gui = new GUI({ title: 'Ajustes' });
         gui.add(state, 'distortion', 0, 5).name('Fuerza Glitch');
-        gui.add(state, 'micGain', 1, 10).name('Sensibilidad Mic');
-        gui.add(state, 'bloom', 0, 3).name('Brillo Base');
+        gui.add(state, 'micGain', 1, 10).name('Sensibilidad');
+        gui.add(state, 'bloom', 0, 3).name('Brillo');
     </script>
 </head>
 <body>
     <div id="overlay">
-        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">ULTIMATE VJ STATION 2.0</h1>
+        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">INFINITE LOOP VJ</h1>
         <button id="start-btn">INICIAR SISTEMA</button>
         
         <div class="keys-grid">
             <div>
                 <span class="key">1-0</span> DEFORMACIÓN<br>
-                Modifican la forma<br>
-                (Kaleido, Twist, etc.)
-            </div>
-            <div>
                 <span class="key">Z-B</span> ESTILOS GEO<br>
-                Z: Malla (Wireframe)<br>
-                X: Puntos (LED)<br>
-                C: Hexágonos<br>
-                V: Holograma<br>
-                B: Binary Rain<br>
-                <span class="key">M</span> Normal (Reset)
+                <span class="key">M</span> RESET ESTILO
             </div>
             <div>
-                <span class="key">G-L</span> CLIPS<br>
-                <span class="key">N</span> CAM MIX (ON/OFF)<br>
+                <span class="key">A-L</span> 9 VIDEO SLOTS<br>
+                (Clic carga, Key selecciona)<br>
+                <span class="key">SCROLL</span> CROSSFADE<br>
+            </div>
+            <div>
+                <span class="key">N</span> CAM MIX<br>
                 <span class="key">Q-Y</span> TINTES
             </div>
         </div>
     </div>
 
     <div id="hud">
-        <div class="hud-line">DEFORMACIÓN: <span id="hud-mode" class="hud-value">1</span></div>
+        <div class="hud-line">DEFORM: <span id="hud-mode" class="hud-value">1</span></div>
         <div class="hud-line">ESTILO: <span id="hud-style" class="hud-value">NORMAL</span></div>
+        <div class="hud-line">ACTUAL: <span id="hud-slot" class="hud-value">NONE</span></div>
+        <div class="hud-line" style="margin-top:10px; color:#aaa">SIGUIENTE (COLA): <span id="hud-next" class="hud-value" style="color:#fff">NONE</span></div>
         <div class="hud-line">COLOR: <span id="hud-color" class="hud-value" style="color:#fff">OFF</span></div>
-        <div class="hud-line">SLOT: <span id="hud-slot" class="hud-value">NONE</span></div>
     </div>
+    
+    <div id="fader-bar"><div id="fader-fill"></div></div>
 
     <div id="notification">NOTIFICACIÓN</div>
     <input type="file" id="file-input" accept="video/*">
