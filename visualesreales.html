@@ -2,10 +2,11 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - MIDI VJ Station (Fixed)</title>
+    <title>VJ STATION - GITHUB VERSION</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', monospace; }
         
+        /* --- ESTILOS VISUALES --- */
         #overlay { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.92); display: flex; flex-direction: column;
@@ -34,11 +35,16 @@
         }
         .hud-value { color: #0ff; font-weight: bold; }
 
-        #midi-status {
-            position: absolute; top: 20px; right: 20px; color: #555; font-weight: bold; font-size: 12px;
+        /* DEBUGGER EN PANTALLA */
+        #midi-debug-log {
+            position: absolute; top: 20px; right: 140px; 
+            color: #555; font-weight: bold; font-size: 11px;
+            text-align: right; pointer-events: none; white-space: pre-line;
         }
-        .midi-active { color: #0ff !important; text-shadow: 0 0 5px #0ff; }
+        .log-success { color: #0f0 !important; }
+        .log-error { color: #f00 !important; }
 
+        /* --- CROSSFADER UI --- */
         #fader-container {
             position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
             width: 400px; height: 20px; display: flex; align-items: center; z-index: 10;
@@ -46,7 +52,7 @@
         #fader-track { width: 100%; height: 4px; background: #333; position: relative; }
         #fader-knob {
             width: 10px; height: 20px; background: #0ff; position: absolute; top: -8px; left: 0%;
-            box-shadow: 0 0 10px #0ff; transform: translateX(-50%); transition: left 0.1s; /* Suavizado visual */
+            box-shadow: 0 0 10px #0ff; transform: translateX(-50%); transition: left 0.1s;
         }
         .deck-label { position: absolute; bottom: 25px; font-size: 12px; color: #888; font-weight: bold; }
         #label-a { left: 0; }
@@ -60,6 +66,35 @@
             padding: 10px 30px; border-radius: 20px; font-weight: bold;
             opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 15;
         }
+
+        /* --- INTERFAZ DE MAPEO MIDI --- */
+        #midi-toggle-btn {
+            position: absolute; top: 20px; right: 20px; z-index: 50;
+            background: #222; border: 1px solid #555; color: #fff;
+            padding: 5px 10px; cursor: pointer; font-family: monospace;
+        }
+        #midi-toggle-btn:hover { background: #444; border-color: #0ff; color: #0ff; }
+
+        #midi-mapper-ui {
+            display: none; 
+            position: absolute; top: 60px; right: 20px; width: 250px;
+            background: rgba(0,0,0,0.95); border: 1px solid #0ff;
+            padding: 10px; z-index: 50; max-height: 80vh; overflow-y: auto;
+            box-shadow: -5px 5px 20px rgba(0,0,0,0.8);
+        }
+        .mapper-item {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;
+        }
+        .mapper-label { font-size: 12px; color: #aaa; }
+        .mapper-val { font-size: 11px; color: #0ff; font-family: monospace; }
+        .mapper-btn {
+            background: #333; border: none; color: #fff; font-size: 10px;
+            padding: 2px 6px; cursor: pointer; margin-left: 5px;
+        }
+        .mapper-btn.learning { background: #f00; color: #fff; animation: blink 0.5s infinite; }
+        @keyframes blink { 0%{opacity:1;} 50%{opacity:0.5;} 100%{opacity:1;} }
+
     </style>
 
     <script type="module">
@@ -69,34 +104,23 @@
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
-        // --- MAPA MIDI (CONFIGURABLE) ---
-        const MIDI_MAP = {
-            fader: 1,      // CC ID del fader principal
-            padBase: 36,   // Nota MIDI del primer pad (C1 suele ser 36)
+        // --- GESTIÓN DE MAPEO DINÁMICO ---
+        let midiMapping = {
+            'crossfader': { type: 'cc', val: 1 }, 
+            'slot_a': { type: 'note', val: 36 },
+            'speed': { type: null, val: null },
+            'glitch': { type: null, val: null },
+            'cam_mix': { type: null, val: null }
         };
+        let learningTarget = null;
 
         // --- ESTADO GLOBAL ---
         const state = {
-            effectMode: 1, 
-            styleMode: 0,
-            distortionType: 0,
-            mixRatio: 0.0, 
-            
-            // Ajustes Finos
-            distortion: 2.0, 
-            micGain: 5.0,
-            bloom: 1.5,
-            speed: 1.0,      
-            rgbShift: 0.05,  
-            geoStrength: 4.0,
-
-            tint: new THREE.Color(1, 1, 1),
-            tintMix: 0.0, 
-            loadingSlot: null,
-            loadingDeckTarget: null, // Corrección: Inicializar variable
-            crossfade: 0.0,
-            deckA: "NONE",
-            deckB: "NONE"
+            effectMode: 1, styleMode: 0, distortionType: 0, mixRatio: 0.0, 
+            distortion: 2.0, micGain: 5.0, bloom: 1.5, speed: 1.0, rgbShift: 0.05, geoStrength: 4.0,
+            tint: new THREE.Color(1, 1, 1), tintMix: 0.0, 
+            loadingSlot: null, loadingDeckTarget: null, crossfade: 0.0,
+            deckA: "NONE", deckB: "NONE"
         };
 
         // --- AUDIO ENGINE ---
@@ -120,13 +144,12 @@
                 let sum=0; for(let i=0;i<this.data.length;i++){ const v=(this.data[i]-128)/128; sum+=v*v; }
                 const vol = Math.sqrt(sum/this.data.length) * state.micGain;
                 const bass = this.freq[5] / 255.0;
-                const high = this.freq[200] / 255.0;
-                return { vol, bass, high };
+                return { vol, bass };
             }
         }
         const audio = new AudioEngine();
 
-        // --- SCENE ---
+        // --- SCENE SETUP ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         camera.position.z = 9;
@@ -141,290 +164,230 @@
         const webcamEl = document.createElement('video');
         webcamEl.muted = true; webcamEl.playsInline = true;
         const webcamTex = new THREE.VideoTexture(webcamEl);
-
+        
         function createNoise() {
             const c=document.createElement('canvas'); c.width=64; c.height=64;
             const x=c.getContext('2d'); x.fillStyle='#111'; x.fillRect(0,0,64,64);
             return new THREE.CanvasTexture(c);
         }
         const noiseTex = createNoise();
-        texA.image = noiseTex.image;
-        texB.image = noiseTex.image;
+        texA.image = noiseTex.image; texB.image = noiseTex.image;
 
-        // --- SHADER UNIFORMS (CORREGIDO) ---
+        // --- SHADER ---
         const uniforms = {
-            uTexA: { value: noiseTex },
-            uTexB: { value: noiseTex },
-            uCrossfade: { value: 0.0 },
-            uTexCam: { value: noiseTex },
-            uMix: { value: 0.0 },
-            uTime: { value: 0.0 },
-            uBass: { value: 0.0 },
-            uHigh: { value: 0.0 },
-            uVol: { value: 0.0 },
-            uMode: { value: 1 },
-            uStyle: { value: 0 },
-            uDistType: { value: 0 },
-            uTint: { value: new THREE.Color(1,1,1) },
-            uTintMix: { value: 0.0 },
-            // CORRECCIÓN: Se agregan las variables faltantes aquí
-            uSpeed: { value: 1.0 },
-            uRGBShift: { value: 0.05 },
-            uGeoStrength: { value: 4.0 }, 
-            uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+            uTexA: { value: noiseTex }, uTexB: { value: noiseTex }, uCrossfade: { value: 0.0 },
+            uTexCam: { value: noiseTex }, uMix: { value: 0.0 }, uTime: { value: 0.0 },
+            uBass: { value: 0.0 }, uVol: { value: 0.0 }, uMode: { value: 1 }, uStyle: { value: 0 },
+            uTint: { value: new THREE.Color(1,1,1) }, uTintMix: { value: 0.0 },
+            uSpeed: { value: 1.0 }, uRGBShift: { value: 0.05 }, uGeoStrength: { value: 4.0 }, 
+            uDistType: { value: 0 }, uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         };
 
         const fragmentShader = `
-            uniform sampler2D uTexA;
-            uniform sampler2D uTexB;
-            uniform float uCrossfade;
-            uniform sampler2D uTexCam;
-            uniform float uMix;
-            uniform float uTime;
-            uniform float uBass;
-            uniform float uVol;
-            uniform int uMode;
-            uniform int uStyle;
-            uniform vec3 uTint;
-            uniform float uTintMix;
-            uniform float uSpeed;
-            uniform float uRGBShift;
+            uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
+            uniform sampler2D uTexCam; uniform float uMix; uniform float uTime;
+            uniform float uBass; uniform float uVol; uniform int uMode; uniform int uStyle;
+            uniform vec3 uTint; uniform float uTintMix; uniform float uSpeed; uniform float uRGBShift;
             varying vec2 vUv;
-
             float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
-            
             vec3 rgbSplit(sampler2D tex, vec2 uv, float amount) {
                 float r = texture2D(tex, uv - vec2(amount, 0.0)).r;
                 float g = texture2D(tex, uv).g;
                 float b = texture2D(tex, uv + vec2(amount, 0.0)).b;
                 return vec3(r,g,b);
             }
-
             void main() {
-                vec2 uv = vUv;
-                float t = uTime * uSpeed;
-
-                // FX 2D
+                vec2 uv = vUv; float t = uTime * uSpeed;
                 if(uMode == 3) uv.x = abs(uv.x - 0.5) + 0.5;
-                if(uMode == 4) {
-                    vec2 c = uv - 0.5; float r = length(c); float a = atan(c.y, c.x);
-                    float s = 6.0; a = mod(a, 6.283/s); a = abs(a - 3.141/s);
-                    uv = 0.5 + r * vec2(cos(a), sin(a));
-                }
-                if(uMode == 5) {
-                    float d = length(uv - 0.5);
-                    float a = atan(uv.y-0.5, uv.x-0.5) + (uBass*5.0) * (1.0-d);
-                    uv = 0.5 + d * vec2(cos(a), sin(a));
-                }
-                if(uMode == 9) {
-                    uv.x += sin(uv.y * 10.0 + t) * 0.05 * uVol;
-                    uv.y += cos(uv.x * 10.0 + t) * 0.05 * uVol;
-                }
-
-                // Sampling
+                if(uMode == 4) { vec2 c = uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,1.047); a=abs(a-0.523); uv=0.5+r*vec2(cos(a),sin(a)); }
+                if(uMode == 5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
+                if(uMode == 9) { uv.x+=sin(uv.y*10.0+t)*0.05*uVol; uv.y+=cos(uv.x*10.0+t)*0.05*uVol; }
                 float shift = (uMode==2) ? uBass*0.05 : uRGBShift * uBass;
-                
-                vec3 cA = rgbSplit(uTexA, uv, shift);
-                vec3 cB = rgbSplit(uTexB, uv, shift);
+                vec3 cA = rgbSplit(uTexA, uv, shift); vec3 cB = rgbSplit(uTexB, uv, shift);
                 vec3 col = mix(cA, cB, uCrossfade);
-
                 vec3 cCam = rgbSplit(uTexCam, uv, shift);
                 col = mix(col, cCam, uMix);
-
-                // Post FX
                 if(uMode == 7 && uBass > 0.6) col = 1.0 - col;
-                if(uMode == 8) {
-                    vec3 c1 = mix(texture2D(uTexA, uv+0.002).rgb, texture2D(uTexB, uv+0.002).rgb, uCrossfade);
-                    col = length(abs(col - c1)) * vec3(0.0, 1.0, 1.0) * 4.0; 
-                }
-                if(uMode == 10 && rand(floor(uv*10.0)+floor(t*10.0)) < uBass*0.5) col = vec3(1.0);
+                if(uMode == 8) { vec3 c1=mix(texture2D(uTexA,uv+0.002).rgb,texture2D(uTexB,uv+0.002).rgb,uCrossfade); col=length(abs(col-c1))*vec3(0,1,1)*4.0; }
+                if(uMode == 10 && rand(floor(uv*10.0)+floor(t*10.0))<uBass*0.5) col=vec3(1.0);
                 if(uMode == 1) col *= (0.8 + 0.2 * (sin(uv.y*800.0+t*5.0)*0.5+0.5));
-
-                // Estilos
                 float lum = dot(col, vec3(0.33));
-                if (uStyle == 1) col = col * (step(0.9, fract(uv.x*40.0+t*0.5)) + step(0.9, fract(uv.y*40.0))) * 2.0;
-                if (uStyle == 2) col = col * step(distance(fract(uv*80.0), vec2(0.5)), lum*0.5) * 1.5;
-                if (uStyle == 3) col = col * (sin(uv.x*50.0)*sin(uv.y*50.0) > 0.0 ? 1.5 : 0.2);
+                if (uStyle == 1) col *= (step(0.9, fract(uv.x*40.0+t*0.5)) + step(0.9, fract(uv.y*40.0))) * 2.0;
+                if (uStyle == 2) col *= step(distance(fract(uv*80.0), vec2(0.5)), lum*0.5) * 1.5;
+                if (uStyle == 3) col *= (sin(uv.x*50.0)*sin(uv.y*50.0)>0.0 ? 1.5 : 0.2);
                 if (uStyle == 4) col = mix(col, vec3(0.0, 1.0, 0.8)*lum, 0.8) * step(0.5, sin(uv.y*200.0+t*10.0));
                 if (uStyle == 5) col = vec3(0.0, 1.0, 0.2) * step(0.5, rand(floor(uv*vec2(40.,20.)) + floor(t))) * lum * 2.0;
-
                 col = mix(col, col * uTint, uTintMix);
                 gl_FragColor = vec4(col, 1.0);
             }
         `;
 
         const vertexShader = `
-            uniform float uVol;
-            uniform float uTime;
-            uniform float uSpeed;
-            uniform float uGeoStrength; 
-            uniform int uDistType; 
-            varying vec2 vUv;
-
+            uniform float uVol; uniform float uTime; uniform float uSpeed;
+            uniform float uGeoStrength; uniform int uDistType; varying vec2 vUv;
             float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
-
             void main() {
-                vUv = uv;
-                vec3 pos = position;
-                float d = 0.0;
-                float t = uTime * uSpeed;
-
-                if (uDistType == 0) { // Flor
-                    d = sin(pos.x * 2.0 + t) * cos(pos.y * 1.5 + t);
-                }
-                else if (uDistType == 1) { // Sierra
-                    float wave = sin(pos.y * 50.0 + t * 10.0);
-                    d = (wave > 0.0 ? 1.0 : -1.0) * 0.5 * sin(pos.x * 10.0);
-                }
-                else if (uDistType == 2) { // Grid
-                    d = sin(pos.y * 30.0 + t * 2.0) * sin(pos.x * 30.0);
-                    if (d > 0.5) d = 0.8; else if (d < -0.5) d = -0.8; else d = 0.0;
-                }
-                else if (uDistType == 3) { // Cristal
-                    vec2 block = floor(uv * 10.0);
-                    float r = rand(block);
-                    d = (r > 0.7) ? r : 0.0;
-                    d *= sin(t * 5.0 + r * 10.0); 
-                }
-
+                vUv = uv; vec3 pos = position; float d = 0.0; float t = uTime * uSpeed;
+                if (uDistType == 0) d = sin(pos.x * 2.0 + t) * cos(pos.y * 1.5 + t);
+                else if (uDistType == 1) { float wave = sin(pos.y * 50.0 + t * 10.0); d = (wave > 0.0 ? 1.0 : -1.0) * 0.5 * sin(pos.x * 10.0); }
+                else if (uDistType == 2) { d = sin(pos.y * 30.0 + t * 2.0) * sin(pos.x * 30.0); if (d > 0.5) d = 0.8; else if (d < -0.5) d = -0.8; else d = 0.0; }
+                else if (uDistType == 3) { vec2 block = floor(uv * 10.0); float r = rand(block); d = (r > 0.7) ? r : 0.0; d *= sin(t * 5.0 + r * 10.0); }
                 pos.z += d * uVol * uGeoStrength; 
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
             }
         `;
 
-        const material = new THREE.ShaderMaterial({
-            uniforms: uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide
-        });
-
+        const material = new THREE.ShaderMaterial({ uniforms: uniforms, vertexShader, fragmentShader, side: THREE.DoubleSide });
         const geometry = new THREE.PlaneGeometry(16, 9, 140, 140);
-        const plane = new THREE.Mesh(geometry, material);
-        scene.add(plane);
-
-        const composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
-        const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        composer.addPass(bloom);
+        const plane = new THREE.Mesh(geometry, material); scene.add(plane);
+        const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
+        const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85); composer.addPass(bloom);
 
         // --- INPUTS & LOGIC ---
         const fileInput = document.getElementById('file-input');
         const faderKnob = document.getElementById('fader-knob');
-        const midiStatus = document.getElementById('midi-status');
+        const midiLog = document.getElementById('midi-debug-log');
+        const mapperUI = document.getElementById('midi-mapper-ui');
+        const toggleBtn = document.getElementById('midi-toggle-btn');
 
-        function showNotify(msg) {
-            const n = document.getElementById('notification');
-            n.innerText = msg; n.style.opacity = 1;
-            setTimeout(() => n.style.opacity = 0, 2000);
+        function logMidi(msg, type="neutral") {
+            midiLog.innerText = msg + "\n" + midiLog.innerText;
+            if(midiLog.innerText.length > 200) midiLog.innerText = midiLog.innerText.substring(0, 200);
+            midiLog.className = (type==="success") ? "log-success" : (type==="error") ? "log-error" : "";
+        }
+
+        // --- LÓGICA DE INTERFAZ DE MAPEO ---
+        toggleBtn.onclick = () => {
+            mapperUI.style.display = (mapperUI.style.display === 'block') ? 'none' : 'block';
+            updateMapperUI();
+        };
+
+        function updateMapperUI() {
+            mapperUI.innerHTML = '<div style="color:#fff; font-weight:bold; margin-bottom:10px; border-bottom:1px solid #0ff;">MAPEO MIDI</div>';
+            const mapKeys = Object.keys(midiMapping);
+            ['a','s','d','f','g','h','j','k','l'].forEach(k => {
+                if(!midiMapping[`slot_${k}`]) midiMapping[`slot_${k}`] = {type:null, val:null};
+            });
+
+            for (const key in midiMapping) {
+                const item = document.createElement('div');
+                item.className = 'mapper-item';
+                const label = document.createElement('span');
+                label.className = 'mapper-label';
+                label.innerText = key.toUpperCase().replace('_', ' ');
+                const val = document.createElement('span');
+                val.className = 'mapper-val';
+                const mapData = midiMapping[key];
+                val.innerText = mapData.val ? `${mapData.type.toUpperCase()}:${mapData.val}` : '--';
+                const btn = document.createElement('button');
+                btn.className = 'mapper-btn';
+                btn.innerText = (learningTarget === key) ? '...' : 'MAP';
+                if(learningTarget === key) btn.classList.add('learning');
+                
+                btn.onclick = () => {
+                    learningTarget = (learningTarget === key) ? null : key;
+                    updateMapperUI();
+                };
+                item.appendChild(label); item.appendChild(val); item.appendChild(btn);
+                mapperUI.appendChild(item);
+            }
         }
 
         function handleInput(key) {
             key = key.toLowerCase();
-            
-            if(!isNaN(parseInt(key))) {
-                state.effectMode = (parseInt(key) === 0) ? 10 : parseInt(key);
-                document.getElementById('hud-mode').innerText = state.effectMode;
-                showNotify(`FX 2D: ${state.effectMode}`);
-            }
-
+            if(!isNaN(parseInt(key))) { state.effectMode = (parseInt(key)===0)?10:parseInt(key); document.getElementById('hud-mode').innerText = state.effectMode; showNotify(`FX 2D: ${state.effectMode}`); }
             const colors = { 'q': [1,0,0], 'w': [0,1,0], 'e': [0,0,1], 'r': [0,1,1], 't': [1,0,1], 'y': [1,1,0] };
-            if(colors[key]) {
-                state.tint.setRGB(...colors[key]); state.tintMix = 1.0;
-                document.getElementById('hud-color').innerText = key.toUpperCase(); document.getElementById('hud-color').style.color="#0ff";
-            }
+            if(colors[key]) { state.tint.setRGB(...colors[key]); state.tintMix = 1.0; document.getElementById('hud-color').innerText = key.toUpperCase(); document.getElementById('hud-color').style.color="#0ff"; }
             if(key === 'u') { state.tintMix = 0.0; document.getElementById('hud-color').innerText = "OFF"; document.getElementById('hud-color').style.color="#fff"; }
-
             const styleMap = { 'z': 1, 'x': 2, 'c': 3, 'v': 4, 'b': 5 };
-            if(styleMap[key]) {
-                state.styleMode = styleMap[key];
-                const names = ["", "MALLA", "PUNTOS", "HEX", "HOLO", "BINARY"];
-                document.getElementById('hud-style').innerText = names[state.styleMode];
-                showNotify(`ESTILO: ${names[state.styleMode]}`);
-            }
-
+            if(styleMap[key]) { state.styleMode = styleMap[key]; showNotify(`ESTILO: ${state.styleMode}`); document.getElementById('hud-style').innerText = ["","MALLA","PUNTOS","HEX","HOLO","BINARY"][state.styleMode]; }
             const distMap = { 'i': 1, 'o': 2, 'p': 3 };
-            if(distMap[key]) {
-                state.distortionType = distMap[key];
-                const dNames = ["FLOR", "SIERRA", "GRID", "CRISTAL"];
-                document.getElementById('hud-dist').innerText = dNames[state.distortionType];
-                showNotify(`DEFORM: ${dNames[state.distortionType]}`);
-            }
-
-            if(key === 'm') { 
-                state.styleMode = 0; state.distortionType = 0; 
-                document.getElementById('hud-style').innerText = "NORMAL"; document.getElementById('hud-dist').innerText = "FLOR";
-                showNotify("RESET VISUALES"); 
-            }
-
+            if(distMap[key]) { state.distortionType = distMap[key]; showNotify(`DEFORM: ${state.distortionType}`); document.getElementById('hud-dist').innerText = ["FLOR","SIERRA","GRID","CRISTAL"][state.distortionType]; }
+            if(key === 'm') { state.styleMode=0; state.distortionType=0; document.getElementById('hud-style').innerText="NORMAL"; document.getElementById('hud-dist').innerText="FLOR"; showNotify("RESET"); }
             if(key === 'n') {
-                if(state.mixRatio < 0.1) state.mixRatio = 0.5;      
-                else if(state.mixRatio === 0.5) state.mixRatio = 1.0; 
-                else state.mixRatio = 0.0;                            
-                
+                if(state.mixRatio < 0.1) state.mixRatio = 0.5; else if(state.mixRatio === 0.5) state.mixRatio = 1.0; else state.mixRatio = 0.0;
                 if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
-                
-                let msg = "CAM: OFF";
-                if(state.mixRatio === 0.5) msg = "CAM: MIX (50%)";
-                if(state.mixRatio === 1.0) msg = "CAM: SOLO (100%)";
-                showNotify(msg);
+                showNotify(state.mixRatio===0.5?"CAM: MIX":"CAM: SOLO");
             }
-
             const allSlots = ['a','s','d','f','g','h','j','k','l'];
             if (allSlots.includes(key)) {
                 const targetDeck = (state.crossfade < 0.5) ? 'B' : 'A';
-                if (!videoSlots[key]) {
-                    state.loadingSlot = key; state.loadingDeckTarget = targetDeck;
-                    fileInput.click();
-                } else {
-                    if (targetDeck === 'A') {
-                        state.deckA = key; texA.image = videoSlots[key]; texA.needsUpdate = true;
-                        uniforms.uTexA.value = texA; document.getElementById('hud-deck-a').innerText = key.toUpperCase();
-                        showNotify(`DECK A: ${key.toUpperCase()}`);
-                    } else {
-                        state.deckB = key; texB.image = videoSlots[key]; texB.needsUpdate = true;
-                        uniforms.uTexB.value = texB; document.getElementById('hud-deck-b').innerText = key.toUpperCase();
-                        showNotify(`DECK B: ${key.toUpperCase()}`);
-                    }
+                if (!videoSlots[key]) { state.loadingSlot = key; state.loadingDeckTarget = targetDeck; fileInput.click(); } 
+                else {
+                    if (targetDeck === 'A') { state.deckA=key; texA.image=videoSlots[key]; texA.needsUpdate=true; uniforms.uTexA.value=texA; document.getElementById('hud-deck-a').innerText=key.toUpperCase(); showNotify(`DECK A: ${key.toUpperCase()}`); } 
+                    else { state.deckB=key; texB.image=videoSlots[key]; texB.needsUpdate=true; uniforms.uTexB.value=texB; document.getElementById('hud-deck-b').innerText=key.toUpperCase(); showNotify(`DECK B: ${key.toUpperCase()}`); }
                 }
             }
         }
 
         window.addEventListener('keydown', (e) => handleInput(e.key));
 
-        // --- MIDI IMPLEMENTATION ---
-        if (navigator.requestMIDIAccess) {
-            navigator.requestMIDIAccess().then(onMIDISuccess, onMIDIFailure);
-        } else {
-            midiStatus.innerText = "MIDI NO SOPORTADO";
-        }
+        // --- MIDI SYSTEM INITIALIZATION (ACTIVADO POR BOTÓN) ---
+        async function initMIDI() {
+            logMidi("Solicitando acceso MIDI...", "neutral");
+            if (!navigator.requestMIDIAccess) {
+                logMidi("ERROR: Web MIDI API no soportada en este navegador.", "error");
+                return;
+            }
+            try {
+                // Pedimos acceso (esto disparará el popup en HTTPS)
+                const midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+                logMidi("MIDI: ACCESO CONCEDIDO", "success");
+                
+                const inputs = Array.from(midiAccess.inputs.values());
+                if(inputs.length === 0) {
+                    logMidi("ADVERTENCIA: No hay dispositivos MIDI conectados.", "error");
+                    logMidi("Conecta el AKAI y recarga la página.", "error");
+                } else {
+                    inputs.forEach(input => {
+                        logMidi(`Dispositivo detectado: ${input.name}`, "success");
+                        input.onmidimessage = getMIDIMessage;
+                    });
+                }
+                
+                // Detectar conexiones en caliente
+                midiAccess.onstatechange = (e) => {
+                    logMidi(`Estado MIDI: ${e.port.name} ${e.port.state}`, "neutral");
+                };
 
-        function onMIDISuccess(midiAccess) {
-            midiStatus.innerText = "MIDI READY";
-            midiStatus.classList.add('midi-active');
-            for (var input of midiAccess.inputs.values()) {
-                input.onmidimessage = getMIDIMessage;
+            } catch (err) {
+                logMidi(`ERROR MIDI: ${err.message}`, "error");
+                logMidi("¿Permisos bloqueados en el candado de la URL?", "error");
             }
         }
-        function onMIDIFailure() { midiStatus.innerText = "MIDI ERROR"; }
 
         function getMIDIMessage(msg) {
             const command = msg.data[0];
             const note = msg.data[1];
             const velocity = (msg.data.length > 2) ? msg.data[2] : 0;
+            const type = (command >= 176 && command <= 191) ? 'cc' : (command >= 144 && command <= 159) ? 'note' : null;
 
-            console.log(`MIDI: Cmd ${command} Note ${note} Vel ${velocity}`); // Debug para mapeo
+            if (!type) return;
 
-            // CC (Faders)
-            if (command >= 176 && command <= 191) {
-                if (note === MIDI_MAP.fader) { 
-                    state.crossfade = velocity / 127.0;
-                    faderKnob.style.left = (state.crossfade * 100) + '%';
-                }
+            // Debug en el log visual
+            // logMidi(`IN: ${type} ${note} val:${velocity}`);
+
+            // --- MODO APRENDIZAJE ---
+            if (learningTarget) {
+                midiMapping[learningTarget] = { type: type, val: note };
+                logMidi(`ASIGNADO: ${learningTarget} -> ${type}:${note}`, "success");
+                learningTarget = null;
+                updateMapperUI();
+                return;
             }
-            // Notes (Pads)
-            if (command >= 144 && command <= 159 && velocity > 0) {
-                const slots = ['a','s','d','f','g','h','j','k','l'];
-                const index = note - MIDI_MAP.padBase;
-                if(index >= 0 && index < slots.length) {
-                    handleInput(slots[index]);
+
+            // --- EJECUCIÓN ---
+            for (const action in midiMapping) {
+                const map = midiMapping[action];
+                if (map.type === type && map.val === note) {
+                    if (action === 'crossfader') {
+                        state.crossfade = velocity / 127.0;
+                        faderKnob.style.left = (state.crossfade * 100) + '%';
+                    }
+                    else if (action === 'speed') state.speed = (velocity / 127.0) * 5.0;
+                    else if (action === 'glitch') state.distortion = (velocity / 127.0) * 5.0;
+                    else if (action === 'cam_mix') { if (velocity > 0) handleInput('n'); }
+                    else if (action.startsWith('slot_')) { if (velocity > 0) handleInput(action.split('_')[1]); }
                 }
             }
         }
@@ -436,76 +399,45 @@
         });
 
         fileInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if(!file || !state.loadingSlot) return;
+            const file = e.target.files[0]; if(!file || !state.loadingSlot) return;
             const url = URL.createObjectURL(file);
-            const vid = document.createElement('video');
-            vid.src = url; vid.loop = true; vid.muted = true; vid.playsInline = true; vid.play(); 
+            const vid = document.createElement('video'); vid.src=url; vid.loop=true; vid.muted=true; vid.playsInline=true; vid.play(); 
             videoSlots[state.loadingSlot] = vid;
-
-            if (state.loadingDeckTarget === 'A') {
-                state.deckA = state.loadingSlot; texA.image = vid; uniforms.uTexA.value = texA;
-                document.getElementById('hud-deck-a').innerText = state.loadingSlot.toUpperCase();
-                showNotify(`DECK A: ${state.loadingSlot.toUpperCase()}`);
-            } else {
-                state.deckB = state.loadingSlot; texB.image = vid; uniforms.uTexB.value = texB;
-                document.getElementById('hud-deck-b').innerText = state.loadingSlot.toUpperCase();
-                showNotify(`DECK B: ${state.loadingSlot.toUpperCase()}`);
-            }
-            state.loadingSlot = null; fileInput.value = ""; 
+            if (state.loadingDeckTarget === 'A') { state.deckA=state.loadingSlot; texA.image=vid; uniforms.uTexA.value=texA; document.getElementById('hud-deck-a').innerText=state.loadingSlot.toUpperCase(); } 
+            else { state.deckB=state.loadingSlot; texB.image=vid; uniforms.uTexB.value=texB; document.getElementById('hud-deck-b').innerText=state.loadingSlot.toUpperCase(); }
+            state.loadingSlot=null; fileInput.value=""; 
         };
 
         async function initWebcam() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
-                webcamEl.srcObject = stream; webcamEl.play(); uniforms.uTexCam.value = webcamTex;
-            } catch(e) { console.error("No cam"); }
+            try { const s = await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720}}); webcamEl.srcObject=s; webcamEl.play(); uniforms.uTexCam.value=webcamTex; } 
+            catch(e) { console.error("No cam"); }
         }
 
         function animate() {
-            requestAnimationFrame(animate);
-            const time = performance.now() * 0.001;
-            const lvls = audio.getLevels();
-
-            uniforms.uTime.value = time;
-            uniforms.uVol.value = lvls.vol;
-            uniforms.uBass.value = lvls.bass;
-            uniforms.uMix.value = state.mixRatio;
-            uniforms.uMode.value = state.effectMode;
-            uniforms.uStyle.value = state.styleMode;
-            uniforms.uDistType.value = state.distortionType; 
-            uniforms.uTint.value = state.tint;
-            uniforms.uTintMix.value = state.tintMix;
-            uniforms.uCrossfade.value = state.crossfade;
-            
-            // CORRECCIÓN: Ahora estas variables existen en uniforms
-            uniforms.uSpeed.value = state.speed;
-            uniforms.uRGBShift.value = state.rgbShift;
-            uniforms.uGeoStrength.value = state.geoStrength;
-
+            requestAnimationFrame(animate); const time = performance.now()*0.001; const lvls = audio.getLevels();
+            uniforms.uTime.value=time; uniforms.uVol.value=lvls.vol; uniforms.uBass.value=lvls.bass;
+            uniforms.uMix.value=state.mixRatio; uniforms.uMode.value=state.effectMode; uniforms.uStyle.value=state.styleMode;
+            uniforms.uDistType.value=state.distortionType; uniforms.uTint.value=state.tint; uniforms.uTintMix.value=state.tintMix;
+            uniforms.uCrossfade.value=state.crossfade; uniforms.uSpeed.value=state.speed; uniforms.uRGBShift.value=state.rgbShift; uniforms.uGeoStrength.value=state.geoStrength;
             bloom.strength = state.bloom + (lvls.vol * 1.5);
-            
             if(lvls.bass > 0.5) plane.rotation.z = (Math.random()-0.5)*0.02; else plane.rotation.z *= 0.9;
-
-            if(texA.image && texA.image.tagName === 'VIDEO' && texA.image.readyState >= 2) texA.needsUpdate = true;
-            if(texB.image && texB.image.tagName === 'VIDEO' && texB.image.readyState >= 2) texB.needsUpdate = true;
-            if(webcamTex.image && webcamTex.image.readyState >= 2) webcamTex.needsUpdate = true;
-
+            if(texA.image && texA.image.readyState>=2) texA.needsUpdate=true;
+            if(texB.image && texB.image.readyState>=2) texB.needsUpdate=true;
+            if(webcamTex.image && webcamTex.image.readyState>=2) webcamTex.needsUpdate=true;
             composer.render();
         }
-
-        window.onresize = () => {
-            camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
-            uniforms.uResolution.value.set(window.innerWidth, window.innerHeight);
-        };
-
-        document.getElementById('start-btn').onclick = async () => {
-            if(await audio.init()) {
-                document.getElementById('overlay').style.opacity = 0;
-                setTimeout(()=>document.getElementById('overlay').style.display='none', 500);
-                animate();
-            }
+        window.onresize = () => { camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight); uniforms.uResolution.value.set(window.innerWidth, window.innerHeight); };
+        
+        // --- ARRANQUE CON GESTO DE USUARIO (IMPORTANTE PARA MIDI) ---
+        document.getElementById('start-btn').onclick = async () => { 
+            // 1. Audio
+            await audio.init();
+            // 2. MIDI (Ahora dentro del click para evitar bloqueos)
+            await initMIDI();
+            
+            document.getElementById('overlay').style.opacity=0; 
+            setTimeout(()=>document.getElementById('overlay').style.display='none', 500); 
+            animate(); 
         };
 
         const gui = new GUI({ title: 'PANEL DE CONTROL' });
@@ -517,30 +449,19 @@
         folder2.add(state, 'speed', 0.1, 5.0).name('Velocidad Tiempo');
         folder2.add(state, 'rgbShift', 0.0, 0.2).name('Separación RGB');
         folder2.add(state, 'geoStrength', 0.0, 10.0).name('Fuerza 3D (Bajos)');
-
     </script>
 </head>
 <body>
+    <div id="midi-toggle-btn">MIDI CONFIG</div>
+    <div id="midi-mapper-ui"></div>
+
     <div id="overlay">
-        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">MIDI VJ STATION</h1>
-        <button id="start-btn">INICIAR SISTEMA</button>
-        
+        <h1 style="color:#0ff; text-shadow:0 0 10px #0ff; margin-bottom: 40px;">VJ STATION - GITHUB VERSION</h1>
+        <button id="start-btn">INICIAR SISTEMA (CLICK PARA MIDI)</button>
         <div class="keys-grid">
-            <div>
-                <span class="key">1-0</span> FX 2D<br>
-                <span class="key">Z-B</span> ESTILOS<br>
-                <span class="key">I,O,P</span> DEFORM 3D<br>
-                <span class="key">M</span> RESET
-            </div>
-            <div>
-                <span class="key">A-L</span> 9 SLOTS<br>
-                <span class="key">SCROLL</span> MEZCLAR<br>
-                <span class="key">N</span> CAM: OFF/MIX/SOLO
-            </div>
-            <div>
-                <span class="key">MIDI</span> CONECTAR USB<br>
-                <span class="key">Q-Y</span> TINTES
-            </div>
+            <div><span class="key">1-0</span> FX 2D<br><span class="key">Z-B</span> ESTILOS<br><span class="key">I,O,P</span> DEFORM 3D<br><span class="key">M</span> RESET</div>
+            <div><span class="key">A-L</span> 9 SLOTS<br><span class="key">SCROLL</span> MEZCLAR<br><span class="key">N</span> CAM: OFF/MIX/SOLO</div>
+            <div><span class="key">MIDI</span> CONECTAR USB<br><span class="key">Q-Y</span> TINTES</div>
         </div>
     </div>
 
@@ -554,13 +475,11 @@
         <div class="hud-line">DECK B: <span id="hud-deck-b" class="hud-value">NONE</span></div>
     </div>
     
-    <div id="midi-status">MIDI: WAITING...</div>
+    <div id="midi-debug-log">Esperando click en INICIAR...</div>
 
     <div id="fader-container">
         <div class="deck-label" id="label-a">DECK A</div>
-        <div id="fader-track">
-            <div id="fader-knob"></div>
-        </div>
+        <div id="fader-track"><div id="fader-knob"></div></div>
         <div class="deck-label" id="label-b">DECK B</div>
     </div>
 
