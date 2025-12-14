@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Artimotion - MIDI VJ Station</title>
+    <title>Artimotion - MIDI VJ Station (Fixed)</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Segoe UI', monospace; }
         
@@ -34,6 +34,11 @@
         }
         .hud-value { color: #0ff; font-weight: bold; }
 
+        #midi-status {
+            position: absolute; top: 20px; right: 20px; color: #555; font-weight: bold; font-size: 12px;
+        }
+        .midi-active { color: #0ff !important; text-shadow: 0 0 5px #0ff; }
+
         #fader-container {
             position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
             width: 400px; height: 20px; display: flex; align-items: center; z-index: 10;
@@ -41,16 +46,11 @@
         #fader-track { width: 100%; height: 4px; background: #333; position: relative; }
         #fader-knob {
             width: 10px; height: 20px; background: #0ff; position: absolute; top: -8px; left: 0%;
-            box-shadow: 0 0 10px #0ff; transform: translateX(-50%); transition: left 0.1s;
+            box-shadow: 0 0 10px #0ff; transform: translateX(-50%); transition: left 0.1s; /* Suavizado visual */
         }
         .deck-label { position: absolute; bottom: 25px; font-size: 12px; color: #888; font-weight: bold; }
         #label-a { left: 0; }
         #label-b { right: 0; }
-
-        #midi-status {
-            position: absolute; top: 20px; right: 20px; color: #555; font-weight: bold; font-size: 12px;
-        }
-        .midi-active { color: #0ff !important; text-shadow: 0 0 5px #0ff; }
 
         #file-input { display: none; }
         
@@ -70,12 +70,9 @@
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
         // --- MAPA MIDI (CONFIGURABLE) ---
-        // Cambia estos valores según lo que veas en la consola al presionar tu AKAI
         const MIDI_MAP = {
-            fader: 1,      // CC ID del fader principal (para Crossfade)
-            knob1: 2,      // CC ID opcional
-            padBase: 36,   // Nota MIDI del primer pad (usualmente C1)
-            // Asignaremos pads secuenciales a slots A-L y Efectos
+            fader: 1,      // CC ID del fader principal
+            padBase: 36,   // Nota MIDI del primer pad (C1 suele ser 36)
         };
 
         // --- ESTADO GLOBAL ---
@@ -83,19 +80,20 @@
             effectMode: 1, 
             styleMode: 0,
             distortionType: 0,
-            mixRatio: 0.0, // 0.0=Vid, 0.5=Mix, 1.0=Cam Solo
+            mixRatio: 0.0, 
             
-            // Ajustes Finos (GUI)
-            distortion: 2.0, // Glitch strength
+            // Ajustes Finos
+            distortion: 2.0, 
             micGain: 5.0,
             bloom: 1.5,
-            speed: 1.0,      // Nueva: Velocidad tiempo
-            rgbShift: 0.05,  // Nueva: Separación RGB
-            geoStrength: 4.0,// Nueva: Fuerza deformación 3D
+            speed: 1.0,      
+            rgbShift: 0.05,  
+            geoStrength: 4.0,
 
             tint: new THREE.Color(1, 1, 1),
             tintMix: 0.0, 
             loadingSlot: null,
+            loadingDeckTarget: null, // Corrección: Inicializar variable
             crossfade: 0.0,
             deckA: "NONE",
             deckB: "NONE"
@@ -153,7 +151,7 @@
         texA.image = noiseTex.image;
         texB.image = noiseTex.image;
 
-        // --- SHADER UNIFORMS ---
+        // --- SHADER UNIFORMS (CORREGIDO) ---
         const uniforms = {
             uTexA: { value: noiseTex },
             uTexB: { value: noiseTex },
@@ -169,9 +167,10 @@
             uDistType: { value: 0 },
             uTint: { value: new THREE.Color(1,1,1) },
             uTintMix: { value: 0.0 },
-            // Nuevos Uniforms
+            // CORRECCIÓN: Se agregan las variables faltantes aquí
             uSpeed: { value: 1.0 },
             uRGBShift: { value: 0.05 },
+            uGeoStrength: { value: 4.0 }, 
             uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         };
 
@@ -203,7 +202,7 @@
 
             void main() {
                 vec2 uv = vUv;
-                float t = uTime * uSpeed; // Usar velocidad
+                float t = uTime * uSpeed;
 
                 // FX 2D
                 if(uMode == 3) uv.x = abs(uv.x - 0.5) + 0.5;
@@ -222,19 +221,14 @@
                     uv.y += cos(uv.x * 10.0 + t) * 0.05 * uVol;
                 }
 
-                // Sampling con RGB Shift Variable
-                vec3 cA, cB, cCam;
-                
-                // Aplicar aberracion si uMode=2 O si el usuario subió el slider uRGBShift
+                // Sampling
                 float shift = (uMode==2) ? uBass*0.05 : uRGBShift * uBass;
                 
-                cA = rgbSplit(uTexA, uv, shift);
-                cB = rgbSplit(uTexB, uv, shift);
+                vec3 cA = rgbSplit(uTexA, uv, shift);
+                vec3 cB = rgbSplit(uTexB, uv, shift);
                 vec3 col = mix(cA, cB, uCrossfade);
 
-                cCam = rgbSplit(uTexCam, uv, shift);
-                
-                // Logic para Mix Ratio: 0=Vid, 1=Cam
+                vec3 cCam = rgbSplit(uTexCam, uv, shift);
                 col = mix(col, cCam, uMix);
 
                 // Post FX
@@ -263,7 +257,7 @@
             uniform float uVol;
             uniform float uTime;
             uniform float uSpeed;
-            uniform float uGeoStrength; // Nuevo control
+            uniform float uGeoStrength; 
             uniform int uDistType; 
             varying vec2 vUv;
 
@@ -293,9 +287,7 @@
                     d *= sin(t * 5.0 + r * 10.0); 
                 }
 
-                // Aplicar uGeoStrength
                 pos.z += d * uVol * uGeoStrength; 
-
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
             }
         `;
@@ -324,26 +316,22 @@
             setTimeout(() => n.style.opacity = 0, 2000);
         }
 
-        // --- MANEJO DE TECLADO (CORE) ---
         function handleInput(key) {
             key = key.toLowerCase();
             
-            // FX 1-0
             if(!isNaN(parseInt(key))) {
                 state.effectMode = (parseInt(key) === 0) ? 10 : parseInt(key);
                 document.getElementById('hud-mode').innerText = state.effectMode;
                 showNotify(`FX 2D: ${state.effectMode}`);
             }
 
-            // Colores Q-Y
             const colors = { 'q': [1,0,0], 'w': [0,1,0], 'e': [0,0,1], 'r': [0,1,1], 't': [1,0,1], 'y': [1,1,0] };
             if(colors[key]) {
                 state.tint.setRGB(...colors[key]); state.tintMix = 1.0;
-                const h = document.getElementById('hud-color'); h.innerText = key.toUpperCase(); h.style.color="#0ff";
+                document.getElementById('hud-color').innerText = key.toUpperCase(); document.getElementById('hud-color').style.color="#0ff";
             }
             if(key === 'u') { state.tintMix = 0.0; document.getElementById('hud-color').innerText = "OFF"; document.getElementById('hud-color').style.color="#fff"; }
 
-            // Estilos
             const styleMap = { 'z': 1, 'x': 2, 'c': 3, 'v': 4, 'b': 5 };
             if(styleMap[key]) {
                 state.styleMode = styleMap[key];
@@ -352,7 +340,6 @@
                 showNotify(`ESTILO: ${names[state.styleMode]}`);
             }
 
-            // Deformaciones
             const distMap = { 'i': 1, 'o': 2, 'p': 3 };
             if(distMap[key]) {
                 state.distortionType = distMap[key];
@@ -361,18 +348,16 @@
                 showNotify(`DEFORM: ${dNames[state.distortionType]}`);
             }
 
-            // RESET
             if(key === 'm') { 
                 state.styleMode = 0; state.distortionType = 0; 
                 document.getElementById('hud-style').innerText = "NORMAL"; document.getElementById('hud-dist').innerText = "FLOR";
                 showNotify("RESET VISUALES"); 
             }
 
-            // CAM MIX / SOLO (Tecla N) - Lógica de 3 pasos
             if(key === 'n') {
-                if(state.mixRatio < 0.1) state.mixRatio = 0.5;      // Off -> Mix
-                else if(state.mixRatio === 0.5) state.mixRatio = 1.0; // Mix -> Solo
-                else state.mixRatio = 0.0;                            // Solo -> Off
+                if(state.mixRatio < 0.1) state.mixRatio = 0.5;      
+                else if(state.mixRatio === 0.5) state.mixRatio = 1.0; 
+                else state.mixRatio = 0.0;                            
                 
                 if(state.mixRatio > 0 && !webcamEl.srcObject) initWebcam();
                 
@@ -382,7 +367,6 @@
                 showNotify(msg);
             }
 
-            // Video Slots
             const allSlots = ['a','s','d','f','g','h','j','k','l'];
             if (allSlots.includes(key)) {
                 const targetDeck = (state.crossfade < 0.5) ? 'B' : 'A';
@@ -426,42 +410,31 @@
             const note = msg.data[1];
             const velocity = (msg.data.length > 2) ? msg.data[2] : 0;
 
-            // Debug en consola para que el usuario mapee su AKAI
-            // console.log(`[MIDI] Cmd:${command} Note/CC:${note} Val:${velocity}`);
+            console.log(`MIDI: Cmd ${command} Note ${note} Vel ${velocity}`); // Debug para mapeo
 
-            // 1. CONTROL CHANGE (Knobs/Faders) - Usualmente Cmd 176
+            // CC (Faders)
             if (command >= 176 && command <= 191) {
-                if (note === MIDI_MAP.fader) { // Crossfader
+                if (note === MIDI_MAP.fader) { 
                     state.crossfade = velocity / 127.0;
                     faderKnob.style.left = (state.crossfade * 100) + '%';
                 }
             }
-
-            // 2. NOTE ON (Pads) - Usualmente Cmd 144
+            // Notes (Pads)
             if (command >= 144 && command <= 159 && velocity > 0) {
-                
-                // Mapeo de Slots (Notas secuenciales desde padBase)
                 const slots = ['a','s','d','f','g','h','j','k','l'];
                 const index = note - MIDI_MAP.padBase;
                 if(index >= 0 && index < slots.length) {
                     handleInput(slots[index]);
                 }
-
-                // Mapeo extra de efectos en notas altas (ejemplo)
-                if(index === 12) handleInput('1'); // Efecto 1
-                if(index === 13) handleInput('2'); // Efecto 2
-                if(index === 15) handleInput('n'); // Cam Toggle
             }
         }
 
-        // --- MOUSE CROSSFADE ---
         window.addEventListener('wheel', (e) => {
             const delta = e.deltaY * 0.001;
             state.crossfade = Math.max(0.0, Math.min(1.0, state.crossfade + delta));
             faderKnob.style.left = (state.crossfade * 100) + '%';
         });
 
-        // --- VIDEO LOAD ---
         fileInput.onchange = (e) => {
             const file = e.target.files[0];
             if(!file || !state.loadingSlot) return;
@@ -505,7 +478,7 @@
             uniforms.uTintMix.value = state.tintMix;
             uniforms.uCrossfade.value = state.crossfade;
             
-            // Nuevos Params
+            // CORRECCIÓN: Ahora estas variables existen en uniforms
             uniforms.uSpeed.value = state.speed;
             uniforms.uRGBShift.value = state.rgbShift;
             uniforms.uGeoStrength.value = state.geoStrength;
@@ -535,14 +508,11 @@
             }
         };
 
-        // --- GUI AJUSTES ---
         const gui = new GUI({ title: 'PANEL DE CONTROL' });
-        
         const folder1 = gui.addFolder('Audio & Video');
         folder1.add(state, 'distortion', 0, 5).name('Fuerza Glitch');
         folder1.add(state, 'micGain', 1, 10).name('Sensibilidad Mic');
         folder1.add(state, 'bloom', 0, 3).name('Brillo Bloom');
-        
         const folder2 = gui.addFolder('Ajustes Visuales');
         folder2.add(state, 'speed', 0.1, 5.0).name('Velocidad Tiempo');
         folder2.add(state, 'rgbShift', 0.0, 0.2).name('Separación RGB');
