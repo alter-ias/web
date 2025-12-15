@@ -2,20 +2,19 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS v6 - DUAL MONITOR</title>
+    <title>IRIS v6 - DUAL MONITOR CONTROL</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Montserrat:wght@300;500&display=swap" rel="stylesheet">
     
     <style>
         :root {
             --bg-color: #000000;
             --panel-bg: rgba(12, 15, 20, 0.98);
             --accent: #00E5FF;
-            --accent-dim: rgba(0, 229, 255, 0.1);
             --text: #FFFFFF;
             --text-dim: #556677;
-            --ui-scale: 1.0;
+            --scale-factor: 1.0;
         }
 
         body { 
@@ -24,7 +23,7 @@
             display: flex; flex-direction: column; height: 100vh;
         }
 
-        /* --- 1. VIEWPORT (FONDO) --- */
+        /* --- 1. VIEWPORT (VIDEO DE SALIDA) --- */
         #viewport {
             flex-grow: 1; position: relative; overflow: hidden;
             display: flex; justify-content: center; align-items: center; z-index: 1;
@@ -32,141 +31,160 @@
         }
         #vj-canvas { width: 100%; height: 100%; object-fit: contain; }
 
-        /* --- 2. UI CONTAINER --- */
-        #ui-container {
-            height: calc(300px * var(--ui-scale)); 
-            background: var(--panel-bg);
-            border-top: 1px solid rgba(0,229,255,0.2);
-            flex-shrink: 0; position: relative; z-index: 10;
-            transition: height 0.1s linear; overflow: hidden;
+        /* --- 2. UI CONTAINER (Flexible) --- */
+        #ui-wrapper {
+            flex-shrink: 0; width: 100%; background: transparent; z-index: 10;
+            display: flex; justify-content: center; align-items: flex-end; position: relative;
         }
 
+        /* El Dashboard que se escala */
         #dashboard {
-            width: 100%; height: 300px;
-            transform-origin: top left;
-            transform: scale(var(--ui-scale));
-            width: calc(100% / var(--ui-scale));
+            width: 100%; max-width: 100%;
+            background: var(--panel-bg);
+            border-top: 1px solid rgba(0,229,255,0.1);
+            transform-origin: top center;
+            transform: scale(var(--scale-factor));
+            width: calc(100% / var(--scale-factor));
             display: grid; 
             grid-template-columns: 280px 1fr 350px;
-            padding: 20px 40px; box-sizing: border-box;
-            gap: 30px;
+            padding: 30px 40px 20px 40px; box-sizing: border-box;
+            gap: 30px; position: relative;
         }
 
         /* --- SCALE BAR (NEON TOP) --- */
         #scale-strip {
             position: absolute; top: 0; left: 0; width: 100%; height: 6px;
-            background: #000; cursor: ew-resize; z-index: 50; border-bottom: 1px solid #333;
+            background: #080808; cursor: ew-resize; z-index: 50; border-bottom: 1px solid #222;
         }
         #scale-fill {
             height: 100%; width: 50%; background: var(--accent);
-            box-shadow: 0 0 10px var(--accent);
+            box-shadow: 0 0 15px var(--accent); transition: width 0.05s; position: relative;
         }
+        #scale-fill::after {
+            content: 'UI SCALE'; position: absolute; right: 5px; top: -15px;
+            font-size: 9px; color: var(--accent); font-family: monospace; font-weight: bold;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        #scale-strip:hover #scale-fill::after { opacity: 1; }
         #scale-input {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize;
+            position: absolute; top: -5px; left: 0; width: 100%; height: 15px;
+            opacity: 0; cursor: ew-resize; z-index: 60;
         }
 
-        /* --- ESTILOS COMUNES --- */
+        /* --- PANELES --- */
         .panel { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
         h3 { 
-            font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 2px; 
-            color: var(--text-dim); margin: 0 0 10px 0; border-bottom: 1px solid #222; padding-bottom: 5px;
+            font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 3px; 
+            color: var(--text-dim); margin: 0 0 15px 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;
         }
 
-        /* --- PANEL IZQUIERDO (Info & Accesos) --- */
-        .info-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; color: #888; }
-        .info-val { color: var(--accent); font-weight: 700; }
-        .key-badge { color: #666; font-size: 10px; border: 1px solid #333; padding: 1px 4px; border-radius: 3px; }
+        /* Shortcuts */
+        .shortcut-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; color: #888; }
+        .key-badge { color: var(--accent); font-weight: 700; font-size: 11px; }
 
-        /* --- PANEL CENTRAL (MONITORES DUALES) --- */
-        #dual-monitors {
-            display: flex; gap: 15px; height: 100%; align-items: center;
+        /* Mixer Central Modificado (MONITORES) */
+        .mixer-display { 
+            display: flex; justify-content: space-between; align-items: center; 
+            height: 140px; margin-bottom: 10px; gap: 20px;
         }
         
         .monitor-box {
-            flex: 1; height: 160px; background: #000; border: 1px solid #333;
+            flex: 1; height: 100%; background: #000; border: 1px solid #333;
             position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
         }
+        .monitor-vid { width: 100%; height: 100%; object-fit: cover; opacity: 0.5; transition: opacity 0.2s; }
         
-        /* Video Element en la UI */
-        .monitor-video { width: 100%; height: 100%; object-fit: cover; opacity: 0.5; transition: opacity 0.2s; }
-        
-        /* Estado Activo (Cual estoy editando) */
-        .monitor-box.editing { border-color: var(--accent); box-shadow: 0 0 20px rgba(0, 229, 255, 0.15); }
-        .monitor-box.editing .monitor-video { opacity: 1; }
+        /* Borde Activo (Cual estoy editando) */
+        .monitor-box.editing { border-color: var(--accent); box-shadow: 0 0 15px rgba(0,229,255,0.2); }
+        .monitor-box.editing .monitor-vid { opacity: 1; }
 
-        /* Etiquetas */
-        .monitor-label {
-            position: absolute; top: 5px; left: 5px; background: #000; color: #fff;
-            padding: 2px 6px; font-size: 10px; font-weight: bold; border: 1px solid #333; z-index: 5;
-        }
-        
-        /* Fader Debajo */
-        #crossfader-container { margin-top: 15px; width: 100%; }
+        .deck-label { position: absolute; top: 5px; left: 5px; font-size: 12px; font-weight: 900; color: #fff; background: rgba(0,0,0,0.5); padding: 2px 5px; z-index: 2; }
+
         #crossfader-track {
-            width: 100%; height: 8px; background: #000; border-radius: 4px; position: relative;
-            border: 1px solid #333;
+            width: 100%; height: 12px; background: #000; border-radius: 6px; position: relative;
+            border: 1px solid #333; margin-bottom: 20px;
         }
         #crossfader-handle {
-            width: 60px; height: 16px; background: var(--accent); position: absolute; top: -5px; left: 50%;
-            transform: translateX(-50%); border-radius: 2px; cursor: ew-resize;
-            box-shadow: 0 0 10px var(--accent);
+            width: 80px; height: 24px; background: var(--accent); position: absolute; top: -7px; left: 0%;
+            transform: translateX(-50%); border-radius: 4px; cursor: ew-resize;
+            box-shadow: 0 0 20px var(--accent); display: flex; align-items: center; justify-content: center;
         }
+        #crossfader-handle::after { content: '|||'; color: #000; font-size: 10px; font-weight: 900; letter-spacing: 2px; }
 
-        /* --- PANEL DERECHO (CONTROLES & SALIDA) --- */
+        /* Controles Derecho (Modificado) */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
         
-        /* Selectores de Trabajo (Mix A / Mix B) */
-        .work-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .work-btn {
-            padding: 15px; background: transparent; border: 1px solid #444; color: #666;
-            font-family: 'Rajdhani'; font-weight: 700; font-size: 14px; cursor: pointer; transition: 0.2s;
-            text-align: center;
+        .action-btn {
+            background: transparent; border: 1px solid var(--text-dim); color: var(--text-dim);
+            padding: 10px; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 11px;
+            cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px;
         }
-        .work-btn:hover { border-color: #888; }
-        .work-btn.selected { border-color: var(--accent); color: #fff; background: var(--accent-dim); box-shadow: 0 0 10px var(--accent-dim); }
+        .action-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.05); }
+        .action-btn.primary { border-color: var(--accent); color: var(--accent); }
+        .action-btn.selected { background: var(--accent); color: #000; border-color: var(--accent); box-shadow: 0 0 10px var(--accent); }
 
-        /* Matriz de Salida (Blackout / A / B) */
-        .proj-matrix { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 20px; }
-        .proj-btn {
+        /* Matriz de Salida (3 Botones) */
+        .out-matrix { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 15px; }
+        .out-btn {
             padding: 12px 5px; background: #1a0505; border: 1px solid #331111; color: #ff3366;
-            font-family: 'Montserrat'; font-weight: 700; font-size: 10px; cursor: pointer;
+            font-family: 'Montserrat'; font-weight: 700; font-size: 10px; cursor: pointer; text-transform: uppercase;
         }
-        .proj-btn:hover { background: #330011; }
-        .proj-btn.active-off { background: #ff0055; color: #fff; border-color: #ff0055; box-shadow: 0 0 15px #ff0055; }
+        .out-btn:hover { border-color: #ff3366; color: #ff3366; }
+        .out-btn.active { background: #ff0055; border-color: #ff0055; color: #fff; box-shadow: 0 0 15px #ff0055; }
         
-        /* Proyeccion A/B (Blanco/Cyan) */
-        .proj-source { background: #051a1a; border-color: #113333; color: #44cccc; }
-        .proj-source:hover { border-color: #fff; color: #fff; }
-        .proj-source.active { background: var(--accent); border-color: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
+        /* Botones de Proyeccion A/B */
+        .out-btn.source { background: #051a1a; border-color: #113333; color: #44cccc; }
+        .out-btn.source:hover { color: var(--accent); border-color: var(--accent); }
+        .out-btn.source.active { background: var(--accent); border-color: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
 
-        /* Botones utilitarios */
-        .util-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 15px; }
-        .util-btn { 
-            padding: 8px; background: transparent; border: 1px solid #444; color: #888;
-            font-size: 10px; cursor: pointer; font-family: 'Montserrat';
-        }
-        .util-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-        /* Sliders */
         .param-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
-        .param-label { color: #666; width: 60px; }
-        .param-slider { flex-grow: 1; accent-color: var(--accent); height: 2px; cursor: pointer; }
+        .param-label { color: #888; width: 70px; }
+        .param-slider { flex-grow: 1; accent-color: var(--accent); height: 4px; cursor: pointer; }
 
-        /* NOTIFY & MIDI */
+        /* --- MIDI OVERLAY --- */
+        #midi-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 200; backdrop-filter: blur(5px);
+            justify-content: center; align-items: center;
+        }
+        #midi-panel {
+            width: 800px; height: 90vh; background: #111; border: 1px solid var(--accent);
+            padding: 0; display: flex; flex-direction: column;
+            box-shadow: 0 0 50px rgba(0,229,255,0.2);
+        }
+        .midi-header { padding: 20px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+        #midi-scroll-area {
+            flex-grow: 1; overflow-y: auto; padding: 20px;
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-content: start;
+        }
+        #midi-scroll-area::-webkit-scrollbar { width: 8px; }
+        #midi-scroll-area::-webkit-scrollbar-thumb { background: #333; }
+        
+        .midi-group { grid-column: span 3; color: var(--accent); font-size: 12px; margin-top: 15px; padding-bottom: 5px; border-bottom: 1px solid #222; font-weight: bold; letter-spacing: 2px; }
+        .midi-item { 
+            background: #151515; padding: 10px; display: flex; flex-direction: column; gap: 5px;
+            border: 1px solid #222; border-radius: 4px;
+        }
+        .midi-label { color: #888; font-size: 10px; text-transform: uppercase; }
+        .midi-btn { 
+            background: #222; border: 1px solid #444; color: #fff; padding: 6px; 
+            cursor: pointer; font-size: 11px; width: 100%; text-align: center; transition: 0.2s;
+        }
+        .midi-btn:hover { background: #333; }
+        .midi-btn.learning { background: #ff0055; border-color: #ff0055; color: #fff; animation: blink 0.5s infinite; }
+        @keyframes blink { 0%{opacity:1} 50%{opacity:0.5} 100%{opacity:1} }
+
+        /* NOTIFY & BOOT */
         #notify {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             font-size: 40px; font-weight: 300; letter-spacing: 10px; color: var(--accent);
             opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 999;
-            text-shadow: 0 0 30px var(--accent); background: rgba(0,0,0,0.8); padding: 20px 40px; border: 1px solid var(--accent);
+            text-shadow: 0 0 30px var(--accent); background: rgba(0,0,0,0.5); padding: 20px;
         }
-        #midi-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; justify-content: center; align-items: center; }
-        #midi-panel { width: 800px; height: 90vh; background: #0b0e14; border: 1px solid var(--accent); padding: 30px; display: flex; flex-direction: column; }
-        #midi-scroll { flex-grow: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; align-content: start; }
-        .midi-group-title { grid-column: span 3; color: var(--accent); font-size: 12px; margin-top: 15px; border-bottom: 1px solid #333; }
-        .midi-item { background: #151925; padding: 10px; border: 1px solid #222; display: flex; flex-direction: column; gap: 5px; }
-        .midi-btn { background: #222; color: #fff; border: 1px solid #444; padding: 5px; cursor: pointer; font-size: 10px; }
-        .midi-btn.learning { background: #ff0055; animation: blink 0.5s infinite; border-color: #ff0055; }
-        @keyframes blink { 0%{opacity:1} 50%{opacity:0.5} 100%{opacity:1} }
-
+        #boot {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 500;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
     </style>
 
     <script type="module">
@@ -181,40 +199,58 @@
             distortion: 2.0, micGain: 5.0, bloom: 1.5, speed: 1.0, rgbShift: 0.05, geoStrength: 4.0,
             tint: new THREE.Color(1, 1, 1), tintMix: 0.0, 
             loadingSlot: null, crossfade: 0.0, uiScale: 1.0,
+            deckA: "VACÍO", deckB: "VACÍO",
             workDeck: 'A', // 'A' or 'B' (Donde estoy trabajando)
-            outputMode: 'OFF' // 'A', 'B', 'OFF'
+            outputMode: 'OFF' // 'A', 'B', 'OFF' (Que se ve en el proyector)
         };
 
-        // --- MAPEO MIDI ---
+        // --- MAPEO MIDI COMPLETO ---
         const midiParams = {
-            // SALIDA (3 BOTONES)
+            // SELECTORES DE TRABAJO
+            'work_a': { label: 'Editar Mix A', type: null, val: null, group: 'SELECTOR MEZCLA' },
+            'work_b': { label: 'Editar Mix B', type: null, val: null, group: 'SELECTOR MEZCLA' },
+
+            // SALIDA PROYECCION
             'out_blackout': { label: 'Out: Blackout', type: null, val: null, group: 'SALIDA PROYECCIÓN' },
             'out_a': { label: 'Out: Proyec A', type: null, val: null, group: 'SALIDA PROYECCIÓN' },
             'out_b': { label: 'Out: Proyec B', type: null, val: null, group: 'SALIDA PROYECCIÓN' },
 
-            // TRABAJO (2 BOTONES)
-            'work_a': { label: 'Select Mix A', type: null, val: null, group: 'SELECTOR MEZCLA' },
-            'work_b': { label: 'Select Mix B', type: null, val: null, group: 'SELECTOR MEZCLA' },
-
-            'crossfader': { label: 'Fader Visual', type: 'cc', val: 1, group: 'MEZCLADORA' },
+            'crossfader': { label: 'Fader Mezcla', type: 'cc', val: 1, group: 'MEZCLADORA' },
             
             // CLIPS
-            'slot_a': { label: 'Clip A', type: 'note', val: 36, group: 'CLIPS' },
-            'slot_s': { label: 'Clip S', type: null, val: null, group: 'CLIPS' },
-            'slot_d': { label: 'Clip D', type: null, val: null, group: 'CLIPS' },
-            'slot_f': { label: 'Clip F', type: null, val: null, group: 'CLIPS' },
-            
+            'slot_a': { label: 'Cargar Clip A', type: 'note', val: 36, group: 'CLIPS' },
+            'slot_s': { label: 'Cargar Clip S', type: null, val: null, group: 'CLIPS' },
+            'slot_d': { label: 'Cargar Clip D', type: null, val: null, group: 'CLIPS' },
+            'slot_f': { label: 'Cargar Clip F', type: null, val: null, group: 'CLIPS' },
+            'slot_g': { label: 'Cargar Clip G', type: null, val: null, group: 'CLIPS' },
+            'slot_h': { label: 'Cargar Clip H', type: null, val: null, group: 'CLIPS' },
+            'slot_j': { label: 'Cargar Clip J', type: null, val: null, group: 'CLIPS' },
+            'slot_k': { label: 'Cargar Clip K', type: null, val: null, group: 'CLIPS' },
+            'slot_l': { label: 'Cargar Clip L', type: null, val: null, group: 'CLIPS' },
+
             // PARAMETROS
-            'speed': { label: 'Knob Speed', type: null, val: null, group: 'EFECTOS' },
-            'distortion': { label: 'Knob Glitch', type: null, val: null, group: 'EFECTOS' },
-            'load_iris': { label: 'Reload Loop', type: null, val: null, group: 'SISTEMA' },
-            'ui_scale': { label: 'UI Scale', type: null, val: null, group: 'SISTEMA' }
+            'speed': { label: 'Knob: Speed', type: null, val: null, group: 'EFECTOS' },
+            'distortion': { label: 'Knob: Glitch', type: null, val: null, group: 'EFECTOS' },
+            'geoStrength': { label: 'Knob: 3D Force', type: null, val: null, group: 'EFECTOS' },
+            'rgbShift': { label: 'Knob: RGB Shift', type: null, val: null, group: 'EFECTOS' },
+            'bloom': { label: 'Knob: Bloom', type: null, val: null, group: 'EFECTOS' },
+            'micGain': { label: 'Knob: Mic Gain', type: null, val: null, group: 'EFECTOS' },
+            
+            // TRIGGERS
+            'fx_next': { label: 'Btn: Next FX', type: null, val: null, group: 'ESTILO' },
+            'style_next': { label: 'Btn: Next Style', type: null, val: null, group: 'ESTILO' },
+            'geo_next': { label: 'Btn: Next Geo', type: null, val: null, group: 'ESTILO' },
+            'reset': { label: 'Btn: Reset All', type: null, val: null, group: 'ESTILO' },
+            'cam_toggle': { label: 'Btn: Cam Mix', type: null, val: null, group: 'ESTILO' },
+            'load_iris': { label: 'Load IRIS Loop', type: null, val: null, group: 'SISTEMA' },
+            'ui_scale': { label: 'UI Scale Bar', type: null, val: null, group: 'SISTEMA' }
         };
 
         let learningKey = null;
         let projectorWindow = null;
+        const videoSlots = {};
 
-        // --- AUDIO ---
+        // --- AUDIO ENGINE ---
         class AudioEngine {
             constructor() { this.ctx=null; this.analyser=null; this.data=null; this.freq=null; this.ready=false; }
             async init() {
@@ -226,7 +262,7 @@
                     this.data = new Uint8Array(this.analyser.frequencyBinCount);
                     this.freq = new Uint8Array(this.analyser.frequencyBinCount);
                     this.ready = true; return true;
-                } catch(e) { return false; }
+                } catch(e) { console.error(e); return false; }
             }
             getLevels() {
                 if(!this.ready) return { vol: 0, bass: 0 };
@@ -246,21 +282,23 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         camera.position.z = 9;
 
-        // MONITORES (Elementos Video del DOM para UI)
-        const vidA = document.getElementById('vid-a');
-        const vidB = document.getElementById('vid-b');
-        vidA.src = 'assets/videos/iris.webm'; vidA.loop=true; vidA.muted=true; vidA.play();
-        vidB.src = 'assets/videos/iris.webm'; vidB.loop=true; vidB.muted=true; vidB.play();
-
-        // TEXTURAS (Linkeadas a los monitores)
+        // ELEMENTOS DE VIDEO (MONITORES)
+        const vidA = document.createElement('video'); vidA.muted=true; vidA.loop=true; vidA.playsInline=true;
+        const vidB = document.createElement('video'); vidB.muted=true; vidB.loop=true; vidB.playsInline=true;
+        
+        // TEXTURAS
         const texA = new THREE.VideoTexture(vidA);
         const texB = new THREE.VideoTexture(vidB);
         const webcamEl = document.createElement('video'); webcamEl.muted=true; webcamEl.playsInline=true;
         const webcamTex = new THREE.VideoTexture(webcamEl);
-        const noiseTex = new THREE.CanvasTexture(document.createElement('canvas'));
+        
+        const c=document.createElement('canvas'); c.width=64; c.height=64;
+        const x=c.getContext('2d'); x.fillStyle='#000'; x.fillRect(0,0,64,64);
+        const noiseTex = new THREE.CanvasTexture(c);
+        texA.image = noiseTex.image; texB.image = noiseTex.image;
 
         const uniforms = {
-            uTexA: { value: texA }, uTexB: { value: texB }, uCrossfade: { value: 0.0 },
+            uTexA: { value: noiseTex }, uTexB: { value: noiseTex }, uCrossfade: { value: 0.0 },
             uTexCam: { value: noiseTex }, uMix: { value: 0.0 }, uTime: { value: 0.0 },
             uBass: { value: 0.0 }, uVol: { value: 0.0 }, uMode: { value: 1 }, uStyle: { value: 0 },
             uTint: { value: new THREE.Color(1,1,1) }, uTintMix: { value: 0.0 },
@@ -268,41 +306,42 @@
             uDistType: { value: 0 }, uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         };
 
-        // Fragment Shader (Igual que v5)
         const fragmentShader = `
             uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
             uniform sampler2D uTexCam; uniform float uMix; uniform float uTime;
             uniform float uBass; uniform float uVol; uniform int uMode; uniform int uStyle;
             uniform vec3 uTint; uniform float uTintMix; uniform float uSpeed; uniform float uRGBShift;
             varying vec2 vUv;
+            float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
             vec3 rgbSplit(sampler2D tex, vec2 uv, float amount) {
-                return vec3(texture2D(tex, uv - vec2(amount, 0.0)).r, texture2D(tex, uv).g, texture2D(tex, uv + vec2(amount, 0.0)).b);
+                float r = texture2D(tex, uv - vec2(amount, 0.0)).r;
+                float g = texture2D(tex, uv).g;
+                float b = texture2D(tex, uv + vec2(amount, 0.0)).b;
+                return vec3(r,g,b);
             }
             void main() {
                 vec2 uv = vUv; float t = uTime * uSpeed;
-                // Efectos Geometricos
                 if(uMode == 3) uv.x = abs(uv.x - 0.5) + 0.5;
                 if(uMode == 4) { vec2 c=uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,1.047); a=abs(a-0.523); uv=0.5+r*vec2(cos(a),sin(a)); }
                 if(uMode == 5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
                 if(uMode == 9) { uv.x+=sin(uv.y*10.0+t)*0.05*uVol; uv.y+=cos(uv.x*10.0+t)*0.05*uVol; }
-                
                 float shift = (uMode==2) ? uBass*0.05 : uRGBShift * uBass;
-                vec3 cA = rgbSplit(uTexA, uv, shift);
-                vec3 cB = rgbSplit(uTexB, uv, shift);
+                vec3 cA = rgbSplit(uTexA, uv, shift); vec3 cB = rgbSplit(uTexB, uv, shift);
                 
-                // MEZCLA
+                // MEZCLA DE SALIDA (Controlada por uCrossfade que ahora es forzado a 0 o 1 según Projection)
                 vec3 col = mix(cA, cB, uCrossfade);
-                
-                // RESTO FX
+
                 col = mix(col, rgbSplit(uTexCam, uv, shift), uMix);
                 if(uMode == 7 && uBass > 0.6) col = 1.0 - col;
-                if(uMode == 10 && fract(sin(dot(floor(uv*10.0)+floor(t*10.0) ,vec2(12.9898,78.233))) * 43758.5453)<uBass*0.5) col=vec3(1.0);
+                if(uMode == 8) { vec3 c1=mix(texture2D(uTexA,uv+0.002).rgb,texture2D(uTexB,uv+0.002).rgb,uCrossfade); col=length(abs(col-c1))*vec3(0,1,1)*4.0; }
+                if(uMode == 10 && rand(floor(uv*10.0)+floor(t*10.0))<uBass*0.5) col=vec3(1.0);
                 if(uMode == 1) col *= (0.8 + 0.2 * (sin(uv.y*800.0+t*5.0)*0.5+0.5));
-                
                 float lum = dot(col, vec3(0.33));
                 if (uStyle == 1) col *= (step(0.9, fract(uv.x*40.0+t*0.5)) + step(0.9, fract(uv.y*40.0))) * 2.0;
                 if (uStyle == 2) col *= step(distance(fract(uv*80.0), vec2(0.5)), lum*0.5) * 1.5;
-                
+                if (uStyle == 3) col *= (sin(uv.x*50.0)*sin(uv.y*50.0)>0.0 ? 1.5 : 0.2);
+                if (uStyle == 4) col = mix(col, vec3(0.0, 1.0, 0.8)*lum, 0.8) * step(0.5, sin(uv.y*200.0+t*10.0));
+                if (uStyle == 5) col = vec3(0.0, 1.0, 0.2) * step(0.5, rand(floor(uv*vec2(40.,20.0)) + floor(t))) * lum * 2.0;
                 col = mix(col, col * uTint, uTintMix);
                 gl_FragColor = vec4(col, 1.0);
             }
@@ -311,12 +350,13 @@
         const vertexShader = `
             uniform float uVol; uniform float uTime; uniform float uSpeed;
             uniform float uGeoStrength; uniform int uDistType; varying vec2 vUv;
+            float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
             void main() {
                 vUv = uv; vec3 pos = position; float d = 0.0; float t = uTime * uSpeed;
                 if (uDistType == 0) d = sin(pos.x * 2.0 + t) * cos(pos.y * 1.5 + t);
                 else if (uDistType == 1) { float wave = sin(pos.y * 50.0 + t * 10.0); d = (wave > 0.0 ? 1.0 : -1.0) * 0.5 * sin(pos.x * 10.0); }
                 else if (uDistType == 2) { d = sin(pos.y * 30.0 + t * 2.0) * sin(pos.x * 30.0); if (d > 0.5) d = 0.8; else if (d < -0.5) d = -0.8; else d = 0.0; }
-                else if (uDistType == 3) { vec2 block = floor(uv * 10.0); d = (fract(sin(dot(block,vec2(12.9,78.2)))*43758.5) > 0.7) ? 1.0 : 0.0; d *= sin(t * 5.0); }
+                else if (uDistType == 3) { vec2 block = floor(uv * 10.0); float r = rand(block); d = (r > 0.7) ? r : 0.0; d *= sin(t * 5.0 + r * 10.0); }
                 pos.z += d * uVol * uGeoStrength; 
                 gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
             }
@@ -331,28 +371,40 @@
         // --- FUNCIONES UI ---
         function setScale(val) {
             state.uiScale = parseFloat(val);
-            document.documentElement.style.setProperty('--ui-scale', state.uiScale);
+            document.documentElement.style.setProperty('--scale-factor', state.uiScale);
             document.getElementById('scale-fill').style.width = ((state.uiScale - 0.6) / 0.8) * 100 + '%';
             setTimeout(resize, 50);
         }
 
         function updateUI() {
-            // Monitor activo (Borde Cyan)
-            document.getElementById('mon-a').className = `monitor-box ${state.workDeck==='A' ? 'editing' : ''}`;
-            document.getElementById('mon-b').className = `monitor-box ${state.workDeck==='B' ? 'editing' : ''}`;
+            // Actualizar Monitores (Elementos Video DOM)
+            const monA = document.getElementById('monitor-a');
+            const monB = document.getElementById('monitor-b');
             
-            // Botones Work
-            document.getElementById('btn-work-a').className = `work-btn ${state.workDeck==='A'?'selected':''}`;
-            document.getElementById('btn-work-b').className = `work-btn ${state.workDeck==='B'?'selected':''}`;
+            // Sincronizar origen de video
+            if(monA.src !== vidA.src) monA.src = vidA.src;
+            if(monB.src !== vidB.src) monB.src = vidB.src;
 
-            // Botones Salida
-            document.getElementById('out-off').className = `proj-btn ${state.outputMode==='OFF'?'active-off':''}`;
-            document.getElementById('out-a').className = `proj-btn proj-source ${state.outputMode==='A'?'active':''}`;
-            document.getElementById('out-b').className = `proj-btn proj-source ${state.outputMode==='B'?'active':''}`;
-
-            // Fader (Solo visual en este modo, ya que la salida es por corte)
+            // Fader Visual
             document.getElementById('crossfader-handle').style.left = (state.crossfade * 100) + '%';
             
+            // Bordes Activos (Mezcla)
+            const boxA = document.getElementById('deck-box-a');
+            const boxB = document.getElementById('deck-box-b');
+            if(state.crossfade < 0.5) { boxA.classList.add('active-deck-text'); boxB.classList.remove('active-deck-text'); }
+            else { boxB.classList.add('active-deck-text'); boxA.classList.remove('active-deck-text'); }
+
+            // Botones Work
+            document.getElementById('btn-work-a').classList.toggle('selected', state.workDeck === 'A');
+            document.getElementById('btn-work-b').classList.toggle('selected', state.workDeck === 'B');
+            document.getElementById('deck-box-a').classList.toggle('editing', state.workDeck === 'A');
+            document.getElementById('deck-box-b').classList.toggle('editing', state.workDeck === 'B');
+
+            // Botones Salida
+            document.getElementById('out-off').className = `out-btn ${state.outputMode==='OFF'?'active':''}`;
+            document.getElementById('out-a').className = `out-btn source ${state.outputMode==='A'?'active':''}`;
+            document.getElementById('out-b').className = `out-btn source ${state.outputMode==='B'?'active':''}`;
+
             // Params
             document.getElementById('sl-speed').value = state.speed;
             document.getElementById('sl-dist').value = state.distortion;
@@ -369,24 +421,36 @@
 
         // --- ACCIONES ---
         const actions = {
-            setWorkDeck: (deck) => { state.workDeck = deck; notify(`EDITANDO: MIX ${deck}`); updateUI(); },
+            loadDefault: () => {
+                vidA.src = 'assets/videos/iris.webm'; vidA.play();
+                vidB.src = 'assets/videos/iris.webm'; vidB.play();
+                // Texture Update
+                texA.image = vidA; uniforms.uTexA.value = texA;
+                texB.image = vidB; uniforms.uTexB.value = texB;
+                // UI Monitor Start
+                document.getElementById('monitor-a').play();
+                document.getElementById('monitor-b').play();
+                updateUI();
+            },
             
             loadClip: () => {
-                state.loadingSlot = state.workDeck; // Carga en el deck seleccionado
+                state.loadingSlot = state.workDeck; // Cargar en el deck seleccionado (Mix A o Mix B)
                 document.getElementById('file-input').click();
             },
+            
+            setWorkDeck: (deck) => { state.workDeck = deck; notify(`EDITANDO: MIX ${deck}`); updateUI(); },
             
             setOutput: (mode) => {
                 state.outputMode = mode;
                 updateUI();
                 
-                // Logica de Salida
+                // Ventana Externa
                 if(projectorWindow && !projectorWindow.closed) {
                     const v = projectorWindow.document.getElementById('v');
                     v.style.opacity = (mode === 'OFF') ? 0 : 1;
                 }
                 
-                // Actualizar Shader
+                // Shader Logic (Corte Directo)
                 if(mode === 'A') uniforms.uCrossfade.value = 0.0;
                 else if(mode === 'B') uniforms.uCrossfade.value = 1.0;
                 // Si es OFF, no importa, el proyector esta negro. 
@@ -394,9 +458,11 @@
                 notify(`PROYECCION: ${mode}`);
             },
 
-            loadDefault: () => { updateUI(); }, // Ya cargados en HTML
-            
-            // Utiles
+            toggleCam: () => {
+                if(state.mixRatio===0) state.mixRatio=0.5; else if(state.mixRatio===0.5) state.mixRatio=1; else state.mixRatio=0;
+                if(state.mixRatio>0 && !webcamEl.srcObject) navigator.mediaDevices.getUserMedia({video:{width:1280}}).then(s=>{webcamEl.srcObject=s;webcamEl.play();uniforms.uTexCam.value=webcamTex;});
+                notify("CAM: " + state.mixRatio);
+            },
             nextFX: () => { state.effectMode = (state.effectMode % 10) + 1; notify(`FX: ${state.effectMode}`); },
             nextStyle: () => { state.styleMode = (state.styleMode + 1) % 6; notify(`STYLE: ${state.styleMode}`); },
             nextGeo: () => { state.distortionType = (state.distortionType + 1) % 4; notify(`GEO: ${state.distortionType}`); },
@@ -404,7 +470,7 @@
             setScale: (val) => setScale(val)
         };
 
-        // --- MIDI ---
+        // --- MIDI SYSTEM ---
         async function initMIDI() {
             if (!navigator.requestMIDIAccess) return;
             try {
@@ -419,31 +485,39 @@
             if(!type || (type==='note' && vel===0)) return; 
 
             if(learningKey) {
-                midiParams[learningKey].type = type; midiParams[learningKey].val = note;
+                midiParams[learningKey].type = type;
+                midiParams[learningKey].val = note;
                 notify(`MAPPED: ${midiParams[learningKey].label}`);
-                learningKey = null; renderMidiUI(); return;
+                learningKey = null;
+                renderMidiUI();
+                return;
             }
 
             Object.entries(midiParams).forEach(([key, map]) => {
                 if(map.type === type && map.val === note) {
                     const norm = vel / 127.0;
-                    
-                    if(key === 'ui_scale') actions.setScale(0.6 + (norm * 0.8));
+                    if(key === 'crossfader') { state.crossfade = norm; /* Solo visual o pre-mezcla */ }
+                    if(key === 'ui_scale') setScale(0.6 + (norm * 0.8));
                     if(key === 'speed') state.speed = norm * 5;
                     if(key === 'distortion') state.distortion = norm * 5;
                     if(key === 'geoStrength') state.geoStrength = norm * 10;
+                    if(key === 'rgbShift') state.rgbShift = norm * 0.2;
+                    if(key === 'bloom') state.bloom = norm * 3;
+                    if(key === 'micGain') state.micGain = norm * 10;
                     
-                    // Botones Trabajo
                     if(key === 'work_a') actions.setWorkDeck('A');
                     if(key === 'work_b') actions.setWorkDeck('B');
-                    
-                    // Botones Salida
                     if(key === 'out_blackout') actions.setOutput('OFF');
                     if(key === 'out_a') actions.setOutput('A');
                     if(key === 'out_b') actions.setOutput('B');
                     
                     if(key.startsWith('slot_')) actions.loadClip();
-                    if(key === 'load_iris') { vidA.src='assets/videos/iris.webm'; vidB.src='assets/videos/iris.webm'; vidA.play(); vidB.play(); }
+                    if(key === 'load_iris') actions.loadDefault();
+                    if(key === 'fx_next') actions.nextFX();
+                    if(key === 'style_next') actions.nextStyle();
+                    if(key === 'geo_next') actions.nextGeo();
+                    if(key === 'cam_toggle') actions.toggleCam();
+                    if(key === 'reset') actions.reset();
                     
                     updateUI();
                 }
@@ -451,19 +525,25 @@
         }
 
         function renderMidiUI() {
-            const list = document.getElementById('midi-scroll-area'); list.innerHTML = '';
+            const list = document.getElementById('midi-scroll-area');
+            list.innerHTML = '';
             const groups = {};
             Object.entries(midiParams).forEach(([k, v]) => {
                 if(!groups[v.group]) groups[v.group] = [];
                 groups[v.group].push([k,v]);
             });
             for(const [gName, items] of Object.entries(groups)) {
-                const groupDiv = document.createElement('div');
-                groupDiv.className = 'midi-group-title'; groupDiv.innerText = gName;
-                list.appendChild(groupDiv);
+                const head = document.createElement('div');
+                head.className = 'midi-group'; head.innerText = gName;
+                list.appendChild(head);
                 items.forEach(([key, map]) => {
                     const div = document.createElement('div'); div.className = 'midi-item';
-                    div.innerHTML = `<span class="midi-label">${map.label}</span><button class="midi-btn ${learningKey===key?'learning':''}">${map.val!==null?(map.type+':'+map.val):'MAP'}</button>`;
+                    div.innerHTML = `
+                        <span class="midi-label">${map.label}</span>
+                        <button class="midi-btn ${learningKey===key?'learning':''}">
+                            ${map.val !== null ? (map.type.toUpperCase() + ':' + map.val) : 'LEARN'}
+                        </button>
+                    `;
                     div.querySelector('button').onclick = () => { learningKey = key; renderMidiUI(); };
                     list.appendChild(div);
                 });
@@ -483,21 +563,38 @@
         document.getElementById('scale-input').oninput = (e) => actions.setScale(e.target.value);
         document.getElementById('sl-speed').oninput = (e) => state.speed = parseFloat(e.target.value);
         document.getElementById('sl-dist').oninput = (e) => state.distortion = parseFloat(e.target.value);
-        
+        document.getElementById('sl-geo').oninput = (e) => state.geoStrength = parseFloat(e.target.value);
+        document.getElementById('sl-rgb').oninput = (e) => state.rgbShift = parseFloat(e.target.value);
+        document.getElementById('sl-gain').oninput = (e) => state.micGain = parseFloat(e.target.value);
+        document.getElementById('sl-bloom').oninput = (e) => state.bloom = parseFloat(e.target.value);
+
         document.getElementById('file-input').onchange = (e) => {
             const file = e.target.files[0]; if(!file) return;
             const url = URL.createObjectURL(file);
             const targetVid = (state.loadingSlot === 'A') ? vidA : vidB;
             targetVid.src = url; targetVid.loop = true; targetVid.muted = true; targetVid.play();
-            // La textura se actualiza auto
+            // Actualizar monitor UI
+            const monitor = (state.loadingSlot === 'A') ? document.getElementById('monitor-a') : document.getElementById('monitor-b');
+            monitor.src = url; monitor.play();
+            
             document.getElementById('file-input').value = "";
             updateUI();
         };
+
+        window.addEventListener('wheel', (e) => { 
+            state.crossfade = Math.max(0, Math.min(1, state.crossfade + e.deltaY * 0.001)); 
+            // Nota: En este modo, el scroll solo mueve el fader visualmente, la salida es por botones A/B
+            updateUI(); 
+        });
 
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
             if(['a','s','d','f','g','h','j','k','l'].includes(k)) actions.loadClip();
             if(!isNaN(parseInt(k))) { state.effectMode = (parseInt(k)===0)?10:parseInt(k); notify(`FX ${state.effectMode}`); }
+            if(k==='m') actions.reset();
+            if(k==='n') actions.toggleCam();
+            if(['z','x','c','v','b'].includes(k)) { state.styleMode = {'z':1,'x':2,'c':3,'v':4,'b':5}[k]; notify("STYLE CHG"); }
+            if(['i','o','p'].includes(k)) { state.distortionType = {'i':1,'o':2,'p':3}[k]; notify("GEO CHG"); }
             updateUI();
         });
 
@@ -505,17 +602,18 @@
             requestAnimationFrame(animate);
             const t = performance.now()*0.001; const lvls = audio.getLevels();
             
+            // CROSSFADE LOGIC (Hard Cut)
+            let finalMix = 0.0;
+            if(state.outputMode === 'B') finalMix = 1.0;
+            // Si outputMode es 'OFF' o 'A', el mix es 0.0 (Deck A), pero en OFF el proyector está negro.
+
             uniforms.uTime.value=t; uniforms.uVol.value=lvls.vol; uniforms.uBass.value=lvls.bass;
             uniforms.uMix.value=state.mixRatio; uniforms.uMode.value=state.effectMode;
             uniforms.uStyle.value=state.styleMode; uniforms.uDistType.value=state.distortionType;
             uniforms.uTint.value=state.tint; uniforms.uTintMix.value=state.tintMix;
+            uniforms.uCrossfade.value=finalMix; 
             uniforms.uSpeed.value=state.speed; uniforms.uRGBShift.value=state.rgbShift; 
             uniforms.uGeoStrength.value=state.geoStrength;
-            
-            // CROSSFADE SIEMPRE 0 (A) o 1 (B) SEGUN SALIDA, IGNORANDO FADER
-            // El fader queda solo como decorativo o para futura implementacion
-            if(state.outputMode === 'A') uniforms.uCrossfade.value = 0.0;
-            else if(state.outputMode === 'B') uniforms.uCrossfade.value = 1.0;
             
             bloom.strength = state.bloom + (lvls.vol * 1.5);
             if(vidA.readyState>=2) texA.needsUpdate=true;
@@ -535,20 +633,18 @@
             else {
                 projectorWindow = window.open("", "PROJ", "width=800,height=600");
                 const stream = canvas.captureStream(60);
-                projectorWindow.document.write(`<body style="margin:0;background:#000;overflow:hidden"><video id="v" autoplay style="width:100vw;height:100vh;object-fit:cover; opacity:0"></video></body>`);
-                setTimeout(()=> {
-                    projectorWindow.document.getElementById('v').srcObject = stream;
-                    actions.setOutput(state.outputMode);
-                }, 200);
+                projectorWindow.document.write(`<body style="margin:0;background:#000;overflow:hidden"><video id="v" autoplay style="width:100vw;height:100vh;object-fit:cover; opacity:${state.outputMode==='OFF'?0:1}"></video></body>`);
+                setTimeout(()=> projectorWindow.document.getElementById('v').srcObject = stream, 200);
             }
         };
 
-        // UI BINDS
         document.getElementById('btn-work-a').onclick = () => actions.setWorkDeck('A');
         document.getElementById('btn-work-b').onclick = () => actions.setWorkDeck('B');
+        
         document.getElementById('out-off').onclick = () => actions.setOutput('OFF');
         document.getElementById('out-a').onclick = () => actions.setOutput('A');
         document.getElementById('out-b').onclick = () => actions.setOutput('B');
+
         document.getElementById('btn-midi').onclick = () => { document.getElementById('midi-overlay').style.display = 'flex'; renderMidiUI(); };
         document.getElementById('btn-close-midi').onclick = () => document.getElementById('midi-overlay').style.display = 'none';
 
@@ -576,32 +672,27 @@
         <div id="dashboard">
             
             <div class="panel">
-                <h3>MONITOR DE ESTADO</h3>
-                <div class="info-row"><span>FX MODE</span> <span id="val-mode" class="info-val">1</span></div>
-                <div class="info-row"><span>STYLE</span> <span id="val-style" class="info-val">NORMAL</span></div>
-                <div class="info-row"><span>DEFORM</span> <span id="val-dist" class="info-val">FLOR</span></div>
-                
-                <div class="info-row" style="margin-top:20px;"><span>SHORTCUTS</span></div>
-                <div style="font-size:10px; color:#555; line-height:1.6;">
-                    <span class="key-badge">1-0</span> FX 2D<br>
-                    <span class="key-badge">Z-B</span> Estilos<br>
-                    <span class="key-badge">I-P</span> 3D Geo<br>
-                    <span class="key-badge">A-L</span> Cargar Clip<br>
-                    <span class="key-badge">N</span> Webcam
-                </div>
+                <h3>ATAJOS</h3>
+                <div class="shortcut-row"><span>Cargar Video</span> <span class="key-badge">A-L</span></div>
+                <div class="shortcut-row"><span>Efectos</span> <span class="key-badge">1-0</span></div>
+                <div class="shortcut-row"><span>Estilos Geo</span> <span class="key-badge">Z-B</span></div>
+                <div class="shortcut-row"><span>Deformación</span> <span class="key-badge">I,O,P</span></div>
+                <div class="shortcut-row"><span>Reset</span> <span class="key-badge">M</span></div>
+                <div class="shortcut-row"><span>Webcam</span> <span class="key-badge">N</span></div>
+                <div style="margin-top:auto; font-size:10px; color:#555;">ALTER.LAB // 2025</div>
             </div>
 
             <div class="panel" style="justify-content: flex-end;">
                 
                 <div id="dual-monitors">
-                    <div id="mon-a" class="monitor-box editing">
-                        <video id="vid-a" class="monitor-video"></video>
-                        <span class="monitor-label">MONITOR A</span>
+                    <div id="deck-box-a" class="monitor-box editing">
+                        <video id="monitor-a" class="monitor-vid" muted loop></video>
+                        <span class="deck-label">MIX A</span>
                     </div>
                     
-                    <div id="mon-b" class="monitor-box">
-                        <video id="vid-b" class="monitor-video"></video>
-                        <span class="monitor-label">MONITOR B</span>
+                    <div id="deck-box-b" class="monitor-box">
+                        <video id="monitor-b" class="monitor-vid" muted loop></video>
+                        <span class="deck-label">MIX B</span>
                     </div>
                 </div>
 
@@ -620,23 +711,24 @@
                 
                 <div class="control-group">
                     <span class="group-label" style="font-size:9px; color:#555; letter-spacing:1px; display:block; margin-bottom:5px;">SALIDA PROYECCIÓN</span>
-                    <div class="proj-matrix">
-                        <button id="out-off" class="proj-btn active-off">BLACKOUT</button>
-                        <button id="out-a" class="proj-btn proj-source">PROJ A</button>
-                        <button id="out-b" class="proj-btn proj-source">PROJ B</button>
+                    <div class="out-matrix">
+                        <button id="out-off" class="out-btn active">BLACKOUT</button>
+                        <button id="out-a" class="out-btn source">PROYEC A</button>
+                        <button id="out-b" class="out-btn source">PROYEC B</button>
                     </div>
                 </div>
 
                 <div class="util-grid">
-                    <button class="util-btn" id="btn-midi">MIDI MAP</button>
+                    <button class="util-btn" id="btn-load-a">LOAD A</button>
+                    <button class="util-btn" id="btn-load-b">LOAD B</button>
+                    <button class="util-btn" id="btn-midi">MIDI</button>
                     <button class="util-btn" id="btn-proj">VENTANA</button>
-                    <button class="util-btn" onclick="actions.loadClip()">CARGAR CLIP</button>
                 </div>
 
                 <div style="margin-top:auto;">
                     <div class="param-row"><span class="param-label">SPEED</span> <input type="range" id="sl-speed" min="0.1" max="5" step="0.1" value="1" class="param-slider"></div>
                     <div class="param-row"><span class="param-label">GLITCH</span> <input type="range" id="sl-dist" min="0" max="5" step="0.1" value="2" class="param-slider"></div>
-                    <div class="param-row"><span class="param-label">3D</span> <input type="range" id="sl-geo" min="0" max="10" step="0.1" value="4" class="param-slider"></div>
+                    <div class="param-row"><span class="param-label">3D GEO</span> <input type="range" id="sl-geo" min="0" max="10" step="0.1" value="4" class="param-slider"></div>
                     <div class="param-row"><span class="param-label">RGB</span> <input type="range" id="sl-rgb" min="0" max="0.2" step="0.01" value="0.05" class="param-slider"></div>
                     <div class="param-row"><span class="param-label">BLOOM</span> <input type="range" id="sl-bloom" min="0" max="3" step="0.1" value="1.5" class="param-slider"></div>
                 </div>
@@ -648,9 +740,9 @@
 
     <div id="midi-overlay">
         <div id="midi-panel">
-            <div class="midi-header">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:10px;">
                 <h2 style="color:#00E5FF; margin:0; font-size:16px;">MAPEO MIDI</h2>
-                <button id="btn-close-midi" class="proj-btn active-off" style="padding:5px 20px;">CERRAR</button>
+                <button id="btn-close-midi" class="out-btn active">CERRAR</button>
             </div>
             <div id="midi-scroll-area"></div>
         </div>
