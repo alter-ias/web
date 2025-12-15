@@ -2,19 +2,19 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>AIRIS v4 - COMPLETE SUITE</title>
+    <title>IRIS - VISUAL SYSTEM</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Montserrat:wght@300;500&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --bg-color: #0F121B;
-            --panel-bg: #151925;
+            --bg-color: #000000;
+            --panel-bg: rgba(15, 20, 25, 0.95);
             --accent: #00E5FF;
             --text: #FFFFFF;
-            --text-dim: #6c7a9c;
-            --ui-scale: 1.0; /* Variable dinámica controlada por el slider */
+            --text-dim: #556677;
+            --ui-scale: 1.0;
         }
 
         body { 
@@ -23,66 +23,67 @@
             display: flex; flex-direction: column; height: 100vh;
         }
 
-        /* --- 1. AREA DE VISUALIZACIÓN (Flexible) --- */
+        /* --- VIEWPORT --- */
         #viewport {
-            flex-grow: 1; /* Ocupa todo el espacio que sobra */
-            position: relative;
-            background: #000;
-            overflow: hidden;
-            display: flex; justify-content: center; align-items: center;
-            z-index: 1;
+            flex-grow: 1; position: relative; overflow: hidden;
+            display: flex; justify-content: center; align-items: center; z-index: 1;
         }
-        
-        #vj-canvas {
-            width: 100%; height: 100%; object-fit: contain;
-            box-shadow: 0 0 50px rgba(0,229,255,0.05);
-        }
+        #vj-canvas { width: 100%; height: 100%; object-fit: contain; }
 
-        /* --- 2. AREA DE CONTROL (Altura dinámica) --- */
+        /* --- UI CONTAINER --- */
         #ui-container {
-            /* La altura se calcula en base a la escala */
             height: calc(280px * var(--ui-scale)); 
-            background: var(--panel-bg);
-            border-top: 1px solid rgba(0,229,255,0.2);
-            flex-shrink: 0; 
-            position: relative;
-            z-index: 10;
-            transition: height 0.1s linear;
-            overflow: hidden; /* Evitar scrollbars en la UI */
+            background: transparent;
+            flex-shrink: 0; position: relative; z-index: 10;
+            transition: height 0.05s linear;
+            display: flex; justify-content: center;
         }
 
         #dashboard {
-            width: 100%; height: 280px; /* Altura base fija interna */
-            transform-origin: top left;
+            width: 100%; height: 280px; 
+            background: var(--panel-bg);
+            border-top: 1px solid rgba(0,229,255,0.1);
+            transform-origin: top center;
             transform: scale(var(--ui-scale));
-            width: calc(100% / var(--ui-scale)); /* Compensa el ancho al escalar */
+            width: calc(100% / var(--ui-scale));
             display: grid; 
-            grid-template-columns: 280px 1fr 350px; /* 3 Columnas */
-            padding: 20px 40px; box-sizing: border-box;
-            gap: 30px;
+            grid-template-columns: 280px 1fr 350px;
+            padding: 25px 40px; box-sizing: border-box;
+            gap: 30px; position: relative;
+        }
+
+        /* --- UI SCALE BAR (NEON TOP) --- */
+        #scale-bar-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 6px;
+            background: #000; cursor: ew-resize; overflow: hidden;
+        }
+        #scale-bar-fill {
+            height: 100%; background: var(--accent); width: 50%;
+            box-shadow: 0 0 10px var(--accent); transition: width 0.1s;
+        }
+        #scale-input {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0; cursor: ew-resize;
         }
 
         /* --- PANELES --- */
         .panel { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
-        
         h3 { 
             font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 3px; 
             color: var(--text-dim); margin: 0 0 15px 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px;
         }
 
-        /* Shortcuts Panel */
-        .shortcut-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; color: #aaa; }
-        .key-badge { 
-            background: rgba(0,229,255,0.1); color: var(--accent); 
-            padding: 1px 6px; border-radius: 4px; font-weight: 700; font-size: 11px; border: 1px solid rgba(0,229,255,0.3);
-        }
+        /* Shortcuts */
+        .shortcut-row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; color: #888; }
+        .key-badge { color: var(--accent); font-weight: 700; font-size: 11px; }
 
-        /* Mixer Central */
+        /* Mixer */
         .mixer-display { 
             display: flex; justify-content: space-between; align-items: flex-end; 
             font-size: 30px; font-weight: 700; color: #333; margin-bottom: 10px;
         }
         .active-deck-text { color: #fff; text-shadow: 0 0 20px var(--accent); }
+        .deck-filename { font-size: 10px; color: var(--accent); letter-spacing: 1px; }
 
         #crossfader-track {
             width: 100%; height: 12px; background: #000; border-radius: 6px; position: relative;
@@ -95,9 +96,8 @@
         }
         #crossfader-handle::after { content: '|||'; color: #000; font-size: 10px; font-weight: 900; letter-spacing: 2px; }
 
-        /* Controles Derecha */
+        /* Controles */
         .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        
         .action-btn {
             background: transparent; border: 1px solid var(--text-dim); color: var(--text-dim);
             padding: 10px; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 11px;
@@ -106,64 +106,47 @@
         .action-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.05); }
         .action-btn.primary { border-color: var(--accent); color: var(--accent); }
         .action-btn.danger { color: #ff3366; border-color: #551133; }
-        .action-btn.danger.active { background: #ff0055; border-color: #ff0055; color: #fff; box-shadow: 0 0 15px #ff0055; }
+        .action-btn.danger.active { background: #ff0055; border-color: #ff0055; color: #fff; box-shadow: 0 0 20px #ff0055; }
 
-        /* Sliders Params */
         .param-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
         .param-label { color: #888; width: 70px; }
         .param-slider { flex-grow: 1; accent-color: var(--accent); height: 4px; cursor: pointer; }
 
-        /* --- 3. UI SCALER VERTICAL --- */
-        #scaler-wrapper {
-            position: absolute; left: 5px; bottom: 20px;
-            display: flex; flex-direction: column; align-items: center; gap: 5px;
-            z-index: 100; height: 120px;
-        }
-        #ui-scaler {
-            writing-mode: bt-lr; /* Firefox */
-            -webkit-appearance: slider-vertical; /* Webkit */
-            width: 8px; height: 100%;
-            accent-color: #555;
-        }
-        .scale-icon { font-size: 9px; color: #555; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 2px; }
-
-        /* --- 4. MIDI MAPPER COMPLETO --- */
+        /* --- MIDI OVERLAY --- */
         #midi-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); z-index: 200; backdrop-filter: blur(5px);
             justify-content: center; align-items: center;
         }
         #midi-panel {
-            width: 500px; height: 80vh; background: #111; border: 1px solid var(--accent);
+            width: 700px; height: 85vh; background: #111; border: 1px solid var(--accent);
             padding: 30px; display: flex; flex-direction: column;
             box-shadow: 0 0 50px rgba(0,229,255,0.2);
         }
         #midi-scroll-area {
             flex-grow: 1; overflow-y: auto; margin: 20px 0; padding-right: 10px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start;
         }
-        /* Scrollbar custom */
         #midi-scroll-area::-webkit-scrollbar { width: 5px; }
         #midi-scroll-area::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 5px; }
-        #midi-scroll-area::-webkit-scrollbar-track { background: #222; }
-
+        
+        .midi-group-title { grid-column: span 2; color: #555; font-size: 10px; margin-top: 10px; border-bottom: 1px solid #333; }
         .midi-item { 
-            background: #1a1a1a; padding: 12px; display: flex; justify-content: space-between; align-items: center; 
-            border-bottom: 1px solid #333; margin-bottom: 5px;
+            background: #1a1a1a; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; 
+            border: 1px solid #222;
         }
-        .midi-label { color: #ccc; font-size: 12px; }
-        .midi-btn { background: #333; border: 1px solid #444; color: #fff; padding: 4px 10px; cursor: pointer; font-size: 10px; min-width: 80px;}
+        .midi-label { color: #ccc; font-size: 11px; }
+        .midi-btn { background: #333; border: 1px solid #444; color: #fff; padding: 4px 10px; cursor: pointer; font-size: 10px; min-width: 60px;}
         .midi-btn.learning { background: #ff0055; border-color: #ff0055; animation: blink 0.5s infinite; }
         @keyframes blink { 0%{opacity:1} 50%{opacity:0.5} 100%{opacity:1} }
 
-        /* NOTIFY */
+        /* NOTIFY & BOOT */
         #notify {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             font-size: 40px; font-weight: 300; letter-spacing: 10px; color: var(--accent);
             opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 999;
             text-shadow: 0 0 30px var(--accent); background: rgba(0,0,0,0.5); padding: 20px;
         }
-
-        /* BOOT SCREEN */
         #boot {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 500;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -179,39 +162,57 @@
         // --- ESTADO ---
         const state = {
             effectMode: 1, styleMode: 0, distortionType: 0, mixRatio: 0.0, 
-            distortion: 2.0, micGain: 5.0, bloom: 1.5, speed: 1.0, rgbShift: 0.05, geoStrength: 4.0,
+            distortion: 2.0, micGain: 5.0, bloom: 1.5, speed: 1.0, rgbShift: 0.05, geoStrength: 4.0, uiScale: 1.0,
             tint: new THREE.Color(1, 1, 1), tintMix: 0.0, 
             loadingSlot: null, crossfade: 0.0,
             deckA: "VACÍO", deckB: "VACÍO",
             isBlackout: false
         };
 
-        // --- MAPEO MIDI TOTAL (TODOS LOS PARÁMETROS) ---
+        // --- MAPEO MIDI EXHAUSTIVO (TODOOOOO) ---
         const midiParams = {
-            'crossfader': { label: 'Crossfader (Mezcla)', type: 'cc', val: 1 },
-            'slot_a': { label: 'Cargar Deck A', type: 'note', val: 36 },
-            'slot_b': { label: 'Cargar Deck B', type: 'note', val: 37 },
+            // General
+            'crossfader': { label: 'Crossfader (A/B)', type: 'cc', val: 1 },
+            'ui_scale': { label: 'UI Scale (Neon Bar)', type: null, val: null },
+            'blackout': { label: 'Btn: Blackout', type: null, val: null },
+            'reset': { label: 'Btn: Reset All', type: null, val: null },
+            
+            // Knobs / Sliders
             'speed': { label: 'Knob: Velocidad', type: null, val: null },
             'distortion': { label: 'Knob: Glitch', type: null, val: null },
             'geoStrength': { label: 'Knob: Fuerza 3D', type: null, val: null },
             'rgbShift': { label: 'Knob: RGB Shift', type: null, val: null },
-            'bloom': { label: 'Knob: Brillo/Bloom', type: null, val: null },
+            'bloom': { label: 'Knob: Brillo', type: null, val: null },
             'micGain': { label: 'Knob: Ganancia Mic', type: null, val: null },
+
+            // Slots de Carga (A-L)
+            'slot_a': { label: 'Load Slot A', type: null, val: null },
+            'slot_s': { label: 'Load Slot S', type: null, val: null },
+            'slot_d': { label: 'Load Slot D', type: null, val: null },
+            'slot_f': { label: 'Load Slot F', type: null, val: null },
+            'slot_g': { label: 'Load Slot G', type: null, val: null },
+            'slot_h': { label: 'Load Slot H', type: null, val: null },
+            'slot_j': { label: 'Load Slot J', type: null, val: null },
+            'slot_k': { label: 'Load Slot K', type: null, val: null },
+            'slot_l': { label: 'Load Slot L', type: null, val: null },
+
+            // Carga Directa
+            'load_deck_a': { label: 'Btn: Cargar Deck A', type: null, val: null },
+            'load_deck_b': { label: 'Btn: Cargar Deck B', type: null, val: null },
+            'load_iris': { label: 'Btn: Cargar IRIS.webm', type: null, val: null },
+
+            // Efectos
             'fx_next': { label: 'Btn: Siguiente FX', type: null, val: null },
-            'fx_prev': { label: 'Btn: Anterior FX', type: null, val: null },
             'style_next': { label: 'Btn: Siguiente Estilo', type: null, val: null },
-            'geo_next': { label: 'Btn: Siguiente Deform', type: null, val: null },
-            'blackout': { label: 'Btn: Blackout Toggle', type: null, val: null },
-            'cam_toggle': { label: 'Btn: Webcam Toggle', type: null, val: null },
-            'reset': { label: 'Btn: Reset Visuales', type: null, val: null },
-            'load_iris': { label: 'Btn: Cargar IRIS Default', type: null, val: null }
+            'geo_next': { label: 'Btn: Siguiente Geo', type: null, val: null },
+            'cam_toggle': { label: 'Btn: Webcam Toggle', type: null, val: null }
         };
 
         let learningKey = null;
         let projectorWindow = null;
         const videoSlots = {};
 
-        // --- AUDIO ---
+        // --- AUDIO ENGINE ---
         class AudioEngine {
             constructor() { this.ctx=null; this.analyser=null; this.data=null; this.freq=null; this.ready=false; }
             async init() {
@@ -236,7 +237,7 @@
         }
         const audio = new AudioEngine();
 
-        // --- VJ ENGINE ---
+        // --- ENGINE 3D ---
         const canvas = document.getElementById('vj-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
         const scene = new THREE.Scene();
@@ -326,18 +327,21 @@
             document.getElementById('deck-a-name').innerText = state.deckA.length>15 ? state.deckA.substring(0,12)+'...' : state.deckA;
             document.getElementById('deck-b-name').innerText = state.deckB.length>15 ? state.deckB.substring(0,12)+'...' : state.deckB;
             document.getElementById('crossfader-handle').style.left = (state.crossfade * 100) + '%';
-            const tA = document.getElementById('title-a');
-            const tB = document.getElementById('title-b');
+            const tA = document.getElementById('title-a'); const tB = document.getElementById('title-b');
             if(state.crossfade < 0.5) { tA.classList.add('active-deck-text'); tB.classList.remove('active-deck-text'); }
             else { tB.classList.add('active-deck-text'); tA.classList.remove('active-deck-text'); }
             
-            // Sync sliders
+            // Sync Sliders
             document.getElementById('sl-speed').value = state.speed;
             document.getElementById('sl-dist').value = state.distortion;
             document.getElementById('sl-geo').value = state.geoStrength;
             document.getElementById('sl-rgb').value = state.rgbShift;
             document.getElementById('sl-gain').value = state.micGain;
             document.getElementById('sl-bloom').value = state.bloom;
+            
+            // Sync Scale Bar
+            document.getElementById('scale-bar-fill').style.width = ((state.uiScale - 0.6) / 0.8) * 100 + '%';
+            document.getElementById('scale-input').value = state.uiScale;
         }
 
         function notify(msg) {
@@ -350,10 +354,10 @@
         const actions = {
             loadDefault: () => {
                 const vid = document.createElement('video');
-                vid.src = 'assets/videos/iris.webm'; // VIDEO PRECARGADO
+                vid.src = 'assets/videos/iris.webm'; 
                 vid.loop = true; vid.muted = true; vid.playsInline = true;
-                vid.play().then(()=>notify("IRIS LOADED (A)")).catch(e=>console.log("No default video found"));
-                state.deckA = "IRIS_DEFAULT";
+                vid.play().then(()=>notify("IRIS SYSTEM ONLINE")).catch(e=>console.log("No default video"));
+                state.deckA = "IRIS_CORE";
                 texA.image = vid; uniforms.uTexA.value = texA;
                 updateUI();
             },
@@ -362,9 +366,7 @@
             toggleBlackout: () => {
                 state.isBlackout = !state.isBlackout;
                 document.getElementById('btn-blackout').classList.toggle('active', state.isBlackout);
-                if(projectorWindow && !projectorWindow.closed) {
-                    projectorWindow.document.querySelector('video').style.opacity = state.isBlackout ? 0 : 1;
-                }
+                if(projectorWindow && !projectorWindow.closed) projectorWindow.document.querySelector('video').style.opacity = state.isBlackout ? 0 : 1;
                 notify(state.isBlackout ? "BLACKOUT" : "LIVE");
             },
             toggleCam: () => {
@@ -373,13 +375,18 @@
                 notify("CAM: " + state.mixRatio);
             },
             nextFX: () => { state.effectMode = (state.effectMode % 10) + 1; notify(`FX: ${state.effectMode}`); },
-            prevFX: () => { state.effectMode = (state.effectMode - 1) || 10; notify(`FX: ${state.effectMode}`); },
             nextStyle: () => { state.styleMode = (state.styleMode + 1) % 6; notify(`STYLE: ${state.styleMode}`); },
             nextGeo: () => { state.distortionType = (state.distortionType + 1) % 4; notify(`GEO: ${state.distortionType}`); },
-            reset: () => { state.styleMode=0; state.distortionType=0; state.effectMode=1; notify("RESET"); }
+            reset: () => { state.styleMode=0; state.distortionType=0; state.effectMode=1; notify("RESET"); },
+            setScale: (val) => {
+                state.uiScale = parseFloat(val);
+                document.documentElement.style.setProperty('--ui-scale', state.uiScale);
+                updateUI();
+                setTimeout(resize, 50);
+            }
         };
 
-        // --- MIDI SYSTEM ---
+        // --- MIDI ---
         async function initMIDI() {
             if (!navigator.requestMIDIAccess) return;
             try {
@@ -406,22 +413,31 @@
                 if(map.type === type && map.val === note) {
                     const norm = vel / 127.0;
                     if(key === 'crossfader') state.crossfade = norm;
+                    if(key === 'ui_scale') actions.setScale(0.6 + (norm * 0.8));
                     if(key === 'speed') state.speed = norm * 5;
                     if(key === 'distortion') state.distortion = norm * 5;
                     if(key === 'geoStrength') state.geoStrength = norm * 10;
                     if(key === 'rgbShift') state.rgbShift = norm * 0.2;
                     if(key === 'bloom') state.bloom = norm * 3;
                     if(key === 'micGain') state.micGain = norm * 10;
-                    if(key === 'slot_a') actions.loadA();
-                    if(key === 'slot_b') actions.loadB();
+                    
+                    // Botones y Slots
+                    if(key.startsWith('slot_')) {
+                        const slot = key.split('_')[1]; // a, s, d...
+                        // Cargar en el deck opuesto al activo
+                        state.loadingSlot = (state.crossfade < 0.5) ? 'B' : 'A';
+                        document.getElementById('file-input').click();
+                    }
+                    if(key === 'load_deck_a') actions.loadA();
+                    if(key === 'load_deck_b') actions.loadB();
                     if(key === 'blackout') actions.toggleBlackout();
                     if(key === 'fx_next') actions.nextFX();
-                    if(key === 'fx_prev') actions.prevFX();
                     if(key === 'style_next') actions.nextStyle();
                     if(key === 'geo_next') actions.nextGeo();
                     if(key === 'cam_toggle') actions.toggleCam();
                     if(key === 'reset') actions.reset();
                     if(key === 'load_iris') actions.loadDefault();
+                    
                     updateUI();
                 }
             });
@@ -430,18 +446,36 @@
         function renderMidiUI() {
             const list = document.getElementById('midi-scroll-area');
             list.innerHTML = '';
-            Object.entries(midiParams).forEach(([key, map]) => {
-                const div = document.createElement('div');
-                div.className = 'midi-item';
-                div.innerHTML = `
-                    <span style="color:#aaa; font-size:11px;">${map.label}</span>
-                    <button class="midi-btn ${learningKey===key?'learning':''}">
-                        ${map.val !== null ? (map.type.toUpperCase() + ':' + map.val) : 'LEARN'}
-                    </button>
-                `;
-                div.querySelector('button').onclick = () => { learningKey = key; renderMidiUI(); };
-                list.appendChild(div);
+            
+            // Agrupar por categorías visuales
+            const groups = { 'GENERAL':[], 'SLOTS':[], 'KNOBS':[], 'BOTONES':[] };
+            
+            Object.entries(midiParams).forEach(([k, v]) => {
+                if(k.startsWith('slot')) groups.SLOTS.push([k,v]);
+                else if(v.label.startsWith('Knob') || k==='crossfader' || k==='ui_scale') groups.KNOBS.push([k,v]);
+                else groups.BOTONES.push([k,v]);
             });
+
+            const createSection = (title, items) => {
+                const head = document.createElement('div');
+                head.className = 'midi-group-title'; head.innerText = title;
+                list.appendChild(head);
+                items.forEach(([key, map]) => {
+                    const div = document.createElement('div'); div.className = 'midi-item';
+                    div.innerHTML = `
+                        <span class="midi-label">${map.label}</span>
+                        <button class="midi-btn ${learningKey===key?'learning':''}">
+                            ${map.val !== null ? (map.type.toUpperCase() + ':' + map.val) : 'LEARN'}
+                        </button>
+                    `;
+                    div.querySelector('button').onclick = () => { learningKey = key; renderMidiUI(); };
+                    list.appendChild(div);
+                });
+            };
+
+            createSection('CONTROLES PRINCIPALES', groups.KNOBS);
+            createSection('ACCIONES', groups.BOTONES);
+            createSection('CLIPS (A-L)', groups.SLOTS);
         }
 
         // --- EVENTOS ---
@@ -454,15 +488,16 @@
         };
         window.addEventListener('resize', resize);
 
-        // Sliders
+        // Inputs & Sliders
         document.getElementById('sl-speed').oninput = (e) => state.speed = parseFloat(e.target.value);
         document.getElementById('sl-dist').oninput = (e) => state.distortion = parseFloat(e.target.value);
         document.getElementById('sl-geo').oninput = (e) => state.geoStrength = parseFloat(e.target.value);
         document.getElementById('sl-rgb').oninput = (e) => state.rgbShift = parseFloat(e.target.value);
         document.getElementById('sl-gain').oninput = (e) => state.micGain = parseFloat(e.target.value);
         document.getElementById('sl-bloom').oninput = (e) => state.bloom = parseFloat(e.target.value);
+        document.getElementById('scale-input').oninput = (e) => actions.setScale(e.target.value);
 
-        // File Input
+        // File Loader
         document.getElementById('file-input').onchange = (e) => {
             const file = e.target.files[0]; if(!file) return;
             const url = URL.createObjectURL(file);
@@ -474,11 +509,6 @@
         };
 
         window.addEventListener('wheel', (e) => { state.crossfade = Math.max(0, Math.min(1, state.crossfade + e.deltaY * 0.001)); updateUI(); });
-
-        document.getElementById('ui-scaler').oninput = (e) => {
-            document.documentElement.style.setProperty('--ui-scale', e.target.value);
-            setTimeout(resize, 50); // Forzar resize del canvas
-        };
 
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
@@ -511,11 +541,11 @@
             composer.render();
         }
 
-        // START
+        // Init
         document.getElementById('btn-start').onclick = async () => {
             await audio.init(); await initMIDI();
             document.getElementById('boot').style.display='none';
-            actions.loadDefault(); // CARGAR IRIS.MP4
+            actions.loadDefault();
             resize(); animate();
         };
 
@@ -529,7 +559,6 @@
             }
         };
 
-        // Bindings Botones
         document.getElementById('btn-load-a').onclick = actions.loadA;
         document.getElementById('btn-load-b').onclick = actions.loadB;
         document.getElementById('btn-blackout').onclick = actions.toggleBlackout;
@@ -541,7 +570,7 @@
 <body>
 
     <div id="boot">
-        <h1 style="font-size:60px; letter-spacing:10px; color:#fff; margin-bottom:10px;">AIRIS <span style="color:#00E5FF">v4</span></h1>
+        <h1 style="font-size:60px; letter-spacing:10px; color:#fff; margin-bottom:10px;">IRIS <span style="color:#00E5FF">v5</span></h1>
         <p style="color:#666; font-family:'Montserrat'; letter-spacing:2px; font-size:12px; margin-bottom:30px;">VISUAL PERFORMANCE SUITE</p>
         <button id="btn-start" style="padding:15px 40px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; cursor:pointer;">INICIAR SISTEMA</button>
     </div>
@@ -551,6 +580,12 @@
     </div>
 
     <div id="ui-container">
+        
+        <div id="scale-bar-container">
+            <div id="scale-bar-fill"></div>
+            <input type="range" id="scale-input" min="0.6" max="1.4" step="0.01" value="1.0">
+        </div>
+
         <div id="dashboard">
             
             <div class="panel">
@@ -574,8 +609,8 @@
                     </div>
                     
                     <div style="display:flex; justify-content:space-between; color:#00E5FF; font-size:10px; margin-bottom:5px;">
-                        <span id="deck-a-name">VACÍO</span>
-                        <span id="deck-b-name">VACÍO</span>
+                        <span id="deck-a-name" class="deck-filename">VACÍO</span>
+                        <span id="deck-b-name" class="deck-filename">VACÍO</span>
                     </div>
 
                     <div id="crossfader-track">
@@ -606,11 +641,6 @@
                 <div class="param-row"><span class="param-label">BLOOM</span> <input type="range" id="sl-bloom" min="0" max="3" step="0.1" value="1.5" class="param-slider"></div>
             </div>
 
-        </div>
-        
-        <div id="scaler-wrapper">
-            <input type="range" id="ui-scaler" min="0.6" max="1.2" step="0.1" value="1.0">
-            <span class="scale-icon">UI SIZE</span>
         </div>
     </div>
 
