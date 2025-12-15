@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>AIRIS v3 - PERFORMANCE SUITE</title>
+    <title>AIRIS v4 - COMPLETE SUITE</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Montserrat:wght@300;500&display=swap" rel="stylesheet">
@@ -14,7 +14,7 @@
             --accent: #00E5FF;
             --text: #FFFFFF;
             --text-dim: #6c7a9c;
-            --ui-scale: 1.0; /* Variable dinámica */
+            --ui-scale: 1.0; /* Variable dinámica controlada por el slider */
         }
 
         body { 
@@ -23,42 +23,46 @@
             display: flex; flex-direction: column; height: 100vh;
         }
 
-        /* --- 1. AREA DE VISUALIZACIÓN (Arriba) --- */
+        /* --- 1. AREA DE VISUALIZACIÓN (Flexible) --- */
         #viewport {
-            flex-grow: 1; /* Ocupa todo el espacio disponible */
+            flex-grow: 1; /* Ocupa todo el espacio que sobra */
             position: relative;
             background: #000;
             overflow: hidden;
             display: flex; justify-content: center; align-items: center;
+            z-index: 1;
         }
         
         #vj-canvas {
-            width: 100%; height: 100%; object-fit: contain; /* Mantiene proporción */
-            box-shadow: 0 0 50px rgba(0,229,255,0.1);
+            width: 100%; height: 100%; object-fit: contain;
+            box-shadow: 0 0 50px rgba(0,229,255,0.05);
         }
 
-        /* --- 2. AREA DE CONTROL (Abajo) --- */
+        /* --- 2. AREA DE CONTROL (Altura dinámica) --- */
         #ui-container {
-            height: calc(280px * var(--ui-scale)); /* Altura basada en escala */
+            /* La altura se calcula en base a la escala */
+            height: calc(280px * var(--ui-scale)); 
             background: var(--panel-bg);
             border-top: 1px solid rgba(0,229,255,0.2);
-            flex-shrink: 0; /* No se aplasta */
+            flex-shrink: 0; 
             position: relative;
             z-index: 10;
-            transition: height 0.1s ease;
+            transition: height 0.1s linear;
+            overflow: hidden; /* Evitar scrollbars en la UI */
         }
 
         #dashboard {
-            width: 100%; height: 100%;
-            transform-origin: top center;
+            width: 100%; height: 280px; /* Altura base fija interna */
+            transform-origin: top left;
             transform: scale(var(--ui-scale));
+            width: calc(100% / var(--ui-scale)); /* Compensa el ancho al escalar */
             display: grid; 
-            grid-template-columns: 280px 1fr 300px; /* 3 Columnas */
+            grid-template-columns: 280px 1fr 350px; /* 3 Columnas */
             padding: 20px 40px; box-sizing: border-box;
             gap: 30px;
         }
 
-        /* --- ESTILOS DE PANELES --- */
+        /* --- PANELES --- */
         .panel { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
         
         h3 { 
@@ -91,55 +95,64 @@
         }
         #crossfader-handle::after { content: '|||'; color: #000; font-size: 10px; font-weight: 900; letter-spacing: 2px; }
 
-        /* Botones y Params */
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        /* Controles Derecha */
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
         
         .action-btn {
             background: transparent; border: 1px solid var(--text-dim); color: var(--text-dim);
-            padding: 12px; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 12px;
+            padding: 10px; font-family: 'Rajdhani', sans-serif; font-weight: 600; font-size: 11px;
             cursor: pointer; transition: 0.2s; text-transform: uppercase; letter-spacing: 1px;
         }
         .action-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.05); }
         .action-btn.primary { border-color: var(--accent); color: var(--accent); }
-        .action-btn.active { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
+        .action-btn.danger { color: #ff3366; border-color: #551133; }
         .action-btn.danger.active { background: #ff0055; border-color: #ff0055; color: #fff; box-shadow: 0 0 15px #ff0055; }
 
-        /* Sliders de Ajuste Fino (Custom CSS) */
-        .param-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
-        .param-label { color: #888; width: 80px; }
-        .param-slider { flex-grow: 1; accent-color: var(--accent); height: 4px; }
+        /* Sliders Params */
+        .param-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
+        .param-label { color: #888; width: 70px; }
+        .param-slider { flex-grow: 1; accent-color: var(--accent); height: 4px; cursor: pointer; }
 
         /* --- 3. UI SCALER VERTICAL --- */
         #scaler-wrapper {
-            position: absolute; left: 10px; bottom: 20px;
+            position: absolute; left: 5px; bottom: 20px;
             display: flex; flex-direction: column; align-items: center; gap: 5px;
-            z-index: 100;
+            z-index: 100; height: 120px;
         }
         #ui-scaler {
-            writing-mode: bt-lr; /* Vertical antiguo */
-            -webkit-appearance: slider-vertical; /* Vertical moderno */
-            width: 8px; height: 100px;
+            writing-mode: bt-lr; /* Firefox */
+            -webkit-appearance: slider-vertical; /* Webkit */
+            width: 8px; height: 100%;
             accent-color: #555;
         }
-        .scale-icon { font-size: 10px; color: #555; writing-mode: vertical-rl; text-orientation: mixed; }
+        .scale-icon { font-size: 9px; color: #555; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 2px; }
 
-        /* --- 4. MIDI MAPPER OVERLAY --- */
+        /* --- 4. MIDI MAPPER COMPLETO --- */
         #midi-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); z-index: 200; backdrop-filter: blur(5px);
+            background: rgba(0,0,0,0.9); z-index: 200; backdrop-filter: blur(5px);
             justify-content: center; align-items: center;
         }
         #midi-panel {
-            width: 600px; height: 80vh; background: #111; border: 1px solid var(--accent);
-            padding: 30px; overflow-y: auto; display: flex; flex-direction: column;
+            width: 500px; height: 80vh; background: #111; border: 1px solid var(--accent);
+            padding: 30px; display: flex; flex-direction: column;
+            box-shadow: 0 0 50px rgba(0,229,255,0.2);
         }
-        .midi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        #midi-scroll-area {
+            flex-grow: 1; overflow-y: auto; margin: 20px 0; padding-right: 10px;
+        }
+        /* Scrollbar custom */
+        #midi-scroll-area::-webkit-scrollbar { width: 5px; }
+        #midi-scroll-area::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 5px; }
+        #midi-scroll-area::-webkit-scrollbar-track { background: #222; }
+
         .midi-item { 
-            background: #222; padding: 10px; display: flex; justify-content: space-between; align-items: center; 
-            border-bottom: 1px solid #333;
+            background: #1a1a1a; padding: 12px; display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid #333; margin-bottom: 5px;
         }
-        .midi-btn { background: #444; border: none; color: #fff; padding: 5px 10px; cursor: pointer; font-size: 10px; width: 80px;}
-        .midi-btn.learning { background: #ff0055; animation: blink 0.5s infinite; }
+        .midi-label { color: #ccc; font-size: 12px; }
+        .midi-btn { background: #333; border: 1px solid #444; color: #fff; padding: 4px 10px; cursor: pointer; font-size: 10px; min-width: 80px;}
+        .midi-btn.learning { background: #ff0055; border-color: #ff0055; animation: blink 0.5s infinite; }
         @keyframes blink { 0%{opacity:1} 50%{opacity:0.5} 100%{opacity:1} }
 
         /* NOTIFY */
@@ -163,7 +176,7 @@
         import { RenderPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
 
-        // --- ESTADO Y CONFIGURACIÓN ---
+        // --- ESTADO ---
         const state = {
             effectMode: 1, styleMode: 0, distortionType: 0, mixRatio: 0.0, 
             distortion: 2.0, micGain: 5.0, bloom: 1.5, speed: 1.0, rgbShift: 0.05, geoStrength: 4.0,
@@ -173,29 +186,32 @@
             isBlackout: false
         };
 
-        // Lista completa de parámetros para mapeo MIDI
+        // --- MAPEO MIDI TOTAL (TODOS LOS PARÁMETROS) ---
         const midiParams = {
-            'crossfader': { label: 'Crossfader (A/B)', type: 'cc', val: 1 },
-            'speed': { label: 'Velocidad Global', type: null, val: null },
-            'distortion': { label: 'Fuerza Glitch', type: null, val: null },
-            'geoStrength': { label: 'Reacción 3D', type: null, val: null },
-            'rgbShift': { label: 'Aberración RGB', type: null, val: null },
-            'bloom': { label: 'Brillo (Bloom)', type: null, val: null },
-            'micGain': { label: 'Sensibilidad Mic', type: null, val: null },
-            'slot_a': { label: 'Cargar Deck A', type: 'note', val: 36 }, // C1
-            'slot_b': { label: 'Cargar Deck B', type: 'note', val: 37 }, 
-            'fx_next': { label: 'Siguiente FX', type: null, val: null },
-            'style_next': { label: 'Siguiente Estilo', type: null, val: null },
-            'geo_next': { label: 'Siguiente Geo', type: null, val: null },
-            'blackout': { label: 'Toggle Blackout', type: null, val: null },
-            'cam_toggle': { label: 'Toggle Webcam', type: null, val: null }
+            'crossfader': { label: 'Crossfader (Mezcla)', type: 'cc', val: 1 },
+            'slot_a': { label: 'Cargar Deck A', type: 'note', val: 36 },
+            'slot_b': { label: 'Cargar Deck B', type: 'note', val: 37 },
+            'speed': { label: 'Knob: Velocidad', type: null, val: null },
+            'distortion': { label: 'Knob: Glitch', type: null, val: null },
+            'geoStrength': { label: 'Knob: Fuerza 3D', type: null, val: null },
+            'rgbShift': { label: 'Knob: RGB Shift', type: null, val: null },
+            'bloom': { label: 'Knob: Brillo/Bloom', type: null, val: null },
+            'micGain': { label: 'Knob: Ganancia Mic', type: null, val: null },
+            'fx_next': { label: 'Btn: Siguiente FX', type: null, val: null },
+            'fx_prev': { label: 'Btn: Anterior FX', type: null, val: null },
+            'style_next': { label: 'Btn: Siguiente Estilo', type: null, val: null },
+            'geo_next': { label: 'Btn: Siguiente Deform', type: null, val: null },
+            'blackout': { label: 'Btn: Blackout Toggle', type: null, val: null },
+            'cam_toggle': { label: 'Btn: Webcam Toggle', type: null, val: null },
+            'reset': { label: 'Btn: Reset Visuales', type: null, val: null },
+            'load_iris': { label: 'Btn: Cargar IRIS Default', type: null, val: null }
         };
 
         let learningKey = null;
         let projectorWindow = null;
         const videoSlots = {};
 
-        // --- AUDIO ENGINE ---
+        // --- AUDIO ---
         class AudioEngine {
             constructor() { this.ctx=null; this.analyser=null; this.data=null; this.freq=null; this.ready=false; }
             async init() {
@@ -220,7 +236,7 @@
         }
         const audio = new AudioEngine();
 
-        // --- MOTOR GRAFICO ---
+        // --- VJ ENGINE ---
         const canvas = document.getElementById('vj-canvas');
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
         const scene = new THREE.Scene();
@@ -246,7 +262,6 @@
             uDistType: { value: 0 }, uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
         };
 
-        // Shader Code (Compactado para eficiencia)
         const fragmentShader = `
             uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
             uniform sampler2D uTexCam; uniform float uMix; uniform float uTime;
@@ -306,26 +321,23 @@
         const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
         const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85); composer.addPass(bloom);
 
-        // --- UI UPDATES ---
+        // --- UPDATE UI ---
         function updateUI() {
-            // Textos
             document.getElementById('deck-a-name').innerText = state.deckA.length>15 ? state.deckA.substring(0,12)+'...' : state.deckA;
             document.getElementById('deck-b-name').innerText = state.deckB.length>15 ? state.deckB.substring(0,12)+'...' : state.deckB;
-            
-            // Fader (Horizontal)
             document.getElementById('crossfader-handle').style.left = (state.crossfade * 100) + '%';
-            
-            // Colores activos
             const tA = document.getElementById('title-a');
             const tB = document.getElementById('title-b');
             if(state.crossfade < 0.5) { tA.classList.add('active-deck-text'); tB.classList.remove('active-deck-text'); }
             else { tB.classList.add('active-deck-text'); tA.classList.remove('active-deck-text'); }
-
-            // Sliders valores
+            
+            // Sync sliders
             document.getElementById('sl-speed').value = state.speed;
             document.getElementById('sl-dist').value = state.distortion;
             document.getElementById('sl-geo').value = state.geoStrength;
             document.getElementById('sl-rgb').value = state.rgbShift;
+            document.getElementById('sl-gain').value = state.micGain;
+            document.getElementById('sl-bloom').value = state.bloom;
         }
 
         function notify(msg) {
@@ -334,19 +346,26 @@
             setTimeout(()=>n.style.opacity=0, 1500);
         }
 
-        // --- CONTROL ACTIONS ---
+        // --- ACCIONES ---
         const actions = {
+            loadDefault: () => {
+                const vid = document.createElement('video');
+                vid.src = 'assets/videos/iris.webm'; // VIDEO PRECARGADO
+                vid.loop = true; vid.muted = true; vid.playsInline = true;
+                vid.play().then(()=>notify("IRIS LOADED (A)")).catch(e=>console.log("No default video found"));
+                state.deckA = "IRIS_DEFAULT";
+                texA.image = vid; uniforms.uTexA.value = texA;
+                updateUI();
+            },
             loadA: () => { state.loadingSlot = 'A'; document.getElementById('file-input').click(); },
             loadB: () => { state.loadingSlot = 'B'; document.getElementById('file-input').click(); },
             toggleBlackout: () => {
                 state.isBlackout = !state.isBlackout;
-                const btn = document.getElementById('btn-blackout');
-                btn.classList.toggle('active', state.isBlackout);
+                document.getElementById('btn-blackout').classList.toggle('active', state.isBlackout);
                 if(projectorWindow && !projectorWindow.closed) {
-                    projectorWindow.document.body.style.background = state.isBlackout ? '#000' : '#000';
                     projectorWindow.document.querySelector('video').style.opacity = state.isBlackout ? 0 : 1;
                 }
-                notify(state.isBlackout ? "BLACKOUT ON" : "LIVE");
+                notify(state.isBlackout ? "BLACKOUT" : "LIVE");
             },
             toggleCam: () => {
                 if(state.mixRatio===0) state.mixRatio=0.5; else if(state.mixRatio===0.5) state.mixRatio=1; else state.mixRatio=0;
@@ -354,12 +373,13 @@
                 notify("CAM: " + state.mixRatio);
             },
             nextFX: () => { state.effectMode = (state.effectMode % 10) + 1; notify(`FX: ${state.effectMode}`); },
+            prevFX: () => { state.effectMode = (state.effectMode - 1) || 10; notify(`FX: ${state.effectMode}`); },
             nextStyle: () => { state.styleMode = (state.styleMode + 1) % 6; notify(`STYLE: ${state.styleMode}`); },
             nextGeo: () => { state.distortionType = (state.distortionType + 1) % 4; notify(`GEO: ${state.distortionType}`); },
             reset: () => { state.styleMode=0; state.distortionType=0; state.effectMode=1; notify("RESET"); }
         };
 
-        // --- MIDI SYSTEM (DINÁMICO) ---
+        // --- MIDI SYSTEM ---
         async function initMIDI() {
             if (!navigator.requestMIDIAccess) return;
             try {
@@ -371,9 +391,8 @@
         function handleMIDIMessage(msg) {
             const [cmd, note, vel] = msg.data;
             const type = (cmd >= 176 && cmd <= 191) ? 'cc' : (cmd >= 144 && cmd <= 159) ? 'note' : null;
-            if(!type || vel===0 && type==='note') return; // Ignore note off
+            if(!type || (type==='note' && vel===0)) return; 
 
-            // APRENDIZAJE
             if(learningKey) {
                 midiParams[learningKey].type = type;
                 midiParams[learningKey].val = note;
@@ -383,7 +402,6 @@
                 return;
             }
 
-            // EJECUCIÓN
             Object.entries(midiParams).forEach(([key, map]) => {
                 if(map.type === type && map.val === note) {
                     const norm = vel / 127.0;
@@ -392,27 +410,31 @@
                     if(key === 'distortion') state.distortion = norm * 5;
                     if(key === 'geoStrength') state.geoStrength = norm * 10;
                     if(key === 'rgbShift') state.rgbShift = norm * 0.2;
+                    if(key === 'bloom') state.bloom = norm * 3;
                     if(key === 'micGain') state.micGain = norm * 10;
                     if(key === 'slot_a') actions.loadA();
                     if(key === 'slot_b') actions.loadB();
                     if(key === 'blackout') actions.toggleBlackout();
                     if(key === 'fx_next') actions.nextFX();
+                    if(key === 'fx_prev') actions.prevFX();
                     if(key === 'style_next') actions.nextStyle();
                     if(key === 'geo_next') actions.nextGeo();
                     if(key === 'cam_toggle') actions.toggleCam();
+                    if(key === 'reset') actions.reset();
+                    if(key === 'load_iris') actions.loadDefault();
                     updateUI();
                 }
             });
         }
 
         function renderMidiUI() {
-            const list = document.getElementById('midi-list');
+            const list = document.getElementById('midi-scroll-area');
             list.innerHTML = '';
             Object.entries(midiParams).forEach(([key, map]) => {
                 const div = document.createElement('div');
                 div.className = 'midi-item';
                 div.innerHTML = `
-                    <span style="color:#aaa; font-size:12px;">${map.label}</span>
+                    <span style="color:#aaa; font-size:11px;">${map.label}</span>
                     <button class="midi-btn ${learningKey===key?'learning':''}">
                         ${map.val !== null ? (map.type.toUpperCase() + ':' + map.val) : 'LEARN'}
                     </button>
@@ -423,7 +445,6 @@
         }
 
         // --- EVENTOS ---
-        // Resize Canvas para que no se deforme al cambiar altura de UI
         const resize = () => {
             const h = window.innerHeight - document.getElementById('ui-container').offsetHeight;
             const w = window.innerWidth;
@@ -433,88 +454,71 @@
         };
         window.addEventListener('resize', resize);
 
-        // Sliders Input
+        // Sliders
         document.getElementById('sl-speed').oninput = (e) => state.speed = parseFloat(e.target.value);
         document.getElementById('sl-dist').oninput = (e) => state.distortion = parseFloat(e.target.value);
         document.getElementById('sl-geo').oninput = (e) => state.geoStrength = parseFloat(e.target.value);
         document.getElementById('sl-rgb').oninput = (e) => state.rgbShift = parseFloat(e.target.value);
+        document.getElementById('sl-gain').oninput = (e) => state.micGain = parseFloat(e.target.value);
+        document.getElementById('sl-bloom').oninput = (e) => state.bloom = parseFloat(e.target.value);
 
         // File Input
         document.getElementById('file-input').onchange = (e) => {
             const file = e.target.files[0]; if(!file) return;
             const url = URL.createObjectURL(file);
             const vid = document.createElement('video'); vid.src=url; vid.loop=true; vid.muted=true; vid.playsInline=true; vid.play();
-            const name = file.name;
-            if(state.loadingSlot === 'A') { state.deckA=name; texA.image=vid; uniforms.uTexA.value=texA; }
-            else { state.deckB=name; texB.image=vid; uniforms.uTexB.value=texB; }
+            if(state.loadingSlot === 'A') { state.deckA=file.name; texA.image=vid; uniforms.uTexA.value=texA; }
+            else { state.deckB=file.name; texB.image=vid; uniforms.uTexB.value=texB; }
             document.getElementById('file-input').value = "";
             updateUI();
         };
 
-        // Scroll
-        window.addEventListener('wheel', (e) => {
-            state.crossfade = Math.max(0, Math.min(1, state.crossfade + e.deltaY * 0.001));
-            updateUI();
-        });
+        window.addEventListener('wheel', (e) => { state.crossfade = Math.max(0, Math.min(1, state.crossfade + e.deltaY * 0.001)); updateUI(); });
 
-        // UI Scale Vertical
         document.getElementById('ui-scaler').oninput = (e) => {
             document.documentElement.style.setProperty('--ui-scale', e.target.value);
-            setTimeout(resize, 150); // Ajustar canvas despues de la animacion
+            setTimeout(resize, 50); // Forzar resize del canvas
         };
 
-        // Keyboard Shortcuts (AlterLab Style)
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
             if(['a','s','d','f','g','h','j','k','l'].includes(k)) {
-                // Carga inteligente: carga en el deck opuesto al fader
                 state.loadingSlot = (state.crossfade < 0.5) ? 'B' : 'A';
                 document.getElementById('file-input').click();
             }
             if(!isNaN(parseInt(k))) { state.effectMode = (parseInt(k)===0)?10:parseInt(k); notify(`FX ${state.effectMode}`); }
             if(k==='m') actions.reset();
             if(k==='n') actions.toggleCam();
-            if(['z','x','c','v','b'].includes(k)) { 
-                state.styleMode = {'z':1,'x':2,'c':3,'v':4,'b':5}[k]; notify("STYLE CHG"); 
-            }
-            if(['i','o','p'].includes(k)) {
-                state.distortionType = {'i':1,'o':2,'p':3}[k]; notify("GEO CHG");
-            }
+            if(['z','x','c','v','b'].includes(k)) { state.styleMode = {'z':1,'x':2,'c':3,'v':4,'b':5}[k]; notify("STYLE CHG"); }
+            if(['i','o','p'].includes(k)) { state.distortionType = {'i':1,'o':2,'p':3}[k]; notify("GEO CHG"); }
             updateUI();
         });
 
-        // Loop Principal
         function animate() {
             requestAnimationFrame(animate);
-            const t = performance.now()*0.001;
-            const lvls = audio.getLevels();
-            
-            // Update Uniforms
+            const t = performance.now()*0.001; const lvls = audio.getLevels();
             uniforms.uTime.value=t; uniforms.uVol.value=lvls.vol; uniforms.uBass.value=lvls.bass;
             uniforms.uMix.value=state.mixRatio; uniforms.uMode.value=state.effectMode;
             uniforms.uStyle.value=state.styleMode; uniforms.uDistType.value=state.distortionType;
             uniforms.uTint.value=state.tint; uniforms.uTintMix.value=state.tintMix;
             uniforms.uCrossfade.value=state.crossfade; uniforms.uSpeed.value=state.speed;
             uniforms.uRGBShift.value=state.rgbShift; uniforms.uGeoStrength.value=state.geoStrength;
-            
             bloom.strength = state.bloom + (lvls.vol * 1.5);
-            
             if(lvls.bass>0.5) plane.rotation.z = (Math.random()-0.5)*0.02; else plane.rotation.z*=0.9;
             if(texA.image?.readyState>=2) texA.needsUpdate=true;
             if(texB.image?.readyState>=2) texB.needsUpdate=true;
             if(webcamTex.image?.readyState>=2) webcamTex.needsUpdate=true;
-
             composer.render();
         }
 
-        // Init
+        // START
         document.getElementById('btn-start').onclick = async () => {
             await audio.init(); await initMIDI();
             document.getElementById('boot').style.display='none';
+            actions.loadDefault(); // CARGAR IRIS.MP4
             resize(); animate();
         };
 
-        // Proyector (Clonar Canvas)
         document.getElementById('btn-proj').onclick = () => {
             if(projectorWindow && !projectorWindow.closed) projectorWindow.focus();
             else {
@@ -525,14 +529,11 @@
             }
         };
 
-        // Botones UI
+        // Bindings Botones
         document.getElementById('btn-load-a').onclick = actions.loadA;
         document.getElementById('btn-load-b').onclick = actions.loadB;
         document.getElementById('btn-blackout').onclick = actions.toggleBlackout;
-        document.getElementById('btn-midi').onclick = () => {
-            document.getElementById('midi-overlay').style.display = 'flex';
-            renderMidiUI();
-        };
+        document.getElementById('btn-midi').onclick = () => { document.getElementById('midi-overlay').style.display = 'flex'; renderMidiUI(); };
         document.getElementById('btn-close-midi').onclick = () => document.getElementById('midi-overlay').style.display = 'none';
 
     </script>
@@ -540,7 +541,7 @@
 <body>
 
     <div id="boot">
-        <h1 style="font-size:60px; letter-spacing:10px; color:#fff; margin-bottom:10px;">AIRIS <span style="color:#00E5FF">v3</span></h1>
+        <h1 style="font-size:60px; letter-spacing:10px; color:#fff; margin-bottom:10px;">AIRIS <span style="color:#00E5FF">v4</span></h1>
         <p style="color:#666; font-family:'Montserrat'; letter-spacing:2px; font-size:12px; margin-bottom:30px;">VISUAL PERFORMANCE SUITE</p>
         <button id="btn-start" style="padding:15px 40px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; cursor:pointer;">INICIAR SISTEMA</button>
     </div>
@@ -553,7 +554,7 @@
         <div id="dashboard">
             
             <div class="panel">
-                <h3>ATAJOS</h3>
+                <h3>ATAJOS DE TECLADO</h3>
                 <div class="shortcut-row"><span>Cargar Video</span> <span class="key-badge">A-L</span></div>
                 <div class="shortcut-row"><span>Efectos 2D</span> <span class="key-badge">1-0</span></div>
                 <div class="shortcut-row"><span>Estilos Geo</span> <span class="key-badge">Z-B</span></div>
@@ -595,12 +596,14 @@
                     <button id="btn-proj" class="action-btn primary">PROYECTOR</button>
                 </div>
                 
-                <button id="btn-blackout" class="action-btn danger" style="width:100%; margin-bottom:15px;">BLACKOUT</button>
+                <button id="btn-blackout" class="action-btn danger" style="width:100%; margin-bottom:10px;">BLACKOUT</button>
 
                 <div class="param-row"><span class="param-label">SPEED</span> <input type="range" id="sl-speed" min="0.1" max="5" step="0.1" value="1" class="param-slider"></div>
                 <div class="param-row"><span class="param-label">GLITCH</span> <input type="range" id="sl-dist" min="0" max="5" step="0.1" value="2" class="param-slider"></div>
                 <div class="param-row"><span class="param-label">3D GEO</span> <input type="range" id="sl-geo" min="0" max="10" step="0.1" value="4" class="param-slider"></div>
                 <div class="param-row"><span class="param-label">RGB</span> <input type="range" id="sl-rgb" min="0" max="0.2" step="0.01" value="0.05" class="param-slider"></div>
+                <div class="param-row"><span class="param-label">MIC GAIN</span> <input type="range" id="sl-gain" min="1" max="10" step="0.1" value="5" class="param-slider"></div>
+                <div class="param-row"><span class="param-label">BLOOM</span> <input type="range" id="sl-bloom" min="0" max="3" step="0.1" value="1.5" class="param-slider"></div>
             </div>
 
         </div>
@@ -613,13 +616,14 @@
 
     <div id="midi-overlay">
         <div id="midi-panel">
-            <h2 style="color:#00E5FF; border-bottom:1px solid #00E5FF; padding-bottom:10px; margin-bottom:20px;">MAPEO MIDI COMPLETO</h2>
-            <div id="midi-list" class="midi-grid"></div>
-            <button id="btn-close-midi" class="action-btn" style="margin-top:20px;">GUARDAR Y CERRAR</button>
+            <h2 style="color:#00E5FF; border-bottom:1px solid #00E5FF; padding-bottom:10px; margin-bottom:20px; font-size:16px; letter-spacing:2px;">MAPEO MIDI COMPLETO</h2>
+            <div id="midi-scroll-area">
+                </div>
+            <button id="btn-close-midi" class="action-btn active" style="margin-top:20px;">GUARDAR Y CERRAR</button>
         </div>
     </div>
 
-    <div id="notification">NOTIFICACIÓN</div>
+    <div id="notify">NOTIFICACIÓN</div>
     <input type="file" id="file-input" accept="video/*" style="display:none">
 
 </body>
