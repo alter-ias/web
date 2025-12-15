@@ -2,144 +2,197 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS v11 - TOTAL CONTROL</title>
+    <title>IRIS v11 - FULL ENGINE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    
     <style>
-        :root { --bg: #000; --panel: rgba(10,12,15,0.98); --cyan: #00E5FF; --dim: #556677; }
-        body { margin: 0; overflow: hidden; background: var(--bg); font-family: 'Rajdhani', sans-serif; color: #fff; display: flex; flex-direction: column; height: 100vh; }
+        :root {
+            --bg-color: #000;
+            --panel-bg: rgba(10, 12, 15, 0.98);
+            --accent: #00E5FF;
+            --text-dim: #556677;
+            --ui-scale: 1.0;
+        }
+        body { margin: 0; overflow: hidden; background: var(--bg-color); font-family: 'Rajdhani', sans-serif; color: #fff; display: flex; flex-direction: column; height: 100vh; }
 
-        /* --- 1. VIEWPORT (MONITORES REALES) --- */
+        /* VIEWPORT */
         #viewport {
             flex-grow: 1; position: relative; overflow: hidden;
             display: flex; justify-content: center; align-items: center; gap: 40px;
             background: #000; z-index: 1;
         }
-        .monitor {
-            width: 40%; height: 65%; position: relative; border: 1px solid #333; 
-            display: flex; justify-content: center; align-items: center; background: #050505;
+        .monitor-container {
+            width: 45%; height: 70%; position: relative;
+            border: 1px solid #333; transition: 0.2s;
+            display: flex; justify-content: center; align-items: center;
+            background: #050505; overflow: hidden;
         }
-        .monitor canvas { width: 100%; height: 100%; object-fit: contain; }
-        .monitor.active { border: 2px solid var(--cyan); box-shadow: 0 0 50px rgba(0, 229, 255, 0.15); transform: scale(1.01); }
-        .mon-label { position: absolute; top: -30px; left: 0; font-family: 'Montserrat'; font-weight: 700; font-size: 24px; color: #444; letter-spacing: 2px; }
-        .monitor.active .mon-label { color: var(--cyan); text-shadow: 0 0 10px var(--cyan); }
+        .monitor-container canvas { width: 100%; height: 100%; object-fit: contain; }
         
-        /* Barra de estado interna (Deck A/B status) */
-        .mon-hud { position: absolute; bottom: 0; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 5px; font-size: 10px; background: rgba(0,0,0,0.8); font-family: monospace; }
-        .hud-act { color: var(--cyan); font-weight: bold; } .hud-inact { color: #555; }
+        /* Borde Cyan al editar */
+        .monitor-container.editing { 
+            border: 2px solid var(--accent); 
+            box-shadow: 0 0 40px rgba(0, 229, 255, 0.2); 
+            transform: scale(1.01);
+        }
+        .monitor-label {
+            position: absolute; top: 10px; left: 10px; 
+            font-family: 'Montserrat'; font-weight: 700; font-size: 20px; 
+            color: #444; letter-spacing: 2px; text-shadow: 0 0 5px #000; z-index: 2;
+        }
+        .monitor-container.editing .monitor-label { color: var(--accent); text-shadow: 0 0 10px var(--accent); }
 
-        /* --- 2. UI DASHBOARD --- */
-        #ui-wrap { flex-shrink: 0; width: 100%; background: transparent; z-index: 10; display: flex; justify-content: center; align-items: flex-end; }
-        #dash {
-            width: 100%; height: 320px; background: var(--panel); border-top: 1px solid rgba(0,229,255,0.2);
-            display: grid; grid-template-columns: 200px 1fr 400px; padding: 20px 40px; box-sizing: border-box; gap: 30px;
+        /* Barra de estado interna del monitor (Deck A / Deck B status) */
+        .deck-status-bar {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            display: flex; justify-content: space-between; padding: 5px 10px; box-sizing: border-box;
+            background: rgba(0,0,0,0.8); font-size: 10px; font-family: monospace; z-index: 2;
         }
-        
-        /* Paneles */
+        .ds-active { color: #fff; font-weight: bold; text-shadow: 0 0 5px var(--accent); }
+        .ds-inactive { color: #444; }
+        .fader-visual { color: var(--accent); font-weight: bold; }
+
+        /* UI CONTROL */
+        #ui-wrapper { flex-shrink: 0; width: 100%; background: transparent; z-index: 10; display: flex; justify-content: center; align-items: flex-end; position: relative; }
+        #dashboard {
+            width: 100%; height: 280px; background: var(--panel-bg);
+            border-top: 1px solid rgba(0,229,255,0.1);
+            transform-origin: top center; transform: scale(var(--ui-scale));
+            width: calc(100% / var(--ui-scale));
+            display: grid; grid-template-columns: 250px 1fr 380px;
+            padding: 30px 40px; box-sizing: border-box;
+            gap: 30px; position: relative;
+        }
+
+        #scale-strip { position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: #080808; cursor: ew-resize; z-index: 50; }
+        #scale-fill { height: 100%; width: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
+        #scale-input { position: absolute; top: -10px; left: 0; width: 100%; height: 20px; opacity: 0; cursor: ew-resize; }
+
         .panel { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
-        h3 { font-family: 'Montserrat'; font-size: 10px; letter-spacing: 2px; color: var(--dim); margin: 0 0 10px 0; border-bottom: 1px solid #333; padding-bottom: 5px; }
+        h3 { font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 2px; color: var(--text-dim); margin: 0 0 10px 0; border-bottom: 1px solid #222; padding-bottom: 5px; }
+        .shortcut-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; color: #888; }
+        .key-badge { color: var(--accent); font-weight: 700; }
 
-        /* Center Mixer */
-        .mix-zone { display: flex; flex-direction: column; justify-content: center; height: 100%; align-items: center; }
-        .work-sel { display: flex; gap: 20px; margin-bottom: 20px; width: 100%; }
-        .work-btn { flex: 1; padding: 20px; background: #0a0a0a; border: 1px solid #333; color: #555; font-family: 'Rajdhani'; font-weight: 700; font-size: 24px; cursor: pointer; transition: 0.2s; }
-        .work-btn.sel { background: var(--cyan); color: #000; box-shadow: 0 0 30px var(--cyan); border-color: var(--cyan); }
-        
-        #fader-track { width: 100%; height: 10px; background: #000; border-radius: 5px; border: 1px solid #333; position: relative; margin-top: 10px; }
-        #fader-knob { width: 60px; height: 24px; background: var(--cyan); position: absolute; top: -7px; left: 50%; transform: translateX(-50%); border-radius: 2px; box-shadow: 0 0 15px var(--cyan); }
+        /* MIXER AREA */
+        .mix-center { display: flex; flex-direction: column; justify-content: center; height: 100%; }
+        .work-grid { display: flex; gap: 20px; margin-bottom: 25px; }
+        .work-btn {
+            flex: 1; padding: 20px; background: #0a0a0a; border: 1px solid #333; color: #555;
+            font-family: 'Rajdhani'; font-weight: 700; font-size: 20px; cursor: pointer; text-align: center;
+            transition: 0.2s; text-transform: uppercase;
+        }
+        .work-btn.selected { background: var(--accent); color: #000; border-color: var(--accent); box-shadow: 0 0 30px var(--accent); }
 
-        /* Controls Right */
-        .out-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 15px; }
-        .out-btn { padding: 12px; background: #150005; border: 1px solid #311; color: #f36; font-weight: 700; font-size: 11px; cursor: pointer; }
-        .out-btn.active-off { background: #f05; color: #fff; border-color: #f05; box-shadow: 0 0 20px #f05; }
-        .out-btn.src { background: #001515; border-color: #133; color: #4cc; }
-        .out-btn.src.active { background: var(--cyan); color: #000; border-color: var(--cyan); box-shadow: 0 0 20px var(--cyan); }
+        #crossfader-track { width: 100%; height: 8px; background: #000; border-radius: 4px; position: relative; border: 1px solid #333; margin-top: 10px;}
+        #crossfader-handle { width: 60px; height: 20px; background: var(--accent); position: absolute; top: -6px; left: 50%; transform: translateX(-50%); border-radius: 2px; box-shadow: 0 0 10px var(--accent); transition: left 0.1s; }
 
-        .slider-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 11px; }
-        .sl-label { color: #888; width: 60px; }
-        .slider { flex-grow: 1; accent-color: var(--cyan); height: 2px; cursor: pointer; }
-        
-        .util-grid { display: flex; gap: 5px; margin-bottom: 10px; }
-        .util-btn { flex: 1; padding: 8px; background: transparent; border: 1px solid #444; color: #888; font-size: 10px; cursor: pointer; }
-        .util-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+        /* OUTPUT & CONTROLS */
+        .out-matrix { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 15px; }
+        .out-btn { padding: 12px; background: #1a0505; border: 1px solid #331111; color: #ff3366; font-family: 'Montserrat'; font-weight: 700; font-size: 10px; cursor: pointer; }
+        .out-btn.active-off { background: #ff0055; color: #fff; border-color: #ff0055; box-shadow: 0 0 20px #ff0055; }
+        .out-btn.source { background: #051a1a; border-color: #113333; color: #44cccc; }
+        .out-btn.source.active { background: var(--accent); color: #000; border-color: var(--accent); box-shadow: 0 0 20px var(--accent); }
 
-        /* Overlays */
-        #notify { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: var(--cyan); opacity: 0; pointer-events: none; transition: 0.3s; background: rgba(0,0,0,0.9); padding: 20px 50px; border: 2px solid var(--cyan); z-index: 999; letter-spacing: 5px; font-weight: bold; }
+        .sliders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: auto; }
+        .param-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; font-size: 10px; }
+        .param-label { color: #888; width: 50px; }
+        .param-slider { flex-grow: 1; accent-color: var(--accent); height: 2px; cursor: pointer; }
+
+        .util-btn { padding: 8px; background: transparent; border: 1px solid #444; color: #888; font-size: 10px; cursor: pointer; flex: 1; margin: 0 2px;}
+        .util-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* OVERLAYS */
+        #notify { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; background: rgba(0,0,0,0.8); padding: 15px 30px; border: 1px solid var(--accent); z-index: 999; letter-spacing: 5px; }
         #boot { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 500; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        
         #midi-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; justify-content: center; align-items: center; }
-        #midi-panel { width: 80%; height: 90vh; background: #0b0e14; border: 1px solid var(--cyan); padding: 0; display: flex; flex-direction: column; }
-        #midi-list { flex-grow: 1; overflow-y: auto; padding: 20px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-content: start; }
-        .midi-group { grid-column: span 4; color: var(--cyan); border-bottom: 1px solid #333; margin-top: 20px; font-weight: bold; font-size: 14px; padding-bottom: 5px;}
-        .midi-item { background: #1a1a1a; padding: 8px; border: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        .midi-btn { background: #222; border: 1px solid #555; color: #fff; font-size: 10px; padding: 4px 8px; cursor: pointer; width: 60px; text-align: center; }
+        #midi-panel { width: 700px; height: 85vh; background: #111; border: 1px solid var(--accent); padding: 20px; display: flex; flex-direction: column; }
+        .midi-head { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; }
+        #midi-list { flex-grow: 1; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start; }
+        .midi-group { grid-column: span 2; color: var(--accent); border-bottom: 1px solid #222; margin-top: 15px; font-weight: bold; font-size: 11px; }
+        .midi-row { display: flex; justify-content: space-between; background: #151515; padding: 5px 10px; align-items: center; border: 1px solid #222; }
+        .midi-btn { background: #222; border: 1px solid #444; color: #fff; font-size: 9px; padding: 4px 8px; cursor: pointer; min-width: 60px; }
         .midi-btn.learning { background: #f0f; animation: blink 0.5s infinite; }
-        @keyframes blink { 0%{opacity:1} 50%{opacity:0.5} }
+        @keyframes blink {0%{opacity:1}50%{opacity:0.5}}
     </style>
 </head>
 <body>
 
     <div id="boot">
-        <h1 style="font-size:80px; letter-spacing:10px; color:#fff; margin-bottom:0px;">IRIS <span style="color:#00E5FF">v11</span></h1>
-        <p style="color:#666; font-family:'Montserrat'; margin-bottom:40px;">AUDIO-REACTIVE VISUAL SYSTEM</p>
-        <button id="btn-start" style="padding:15px 50px; background:transparent; border:2px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:24px; cursor:pointer; font-weight:bold;">INICIAR SISTEMA</button>
+        <h1 style="font-size:60px; letter-spacing:10px; color:#fff; margin-bottom:10px;">IRIS <span style="color:#00E5FF">v11</span></h1>
+        <button id="btn-start" style="padding:15px 40px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:20px; cursor:pointer;">INICIAR SISTEMA</button>
     </div>
 
     <div id="viewport">
-        <div id="mon-1" class="monitor active">
-            <span class="mon-label">MIX 1</span>
-            <canvas id="cv-1"></canvas>
-            <div class="mon-hud"><span id="st-1-a" class="hud-act">A: LOADED</span><span id="st-1-b" class="hud-inact">B: LOADED</span></div>
+        <div id="cont-1" class="monitor-container editing">
+            <span class="monitor-label">MIX 1</span>
+            <canvas id="canvas-1"></canvas>
+            <div class="deck-status-bar">
+                <span id="st-1-a" class="ds-active">A: VACÍO</span>
+                <span class="fader-visual" id="fd-1">|||</span>
+                <span id="st-1-b" class="ds-inactive">B: VACÍO</span>
+            </div>
         </div>
-        <div id="mon-2" class="monitor">
-            <span class="mon-label">MIX 2</span>
-            <canvas id="cv-2"></canvas>
-            <div class="mon-hud"><span id="st-2-a" class="hud-act">A: LOADED</span><span id="st-2-b" class="hud-inact">B: LOADED</span></div>
+        <div id="cont-2" class="monitor-container">
+            <span class="monitor-label">MIX 2</span>
+            <canvas id="canvas-2"></canvas>
+            <div class="deck-status-bar">
+                <span id="st-2-a" class="ds-active">A: VACÍO</span>
+                <span class="fader-visual" id="fd-2">|||</span>
+                <span id="st-2-b" class="ds-inactive">B: VACÍO</span>
+            </div>
         </div>
     </div>
 
-    <div id="ui-wrap">
-        <div id="dash">
+    <div id="ui-wrapper">
+        <div id="dashboard">
+            <div id="scale-strip"><div id="scale-fill"></div><input type="range" id="scale-input" min="0.6" max="1.4" step="0.01" value="1.0"></div>
+
             <div class="panel">
-                <h3>SISTEMA</h3>
-                <div style="font-size:11px; color:#666; line-height:1.6;">
-                    TECLADO:<br>
-                    <b style="color:#fff">A-L</b>: Clips (Deck Activo)<br>
-                    <b style="color:#fff">1-0</b>: FX Modo<br>
-                    <b style="color:#fff">Z-B</b>: Estilos<br>
-                    <b style="color:#fff">I-P</b>: Geo 3D<br>
-                    <b style="color:#fff">Q-Y</b>: Colores<br>
-                    <b style="color:#fff">SCROLL</b>: Crossfade
-                </div>
+                <h3>ATAJOS</h3>
+                <div class="shortcut-row"><span>Cargar Video</span> <span class="key-badge">A-L</span></div>
+                <div class="shortcut-row"><span>Efectos 2D</span> <span class="key-badge">1-0</span></div>
+                <div class="shortcut-row"><span>Estilos</span> <span class="key-badge">Z-B</span></div>
+                <div class="shortcut-row"><span>Deformación 3D</span> <span class="key-badge">I,O,P</span></div>
+                <div class="shortcut-row"><span>Tintes</span> <span class="key-badge">Q-Y</span></div>
+                <div class="shortcut-row"><span>Webcam</span> <span class="key-badge">N</span></div>
+                <div class="shortcut-row"><span>Reset</span> <span class="key-badge">M</span></div>
             </div>
 
             <div class="panel">
-                <div class="mix-zone">
-                    <div class="work-sel">
-                        <button id="btn-m1" class="work-btn sel">MIX 1</button>
-                        <button id="btn-m2" class="work-btn">MIX 2</button>
+                <div class="mix-center">
+                    <div style="text-align:center; font-size:10px; color:#555; margin-bottom:5px;">SELECCIONA MEZCLADORA PARA EDITAR</div>
+                    <div class="work-grid">
+                        <button id="btn-mix-1" class="work-btn selected">MIX 1</button>
+                        <button id="btn-mix-2" class="work-btn">MIX 2</button>
                     </div>
-                    <div id="fader-track"><div id="fader-knob"></div></div>
-                    <div style="font-size:10px; color:#444; margin-top:5px;">SCROLL PARA MEZCLAR ENTRE A/B</div>
+                    <div id="crossfader-track"><div id="crossfader-handle"></div></div>
+                    <div style="text-align:center; font-size:9px; color:#444; margin-top:5px;">SCROLL PARA MEZCLAR CLIPS</div>
                 </div>
             </div>
 
             <div class="panel">
-                <div class="out-grid">
+                <div class="out-matrix">
                     <button id="out-off" class="out-btn active-off">BLACKOUT</button>
-                    <button id="out-1" class="out-btn src">PROJ 1</button>
-                    <button id="out-2" class="out-btn src">PROJ 2</button>
+                    <button id="out-1" class="out-btn source">PROJ 1</button>
+                    <button id="out-2" class="out-btn source">PROJ 2</button>
                 </div>
-                <div class="util-grid">
-                    <button class="util-btn" id="btn-midi">MIDI MAP</button>
-                    <button class="util-btn" id="btn-proj">VENTANA PROYECTOR</button>
-                    <button class="util-btn" onclick="document.getElementById('file-input').click()">CARGAR CLIP</button>
+                <div style="display:flex; margin-bottom:15px;">
+                    <button class="util-btn" id="btn-midi">MIDI</button>
+                    <button class="util-btn" id="btn-proj">VENTANA</button>
+                    <button class="util-btn" onclick="document.getElementById('file-input').click()">CARGAR</button>
                 </div>
-                <div style="margin-top:auto;">
-                    <div class="slider-row"><span class="sl-label">SPEED</span> <input type="range" id="sl-speed" min="0" max="5" step="0.1" value="1" class="slider"></div>
-                    <div class="slider-row"><span class="sl-label">GLITCH</span> <input type="range" id="sl-glitch" min="0" max="5" step="0.1" value="0" class="slider"></div>
-                    <div class="slider-row"><span class="sl-label">3D FORCE</span> <input type="range" id="sl-geo" min="0" max="10" step="0.1" value="4" class="slider"></div>
-                    <div class="slider-row"><span class="sl-label">RGB</span> <input type="range" id="sl-rgb" min="0" max="0.2" step="0.01" value="0.02" class="slider"></div>
-                    <div class="slider-row"><span class="sl-label">MIC GAIN</span> <input type="range" id="sl-mic" min="1" max="20" step="1" value="5" class="slider"></div>
-                    <div class="slider-row"><span class="sl-label">BLOOM</span> <input type="range" id="sl-bloom" min="0" max="3" step="0.1" value="1.5" class="slider"></div>
+                <div class="sliders-grid">
+                    <div>
+                        <div class="param-row"><span class="param-label">SPEED</span> <input type="range" id="sl-speed" min="0.1" max="5" step="0.1" value="1" class="param-slider"></div>
+                        <div class="param-row"><span class="param-label">GLITCH</span> <input type="range" id="sl-dist" min="0" max="5" step="0.1" value="0" class="param-slider"></div>
+                        <div class="param-row"><span class="param-label">3D GEO</span> <input type="range" id="sl-geo" min="0" max="10" step="0.1" value="4" class="param-slider"></div>
+                    </div>
+                    <div>
+                        <div class="param-row"><span class="param-label">RGB</span> <input type="range" id="sl-rgb" min="0" max="0.2" step="0.01" value="0.02" class="param-slider"></div>
+                        <div class="param-row"><span class="param-label">GAIN</span> <input type="range" id="sl-gain" min="1" max="10" step="0.1" value="5" class="param-slider"></div>
+                        <div class="param-row"><span class="param-label">BLOOM</span> <input type="range" id="sl-bloom" min="0" max="3" step="0.1" value="1.5" class="param-slider"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -147,145 +200,156 @@
 
     <div id="midi-overlay">
         <div id="midi-panel">
-            <div style="display:flex; justify-content:space-between; padding:20px; border-bottom:1px solid #333;">
-                <h2 style="margin:0; color:var(--cyan);">MAPEO MIDI COMPLETO</h2>
-                <button class="util-btn" onclick="document.getElementById('midi-overlay').style.display='none'">GUARDAR Y CERRAR</button>
-            </div>
+            <div class="midi-head"><h2 style="color:#00E5FF; margin:0; font-size:18px;">MAPEO MIDI</h2><button class="util-btn" onclick="document.getElementById('midi-overlay').style.display='none'">CERRAR</button></div>
             <div id="midi-list"></div>
         </div>
     </div>
-
+    
     <div id="notify">NOTIFICACIÓN</div>
     <input type="file" id="file-input" accept="video/*" style="display:none">
 
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
-        import { EffectComposer } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/RenderPass.js';
-        import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
-
-        // --- 1. CONFIG & STATE ---
-        const state = {
-            activeId: 1, output: 'OFF',
-            mix1: { fader:0, speed:1, glitch:0, geo:4, rgb:0.02, bloom:1.5, mic:5, mode:1, style:0, dist:0, deckA:'VACÍO', deckB:'VACÍO' },
-            mix2: { fader:0, speed:1, glitch:0, geo:4, rgb:0.02, bloom:1.5, mic:5, mode:1, style:0, dist:0, deckA:'VACÍO', deckB:'VACÍO' }
-        };
-        let audioData = { bass: 0, vol: 0 };
-        let projWin = null;
-        let learningKey = null;
-        let midiConfig = {}; 
-
-        // --- 2. VJ ENGINE CLASS (The Visual Core) ---
+        
+        // --- MOTOR DE MEZCLA (Instanciable: Creamos uno para Mix 1 y otro para Mix 2) ---
         class MixerEngine {
             constructor(canvasId) {
-                this.renderer = new THREE.WebGLRenderer({ canvas:document.getElementById(canvasId), antialias:true });
+                this.canvas = document.getElementById(canvasId);
+                this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
                 this.scene = new THREE.Scene();
-                this.camera = new THREE.PerspectiveCamera(75,1,0.1,1000); this.camera.position.z=9;
-                
-                // DECK A & B (Video Textures)
-                this.vidA = this.createVid(); this.texA = new THREE.VideoTexture(this.vidA);
-                this.vidB = this.createVid(); this.texB = new THREE.VideoTexture(this.vidB);
-                
-                // WEBCAM (Global texture placeholder)
-                this.camTex = new THREE.CanvasTexture(document.createElement('canvas')); // Placeholder
+                this.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000); 
+                this.camera.position.z = 9;
 
-                this.uniforms = {
-                    uTexA: {value:this.texA}, uTexB: {value:this.texB}, uCross: {value:0},
-                    uTime: {value:0}, uBass: {value:0}, 
-                    uMode: {value:1}, uStyle: {value:0}, uDist: {value:0},
-                    uSpeed: {value:1}, uGlitch: {value:0}, uGeo: {value:4}, uRGB: {value:0},
-                    uTint: {value:new THREE.Color(1,1,1)}, uTintMix: {value:0}, uCamMix: {value:0}
+                // CADA MOTOR TIENE 2 DECKS INTERNOS
+                this.deckA = this.createVideoTexture();
+                this.deckB = this.createVideoTexture();
+                this.webcam = this.createVideoTexture();
+
+                // Estado Interno del Mix
+                this.state = {
+                    nameA: "VACÍO", nameB: "VACÍO",
+                    crossfade: 0.0, // 0=A, 1=B
+                    speed: 1.0, glitch: 0.0, geo: 4.0, rgb: 0.02, bloom: 1.5,
+                    mode: 1, style: 0, distType: 0,
+                    tint: new THREE.Color(1,1,1), tintMix: 0.0,
+                    camMix: 0.0
                 };
 
-                const mat = new THREE.ShaderMaterial({
-                    uniforms: this.uniforms, side: THREE.DoubleSide,
-                    vertexShader: `
-                        uniform float uTime; uniform float uSpeed; uniform float uGeo; uniform int uDist; uniform float uBass;
-                        varying vec2 vUv;
-                        void main() {
-                            vUv = uv; vec3 p = position; float t = uTime*uSpeed; float d = 0.0;
-                            // GEOMETRY DEFORMATIONS (I, O, P)
-                            if(uDist==1) d = sin(p.x*2.+t)*cos(p.y*1.5+t);
-                            if(uDist==2) d = sin(p.y*10.+t)*sin(p.x*10.)*0.5;
-                            if(uDist==3) { vec2 b=floor(uv*10.); d=(fract(sin(dot(b,vec2(12.9,78.2)))*43758.5)>0.5)?1.0:0.0; d*=sin(t*5.); }
-                            p.z += d * uGeo * (0.2 + uBass * 0.8); // Audio React Z
-                            gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
-                        }
-                    `,
-                    fragmentShader: `
-                        uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCross;
-                        uniform float uTime; uniform float uSpeed; uniform float uRGB; uniform float uBass;
-                        uniform int uMode; uniform int uStyle; uniform vec3 uTint; uniform float uTintMix;
-                        varying vec2 vUv;
-                        float rand(vec2 c){ return fract(sin(dot(c.xy,vec2(12.9898,78.233)))*43758.5453); }
-                        vec3 rgb(sampler2D t, vec2 uv, float a) {
-                            return vec3(texture2D(t,uv-vec2(a,0)).r, texture2D(t,uv).g, texture2D(t,uv+vec2(a,0)).b);
-                        }
-                        void main() {
-                            vec2 uv = vUv; float t = uTime*uSpeed;
-                            // FX 1-0
-                            if(uMode==2) uv.x = abs(uv.x-0.5)+0.5; // Mirror
-                            if(uMode==3) { vec2 c=uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,0.52); uv=0.5+r*vec2(cos(a),sin(a)); } // Kaleido
-                            if(uMode==4) uv += vec2(sin(uv.y*10.+t)*0.05, 0.0); // Wavy
-                            if(uMode==5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); } // Twist
-                            
-                            // RGB SPLIT + MIX
-                            float s = uRGB + (uBass * uGlitch * 0.1);
-                            vec3 cA = rgb(uTexA, uv, s);
-                            vec3 cB = rgb(uTexB, uv, s);
-                            vec3 col = mix(cA, cB, uCross);
+                this.uniforms = {
+                    uTexA: { value: this.deckA.tex }, uTexB: { value: this.deckB.tex },
+                    uCrossfade: { value: 0.0 }, uTexCam: { value: this.webcam.tex }, uMix: { value: 0.0 },
+                    uTime: { value: 0 }, uBass: { value: 0 }, 
+                    uMode: { value: 1 }, uStyle: { value: 0 }, uDistType: { value: 0 },
+                    uSpeed: { value: 1.0 }, uRGBShift: { value: 0.02 }, uGeoStrength: { value: 4.0 },
+                    uTint: { value: new THREE.Color(1,1,1) }, uTintMix: { value: 0.0 }
+                };
 
-                            // STYLES (Z-B)
-                            float lum = dot(col, vec3(0.33));
-                            if(uStyle==1) { col = vec3(0,1,1) * (step(0.9, fract(uv.x*40.)) + step(0.9, fract(uv.y*40.))) * lum; } // Malla
-                            if(uStyle==2) { col = vec3(step(0.9, rand(floor(uv*100.)))); col*=lum; } // Puntos
-                            if(uStyle==3) col = vec3(floor(col*4.)/4.); // Posterize
-                            if(uStyle==4) col = mix(col, vec3(0,1,0), 0.5) * step(0.5, sin(uv.y*100.+t)); // Matrix
+                const vert = `
+                    uniform float uTime; uniform float uSpeed; uniform float uGeoStrength; uniform int uDistType; uniform float uBass;
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv; vec3 pos = position; float t = uTime * uSpeed; float d = 0.0;
+                        if(uDistType==1) d = sin(pos.x*2.+t)*cos(pos.y*1.5+t);
+                        if(uDistType==2) d = sin(pos.y*10.+t)*0.5 * sin(pos.x*10.);
+                        if(uDistType==3) { vec2 b=floor(uv*10.); d=(fract(sin(dot(b,vec2(12.9,78.2)))*43758.5)>0.5)?1.0:0.0; d*=sin(t*5.); }
+                        pos.z += d * uGeoStrength * (0.1 + uBass * 0.8);
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                    }
+                `;
 
-                            col = mix(col, col*uTint, uTintMix);
-                            gl_FragColor = vec4(col, 1.0);
-                        }
-                    `
-                });
-                this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 9, 60, 60), mat);
+                const frag = `
+                    uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
+                    uniform sampler2D uTexCam; uniform float uMix;
+                    uniform float uTime; uniform float uSpeed; uniform float uRGBShift; uniform float uBass;
+                    uniform int uMode; uniform int uStyle; uniform vec3 uTint; uniform float uTintMix;
+                    varying vec2 vUv;
+                    float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+                    vec3 rgbSplit(sampler2D t, vec2 uv, float a) {
+                        return vec3(texture2D(t, uv-vec2(a,0)).r, texture2D(t, uv).g, texture2D(t, uv+vec2(a,0)).b);
+                    }
+                    void main() {
+                        vec2 uv = vUv; float t = uTime * uSpeed;
+                        if(uMode==2) uv.x = abs(uv.x-0.5)+0.5;
+                        if(uMode==3) { vec2 c=uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,0.52); uv=0.5+r*vec2(cos(a),sin(a)); }
+                        if(uMode==4) uv += vec2(sin(uv.y*10.+t)*0.05, 0.0);
+                        if(uMode==5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
+
+                        float shift = uRGBShift + (uBass * 0.05);
+                        vec3 cA = rgbSplit(uTexA, uv, shift);
+                        vec3 cB = rgbSplit(uTexB, uv, shift);
+                        vec3 col = mix(cA, cB, uCrossfade);
+
+                        vec3 cam = rgbSplit(uTexCam, uv, shift);
+                        col = mix(col, cam, uMix);
+
+                        float lum = dot(col, vec3(0.33));
+                        if(uStyle==1) { col = vec3(step(0.5, fract(uv.x*50.0+t))); col*=lum; } 
+                        if(uStyle==2) { col = vec3(step(0.9, rand(floor(uv*100.0)))); col*=lum; }
+                        
+                        col = mix(col, col*uTint, uTintMix);
+                        gl_FragColor = vec4(col, 1.0);
+                    }
+                `;
+
+                this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 9, 80, 80), new THREE.ShaderMaterial({
+                    uniforms: this.uniforms, vertexShader: vert, fragmentShader: frag, side: THREE.DoubleSide
+                }));
                 this.scene.add(this.mesh);
-                
-                // Post
-                this.comp = new EffectComposer(this.renderer);
-                this.comp.addPass(new RenderPass(this.scene, this.camera));
-                this.bloom = new UnrealBloomPass(new THREE.Vector2(256,256), 1.5, 0.4, 0.85);
-                this.comp.addPass(this.bloom);
             }
-            createVid() { const v = document.createElement('video'); v.muted=true; v.loop=true; v.playsInline=true; return v; }
-            resize(w,h) { this.renderer.setSize(w,h); this.comp.setSize(w,h); this.camera.aspect=w/h; this.camera.updateProjectionMatrix(); }
-            
-            render(dt, state, aud) {
-                this.uniforms.uTime.value = dt;
-                this.uniforms.uBass.value = aud.bass;
-                // Bind Params
-                this.uniforms.uSpeed.value = state.speed;
-                this.uniforms.uGlitch.value = state.distortion; // Link Glitch knob
-                this.uniforms.uRGB.value = state.rgb;
-                this.uniforms.uGeo.value = state.geo;
-                this.uniforms.uCross.value = state.fader;
-                this.uniforms.uMode.value = state.mode;
-                this.uniforms.uStyle.value = state.style;
-                this.uniforms.uDist.value = state.dist;
-                this.bloom.strength = state.bloom + (aud.vol * 2.0); // Audio React Bloom
+
+            createVideoTexture() {
+                const v = document.createElement('video');
+                v.muted = true; v.loop = true; v.playsInline = true;
+                const c = document.createElement('canvas'); c.width=2; c.height=2; const x=c.getContext('2d'); x.fillStyle='#000'; x.fillRect(0,0,2,2);
+                const t = new THREE.CanvasTexture(c);
+                return { vid: v, tex: t };
+            }
+
+            loadClip(url) {
+                // Carga en el deck INACTIVO para poder mezclar
+                const target = (this.state.crossfade < 0.5) ? 'B' : 'A';
+                const deck = (target === 'A') ? this.deckA : this.deckB;
                 
-                if(this.vidA.readyState>=2) this.texA.needsUpdate=true;
-                if(this.vidB.readyState>=2) this.texB.needsUpdate=true;
-                this.comp.render();
+                deck.vid.src = url; deck.vid.play();
+                deck.tex = new THREE.VideoTexture(deck.vid); // Reemplazo textura negra por video
+                
+                if(target === 'A') { this.uniforms.uTexA.value = deck.tex; this.state.nameA = "CARGADO"; }
+                else { this.uniforms.uTexB.value = deck.tex; this.state.nameB = "CARGADO"; }
+            }
+
+            resize(w,h) {
+                this.renderer.setSize(w,h); this.camera.aspect = w/h; this.camera.updateProjectionMatrix();
+            }
+
+            render(t, audio) {
+                this.uniforms.uTime.value = t; 
+                this.uniforms.uBass.value = audio.bass;
+                this.uniforms.uSpeed.value = this.state.speed;
+                this.uniforms.uRGBShift.value = this.state.rgb;
+                this.uniforms.uGeoStrength.value = this.state.geo;
+                this.uniforms.uCrossfade.value = this.state.crossfade;
+                this.uniforms.uMode.value = this.state.mode;
+                this.uniforms.uStyle.value = this.state.style;
+                this.uniforms.uDistType.value = this.state.distType;
+                this.uniforms.uTint.value = this.state.tint;
+                this.uniforms.uTintMix.value = this.state.tintMix;
+                this.uniforms.uMix.value = this.state.camMix;
+
+                this.renderer.render(this.scene, this.camera);
             }
         }
 
-        const engine1 = new MixerEngine('cv-1');
-        const engine2 = new MixerEngine('cv-2');
+        // --- SISTEMA ---
+        const mix1 = new MixerEngine('canvas-1');
+        const mix2 = new MixerEngine('canvas-2');
+        let activeMix = mix1; let activeId = 1;
+        let outputMode = 'OFF';
+        let projWin = null;
+        let audio = { vol: 0, bass: 0 };
+        let micGain = 5.0;
 
-        // --- 3. LOGIC & CONTROL ---
-        
-        // AUDIO START
-        async function startAudio() {
+        // --- AUDIO ---
+        async function initAudio() {
             try {
                 const ctx = new (window.AudioContext||window.webkitAudioContext)();
                 const stream = await navigator.mediaDevices.getUserMedia({audio:true});
@@ -294,250 +358,199 @@
                 const data = new Uint8Array(ana.frequencyBinCount);
                 const loop = () => {
                     requestAnimationFrame(loop); ana.getByteFrequencyData(data);
-                    // Simple average for vol, low bins for bass
-                    const vol = data.reduce((a,b)=>a+b,0)/data.length/255;
-                    const bass = (data[0]+data[1]+data[2])/3/255;
-                    // Apply MIC GAIN from current active mix settings
-                    const gain = getActiveState().mic;
-                    audioData.vol = vol * gain; 
-                    audioData.bass = bass * gain;
+                    // Boost bass detection
+                    let b = 0; for(let i=0; i<10; i++) b+=data[i];
+                    audio.bass = (b/10/255) * micGain;
                 }; loop();
-            } catch(e) { console.log("Audio Init Fail"); }
+            } catch(e) {}
         }
 
-        function getActiveState() { return state.activeId === 1 ? state.mix1 : state.mix2; }
+        // --- CONTROL ---
+        function setActive(id) {
+            activeId = id; activeMix = (id===1) ? mix1 : mix2;
+            
+            // Visual Update
+            document.getElementById('btn-mix-1').className = `work-btn ${id===1?'selected':''}`;
+            document.getElementById('btn-mix-2').className = `work-btn ${id===2?'selected':''}`;
+            document.getElementById('cont-1').className = `monitor-container ${id===1?'editing':''}`;
+            document.getElementById('cont-2').className = `monitor-container ${id===2?'editing':''}`;
+            
+            // Sync Sliders
+            document.getElementById('sl-speed').value = activeMix.state.speed;
+            document.getElementById('sl-dist').value = activeMix.state.glitch;
+            document.getElementById('sl-geo').value = activeMix.state.geo;
+            document.getElementById('sl-rgb').value = activeMix.state.rgb;
+            document.getElementById('sl-bloom').value = activeMix.state.bloom;
+            updateFader();
+            
+            notify(`EDITANDO: MIX ${id}`);
+        }
 
-        function updateUI() {
-            const s = getActiveState();
-            // Selectores
-            document.getElementById('mon-1').className = `monitor ${state.activeId===1?'active':''}`;
-            document.getElementById('mon-2').className = `monitor ${state.activeId===2?'active':''}`;
-            document.getElementById('btn-m1').className = `work-btn ${state.activeId===1?'sel':''}`;
-            document.getElementById('btn-m2').className = `work-btn ${state.activeId===2?'sel':''}`;
+        function setOutput(mode) {
+            outputMode = mode;
+            document.getElementById('out-off').className = `out-btn ${mode==='OFF'?'active-off':''}`;
+            document.getElementById('out-1').className = `out-btn source ${mode==='1'?'active':''}`;
+            document.getElementById('out-2').className = `out-btn source ${mode==='2'?'active':''}`;
             
-            // Fader Visual
-            document.getElementById('fader-knob').style.left = (s.fader * 100) + '%';
-            
-            // Output
-            document.getElementById('out-off').className = `out-btn ${state.output==='OFF'?'active-off':''}`;
-            document.getElementById('out-1').className = `out-btn src ${state.output==='1'?'active':''}`;
-            document.getElementById('out-2').className = `out-btn src ${state.output==='2'?'active':''}`;
+            if(projWin && !projWin.closed) {
+                const v = projWin.document.getElementById('v');
+                if(mode === 'OFF') v.style.opacity = 0;
+                else {
+                    v.style.opacity = 1;
+                    const stream = (mode==='1'?mix1:mix2).renderer.domElement.captureStream(60);
+                    v.srcObject = stream;
+                }
+            }
+            notify(`SALIDA: ${mode}`);
+        }
 
-            // Sliders
-            document.getElementById('sl-speed').value = s.speed;
-            document.getElementById('sl-glitch').value = s.glitch;
-            document.getElementById('sl-geo').value = s.geo;
-            document.getElementById('sl-rgb').value = s.rgb;
-            document.getElementById('sl-mic').value = s.mic;
-            document.getElementById('sl-bloom').value = s.bloom;
-            
-            // Labels Status
-            const p = state.activeId;
-            document.getElementById(`st-${p}-a`).className = s.fader < 0.5 ? 'hud-act' : 'hud-inact';
-            document.getElementById(`st-${p}-b`).className = s.fader > 0.5 ? 'hud-act' : 'hud-inact';
+        function updateFader() {
+            document.getElementById('crossfader-handle').style.left = (activeMix.state.crossfade * 100) + '%';
+            // Update labels
+            const pre = activeId;
+            document.getElementById(`st-${pre}-a`).className = activeMix.state.crossfade < 0.5 ? 'ds-active' : 'ds-inactive';
+            document.getElementById(`st-${pre}-b`).className = activeMix.state.crossfade > 0.5 ? 'ds-active' : 'ds-inactive';
         }
 
         function notify(msg) {
             const n = document.getElementById('notify'); n.innerText=msg; n.style.opacity=1; setTimeout(()=>n.style.opacity=0, 1500);
         }
 
-        // ACCIONES
-        const actions = {
-            selectMix: (id) => { state.activeId = id; updateUI(); },
-            setOut: (mode) => { 
-                state.output = mode; 
-                if(projWin && !projWin.closed) {
-                    const v = projWin.document.getElementById('v');
-                    if(mode==='OFF') v.style.opacity = 0;
-                    else {
-                        v.style.opacity = 1;
-                        // MAGIC: Capture stream from selected canvas
-                        const stream = (mode==='1'?engine1:engine2).renderer.domElement.captureStream(60);
-                        v.srcObject = stream;
-                    }
-                }
-                updateUI(); 
-            },
-            loadClip: () => document.getElementById('file-input').click(),
-            setParam: (k, v) => { getActiveState()[k] = parseFloat(v); updateUI(); },
-            setFade: (v) => { getActiveState().fader = Math.max(0,Math.min(1,v)); updateUI(); },
-            setMode: (m) => { getActiveState().mode = m; notify("FX "+m); },
-            setStyle: (s, n) => { getActiveState().style = s; notify("ESTILO "+n); },
-            setGeo: (g) => { getActiveState().dist = g; notify("GEO 3D"); },
-            setColor: (c, name) => { 
-                const eng = state.activeId===1 ? engine1 : engine2;
-                eng.uniforms.uTint.value.setHex(c); 
-                eng.uniforms.uTintMix.value = (name==='OFF')?0.0:1.0;
-                notify("COLOR "+name);
-            },
-            reset: () => { 
-                const s = getActiveState(); s.mode=1; s.style=0; s.dist=0; s.glitch=0; 
-                engine1.uniforms.uTintMix.value=0; engine2.uniforms.uTintMix.value=0;
-                updateUI(); notify("RESET"); 
-            }
-        };
-
-        // INPUT HANDLERS
+        // --- INPUTS ---
+        // File
         document.getElementById('file-input').onchange = (e) => {
-            const file = e.target.files[0]; if(!file) return;
-            const url = URL.createObjectURL(file);
-            const s = getActiveState();
-            const eng = state.activeId===1 ? engine1 : engine2;
-            
-            // Cargar en el deck inactivo (Lógica DJ)
-            const target = s.fader < 0.5 ? 'B' : 'A';
-            if(target === 'A') { eng.vidA.src = url; eng.vidA.play(); s.deckA = file.name; }
-            else { eng.vidB.src = url; eng.vidB.play(); s.deckB = file.name; }
-            notify(`CLIP EN ${target} (MIX ${state.activeId})`);
-            document.getElementById('file-input').value = "";
+            if(!e.target.files[0]) return;
+            const url = URL.createObjectURL(e.target.files[0]);
+            activeMix.loadClip(url);
+            // Update Text
+            const deck = (activeMix.state.crossfade < 0.5) ? 'b' : 'a';
+            const name = e.target.files[0].name.substring(0,8);
+            document.getElementById(`st-${activeId}-${deck}`).innerText = `${deck.toUpperCase()}: ${name}`;
+            notify(`CLIP EN MIX ${activeId} [${deck.toUpperCase()}]`);
         };
 
-        window.addEventListener('wheel', (e) => {
-            const s = getActiveState();
-            s.fader = Math.max(0, Math.min(1, s.fader + e.deltaY * 0.001));
-            updateUI();
-        });
+        // Sliders
+        const upP = (k,v) => activeMix.state[k] = parseFloat(v);
+        document.getElementById('sl-speed').oninput=(e)=>upP('speed', e.target.value);
+        document.getElementById('sl-dist').oninput=(e)=>upP('glitch', e.target.value);
+        document.getElementById('sl-geo').oninput=(e)=>upP('geo', e.target.value);
+        document.getElementById('sl-rgb').oninput=(e)=>upP('rgb', e.target.value);
+        document.getElementById('sl-bloom').oninput=(e)=>upP('bloom', e.target.value);
+        document.getElementById('sl-gain').oninput=(e)=>micGain = parseFloat(e.target.value);
+        document.getElementById('scale-input').oninput=(e)=>{
+            document.documentElement.style.setProperty('--ui-scale', e.target.value);
+            document.getElementById('scale-fill').style.width=((e.target.value-0.6)/0.8)*100+'%';
+            setTimeout(resize,50);
+        };
 
-        // KEYBOARD MAPPING (1234567890qwertyasdfghjkliopzxcvbnm)
+        // Keyboard
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
-            // Clips A-L
-            if("asdfghjkl".includes(k)) actions.loadClip();
-            // FX 1-0
-            if(!isNaN(parseInt(k))) actions.setMode(parseInt(k)===0?10:parseInt(k));
-            // Estilos Z-B
-            const styles = {z:[0,"NORM"],x:[1,"MALLA"],c:[2,"PUNTOS"],v:[3,"POSTER"],b:[4,"MATRIX"]};
-            if(styles[k]) actions.setStyle(styles[k][0], styles[k][1]);
-            // Geo I-P
-            const geos = {i:1, o:2, p:3};
-            if(geos[k]) actions.setGeo(geos[k]);
-            // Colors Q-Y
-            const cols = {q:[0xff0000,"ROJO"],w:[0x00ff00,"VERDE"],e:[0x0000ff,"AZUL"],r:[0x00ffff,"CYAN"],t:[0xff00ff,"MAG"],y:[0xffff00,"AMAR"],u:[0xffffff,"OFF"]};
-            if(cols[k]) actions.setColor(cols[k][0], cols[k][1]);
-            
-            if(k==='m') actions.reset();
-            if(k==='n') { /* Webcam logic simplified */ notify("WEBCAM (TODO)"); }
+            if(['a','s','d','f','g','h','j','k','l'].includes(k)) document.getElementById('file-input').click();
+            if(!isNaN(parseInt(k))) { activeMix.state.mode=parseInt(k); notify(`FX ${k}`); }
+            const styles = {'z':0, 'x':1, 'c':2, 'v':3, 'b':4};
+            if(styles[k]!==undefined) { activeMix.state.style=styles[k]; notify("STYLE CHG"); }
+            const dists = {'i':1, 'o':2, 'p':3};
+            if(dists[k]!==undefined) { activeMix.state.distType=dists[k]; notify("GEO FX"); }
+            if(k==='m') { activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; notify("RESET"); }
+            if(k==='n') { 
+                let m = activeMix.state.camMix; m = (m===0)?0.5:(m===0.5?1.0:0.0);
+                activeMix.state.camMix = m;
+                if(m>0 && !activeMix.webcam.srcObject) navigator.mediaDevices.getUserMedia({video:{width:1280}}).then(s=>{activeMix.webcam.srcObject=s; activeMix.webcam.play();});
+                notify(`CAM ${m*100}%`);
+            }
+            const cols = {'q':[1,0,0], 'w':[0,1,0], 'e':[0,0,1], 'r':[0,1,1], 't':[1,0,1], 'y':[1,1,0], 'u':[1,1,1]};
+            if(cols[k]) { activeMix.state.tint.setRGB(...cols[k]); activeMix.state.tintMix=(k==='u')?0.0:1.0; notify("COLOR FX"); }
         });
 
-        // SLIDERS
-        const sl = (id, k) => document.getElementById(id).oninput=(e)=>actions.setParam(k, e.target.value);
-        sl('sl-speed','speed'); sl('sl-glitch','distortion'); sl('sl-geo','geo'); 
-        sl('sl-rgb','rgb'); sl('sl-mic','mic'); sl('sl-bloom','bloom');
-        
-        document.getElementById('scale-input').oninput = (e) => {
-            document.documentElement.style.setProperty('--ui-scale', e.target.value);
-            document.getElementById('scale-fill').style.width = ((e.target.value-0.6)/0.8)*100+'%';
-            setTimeout(resize, 50);
-        }
+        // Scroll Mix
+        window.addEventListener('wheel', (e) => {
+            activeMix.state.crossfade = Math.max(0, Math.min(1, activeMix.state.crossfade + e.deltaY * 0.001));
+            updateFader();
+        });
 
-        // BOTONES
-        document.getElementById('btn-m1').onclick = () => actions.selectMix(1);
-        document.getElementById('btn-m2').onclick = () => actions.selectMix(2);
-        document.getElementById('out-off').onclick = () => actions.setOut('OFF');
-        document.getElementById('out-1').onclick = () => actions.setOut('1');
-        document.getElementById('out-2').onclick = () => actions.setOut('2');
-        document.getElementById('btn-proj').onclick = () => {
-            projWin = window.open("","","width=800,height=600");
-            projWin.document.write(`<body style="margin:0;background:#000;overflow:hidden"><video id="v" autoplay style="width:100vw;height:100vh;object-fit:cover;opacity:0"></video></body>`);
-        };
-
-        // STARTUP
-        document.getElementById('btn-start').onclick = async () => {
-            await startAudio();
-            document.getElementById('boot').style.display = 'none';
-            // Cargar videos default
-            ['A','B'].forEach(d => {
-                engine1['vid'+d].src = 'assets/videos/iris.webm'; engine1['vid'+d].play();
-                engine2['vid'+d].src = 'assets/videos/iris.webm'; engine2['vid'+d].play();
-            });
-            resize(); animate();
-        };
-
+        // --- INIT ---
         function resize() {
             const w = document.getElementById('cont-1').clientWidth;
             const h = document.getElementById('cont-1').clientHeight;
-            engine1.resize(w,h); engine2.resize(w,h);
+            mix1.resize(w,h); mix2.resize(w,h);
         }
-        window.onresize = resize;
+        window.addEventListener('resize', resize);
 
         function animate() {
             requestAnimationFrame(animate);
             const t = performance.now()*0.001;
-            engine1.render(t, state.mix1, audioData);
-            engine2.render(t, state.mix2, audioData);
+            mix1.render(t, audio); mix2.render(t, audio);
         }
 
-        // --- MAPEO MIDI COMPLETO (GENERADOR) ---
-        const midiDef = [
-            {cat:"MEZCLA", items:[
-                {l:"Fader", k:"crossfader", f:(v)=>actions.setFade(v)},
-                {l:"Speed", k:"speed", f:(v)=>actions.setParam('speed',v*5)},
-                {l:"Glitch", k:"glitch", f:(v)=>actions.setParam('distortion',v*5)},
-                {l:"RGB", k:"rgb", f:(v)=>actions.setParam('rgb',v*0.2)},
-                {l:"Geo 3D", k:"geo", f:(v)=>actions.setParam('geo',v*10)},
-                {l:"Bloom", k:"bloom", f:(v)=>actions.setParam('bloom',v*3)},
-                {l:"Mic Gain", k:"mic", f:(v)=>actions.setParam('mic',v*20)},
-            ]},
-            {cat:"CLIPS (A-L)", items: "asdfghjkl".split('').map(c => ({l:"Clip "+c.toUpperCase(), k:"slot_"+c, f:actions.loadClip})) },
-            {cat:"ESTILOS (Z-B)", items:[
-                {l:"Normal", k:"st_z", f:()=>actions.setStyle(0,"NORM")},
-                {l:"Malla", k:"st_x", f:()=>actions.setStyle(1,"MALLA")},
-                {l:"Puntos", k:"st_c", f:()=>actions.setStyle(2,"PUNTOS")},
-                {l:"Poster", k:"st_v", f:()=>actions.setStyle(3,"POSTER")},
-                {l:"Matrix", k:"st_b", f:()=>actions.setStyle(4,"MATRIX")},
-            ]},
-            {cat:"GEO 3D (I-P)", items:[
-                {l:"Olas", k:"geo_i", f:()=>actions.setGeo(1)},
-                {l:"Picos", k:"geo_o", f:()=>actions.setGeo(2)},
-                {l:"Digital", k:"geo_p", f:()=>actions.setGeo(3)},
-            ]},
-            {cat:"COLORES (Q-Y)", items:[
-                {l:"Rojo", k:"col_q", f:()=>actions.setColor(0xff0000,"ROJO")},
-                {l:"Verde", k:"col_w", f:()=>actions.setColor(0x00ff00,"VERDE")},
-                {l:"Azul", k:"col_e", f:()=>actions.setColor(0x0000ff,"AZUL")},
-                // ... resto colores
-                {l:"OFF", k:"col_u", f:()=>actions.setColor(0xffffff,"OFF")},
-            ]},
-            {cat:"CONTROL", items:[
-                {l:"Mix 1", k:"m1", f:()=>actions.selectMix(1)},
-                {l:"Mix 2", k:"m2", f:()=>actions.selectMix(2)},
-                {l:"Blackout", k:"bo", f:()=>actions.setOut('OFF')},
-                {l:"Proj 1", k:"p1", f:()=>actions.setOut('1')},
-                {l:"Proj 2", k:"p2", f:()=>actions.setOut('2')},
-                {l:"Reset", k:"rst", f:actions.reset}
-            ]}
-        ];
+        document.getElementById('btn-start').onclick = async () => {
+            await initAudio();
+            document.getElementById('boot').style.display='none';
+            mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=1.0; // Truco para cargar en B
+            mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=0.0; // Cargar en A y ver A
+            mix2.loadClip('assets/videos/iris.webm'); mix2.state.crossfade=1.0;
+            mix2.loadClip('assets/videos/iris.webm'); mix2.state.crossfade=0.0;
+            resize(); animate();
+        };
 
-        let midiMap = {}; let learnTarget = null;
+        // Proyector
+        document.getElementById('btn-proj').onclick = () => {
+            projWin = window.open("", "PROJ", "width=800,height=600");
+            projWin.document.write(`<body style="margin:0;background:#000;overflow:hidden"><video id="v" autoplay style="width:100vw;height:100vh;object-fit:cover;opacity:0"></video></body>`);
+        };
 
-        function drawMidi() {
-            const list = document.getElementById('midi-list'); list.innerHTML="";
-            midiDef.forEach(grp => {
-                grp.items.forEach(it => {
-                    const d = document.createElement('div'); d.className='midi-item';
-                    const mapped = midiMap[it.k];
-                    d.innerHTML = `<span style="color:#aaa;font-size:10px">${it.l}</span><button class="midi-btn ${learnTarget===it.k?'learning':''}">${mapped?mapped.id:'MAP'}</button>`;
-                    d.querySelector('button').onclick=()=>{ learnTarget=it.k; drawMidi(); };
-                    list.appendChild(d);
-                });
-            });
+        // Buttons
+        document.getElementById('btn-mix-1').onclick = () => setActive(1);
+        document.getElementById('btn-mix-2').onclick = () => setActive(2);
+        document.getElementById('out-off').onclick = () => setOutput('OFF');
+        document.getElementById('out-1').onclick = () => setOutput('1');
+        document.getElementById('out-2').onclick = () => setOutput('2');
+
+        // MIDI POPULATION
+        const midiMapDef = {
+            'work_a':{l:'Mix 1', f:()=>setActive(1)}, 'work_b':{l:'Mix 2', f:()=>setActive(2)},
+            'out_off':{l:'Blackout', f:()=>setOutput('OFF')}, 'out_1':{l:'Proj 1', f:()=>setOutput('1')}, 'out_2':{l:'Proj 2', f:()=>setOutput('2')},
+            'crossfader':{l:'Fader', f:(v)=>{activeMix.state.crossfade=v; updateFader();}},
+            'slot_a':{l:'Clip A', f:()=>document.getElementById('file-input').click()},
+            'speed':{l:'Knob Speed', f:(v)=>activeMix.state.speed=v*5},
+            'glitch':{l:'Knob Glitch', f:(v)=>activeMix.state.glitch=v*5},
+            'geo':{l:'Knob Geo', f:(v)=>activeMix.state.geo=v*10},
+            'gain':{l:'Knob Gain', f:(v)=>micGain=v*10}
+        };
+        let midiBinding = null;
+        const midiConfig = {}; // Guarda { key: {type, val} }
+
+        function renderMidi() {
+            const list = document.getElementById('midi-list'); list.innerHTML='';
+            for(const [k, v] of Object.entries(midiMapDef)) {
+                const row = document.createElement('div'); row.className='midi-row';
+                const hasMap = midiConfig[k];
+                row.innerHTML = `<span style="color:#aaa">${v.l}</span><button class="midi-btn ${midiBinding===k?'learning':''}">${hasMap ? (hasMap.t+':'+hasMap.v) : 'MAP'}</button>`;
+                row.querySelector('button').onclick = () => { midiBinding = k; renderMidi(); };
+                list.appendChild(row);
+            }
         }
-
-        if(navigator.requestMIDIAccess) navigator.requestMIDIAccess().then(acc => {
-            for(let i of acc.inputs.values()) i.onmidimessage = (m) => {
-                const [c,n,v] = m.data; if(v===0 && c!==176) return; // NoteOff ignore
-                const id = `${c}-${n}`;
-                if(learnTarget) { midiMap[learnTarget]={id,c,n}; learnTarget=null; drawMidi(); return; }
+        
+        if(navigator.requestMIDIAccess) navigator.requestMIDIAccess().then(m => {
+            for(let i of m.inputs.values()) i.onmidimessage = (msg) => {
+                const [c, n, v] = msg.data; const type = (c>=176 && c<=191)?'cc':(c>=144 && c<=159)?'note':null;
+                if(!type || (type==='note' && v===0)) return;
                 
-                // Ejecutar
-                midiDef.forEach(g => g.items.forEach(it => {
-                    if(midiMap[it.k] && midiMap[it.k].id === id) it.f(v/127);
-                }));
+                if(midiBinding) {
+                    midiConfig[midiBinding] = { t:type, v:n };
+                    notify(`MAPPED: ${midiMapDef[midiBinding].l}`);
+                    midiBinding = null; renderMidi();
+                    return;
+                }
+
+                for(const [key, map] of Object.entries(midiConfig)) {
+                    if(map.t === type && map.v === n) midiMapDef[key].f(v/127.0);
+                }
             };
         });
 
-        document.getElementById('btn-midi').onclick=()=>{document.getElementById('midi-overlay').style.display='flex'; drawMidi();};
-        document.getElementById('btn-close-midi').onclick=()=>{document.getElementById('midi-overlay').style.display='none';};
+        document.getElementById('btn-midi').onclick = () => { document.getElementById('midi-overlay').style.display='flex'; renderMidi(); };
+        document.getElementById('btn-close-midi').onclick = () => document.getElementById('midi-overlay').style.display='none';
 
     </script>
 </body>
