@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS v11 - FULL ENGINE</title>
+    <title>IRIS v11 - FULL ENGINE FIXED</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     
     <style>
@@ -152,9 +152,9 @@
                 <h3>ATAJOS</h3>
                 <div class="shortcut-row"><span>Cargar Video</span> <span class="key-badge">A-L</span></div>
                 <div class="shortcut-row"><span>Efectos 2D</span> <span class="key-badge">1-0</span></div>
-                <div class="shortcut-row"><span>Estilos</span> <span class="key-badge">Z-B</span></div>
-                <div class="shortcut-row"><span>Deformación 3D</span> <span class="key-badge">I,O,P</span></div>
-                <div class="shortcut-row"><span>Tintes</span> <span class="key-badge">Q-Y</span></div>
+                <div class="shortcut-row"><span>Estilo Malla</span> <span class="key-badge">Z</span></div>
+                <div class="shortcut-row"><span>Otros Estilos</span> <span class="key-badge">X-B</span></div>
+                <div class="shortcut-row"><span>Deformación 3D</span> <span class="key-badge">Q-P</span></div>
                 <div class="shortcut-row"><span>Webcam</span> <span class="key-badge">N</span></div>
                 <div class="shortcut-row"><span>Reset</span> <span class="key-badge">M</span></div>
             </div>
@@ -189,7 +189,7 @@
                         <div class="param-row"><span class="param-label">3D GEO</span> <input type="range" id="sl-geo" min="0" max="10" step="0.1" value="4" class="param-slider"></div>
                     </div>
                     <div>
-                        <div class="param-row"><span class="param-label">RGB</span> <input type="range" id="sl-rgb" min="0" max="0.2" step="0.01" value="0.02" class="param-slider"></div>
+                        <div class="param-row"><span class="param-label">RGB</span> <input type="range" id="sl-rgb" min="0" max="1" step="0.01" value="0" class="param-slider"></div>
                         <div class="param-row"><span class="param-label">GAIN</span> <input type="range" id="sl-gain" min="1" max="10" step="0.1" value="5" class="param-slider"></div>
                         <div class="param-row"><span class="param-label">BLOOM</span> <input type="range" id="sl-bloom" min="0" max="3" step="0.1" value="1.5" class="param-slider"></div>
                     </div>
@@ -211,7 +211,7 @@
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
         
-        // --- MOTOR DE MEZCLA (Instanciable: Creamos uno para Mix 1 y otro para Mix 2) ---
+        // --- MOTOR DE MEZCLA (Instanciable) ---
         class MixerEngine {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
@@ -220,16 +220,15 @@
                 this.camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000); 
                 this.camera.position.z = 9;
 
-                // CADA MOTOR TIENE 2 DECKS INTERNOS
                 this.deckA = this.createVideoTexture();
                 this.deckB = this.createVideoTexture();
                 this.webcam = this.createVideoTexture();
 
-                // Estado Interno del Mix
+                // Estado Interno
                 this.state = {
                     nameA: "VACÍO", nameB: "VACÍO",
                     crossfade: 0.0, // 0=A, 1=B
-                    speed: 1.0, glitch: 0.0, geo: 4.0, rgb: 0.02, bloom: 1.5,
+                    speed: 1.0, glitch: 0.0, geo: 4.0, rgb: 0.0, bloom: 1.5,
                     mode: 1, style: 0, distType: 0,
                     tint: new THREE.Color(1,1,1), tintMix: 0.0,
                     camMix: 0.0
@@ -240,7 +239,8 @@
                     uCrossfade: { value: 0.0 }, uTexCam: { value: this.webcam.tex }, uMix: { value: 0.0 },
                     uTime: { value: 0 }, uBass: { value: 0 }, 
                     uMode: { value: 1 }, uStyle: { value: 0 }, uDistType: { value: 0 },
-                    uSpeed: { value: 1.0 }, uRGBShift: { value: 0.02 }, uGeoStrength: { value: 4.0 },
+                    uSpeed: { value: 1.0 }, uGeoStrength: { value: 4.0 },
+                    uRGBShift: { value: 0.0 }, // FIXED: Nuevo uniform separado
                     uTint: { value: new THREE.Color(1,1,1) }, uTintMix: { value: 0.0 }
                 };
 
@@ -249,10 +249,21 @@
                     varying vec2 vUv;
                     void main() {
                         vUv = uv; vec3 pos = position; float t = uTime * uSpeed; float d = 0.0;
+                        float str = uGeoStrength * (0.1 + uBass * 0.8);
+                        
+                        // DEFORMACIONES 3D (Q-P)
                         if(uDistType==1) d = sin(pos.x*2.+t)*cos(pos.y*1.5+t);
                         if(uDistType==2) d = sin(pos.y*10.+t)*0.5 * sin(pos.x*10.);
                         if(uDistType==3) { vec2 b=floor(uv*10.); d=(fract(sin(dot(b,vec2(12.9,78.2)))*43758.5)>0.5)?1.0:0.0; d*=sin(t*5.); }
-                        pos.z += d * uGeoStrength * (0.1 + uBass * 0.8);
+                        if(uDistType==4) d = sin(length(pos.xy)*5.0 - t*3.0);
+                        if(uDistType==5) d = cos(pos.x*5.0 + t) + sin(pos.y*5.0 + t);
+                        if(uDistType==6) d = sin(pos.y*20.0 + t*10.0) * 0.2;
+                        if(uDistType==7) d = (sin(pos.x*3.0+t) * sin(pos.y*3.0+t)) * sin(t);
+                        if(uDistType==8) d = tan(pos.x + t) * 0.1;
+                        if(uDistType==9) d = abs(sin(pos.x*4.0+t)) * abs(cos(pos.y*4.0));
+                        if(uDistType==10) d = fract(pos.x*2.0+t) * fract(pos.y*2.0+t);
+
+                        pos.z += d * str;
                         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
                     }
                 `;
@@ -260,7 +271,7 @@
                 const frag = `
                     uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
                     uniform sampler2D uTexCam; uniform float uMix;
-                    uniform float uTime; uniform float uSpeed; uniform float uRGBShift; uniform float uBass;
+                    uniform float uTime; uniform float uSpeed; uniform float uBass; uniform float uRGBShift;
                     uniform int uMode; uniform int uStyle; uniform vec3 uTint; uniform float uTintMix;
                     varying vec2 vUv;
                     float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
@@ -274,7 +285,9 @@
                         if(uMode==4) uv += vec2(sin(uv.y*10.+t)*0.05, 0.0);
                         if(uMode==5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
 
-                        float shift = uRGBShift + (uBass * 0.05);
+                        // FIXED: Shift es exactamente lo que diga el slider (si es 0, es 0)
+                        float shift = uRGBShift + (uRGBShift > 0.0 ? uBass * 0.05 : 0.0);
+                        
                         vec3 cA = rgbSplit(uTexA, uv, shift);
                         vec3 cB = rgbSplit(uTexB, uv, shift);
                         vec3 col = mix(cA, cB, uCrossfade);
@@ -283,9 +296,14 @@
                         col = mix(col, cam, uMix);
 
                         float lum = dot(col, vec3(0.33));
-                        if(uStyle==1) { col = vec3(step(0.5, fract(uv.x*50.0+t))); col*=lum; } 
-                        if(uStyle==2) { col = vec3(step(0.9, rand(floor(uv*100.0)))); col*=lum; }
                         
+                        // ESTILOS
+                        if(uStyle==1) { col = vec3(step(0.5, fract(uv.x*50.0+t))); col*=lum; } // Z: MALLA
+                        if(uStyle==2) { col = vec3(step(0.9, rand(floor(uv*100.0)))); col*=lum; }
+                        if(uStyle==3) { col = vec3(floor(lum*4.0)/4.0); }
+                        if(uStyle==4) { float g = step(0.5, sin(uv.y*100.0+t*10.0)); col *= g; }
+                        
+                        // TINTE
                         col = mix(col, col*uTint, uTintMix);
                         gl_FragColor = vec4(col, 1.0);
                     }
@@ -306,12 +324,11 @@
             }
 
             loadClip(url) {
-                // Carga en el deck INACTIVO para poder mezclar
                 const target = (this.state.crossfade < 0.5) ? 'B' : 'A';
                 const deck = (target === 'A') ? this.deckA : this.deckB;
                 
                 deck.vid.src = url; deck.vid.play();
-                deck.tex = new THREE.VideoTexture(deck.vid); // Reemplazo textura negra por video
+                deck.tex = new THREE.VideoTexture(deck.vid);
                 
                 if(target === 'A') { this.uniforms.uTexA.value = deck.tex; this.state.nameA = "CARGADO"; }
                 else { this.uniforms.uTexB.value = deck.tex; this.state.nameB = "CARGADO"; }
@@ -325,12 +342,12 @@
                 this.uniforms.uTime.value = t; 
                 this.uniforms.uBass.value = audio.bass;
                 this.uniforms.uSpeed.value = this.state.speed;
-                this.uniforms.uRGBShift.value = this.state.rgb;
                 this.uniforms.uGeoStrength.value = this.state.geo;
                 this.uniforms.uCrossfade.value = this.state.crossfade;
                 this.uniforms.uMode.value = this.state.mode;
                 this.uniforms.uStyle.value = this.state.style;
                 this.uniforms.uDistType.value = this.state.distType;
+                this.uniforms.uRGBShift.value = this.state.rgb; // FIXED: Asignar valor del slider
                 this.uniforms.uTint.value = this.state.tint;
                 this.uniforms.uTintMix.value = this.state.tintMix;
                 this.uniforms.uMix.value = this.state.camMix;
@@ -358,7 +375,6 @@
                 const data = new Uint8Array(ana.frequencyBinCount);
                 const loop = () => {
                     requestAnimationFrame(loop); ana.getByteFrequencyData(data);
-                    // Boost bass detection
                     let b = 0; for(let i=0; i<10; i++) b+=data[i];
                     audio.bass = (b/10/255) * micGain;
                 }; loop();
@@ -369,17 +385,15 @@
         function setActive(id) {
             activeId = id; activeMix = (id===1) ? mix1 : mix2;
             
-            // Visual Update
             document.getElementById('btn-mix-1').className = `work-btn ${id===1?'selected':''}`;
             document.getElementById('btn-mix-2').className = `work-btn ${id===2?'selected':''}`;
             document.getElementById('cont-1').className = `monitor-container ${id===1?'editing':''}`;
             document.getElementById('cont-2').className = `monitor-container ${id===2?'editing':''}`;
             
-            // Sync Sliders
             document.getElementById('sl-speed').value = activeMix.state.speed;
             document.getElementById('sl-dist').value = activeMix.state.glitch;
             document.getElementById('sl-geo').value = activeMix.state.geo;
-            document.getElementById('sl-rgb').value = activeMix.state.rgb;
+            document.getElementById('sl-rgb').value = activeMix.state.rgb; 
             document.getElementById('sl-bloom').value = activeMix.state.bloom;
             updateFader();
             
@@ -406,7 +420,6 @@
 
         function updateFader() {
             document.getElementById('crossfader-handle').style.left = (activeMix.state.crossfade * 100) + '%';
-            // Update labels
             const pre = activeId;
             document.getElementById(`st-${pre}-a`).className = activeMix.state.crossfade < 0.5 ? 'ds-active' : 'ds-inactive';
             document.getElementById(`st-${pre}-b`).className = activeMix.state.crossfade > 0.5 ? 'ds-active' : 'ds-inactive';
@@ -416,25 +429,56 @@
             const n = document.getElementById('notify'); n.innerText=msg; n.style.opacity=1; setTimeout(()=>n.style.opacity=0, 1500);
         }
 
+        function cycleWebcam(engine) {
+            let m = engine.state.camMix;
+            let next = 0.0;
+            // CICLO: OFF(0) -> MIX(0.5) -> CAM(1.0) -> OFF(0)
+            if(m === 0.0) next = 0.5;
+            else if(m === 0.5) next = 1.0;
+            else next = 0.0;
+
+            engine.state.camMix = next;
+
+            // FIXED: Acceder a .vid para srcObject
+            if(next > 0 && !engine.webcam.vid.srcObject) {
+                navigator.mediaDevices.getUserMedia({video:{width:1280, height:720}}).then(s => {
+                    engine.webcam.vid.srcObject = s;
+                    engine.webcam.vid.play();
+                }).catch(e => console.error("Error cam:", e));
+            }
+
+            let label = (next === 0.0) ? "OFF" : (next === 0.5 ? "MIX" : "ONLY");
+            notify(`WEBCAM: ${label}`);
+        }
+
         // --- INPUTS ---
-        // File
         document.getElementById('file-input').onchange = (e) => {
             if(!e.target.files[0]) return;
             const url = URL.createObjectURL(e.target.files[0]);
             activeMix.loadClip(url);
-            // Update Text
             const deck = (activeMix.state.crossfade < 0.5) ? 'b' : 'a';
             const name = e.target.files[0].name.substring(0,8);
             document.getElementById(`st-${activeId}-${deck}`).innerText = `${deck.toUpperCase()}: ${name}`;
             notify(`CLIP EN MIX ${activeId} [${deck.toUpperCase()}]`);
         };
 
-        // Sliders
         const upP = (k,v) => activeMix.state[k] = parseFloat(v);
         document.getElementById('sl-speed').oninput=(e)=>upP('speed', e.target.value);
         document.getElementById('sl-dist').oninput=(e)=>upP('glitch', e.target.value);
         document.getElementById('sl-geo').oninput=(e)=>upP('geo', e.target.value);
-        document.getElementById('sl-rgb').oninput=(e)=>upP('rgb', e.target.value);
+        
+        document.getElementById('sl-rgb').oninput=(e)=>{
+            const val = parseFloat(e.target.value);
+            activeMix.state.rgb = val;
+            if(val > 0) {
+                activeMix.state.tint.setHSL(val, 1.0, 0.5);
+                activeMix.state.tintMix = 1.0;
+            } else {
+                activeMix.state.tint.setRGB(1,1,1);
+                activeMix.state.tintMix = 0.0;
+            }
+        };
+
         document.getElementById('sl-bloom').oninput=(e)=>upP('bloom', e.target.value);
         document.getElementById('sl-gain').oninput=(e)=>micGain = parseFloat(e.target.value);
         document.getElementById('scale-input').oninput=(e)=>{
@@ -446,21 +490,29 @@
         // Keyboard
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
+            
             if(['a','s','d','f','g','h','j','k','l'].includes(k)) document.getElementById('file-input').click();
-            if(!isNaN(parseInt(k))) { activeMix.state.mode=parseInt(k); notify(`FX ${k}`); }
-            const styles = {'z':0, 'x':1, 'c':2, 'v':3, 'b':4};
-            if(styles[k]!==undefined) { activeMix.state.style=styles[k]; notify("STYLE CHG"); }
-            const dists = {'i':1, 'o':2, 'p':3};
-            if(dists[k]!==undefined) { activeMix.state.distType=dists[k]; notify("GEO FX"); }
-            if(k==='m') { activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; notify("RESET"); }
-            if(k==='n') { 
-                let m = activeMix.state.camMix; m = (m===0)?0.5:(m===0.5?1.0:0.0);
-                activeMix.state.camMix = m;
-                if(m>0 && !activeMix.webcam.srcObject) navigator.mediaDevices.getUserMedia({video:{width:1280}}).then(s=>{activeMix.webcam.srcObject=s; activeMix.webcam.play();});
-                notify(`CAM ${m*100}%`);
+            
+            if(!isNaN(parseInt(k)) && parseInt(k)<=5) { activeMix.state.mode=parseInt(k); notify(`FX ${k}`); }
+            
+            const styles = {'z':1, 'x':2, 'c':3, 'v':4, 'b':0};
+            if(styles[k]!==undefined) { activeMix.state.style=styles[k]; notify(k==='z'?"ESTILO MALLA":"STYLE CHG"); }
+            
+            const deforms = {'q':1, 'w':2, 'e':3, 'r':4, 't':5, 'y':6, 'u':7, 'i':8, 'o':9, 'p':10};
+            if(deforms[k]) { activeMix.state.distType=deforms[k]; notify(`DEFORM 3D #${deforms[k]}`); }
+
+            // RESET (M)
+            if(k==='m') { 
+                activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; 
+                activeMix.state.tintMix=0.0; activeMix.state.rgb=0; 
+                document.getElementById('sl-rgb').value=0;
+                notify("RESET"); 
             }
-            const cols = {'q':[1,0,0], 'w':[0,1,0], 'e':[0,0,1], 'r':[0,1,1], 't':[1,0,1], 'y':[1,1,0], 'u':[1,1,1]};
-            if(cols[k]) { activeMix.state.tint.setRGB(...cols[k]); activeMix.state.tintMix=(k==='u')?0.0:1.0; notify("COLOR FX"); }
+
+            // WEBCAM (N)
+            if(k==='n') { 
+                cycleWebcam(activeMix);
+            }
         });
 
         // Scroll Mix
@@ -486,48 +538,101 @@
         document.getElementById('btn-start').onclick = async () => {
             await initAudio();
             document.getElementById('boot').style.display='none';
-            mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=1.0; // Truco para cargar en B
-            mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=0.0; // Cargar en A y ver A
+            mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=1.0; 
+            mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=0.0; 
             mix2.loadClip('assets/videos/iris.webm'); mix2.state.crossfade=1.0;
             mix2.loadClip('assets/videos/iris.webm'); mix2.state.crossfade=0.0;
             resize(); animate();
         };
 
-        // Proyector
         document.getElementById('btn-proj').onclick = () => {
             projWin = window.open("", "PROJ", "width=800,height=600");
             projWin.document.write(`<body style="margin:0;background:#000;overflow:hidden"><video id="v" autoplay style="width:100vw;height:100vh;object-fit:cover;opacity:0"></video></body>`);
         };
 
-        // Buttons
         document.getElementById('btn-mix-1').onclick = () => setActive(1);
         document.getElementById('btn-mix-2').onclick = () => setActive(2);
         document.getElementById('out-off').onclick = () => setOutput('OFF');
         document.getElementById('out-1').onclick = () => setOutput('1');
         document.getElementById('out-2').onclick = () => setOutput('2');
 
-        // MIDI POPULATION
+        // MAPEO MIDI COMPLETO
         const midiMapDef = {
-            'work_a':{l:'Mix 1', f:()=>setActive(1)}, 'work_b':{l:'Mix 2', f:()=>setActive(2)},
-            'out_off':{l:'Blackout', f:()=>setOutput('OFF')}, 'out_1':{l:'Proj 1', f:()=>setOutput('1')}, 'out_2':{l:'Proj 2', f:()=>setOutput('2')},
+            'work_a':{l:'Select Mix 1', f:()=>setActive(1)}, 
+            'work_b':{l:'Select Mix 2', f:()=>setActive(2)},
             'crossfader':{l:'Fader', f:(v)=>{activeMix.state.crossfade=v; updateFader();}},
-            'slot_a':{l:'Clip A', f:()=>document.getElementById('file-input').click()},
+            'reset':{l:'Reset FX', f:()=>{activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; activeMix.state.rgb=0; activeMix.state.tintMix=0; document.getElementById('sl-rgb').value=0;}},
+            
+            'load_clip':{l:'Cargar Video', f:()=>document.getElementById('file-input').click()},
+            
+            'out_off':{l:'Blackout', f:()=>setOutput('OFF')}, 
+            'out_1':{l:'Proj 1', f:()=>setOutput('1')}, 
+            'out_2':{l:'Proj 2', f:()=>setOutput('2')},
+            
+            // FIXED MIDI WEBCAM
+            'webcam':{l:'Webcam Cycle', f:(v)=>{ if(v>0.5) cycleWebcam(activeMix); }},
+
             'speed':{l:'Knob Speed', f:(v)=>activeMix.state.speed=v*5},
             'glitch':{l:'Knob Glitch', f:(v)=>activeMix.state.glitch=v*5},
             'geo':{l:'Knob Geo', f:(v)=>activeMix.state.geo=v*10},
-            'gain':{l:'Knob Gain', f:(v)=>micGain=v*10}
+            'color':{l:'Knob Color', f:(v)=>{
+                activeMix.state.rgb=v; 
+                if(v>0){activeMix.state.tint.setHSL(v,1.0,0.5); activeMix.state.tintMix=1.0;}
+                else{activeMix.state.tint.setRGB(1,1,1); activeMix.state.tintMix=0.0;}
+            }},
+            'gain':{l:'Knob Audio Gain', f:(v)=>micGain=v*10},
+            'bloom':{l:'Knob Bloom', f:(v)=>activeMix.state.bloom=v*3},
+
+            'fx_1':{l:'FX 2D 1', f:()=>activeMix.state.mode=1},
+            'fx_2':{l:'FX 2D 2', f:()=>activeMix.state.mode=2},
+            'fx_3':{l:'FX 2D 3', f:()=>activeMix.state.mode=3},
+            'fx_4':{l:'FX 2D 4', f:()=>activeMix.state.mode=4},
+            'fx_5':{l:'FX 2D 5', f:()=>activeMix.state.mode=5},
+
+            'style_z':{l:'Estilo Malla (Z)', f:()=>activeMix.state.style=1},
+            'style_x':{l:'Estilo 2', f:()=>activeMix.state.style=2},
+            'style_c':{l:'Estilo 3', f:()=>activeMix.state.style=3},
+            'style_v':{l:'Estilo 4', f:()=>activeMix.state.style=4},
+
+            'def_1':{l:'Deform 1', f:()=>activeMix.state.distType=1},
+            'def_2':{l:'Deform 2', f:()=>activeMix.state.distType=2},
+            'def_3':{l:'Deform 3', f:()=>activeMix.state.distType=3},
+            'def_4':{l:'Deform 4', f:()=>activeMix.state.distType=4},
+            'def_5':{l:'Deform 5', f:()=>activeMix.state.distType=5},
+            'def_6':{l:'Deform 6', f:()=>activeMix.state.distType=6},
+            'def_7':{l:'Deform 7', f:()=>activeMix.state.distType=7},
+            'def_8':{l:'Deform 8', f:()=>activeMix.state.distType=8},
+            'def_9':{l:'Deform 9', f:()=>activeMix.state.distType=9},
+            'def_10':{l:'Deform 10', f:()=>activeMix.state.distType=10}
         };
+
         let midiBinding = null;
-        const midiConfig = {}; // Guarda { key: {type, val} }
+        const midiConfig = {}; 
 
         function renderMidi() {
             const list = document.getElementById('midi-list'); list.innerHTML='';
-            for(const [k, v] of Object.entries(midiMapDef)) {
-                const row = document.createElement('div'); row.className='midi-row';
-                const hasMap = midiConfig[k];
-                row.innerHTML = `<span style="color:#aaa">${v.l}</span><button class="midi-btn ${midiBinding===k?'learning':''}">${hasMap ? (hasMap.t+':'+hasMap.v) : 'MAP'}</button>`;
-                row.querySelector('button').onclick = () => { midiBinding = k; renderMidi(); };
-                list.appendChild(row);
+            
+            const groups = {
+                'GENERAL': ['work_a','work_b','crossfader','reset','load_clip','webcam'],
+                'SALIDAS': ['out_off','out_1','out_2'],
+                'AJUSTES': ['speed','glitch','geo','color','gain','bloom'],
+                'EFECTOS 2D': ['fx_1','fx_2','fx_3','fx_4','fx_5'],
+                'ESTILOS': ['style_z','style_x','style_c','style_v'],
+                'DEFORMACION 3D': ['def_1','def_2','def_3','def_4','def_5','def_6','def_7','def_8','def_9','def_10']
+            };
+
+            for(const [grpName, keys] of Object.entries(groups)) {
+                const gHeader = document.createElement('div'); gHeader.className='midi-group'; gHeader.innerText=grpName;
+                list.appendChild(gHeader);
+                
+                keys.forEach(k => {
+                    const v = midiMapDef[k];
+                    const row = document.createElement('div'); row.className='midi-row';
+                    const hasMap = midiConfig[k];
+                    row.innerHTML = `<span style="color:#aaa">${v.l}</span><button class="midi-btn ${midiBinding===k?'learning':''}">${hasMap ? (hasMap.t+':'+hasMap.v) : 'MAP'}</button>`;
+                    row.querySelector('button').onclick = () => { midiBinding = k; renderMidi(); };
+                    list.appendChild(row);
+                });
             }
         }
         
@@ -550,8 +655,7 @@
         });
 
         document.getElementById('btn-midi').onclick = () => { document.getElementById('midi-overlay').style.display='flex'; renderMidi(); };
-        document.getElementById('btn-close-midi').onclick = () => document.getElementById('midi-overlay').style.display='none';
-
+        
     </script>
 </body>
 </html>
