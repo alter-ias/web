@@ -34,11 +34,34 @@
             letter-spacing: 4px;
             transition: opacity 0.5s;
         }
+
+        #instructions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            text-align: right;
+            color: #666;
+            font-size: 10px;
+            letter-spacing: 1px;
+            pointer-events: none;
+        }
+
+        .key {
+            border: 1px solid #444;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #888;
+        }
     </style>
 </head>
 
 <body>
     <div id="loading">GENERATING MODEL...</div>
+    <div id="instructions">
+        SCROLL : ZOOM<br>
+        <span class="key">CTRL</span> + SCROLL : EXPLODE VIEW<br>
+        DRAG : ROTATE
+    </div>
     <div id="info">IRIS // ALTERLAB GENERATIVE SYSTEMS</div>
 
     <script type="module">
@@ -67,25 +90,23 @@
 
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(SCENE_BG);
-        // Add subtle fog to blend floor
         scene.fog = new THREE.Fog(SCENE_BG, 15, 30);
 
         const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.set(0, 8, 8);
+        camera.position.set(0, 10, 8);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         controls.minDistance = 3;
         controls.maxDistance = 20;
+        controls.enableZoom = true;
 
-        // --- LIGHTING (Studio Setup) ---
+        // --- LIGHTING ---
         RectAreaLightUniformsLib.init();
-
         const ambient = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambient);
 
-        // Key Light
         const spot1 = new THREE.SpotLight(0xffffff, 5);
         spot1.position.set(5, 10, 5);
         spot1.angle = Math.PI / 6;
@@ -93,16 +114,13 @@
         spot1.castShadow = true;
         spot1.shadow.mapSize.width = 2048;
         spot1.shadow.mapSize.height = 2048;
-        spot1.shadow.radius = 4;
         scene.add(spot1);
 
-        // Fill Light
         const rectLight = new THREE.RectAreaLight(0xffffff, 2, 10, 10);
         rectLight.position.set(-5, 5, 5);
         rectLight.lookAt(0, 0, 0);
         scene.add(rectLight);
 
-        // Rim Light (Cool)
         const spot2 = new THREE.SpotLight(0xddeeff, 3);
         spot2.position.set(0, 5, -8);
         spot2.lookAt(0, 0, 0);
@@ -110,186 +128,219 @@
 
         // --- MATERIALS ---
         const mats = {
-            aluminum: new THREE.MeshStandardMaterial({
-                color: AL_COLOR, roughness: AL_ROUGHNESS, metalness: AL_METALNESS,
-            }),
-            ceramic: new THREE.MeshPhysicalMaterial({
-                color: 0xffffff, roughness: 0.1, metalness: 0.0,
-                transmission: 0.1, thickness: 0.5, clearcoat: 1.0
-            }),
-            glass: new THREE.MeshPhysicalMaterial({
-                color: 0xffffff, roughness: 0.0, metalness: 0.0,
-                transmission: 0.95, thickness: 1.0, clearcoat: 1.0
-            }),
-            plasticBlack: new THREE.MeshStandardMaterial({
-                color: 0x111111, roughness: 0.6, metalness: 0.0
-            }),
-            glowCyan: new THREE.MeshStandardMaterial({
-                color: 0x00ffff, emissive: 0x00E5FF, emissiveIntensity: 2.0, toneMapped: false
-            }),
-            glowWhite: new THREE.MeshStandardMaterial({
-                color: 0xaaccff, emissive: 0xaaccff, emissiveIntensity: 1.5, toneMapped: false
-            }),
-            glowRose: new THREE.MeshStandardMaterial({
-                color: 0xffaacc, emissive: 0xff88aa, emissiveIntensity: 1.5, toneMapped: false
-            }),
-            glowInd: new THREE.MeshStandardMaterial({
-                color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.0, toneMapped: false
-            }),
-            text: new THREE.MeshStandardMaterial({
-                color: 0x999999, roughness: 0.4, metalness: 0.8 // Tone-on-tone
-            })
+            aluminum: new THREE.MeshStandardMaterial({ color: AL_COLOR, roughness: AL_ROUGHNESS, metalness: AL_METALNESS }),
+            ceramic: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.0, transmission: 0.1, thickness: 0.5, clearcoat: 1.0 }),
+            glass: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.0, metalness: 0.0, transmission: 0.95, thickness: 1.0, clearcoat: 1.0 }),
+            plasticBlack: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.0 }),
+            glowCyan: new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00E5FF, emissiveIntensity: 2.0, toneMapped: false }),
+            glowWhite: new THREE.MeshStandardMaterial({ color: 0xaaccff, emissive: 0xaaccff, emissiveIntensity: 1.5, toneMapped: false }),
+            glowRose: new THREE.MeshStandardMaterial({ color: 0xffaacc, emissive: 0xff88aa, emissiveIntensity: 1.5, toneMapped: false }),
+            glowInd: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.0, toneMapped: false }),
+            text: new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.4, metalness: 0.8 })
         };
 
-        // --- GEOMETRY CONSTRUCTION ---
+        // --- ANIMATION PARTS ---
+        const parts = {
+            chassis: [],
+            fader: [],
+            knobs: [],
+            keysLeft: [],
+            keysRight: [],
+            center: [],
+            corners: []
+        };
+
         const group = new THREE.Group();
         scene.add(group);
 
-        // 1. MAIN CHASSIS (Monolithic Block)
-        // Width: 6, Height: 0.6, Depth: 4
-        const chassisGeo = new RoundedBoxGeometry(6, 0.6, 4, 10, 0.15); // radius 0.15
+        // 1. MAIN CHASSIS
+        const chassisGeo = new RoundedBoxGeometry(6, 0.6, 4, 10, 0.15);
         const chassis = new THREE.Mesh(chassisGeo, mats.aluminum);
-        chassis.castShadow = true;
-        chassis.receiveShadow = true;
+        chassis.castShadow = true; chassis.receiveShadow = true;
         group.add(chassis);
+        parts.chassis.push({ mesh: chassis, home: chassis.position.clone() });
 
-        // 2. CROSSFADER (Bottom Center)
-        // Slot
+        // 2. CROSSFADER
+        const faderGrp = new THREE.Group();
         const slotGeo = new RoundedBoxGeometry(2.5, 0.05, 0.15, 2, 0.02);
         const slot = new THREE.Mesh(slotGeo, mats.plasticBlack);
         slot.position.set(0, 0.301, 1.2);
-        group.add(slot);
-
-        // Handle
+        faderGrp.add(slot);
         const handleGeo = new RoundedBoxGeometry(0.3, 0.4, 0.12, 4, 0.02);
         const handle = new THREE.Mesh(handleGeo, mats.aluminum);
         handle.position.set(0, 0.45, 1.2);
         handle.castShadow = true;
-        group.add(handle);
-
-        // Halo (Light beneath)
+        faderGrp.add(handle);
         const haloGeo = new THREE.PlaneGeometry(0.5, 0.3);
         const halo = new THREE.Mesh(haloGeo, mats.glowCyan);
         halo.rotation.x = -Math.PI / 2;
         halo.position.set(0, 0.302, 1.2);
-        group.add(halo);
+        faderGrp.add(halo);
+        group.add(faderGrp);
+        parts.fader.push({ mesh: faderGrp, home: faderGrp.position.clone() });
 
-        // 3. KNOBS (6x Row above fader)
+        // 3. KNOBS
         const knobGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.2, 32);
-        const knobTopGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.02, 32); // chamfer
-
         for (let i = 0; i < 6; i++) {
             const x = -2.0 + (i * 0.8);
-            const z = 0.2;
-
+            const z = 0.6;
             const kGrp = new THREE.Group();
             kGrp.position.set(x, 0.3, z);
-
             const body = new THREE.Mesh(knobGeo, mats.aluminum);
-            body.position.y = 0.1;
-            body.castShadow = true;
-
-            // Indicator
+            body.position.y = 0.1; body.castShadow = true;
             const indGeo = new THREE.CircleGeometry(0.02, 16);
             const ind = new THREE.Mesh(indGeo, mats.glowInd);
-            ind.rotation.x = -Math.PI / 2;
-            ind.position.set(0, 0.201, -0.18); // top edge
-
-            kGrp.add(body);
-            kGrp.add(ind);
+            ind.rotation.x = -Math.PI / 2; ind.position.set(0, 0.201, -0.18);
+            kGrp.add(body); kGrp.add(ind);
             group.add(kGrp);
+            parts.knobs.push({ mesh: kGrp, home: kGrp.position.clone() });
         }
 
-        // 4. KEY MATRIX (Upper Section)
-        // Left Grid (Cool) - 4x4
+        // 4. KEY MATRIX
         const keyGeo = new RoundedBoxGeometry(0.35, 0.1, 0.35, 4, 0.02);
+        const padGeo = new THREE.PlaneGeometry(0.36, 0.36);
+        const lg = new THREE.Group();
+        const rg = new THREE.Group();
+        group.add(lg); group.add(rg);
+        parts.keysLeft.push({ mesh: lg, home: lg.position.clone() });
+        parts.keysRight.push({ mesh: rg, home: rg.position.clone() });
 
         for (let row = 0; row < 4; row++) {
             for (let col = 0; col < 4; col++) {
-                // LEFT GRID (Cool)
                 const k1 = new THREE.Mesh(keyGeo, mats.ceramic);
                 k1.position.set(-2.2 + col * 0.4, 0.32, -1.2 + row * 0.4);
-                k1.castShadow = true;
-                group.add(k1);
+                k1.castShadow = true; lg.add(k1);
+                const p1 = new THREE.Mesh(padGeo, mats.glowWhite);
+                p1.rotation.x = -Math.PI / 2; p1.position.set(k1.position.x, 0.301, k1.position.z); lg.add(p1);
 
-                // Underglow
-                const g1 = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.36), mats.glowWhite);
-                g1.rotation.x = -Math.PI / 2;
-                g1.position.set(k1.position.x, 0.301, k1.position.z);
-                group.add(g1);
-
-                // RIGHT GRID (Warm)
                 const k2 = new THREE.Mesh(keyGeo, mats.ceramic);
                 k2.position.set(1.0 + col * 0.4, 0.32, -1.2 + row * 0.4);
-                k2.castShadow = true;
-                group.add(k2);
-
-                // Underglow
-                const g2 = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.36), mats.glowRose);
-                g2.rotation.x = -Math.PI / 2;
-                g2.position.set(k2.position.x, 0.301, k2.position.z);
-                group.add(g2);
+                k2.castShadow = true; rg.add(k2);
+                const p2 = new THREE.Mesh(padGeo, mats.glowRose);
+                p2.rotation.x = -Math.PI / 2; p2.position.set(k2.position.x, 0.301, k2.position.z); rg.add(p2);
             }
         }
 
-        // 5. DETAILS
-        // Glass Circle Button (Center)
+        // 5. CENTER DETAILS (Fixed: Removed collision button, added Glass)
+        const cGrp = new THREE.Group();
+        group.add(cGrp);
+        parts.center.push({ mesh: cGrp, home: cGrp.position.clone() });
         const glassBtnGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.05, 64);
         const glassBtn = new THREE.Mesh(glassBtnGeo, mats.glass);
-        glassBtn.position.set(0, 0.32, -0.6);
-        group.add(glassBtn);
+        glassBtn.position.set(0, 0.32, -0.6); cGrp.add(glassBtn);
+        // REMOVED smBtn here
 
-        // Concave Button (Small)
-        const smBtnGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.05, 32);
-        const smBtn = new THREE.Mesh(smBtnGeo, mats.aluminum);
-        smBtn.position.set(0.8, 0.32, -0.2);
-        group.add(smBtn);
+        // 6. CORNER BUTTONS (NEW)
+        const cornerBtnGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.1, 32);
+        // Left Corner
+        const cbL = new THREE.Mesh(cornerBtnGeo, mats.aluminum);
+        cbL.position.set(-2.5, 0.32, 1.5);
+        cbL.castShadow = true;
+        group.add(cbL);
+        parts.corners.push({ mesh: cbL, home: cbL.position.clone() });
 
-        // Side Toggle
-        const toggleBase = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.4), mats.plasticBlack);
-        toggleBase.position.set(-3.0, 0.0, 0); // Side
-        group.add(toggleBase); // Flush with side? Model is width 6 -> x extent is 3.
-        // Actually slightly protrude or flush on side.
+        // Right Corner
+        const cbR = new THREE.Mesh(cornerBtnGeo, mats.aluminum);
+        cbR.position.set(2.5, 0.32, 1.5);
+        cbR.castShadow = true;
+        group.add(cbR);
+        parts.corners.push({ mesh: cbR, home: cbR.position.clone() });
 
-        // 6. TEXT (Micro-engraving)
+
+        // 7. TEXT
         const loader = new FontLoader();
         loader.load('https://cdn.skypack.dev/three@0.136.0/examples/fonts/helvetiker_regular.typeface.json', function (font) {
-
-            // "IRIS" - Upper Left Edge
             const tGeo1 = new TextGeometry('IRIS', { font: font, size: 0.15, height: 0.01 });
             const tMesh1 = new THREE.Mesh(tGeo1, mats.text);
-            tMesh1.rotation.x = -Math.PI / 2;
-            tMesh1.position.set(-2.8, 0.301, -1.6);
+            tMesh1.rotation.x = -Math.PI / 2; tMesh1.position.set(-2.8, 0.301, -1.6);
             group.add(tMesh1);
+            parts.chassis.push({ mesh: tMesh1, home: tMesh1.position.clone() });
 
-            // "ALTERLAB" - Bottom Rear
             const tGeo2 = new TextGeometry('ALTERLAB GENERATIVE SYSTEMS', { font: font, size: 0.06, height: 0.005 });
             const tMesh2 = new THREE.Mesh(tGeo2, mats.text);
-            // Position on back face
-            tMesh2.position.set(-1.5, -0.2, -2.01); // Back is z = -2
-            tMesh2.rotation.y = Math.PI;
+            tMesh2.position.set(-1.5, 0.0, -2.01); tMesh2.rotation.y = Math.PI;
             group.add(tMesh2);
+            parts.chassis.push({ mesh: tMesh2, home: tMesh2.position.clone() });
 
             document.getElementById('loading').style.opacity = 0;
         });
 
-        // Floor Plane (Shadow Catcher)
         const floorGeo = new THREE.PlaneGeometry(50, 50);
         const floorMat = new THREE.ShadowMaterial({ opacity: 0.1 });
         const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -0.3; // Below chassis
+        floor.rotation.x = -Math.PI / 2; floor.position.y = -0.3;
         scene.add(floor);
 
+        // --- EXPLOSION LOGIC ---
+        let explodeTarget = 0.0;
+        let explodeCurrent = 0.0;
 
-        // --- ANIMATION ---
+        window.addEventListener('wheel', (e) => {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                controls.enableZoom = false;
+                explodeTarget += e.deltaY * 0.0005;
+                explodeTarget = Math.max(0, Math.min(1, explodeTarget));
+            } else {
+                controls.enableZoom = true;
+            }
+        }, { passive: false });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'Control') controls.enableZoom = true;
+        });
+
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
+
+            explodeCurrent += (explodeTarget - explodeCurrent) * 0.1;
+
+            if (Math.abs(explodeTarget - explodeCurrent) > 0.0001 || explodeCurrent > 0.001) {
+                // FADER
+                parts.fader.forEach(p => {
+                    p.mesh.position.y = p.home.y + explodeCurrent * 1.5;
+                    p.mesh.position.z = p.home.z + explodeCurrent * 0.5;
+                });
+                // KNOBS
+                parts.knobs.forEach((p, i) => {
+                    const stagger = i * 0.05 * explodeCurrent;
+                    p.mesh.position.y = p.home.y + explodeCurrent * 2.0 + stagger;
+                });
+                // KEYS
+                parts.keysLeft.forEach(p => {
+                    p.mesh.position.y = p.home.y + explodeCurrent * 2.5;
+                    p.mesh.position.x = p.home.x - explodeCurrent * 1.0;
+                    p.mesh.position.z = p.home.z - explodeCurrent * 0.5;
+                    p.mesh.rotation.z = explodeCurrent * 0.1;
+                });
+                parts.keysRight.forEach(p => {
+                    p.mesh.position.y = p.home.y + explodeCurrent * 2.5;
+                    p.mesh.position.x = p.home.x + explodeCurrent * 1.0;
+                    p.mesh.position.z = p.home.z - explodeCurrent * 0.5;
+                    p.mesh.rotation.z = -explodeCurrent * 0.1;
+                });
+                // CENTER
+                parts.center.forEach(p => {
+                    p.mesh.position.y = p.home.y + explodeCurrent * 3.0;
+                });
+                // CORNERS
+                parts.corners.forEach(p => {
+                    // Fly outward to corners
+                    const dirX = Math.sign(p.home.x);
+                    p.mesh.position.y = p.home.y + explodeCurrent * 1.0;
+                    p.mesh.position.x = p.home.x + (dirX * explodeCurrent * 1.5);
+                    p.mesh.position.z = p.home.z + explodeCurrent * 1.0;
+                });
+
+                // TEXT
+                parts.chassis.forEach(p => {
+                    if (p.mesh !== chassis) p.mesh.position.y = p.home.y + explodeCurrent * 0.05;
+                });
+            }
             renderer.render(scene, camera);
         }
 
-        // Resize Handler
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -297,7 +348,6 @@
         });
 
         animate();
-
     </script>
 </body>
 
