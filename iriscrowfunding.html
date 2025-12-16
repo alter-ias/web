@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>IRIS | Filosofía Open Source</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@300;400;700&display=swap"
@@ -105,6 +106,9 @@
             color: #666;
             letter-spacing: 1px;
             pointer-events: none;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 4px;
         }
 
         .key {
@@ -142,6 +146,48 @@
             color: #000;
             box-shadow: 0 0 30px rgba(0, 229, 255, 0.5);
         }
+
+        /* MOBILE RESPONSIVE BLOCK */
+        @media (max-width: 768px) {
+            #canvas-container {
+                width: 100%;
+                height: 50vh;
+                top: auto;
+                bottom: 0;
+                background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+            }
+
+            #content-sidebar {
+                width: 100%;
+                background: linear-gradient(180deg, #050505 0%, #050505 90%, transparent 100%);
+                padding-bottom: 50vh;
+                /* Space for the fixed model */
+                z-index: 20;
+            }
+
+            section {
+                min-height: 60vh;
+                padding: 40px 30px;
+                justify-content: flex-start;
+                padding-top: 100px;
+            }
+
+            h1 {
+                font-size: 50px;
+            }
+
+            h2 {
+                font-size: 30px;
+            }
+
+            .interaction-hint {
+                top: 10px;
+                bottom: auto;
+                right: 10px;
+                text-align: right;
+                font-size: 9px;
+            }
+        }
     </style>
 </head>
 
@@ -152,6 +198,7 @@
     <div class="interaction-hint">
         SCROLL : NARRATIVA<br>
         <span class="key">CTRL</span> + SCROLL : EXPLOSIÓN<br>
+        (SAFARI: PINCH ZOOM)<br>
         DRAG : ROTAR 3D
     </div>
 
@@ -182,7 +229,8 @@
                 <p>Faders de precisión con <span class="accent">halo de luz reactiva</span>. Perillas infinitas de
                     aluminio sólido.</p>
                 <p>Una matriz de cerámica retroiluminada separa tus herramientas: <b>Cálido</b> para la mezcla,
-                    <b>Frío</b> para los efectos.</p>
+                    <b>Frío</b> para los efectos.
+                </p>
             </div>
         </section>
 
@@ -207,7 +255,7 @@
             </div>
         </section>
 
-        <div style="height: 20vh;"></div>
+        <div style="height: 10vh;"></div>
     </div>
 
     <script type="module">
@@ -230,6 +278,7 @@
 
             sections.forEach(sec => {
                 const rect = sec.getBoundingClientRect();
+                // Trigger visibility when element is in view
                 if (rect.top < window.innerHeight * 0.75) {
                     const box = sec.querySelector('.content-box');
                     if (box) box.classList.add('visible');
@@ -241,18 +290,21 @@
 
 
         // --- 3D SETUP ---
+        const container = document.getElementById('canvas-container');
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth * 0.6, window.innerHeight); // INIT SIZE
+
+        // Dynamic Size Init
+        renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.0;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
 
-        const camera = new THREE.PerspectiveCamera(35, (window.innerWidth * 0.6) / window.innerHeight, 0.1, 100);
+        const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
         camera.position.set(0, 8, 8); // Start position
 
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -361,15 +413,13 @@
         let explodeTarget = 0.0;
         let explodeCurrent = 0.0;
 
-        // Prevent default wheel behavior ONLY if Ctrl is pressed (for custom logic)
-        // But since we are on a webpage, we want vertical scroll to work for content.
-        // So: Ctrl + Scroll = Explode. No Ctrl + Scroll = Page Scroll.
-
+        // PC MOUSE INTERACTION
         window.addEventListener('wheel', (e) => {
-            if (e.ctrlKey) {
+            // Check for CTRL or META (CMD on Mac) to encompass all "Modifier + Scroll" intents
+            if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
                 controls.enableZoom = false; // Disable Orbit Zoom when exploding
-                explodeTarget += e.deltaY * 0.0005;
+                explodeTarget += e.deltaY * 0.001; // Increase sensitivity slightly
                 explodeTarget = Math.max(0, Math.min(1, explodeTarget));
             } else {
                 controls.enableZoom = true;
@@ -377,7 +427,35 @@
         }, { passive: false });
 
         window.addEventListener('keyup', (e) => {
-            if (e.key === 'Control') controls.enableZoom = true;
+            if (e.key === 'Control' || e.key === 'Meta') controls.enableZoom = true;
+        });
+
+        // SAFARI / MOBILE TOUCH INTERACTION (PINCH)
+        // Using gesture events which are specific to Safari
+        let lastScale = 1;
+
+        // Prevent default gesture to stop browser page zooming
+        document.addEventListener('gesturestart', (e) => {
+            e.preventDefault();
+            lastScale = 1;
+            controls.enabled = false; // Disable rotation during pinch
+        });
+
+        document.addEventListener('gesturechange', (e) => {
+            e.preventDefault();
+            // e.scale starts at 1. >1 is expanding (zoom in), <1 is pinching (zoom out)
+            // We map "Zoom In" gesture to "Explode"
+            const delta = e.scale - lastScale;
+            lastScale = e.scale;
+
+            // Sensitivity tuning
+            explodeTarget += delta * 2.0;
+            explodeTarget = Math.max(0, Math.min(1, explodeTarget));
+        });
+
+        document.addEventListener('gestureend', (e) => {
+            e.preventDefault();
+            controls.enabled = true; // Re-enable rotation
         });
 
 
@@ -386,33 +464,15 @@
             controls.update();
 
             // 1. SCROLL-DRIVEN SUBTLE ROTATION
-            // We want gentle rotation based on pScroll to show angles, but not overwhelming.
-
-            // Map pScroll (0 to 1) to a rotation range.
-            // Intro (0): Face somewhat front/top.
-            // End (1): Face somewhat side.
-
-            // We only apply this to the GROUP. The CAMERA is controlled by OrbitControls.
-            // This allows the user to rotate around the "presented" angle.
-
-            const targetRotY = pScroll * 0.5; // Rotate 0 to ~30 degrees. Very subtle.
-            const targetRotX = pScroll * 0.2; // Tilt slightly.
-
-            // Smoothly interpolate group rotation
+            const targetRotY = pScroll * 0.5;
+            const targetRotX = pScroll * 0.2;
             group.rotation.y += (targetRotY - group.rotation.y) * 0.05;
             group.rotation.x += (targetRotX - group.rotation.x) * 0.05;
 
-
             // 2. EXPLOSION LOGIC
-            // Combine manual explode (Ctrl+Scroll) with any automatic trigger if desired.
-            // Let's stick to PURE MANUAL for the "big" explosion as requested, 
-            // maybe just a tiny breathing effect or slight separation at the "Open Source" section?
-            // Actually, let's strictly follow the manual control to avoid "jumping".
-
             explodeCurrent += (explodeTarget - explodeCurrent) * 0.1;
 
             if (Math.abs(explodeTarget - explodeCurrent) > 0.0001 || explodeCurrent > 0.001) {
-                // Apply Expansion
                 const ex = explodeCurrent;
                 parts.fader.forEach(p => { p.mesh.position.y = p.home.y + ex * 1.5; p.mesh.position.z = p.home.z + ex * 0.5; });
                 parts.knobs.forEach((p, i) => { p.mesh.position.y = p.home.y + ex * 2.0 + (i * 0.05 * ex); });
@@ -429,12 +489,10 @@
                     const dirX = Math.sign(p.home.x);
                     p.mesh.position.y = p.home.y + ex * 1.0; p.mesh.position.x = p.home.x + dirX * ex * 1.5; p.mesh.position.z = p.home.z + ex * 1.5;
                 });
-                // Text stays attached or floats slightly?
                 parts.chassis.forEach(p => {
                     if (p.mesh !== chassis) p.mesh.position.y = p.home.y + ex * 0.05;
                 });
             } else {
-                // Retract
                 [...parts.fader, ...parts.knobs, ...parts.keysLeft, ...parts.keysRight, ...parts.center, ...parts.corners].forEach(p => {
                     p.mesh.position.lerp(p.home, 0.1);
                     p.mesh.rotation.set(0, 0, 0);
@@ -445,11 +503,18 @@
         }
 
         window.addEventListener('resize', () => {
-            const w = window.innerWidth * 0.6; // Keep 60% ratio
-            camera.aspect = w / window.innerHeight;
+            // Recalculate based on actual container size, not hardcoded multiplier
+            // This supports both Split View (Desktop) and Top/Bottom (Mobile) automatically
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            camera.aspect = w / h;
             camera.updateProjectionMatrix();
-            renderer.setSize(w, window.innerHeight);
+            renderer.setSize(w, h);
         });
+
+        // Initial Resize to catch load state
+        window.dispatchEvent(new Event('resize'));
+
         animate();
     </script>
 </body>
