@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS v11 - FULL ENGINE FIXED</title>
+    <title>IRIS v11 - FINAL FIXED</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     
     <style>
@@ -29,7 +29,6 @@
         }
         .monitor-container canvas { width: 100%; height: 100%; object-fit: contain; }
         
-        /* Borde Cyan al editar */
         .monitor-container.editing { 
             border: 2px solid var(--accent); 
             box-shadow: 0 0 40px rgba(0, 229, 255, 0.2); 
@@ -42,7 +41,6 @@
         }
         .monitor-container.editing .monitor-label { color: var(--accent); text-shadow: 0 0 10px var(--accent); }
 
-        /* Barra de estado interna del monitor (Deck A / Deck B status) */
         .deck-status-bar {
             position: absolute; bottom: 0; left: 0; width: 100%;
             display: flex; justify-content: space-between; padding: 5px 10px; box-sizing: border-box;
@@ -73,7 +71,6 @@
         .shortcut-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 3px; color: #888; }
         .key-badge { color: var(--accent); font-weight: 700; }
 
-        /* MIXER AREA */
         .mix-center { display: flex; flex-direction: column; justify-content: center; height: 100%; }
         .work-grid { display: flex; gap: 20px; margin-bottom: 25px; }
         .work-btn {
@@ -86,7 +83,6 @@
         #crossfader-track { width: 100%; height: 8px; background: #000; border-radius: 4px; position: relative; border: 1px solid #333; margin-top: 10px;}
         #crossfader-handle { width: 60px; height: 20px; background: var(--accent); position: absolute; top: -6px; left: 50%; transform: translateX(-50%); border-radius: 2px; box-shadow: 0 0 10px var(--accent); transition: left 0.1s; }
 
-        /* OUTPUT & CONTROLS */
         .out-matrix { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 15px; }
         .out-btn { padding: 12px; background: #1a0505; border: 1px solid #331111; color: #ff3366; font-family: 'Montserrat'; font-weight: 700; font-size: 10px; cursor: pointer; }
         .out-btn.active-off { background: #ff0055; color: #fff; border-color: #ff0055; box-shadow: 0 0 20px #ff0055; }
@@ -101,7 +97,6 @@
         .util-btn { padding: 8px; background: transparent; border: 1px solid #444; color: #888; font-size: 10px; cursor: pointer; flex: 1; margin: 0 2px;}
         .util-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-        /* OVERLAYS */
         #notify { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; color: var(--accent); opacity: 0; pointer-events: none; transition: 0.3s; background: rgba(0,0,0,0.8); padding: 15px 30px; border: 1px solid var(--accent); z-index: 999; letter-spacing: 5px; }
         #boot { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 500; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         
@@ -152,7 +147,7 @@
                 <h3>ATAJOS</h3>
                 <div class="shortcut-row"><span>Cargar Video</span> <span class="key-badge">A-L</span></div>
                 <div class="shortcut-row"><span>Efectos 2D</span> <span class="key-badge">1-0</span></div>
-                <div class="shortcut-row"><span>Estilo Malla</span> <span class="key-badge">Z</span></div>
+                <div class="shortcut-row"><span>Estilo Malla (Z)</span> <span class="key-badge">Z</span></div>
                 <div class="shortcut-row"><span>Otros Estilos</span> <span class="key-badge">X-B</span></div>
                 <div class="shortcut-row"><span>Deformación 3D</span> <span class="key-badge">Q-P</span></div>
                 <div class="shortcut-row"><span>Webcam</span> <span class="key-badge">N</span></div>
@@ -211,7 +206,7 @@
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
         
-        // --- MOTOR DE MEZCLA (Instanciable) ---
+        // --- MOTOR DE MEZCLA ---
         class MixerEngine {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
@@ -224,10 +219,9 @@
                 this.deckB = this.createVideoTexture();
                 this.webcam = this.createVideoTexture();
 
-                // Estado Interno
                 this.state = {
                     nameA: "VACÍO", nameB: "VACÍO",
-                    crossfade: 0.0, // 0=A, 1=B
+                    crossfade: 0.0,
                     speed: 1.0, glitch: 0.0, geo: 4.0, rgb: 0.0, bloom: 1.5,
                     mode: 1, style: 0, distType: 0,
                     tint: new THREE.Color(1,1,1), tintMix: 0.0,
@@ -240,7 +234,7 @@
                     uTime: { value: 0 }, uBass: { value: 0 }, 
                     uMode: { value: 1 }, uStyle: { value: 0 }, uDistType: { value: 0 },
                     uSpeed: { value: 1.0 }, uGeoStrength: { value: 4.0 },
-                    uRGBShift: { value: 0.0 }, // FIXED: Nuevo uniform separado
+                    uRGBShift: { value: 0.0 },
                     uTint: { value: new THREE.Color(1,1,1) }, uTintMix: { value: 0.0 }
                 };
 
@@ -280,13 +274,22 @@
                     }
                     void main() {
                         vec2 uv = vUv; float t = uTime * uSpeed;
-                        if(uMode==2) uv.x = abs(uv.x-0.5)+0.5;
-                        if(uMode==3) { vec2 c=uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,0.52); uv=0.5+r*vec2(cos(a),sin(a)); }
-                        if(uMode==4) uv += vec2(sin(uv.y*10.+t)*0.05, 0.0);
-                        if(uMode==5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
+                        
+                        // --- EFECTOS 2D (1-10) ---
+                        if(uMode==2) uv.x = abs(uv.x-0.5)+0.5; // Mirror simple
+                        if(uMode==3) { vec2 c=uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,0.52); uv=0.5+r*vec2(cos(a),sin(a)); } // Kaleidoscope
+                        if(uMode==4) uv += vec2(sin(uv.y*10.+t)*0.05, 0.0); // Wavy
+                        if(uMode==5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); } // Twist
+                        
+                        // NUEVOS EFECTOS (6-10)
+                        if(uMode==6) { float pixels = 50.0 + uBass*50.0; uv = floor(uv * pixels) / pixels; } // Pixelate
+                        if(uMode==7) { uv.x += sin(uv.y * 20.0 + t) * 0.02; uv.y += cos(uv.x * 20.0 + t) * 0.02; } // Liquid
+                        if(uMode==8) { vec2 p = uv - 0.5; uv = 0.5 + vec2(abs(p.x), abs(p.y)); } // Quad Mirror
+                        if(uMode==9) { uv = fract(uv * 2.0); } // Tile 2x2
+                        if(uMode==10) { float angle = t; mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)); uv = (uv-0.5)*rot + 0.5; } // Rotation
 
-                        // FIXED: Shift es exactamente lo que diga el slider (si es 0, es 0)
-                        float shift = uRGBShift + (uRGBShift > 0.0 ? uBass * 0.05 : 0.0);
+                        // RGB SHIFT (Controlado solo por slider)
+                        float shift = uRGBShift;
                         
                         vec3 cA = rgbSplit(uTexA, uv, shift);
                         vec3 cB = rgbSplit(uTexB, uv, shift);
@@ -297,13 +300,18 @@
 
                         float lum = dot(col, vec3(0.33));
                         
-                        // ESTILOS
-                        if(uStyle==1) { col = vec3(step(0.5, fract(uv.x*50.0+t))); col*=lum; } // Z: MALLA
-                        if(uStyle==2) { col = vec3(step(0.9, rand(floor(uv*100.0)))); col*=lum; }
-                        if(uStyle==3) { col = vec3(floor(lum*4.0)/4.0); }
-                        if(uStyle==4) { float g = step(0.5, sin(uv.y*100.0+t*10.0)); col *= g; }
+                        // --- ESTILOS ---
+                        // Estilo Z: MALLA ELÁSTICA
+                        if(uStyle==1) { 
+                            float net = step(0.9, fract(uv.x*20.0 + sin(uv.y*10.0+t)*0.5)) + 
+                                        step(0.9, fract(uv.y*20.0 + cos(uv.x*10.0+t)*0.5));
+                            col = mix(col, uTint, clamp(net, 0.0, 0.5)); // Mezcla sutil con la malla
+                        } 
+                        if(uStyle==2) { col = vec3(step(0.9, rand(floor(uv*100.0)))); col*=lum; } // Ruido
+                        if(uStyle==3) { col = vec3(floor(lum*4.0)/4.0); } // Posterize
+                        if(uStyle==4) { float g = step(0.5, sin(uv.y*100.0+t*10.0)); col *= g; } // Scanlines
                         
-                        // TINTE
+                        // COLOR TINT
                         col = mix(col, col*uTint, uTintMix);
                         gl_FragColor = vec4(col, 1.0);
                     }
@@ -347,7 +355,7 @@
                 this.uniforms.uMode.value = this.state.mode;
                 this.uniforms.uStyle.value = this.state.style;
                 this.uniforms.uDistType.value = this.state.distType;
-                this.uniforms.uRGBShift.value = this.state.rgb; // FIXED: Asignar valor del slider
+                this.uniforms.uRGBShift.value = this.state.rgb;
                 this.uniforms.uTint.value = this.state.tint;
                 this.uniforms.uTintMix.value = this.state.tintMix;
                 this.uniforms.uMix.value = this.state.camMix;
@@ -396,7 +404,6 @@
             document.getElementById('sl-rgb').value = activeMix.state.rgb; 
             document.getElementById('sl-bloom').value = activeMix.state.bloom;
             updateFader();
-            
             notify(`EDITANDO: MIX ${id}`);
         }
 
@@ -439,12 +446,26 @@
 
             engine.state.camMix = next;
 
-            // FIXED: Acceder a .vid para srcObject
-            if(next > 0 && !engine.webcam.vid.srcObject) {
-                navigator.mediaDevices.getUserMedia({video:{width:1280, height:720}}).then(s => {
-                    engine.webcam.vid.srcObject = s;
+            // Lógica corregida para la cámara
+            if(next > 0) {
+                // Si ya tenemos stream, aseguramos play
+                if(engine.webcam.vid.srcObject) {
                     engine.webcam.vid.play();
-                }).catch(e => console.error("Error cam:", e));
+                } else {
+                    // Si no, pedimos permiso
+                    navigator.mediaDevices.getUserMedia({video:{width:1280, height:720}})
+                    .then(s => {
+                        engine.webcam.vid.srcObject = s;
+                        // IMPORTANTE: Esperar metadatos para reproducir
+                        engine.webcam.vid.onloadedmetadata = () => {
+                            engine.webcam.vid.play();
+                        };
+                    })
+                    .catch(e => {
+                        console.error("Error cam:", e);
+                        notify("ERROR CAMARA");
+                    });
+                }
             }
 
             let label = (next === 0.0) ? "OFF" : (next === 0.5 ? "MIX" : "ONLY");
@@ -493,7 +514,13 @@
             
             if(['a','s','d','f','g','h','j','k','l'].includes(k)) document.getElementById('file-input').click();
             
-            if(!isNaN(parseInt(k)) && parseInt(k)<=5) { activeMix.state.mode=parseInt(k); notify(`FX ${k}`); }
+            // FX 2D: Ahora admite del 1 al 9, y 0 es el 10
+            const num = parseInt(k);
+            if(!isNaN(num)) {
+                const mode = num === 0 ? 10 : num;
+                activeMix.state.mode = mode; 
+                notify(`FX ${mode}`); 
+            }
             
             const styles = {'z':1, 'x':2, 'c':3, 'v':4, 'b':0};
             if(styles[k]!==undefined) { activeMix.state.style=styles[k]; notify(k==='z'?"ESTILO MALLA":"STYLE CHG"); }
@@ -501,7 +528,6 @@
             const deforms = {'q':1, 'w':2, 'e':3, 'r':4, 't':5, 'y':6, 'u':7, 'i':8, 'o':9, 'p':10};
             if(deforms[k]) { activeMix.state.distType=deforms[k]; notify(`DEFORM 3D #${deforms[k]}`); }
 
-            // RESET (M)
             if(k==='m') { 
                 activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; 
                 activeMix.state.tintMix=0.0; activeMix.state.rgb=0; 
@@ -509,10 +535,7 @@
                 notify("RESET"); 
             }
 
-            // WEBCAM (N)
-            if(k==='n') { 
-                cycleWebcam(activeMix);
-            }
+            if(k==='n') { cycleWebcam(activeMix); }
         });
 
         // Scroll Mix
@@ -556,22 +579,17 @@
         document.getElementById('out-1').onclick = () => setOutput('1');
         document.getElementById('out-2').onclick = () => setOutput('2');
 
-        // MAPEO MIDI COMPLETO
+        // MAPEO MIDI (Manejo de error seguro)
         const midiMapDef = {
             'work_a':{l:'Select Mix 1', f:()=>setActive(1)}, 
             'work_b':{l:'Select Mix 2', f:()=>setActive(2)},
             'crossfader':{l:'Fader', f:(v)=>{activeMix.state.crossfade=v; updateFader();}},
             'reset':{l:'Reset FX', f:()=>{activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; activeMix.state.rgb=0; activeMix.state.tintMix=0; document.getElementById('sl-rgb').value=0;}},
-            
             'load_clip':{l:'Cargar Video', f:()=>document.getElementById('file-input').click()},
-            
             'out_off':{l:'Blackout', f:()=>setOutput('OFF')}, 
             'out_1':{l:'Proj 1', f:()=>setOutput('1')}, 
             'out_2':{l:'Proj 2', f:()=>setOutput('2')},
-            
-            // FIXED MIDI WEBCAM
             'webcam':{l:'Webcam Cycle', f:(v)=>{ if(v>0.5) cycleWebcam(activeMix); }},
-
             'speed':{l:'Knob Speed', f:(v)=>activeMix.state.speed=v*5},
             'glitch':{l:'Knob Glitch', f:(v)=>activeMix.state.glitch=v*5},
             'geo':{l:'Knob Geo', f:(v)=>activeMix.state.geo=v*10},
@@ -582,18 +600,15 @@
             }},
             'gain':{l:'Knob Audio Gain', f:(v)=>micGain=v*10},
             'bloom':{l:'Knob Bloom', f:(v)=>activeMix.state.bloom=v*3},
-
             'fx_1':{l:'FX 2D 1', f:()=>activeMix.state.mode=1},
             'fx_2':{l:'FX 2D 2', f:()=>activeMix.state.mode=2},
             'fx_3':{l:'FX 2D 3', f:()=>activeMix.state.mode=3},
             'fx_4':{l:'FX 2D 4', f:()=>activeMix.state.mode=4},
             'fx_5':{l:'FX 2D 5', f:()=>activeMix.state.mode=5},
-
             'style_z':{l:'Estilo Malla (Z)', f:()=>activeMix.state.style=1},
             'style_x':{l:'Estilo 2', f:()=>activeMix.state.style=2},
             'style_c':{l:'Estilo 3', f:()=>activeMix.state.style=3},
             'style_v':{l:'Estilo 4', f:()=>activeMix.state.style=4},
-
             'def_1':{l:'Deform 1', f:()=>activeMix.state.distType=1},
             'def_2':{l:'Deform 2', f:()=>activeMix.state.distType=2},
             'def_3':{l:'Deform 3', f:()=>activeMix.state.distType=3},
@@ -611,7 +626,6 @@
 
         function renderMidi() {
             const list = document.getElementById('midi-list'); list.innerHTML='';
-            
             const groups = {
                 'GENERAL': ['work_a','work_b','crossfader','reset','load_clip','webcam'],
                 'SALIDAS': ['out_off','out_1','out_2'],
@@ -624,7 +638,6 @@
             for(const [grpName, keys] of Object.entries(groups)) {
                 const gHeader = document.createElement('div'); gHeader.className='midi-group'; gHeader.innerText=grpName;
                 list.appendChild(gHeader);
-                
                 keys.forEach(k => {
                     const v = midiMapDef[k];
                     const row = document.createElement('div'); row.className='midi-row';
@@ -636,23 +649,26 @@
             }
         }
         
-        if(navigator.requestMIDIAccess) navigator.requestMIDIAccess().then(m => {
-            for(let i of m.inputs.values()) i.onmidimessage = (msg) => {
-                const [c, n, v] = msg.data; const type = (c>=176 && c<=191)?'cc':(c>=144 && c<=159)?'note':null;
-                if(!type || (type==='note' && v===0)) return;
-                
-                if(midiBinding) {
-                    midiConfig[midiBinding] = { t:type, v:n };
-                    notify(`MAPPED: ${midiMapDef[midiBinding].l}`);
-                    midiBinding = null; renderMidi();
-                    return;
-                }
-
-                for(const [key, map] of Object.entries(midiConfig)) {
-                    if(map.t === type && map.v === n) midiMapDef[key].f(v/127.0);
-                }
-            };
-        });
+        // Bloque Try-Catch para silenciar errores de MIDI si el navegador bloquea
+        try {
+            if(navigator.requestMIDIAccess) {
+                navigator.requestMIDIAccess().then(m => {
+                    for(let i of m.inputs.values()) i.onmidimessage = (msg) => {
+                        const [c, n, v] = msg.data; const type = (c>=176 && c<=191)?'cc':(c>=144 && c<=159)?'note':null;
+                        if(!type || (type==='note' && v===0)) return;
+                        if(midiBinding) {
+                            midiConfig[midiBinding] = { t:type, v:n };
+                            notify(`MAPPED: ${midiMapDef[midiBinding].l}`);
+                            midiBinding = null; renderMidi();
+                            return;
+                        }
+                        for(const [key, map] of Object.entries(midiConfig)) {
+                            if(map.t === type && map.v === n) midiMapDef[key].f(v/127.0);
+                        }
+                    };
+                }).catch(e => console.log("MIDI access denied or not supported by browser security."));
+            }
+        } catch(e) {}
 
         document.getElementById('btn-midi').onclick = () => { document.getElementById('midi-overlay').style.display='flex'; renderMidi(); };
         
