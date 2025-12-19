@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS v12 - NETWORK EDITION</title>
+    <title>IRIS v13 - STABLE NETWORK</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -55,12 +55,12 @@
         /* UI CONTROL */
         #ui-wrapper { flex-shrink: 0; width: 100%; background: transparent; z-index: 10; display: flex; justify-content: center; align-items: flex-end; position: relative; }
         #dashboard {
-            width: 100%; height: 300px; /* Un poco más alto para el panel de red */
+            width: 100%; height: 300px; 
             background: var(--panel-bg);
             border-top: 1px solid rgba(0,229,255,0.1);
             transform-origin: top center; transform: scale(var(--ui-scale));
             width: calc(100% / var(--ui-scale));
-            display: grid; grid-template-columns: 200px 1fr 300px; /* Ajuste columnas */
+            display: grid; grid-template-columns: 200px 1fr 300px;
             padding: 20px 40px; box-sizing: border-box;
             gap: 20px; position: relative;
         }
@@ -128,7 +128,7 @@
 
     <div id="boot">
         <h1 style="font-size:70px; letter-spacing:15px; color:#fff; margin: 0 0 10px 0; font-family: 'Rajdhani'; font-weight: 700;">IRIS</h1>
-        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Edition v12</h2>
+        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Edition v13</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; letter-spacing: 2px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -194,7 +194,8 @@
                 <div style="display:flex; margin-bottom:15px; gap:2px;">
                     <button class="util-btn" id="btn-midi">MIDI</button>
                     <button class="util-btn" id="btn-proj">WIN</button>
-                    <button class="util-btn" onclick="document.getElementById('file-input').click()">LOAD</button>
+                    <button class="util-btn" onclick="document.getElementById('file-input').click()">VID</button>
+                    <button class="util-btn" onclick="document.getElementById('json-input').click()">LOAD P</button>
                     <button class="util-btn net-btn" id="btn-net">DUO</button>
                 </div>
                 <div class="sliders-grid">
@@ -238,9 +239,18 @@
     
     <div id="notify">NOTIFICACIÓN</div>
     <input type="file" id="file-input" accept="video/*" style="display:none">
+    <input type="file" id="json-input" accept=".json" style="display:none">
 
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
+
+        // --- 0. UTILIDADES GLOBALES (Corrección para que notify exista antes de usarse) ---
+        window.notify = function(msg) {
+            const n = document.getElementById('notify'); 
+            n.innerText = msg; 
+            n.style.opacity = 1; 
+            setTimeout(()=>n.style.opacity=0, 1500);
+        }
         
         // --- 1. MOTOR DE MEZCLA ---
         class MixerEngine {
@@ -274,7 +284,6 @@
                     uTint: { value: new THREE.Color(1,1,1) }, uTintMix: { value: 0.0 }
                 };
 
-                // SHADERS (MISMOS QUE ANTES)
                 const vert = `
                     uniform float uTime; uniform float uSpeed; uniform float uGeoStrength; uniform int uDistType; uniform float uBass;
                     uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade; uniform sampler2D uTexCam; uniform float uMix; uniform int uStyle;
@@ -391,7 +400,6 @@
         let conn = null;
         let myPeerId = null;
 
-        // Función para enviar datos (si hay conexión)
         function sendData(type, payload) {
             if (conn && conn.open) {
                 conn.send({ type: type, payload: payload });
@@ -399,7 +407,7 @@
         }
 
         function initNetwork() {
-            peer = new Peer(); // Genera ID automático en la nube de PeerJS
+            peer = new Peer(); 
 
             peer.on('open', (id) => {
                 myPeerId = id;
@@ -408,7 +416,6 @@
             });
 
             peer.on('connection', (c) => {
-                // Alguien se conecta a mí
                 setupConnection(c);
             });
 
@@ -422,10 +429,10 @@
             conn = c;
             document.getElementById('connection-status').innerText = "ESTADO: CONECTADO CON " + conn.peer;
             document.getElementById('connection-status').style.color = "#00ff88";
+            // AQUI OCURRÍA EL ERROR ANTES, AHORA NOTIFY YA EXISTE
             notify("P2P CONECTADO");
 
             conn.on('data', (data) => {
-                // RECIBIMOS DATOS DEL OTRO USUARIO
                 handleRemoteData(data);
             });
             conn.on('open', () => { sendData('chat', 'Hola desde IRIS!'); });
@@ -439,18 +446,16 @@
             }
         };
 
-        // MANEJO DE DATOS REMOTOS
         function handleRemoteData(data) {
             const p = data.payload;
             
-            // Flag 'true' al final indica que es actualización remota -> NO reenviar
             if(data.type === 'ui_param') {
                 updateParam(p.key, p.value, true); 
             } else if (data.type === 'setActive') {
                 setActive(p.id, true);
             } else if (data.type === 'crossfader') {
                 activeMix.state.crossfade = p.val;
-                updateFader(true); // true = no reenviar
+                updateFader(true);
             } else if (data.type === 'mode') {
                 activeMix.state.mode = p.val; notify("REMOTE: FX " + p.val);
             } else if (data.type === 'style') {
@@ -458,18 +463,14 @@
             } else if (data.type === 'dist') {
                 activeMix.state.distType = p.val; notify("REMOTE: DEFORM");
             } else if (data.type === 'preset_load') {
-                // Carga compleja
                 applyPresetObj(p.obj, true);
             }
         }
 
-        // --- 4. FUNCIONES DE INTERFAZ (MODIFICADAS PARA RED) ---
-        
-        // Función unificada para actualizar parámetros (Slider -> Engine)
+        // --- 4. FUNCIONES DE INTERFAZ ---
         window.uiUpdate = function(key, value, isRemote = false) {
             const val = parseFloat(value);
             
-            // Actualizar el Engine Local
             if(key === 'speed') activeMix.state.speed = val;
             if(key === 'glitch') activeMix.state.glitch = val;
             if(key === 'geo') activeMix.state.geo = val;
@@ -481,7 +482,6 @@
                 else { activeMix.state.tint.setRGB(1,1,1); activeMix.state.tintMix = 0.0; }
             }
 
-            // Actualizar visualmente el slider si vino de remoto
             if(isRemote) {
                 if(key==='speed') document.getElementById('sl-speed').value = val;
                 if(key==='glitch') document.getElementById('sl-dist').value = val;
@@ -490,12 +490,10 @@
                 if(key==='gain') document.getElementById('sl-gain').value = val;
                 if(key==='color') document.getElementById('sl-rgb').value = val;
             } else {
-                // Si es local, enviarlo a la red
                 sendData('ui_param', { key: key, value: val });
             }
         };
 
-        // Helper global para llamar desde HTML
         window.updateParam = window.uiUpdate; 
 
         function setActive(id, isRemote = false) {
@@ -506,14 +504,13 @@
             document.getElementById('cont-1').className = `monitor-container ${id===1?'editing':''}`;
             document.getElementById('cont-2').className = `monitor-container ${id===2?'editing':''}`;
             
-            // Sincronizar sliders con el estado del mix seleccionado
             document.getElementById('sl-speed').value = activeMix.state.speed;
             document.getElementById('sl-dist').value = activeMix.state.glitch;
             document.getElementById('sl-geo').value = activeMix.state.geo;
             document.getElementById('sl-rgb').value = activeMix.state.rgb; 
             document.getElementById('sl-bloom').value = activeMix.state.bloom;
             
-            updateFader(true); // Solo visual local
+            updateFader(true); 
             if(!isRemote) {
                 notify(`EDITANDO: MIX ${id}`);
                 sendData('setActive', { id: id });
@@ -548,15 +545,12 @@
         }
 
         function applyPresetObj(obj, isRemote = false) {
-             // Aplicar estado
              Object.assign(mix1.state, obj.mix1);
              Object.assign(mix2.state, obj.mix2);
              micGain = obj.global.micGain;
-             // UI
              document.getElementById('sl-gain').value = micGain;
-             setActive(activeId, true); // Update sliders
+             setActive(activeId, true);
              notify(isRemote ? "PRESET REMOTO CARGADO" : "PRESET CARGADO");
-             
              if(!isRemote) sendData('preset_load', { obj: obj });
         }
 
@@ -565,16 +559,13 @@
             reader.onload = (event) => {
                 try {
                     const obj = JSON.parse(event.target.result);
-                    applyPresetObj(obj, false); // false = enviar a red
+                    applyPresetObj(obj, false); 
                 } catch(e) { console.error(e); notify("ERROR DE ARCHIVO"); }
             };
             reader.readAsText(file);
         }
         
-        // Input invisible JSON
-        const jsonInput = document.createElement('input'); jsonInput.type = 'file'; jsonInput.accept = '.json'; jsonInput.style.display = 'none';
-        jsonInput.onchange = (e) => importPreset(e.target.files[0]);
-        document.body.appendChild(jsonInput);
+        document.getElementById('json-input').onchange = (e) => importPreset(e.target.files[0]);
 
         // --- AUDIO & INIT ---
         async function initAudio() {
@@ -608,7 +599,7 @@
         // --- EVENTOS ---
         document.getElementById('btn-start').onclick = async () => {
             await initAudio();
-            initNetwork(); // INICIAR PEERJS
+            initNetwork();
             document.getElementById('boot').style.display='none';
             mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=1.0; 
             mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=0.0; 
@@ -617,18 +608,15 @@
             resize(); animate();
         };
 
-        // Scroll Mix
         window.addEventListener('wheel', (e) => {
             activeMix.state.crossfade = Math.max(0, Math.min(1, activeMix.state.crossfade + e.deltaY * 0.001));
-            updateFader(false); // false = enviar
+            updateFader(false); 
         });
 
-        // Keydown
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
-            // JSON
             if(k === 'k') exportPreset();
-            if(k === 'j') jsonInput.click();
+            if(k === 'j') document.getElementById('json-input').click();
 
             if(['a','s','d','f','g','h','j','k','l'].includes(k)) document.getElementById('file-input').click();
             
@@ -655,7 +643,12 @@
             }
 
             if(k==='m') { activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; document.getElementById('sl-rgb').value=0; window.uiUpdate('color', 0); notify("RESET"); }
-            if(k==='ñ') { /* Output logic (local) */ }
+            if(k==='ñ') { 
+                // CORRECCIÓN Ñ: CHECK DE SEGURIDAD
+                if(outputMode === 'OFF') setOutput('1');
+                else if(outputMode === '1') setOutput('2');
+                else setOutput('OFF');
+            }
         });
 
         document.getElementById('btn-mix-1').onclick = () => setActive(1);
@@ -665,11 +658,10 @@
             if(!e.target.files[0]) return;
             const url = URL.createObjectURL(e.target.files[0]);
             activeMix.loadClip(url);
-            // NOTA: No enviamos video por red, solo control
         };
 
         document.getElementById('btn-net').onclick = () => document.getElementById('net-overlay').style.display = 'flex';
-        document.getElementById('btn-midi').onclick = () => document.getElementById('midi-overlay').style.display='flex';
+        document.getElementById('btn-midi').onclick = () => { renderMidi(); document.getElementById('midi-overlay').style.display='flex'; };
         document.getElementById('out-off').onclick = () => setOutput('OFF');
         document.getElementById('out-1').onclick = () => setOutput('1');
         document.getElementById('out-2').onclick = () => setOutput('2');
@@ -679,6 +671,8 @@
              document.getElementById('out-off').className = `out-btn ${mode==='OFF'?'active-off':''}`;
              document.getElementById('out-1').className = `out-btn source ${mode==='1'?'active':''}`;
              document.getElementById('out-2').className = `out-btn source ${mode==='2'?'active':''}`;
+             
+             // CORRECCIÓN VENTANA: CHECK DE NULIDAD
              if(projWin && !projWin.closed) {
                 const v = projWin.document.getElementById('v');
                 if(mode === 'OFF') v.style.opacity = 0;
@@ -688,13 +682,116 @@
                     v.srcObject = stream;
                 }
             }
+            notify(`SALIDA: ${mode}`);
         }
+
         document.getElementById('btn-proj').onclick = () => {
             projWin = window.open("", "PROJ", "width=800,height=600");
             const btnFs = `<div style="position:absolute; top:20px; right:20px; z-index:100; cursor:pointer; color: #00E5FF; opacity:0.5;" onclick="document.body.requestFullscreen()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></div>`;
             projWin.document.write(`<body style="margin:0;background:#000;overflow:hidden">${btnFs}<video id="v" autoplay style="width:100vw;height:100vh;object-fit:cover;opacity:0"></video></body>`);
             projWin.focus(); if(outputMode !== 'OFF') setOutput(outputMode);
         };
+
+        // --- MIDI MAPEO (COMPLETO RESTAURADO) ---
+        const midiMapDef = {
+            'work_a':{l:'Select Mix 1', f:()=>setActive(1)}, 
+            'work_b':{l:'Select Mix 2', f:()=>setActive(2)},
+            'crossfader':{l:'Fader', f:(v)=>{activeMix.state.crossfade=v; updateFader();}},
+            'reset':{l:'Reset FX', f:()=>{activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; activeMix.state.rgb=0; activeMix.state.tintMix=0; document.getElementById('sl-rgb').value=0;}},
+            'load_clip':{l:'Cargar Video', f:()=>document.getElementById('file-input').click()},
+            
+            // Salidas
+            'out_off':{l:'Blackout', f:()=>setOutput('OFF')}, 
+            'out_1':{l:'Proj 1', f:()=>setOutput('1')}, 
+            'out_2':{l:'Proj 2', f:()=>setOutput('2')},
+            'out_cycle':{l:'Cycle Out (Ñ)', f:(v)=>{ if(v>0.5){ if(outputMode==='OFF') setOutput('1'); else if(outputMode==='1') setOutput('2'); else setOutput('OFF'); }}},
+
+            'speed':{l:'Knob Speed', f:(v)=>window.uiUpdate('speed', v*5)},
+            'glitch':{l:'Knob Glitch', f:(v)=>window.uiUpdate('glitch', v*5)},
+            'geo':{l:'Knob Geo', f:(v)=>window.uiUpdate('geo', v*10)},
+            'color':{l:'Knob Color', f:(v)=>window.uiUpdate('color', v)},
+            'gain':{l:'Knob Audio Gain', f:(v)=>window.uiUpdate('gain', v*10)},
+            'bloom':{l:'Knob Bloom', f:(v)=>window.uiUpdate('bloom', v*3)},
+            
+            // FX 2D
+            'fx_1':{l:'FX 2D 1', f:()=>activeMix.state.mode=1},
+            'fx_2':{l:'FX 2D 2', f:()=>activeMix.state.mode=2},
+            'fx_3':{l:'FX 2D 3', f:()=>activeMix.state.mode=3},
+            'fx_4':{l:'FX 2D 4', f:()=>activeMix.state.mode=4},
+            'fx_5':{l:'FX 2D 5', f:()=>activeMix.state.mode=5},
+            'fx_6':{l:'FX 2D 6 (Pixel)', f:()=>activeMix.state.mode=6},
+            'fx_7':{l:'FX 2D 7 (Liquid)', f:()=>activeMix.state.mode=7},
+            'fx_8':{l:'FX 2D 8 (Quad)', f:()=>activeMix.state.mode=8},
+            'fx_9':{l:'FX 2D 9 (Tile)', f:()=>activeMix.state.mode=9},
+            'fx_10':{l:'FX 2D 10 (Rot)', f:()=>activeMix.state.mode=10},
+
+            // Styles
+            'style_z':{l:'Estilo Malla (Z)', f:()=>activeMix.state.style=1},
+            'style_x':{l:'Estilo 2', f:()=>activeMix.state.style=2},
+            'style_c':{l:'Estilo 3', f:()=>activeMix.state.style=3},
+            'style_v':{l:'Estilo 4', f:()=>activeMix.state.style=4},
+            'style_b':{l:'Reset Estilo (B)', f:()=>activeMix.state.style=0},
+
+            // Deform 3D
+            'def_1':{l:'Deform 1', f:()=>activeMix.state.distType=1},
+            'def_2':{l:'Deform 2', f:()=>activeMix.state.distType=2},
+            'def_3':{l:'Deform 3', f:()=>activeMix.state.distType=3},
+            'def_4':{l:'Deform 4', f:()=>activeMix.state.distType=4},
+            'def_5':{l:'Deform 5', f:()=>activeMix.state.distType=5},
+            'def_6':{l:'Deform 6', f:()=>activeMix.state.distType=6},
+            'def_7':{l:'Deform 7', f:()=>activeMix.state.distType=7},
+            'def_8':{l:'Deform 8', f:()=>activeMix.state.distType=8},
+            'def_9':{l:'Deform 9', f:()=>activeMix.state.distType=9},
+            'def_10':{l:'Deform 10', f:()=>activeMix.state.distType=10}
+        };
+
+        let midiBinding = null;
+        const midiConfig = {}; 
+
+        function renderMidi() {
+            const list = document.getElementById('midi-list'); list.innerHTML='';
+            const groups = {
+                'GENERAL': ['work_a','work_b','crossfader','reset','load_clip'],
+                'SALIDAS': ['out_off','out_1','out_2','out_cycle'],
+                'AJUSTES': ['speed','glitch','geo','color','gain','bloom'],
+                'EFECTOS 2D': ['fx_1','fx_2','fx_3','fx_4','fx_5','fx_6','fx_7','fx_8','fx_9','fx_10'],
+                'ESTILOS': ['style_z','style_x','style_c','style_v','style_b'],
+                'DEFORMACION 3D': ['def_1','def_2','def_3','def_4','def_5','def_6','def_7','def_8','def_9','def_10']
+            };
+
+            for(const [grpName, keys] of Object.entries(groups)) {
+                const gHeader = document.createElement('div'); gHeader.className='midi-group'; gHeader.innerText=grpName;
+                list.appendChild(gHeader);
+                keys.forEach(k => {
+                    const v = midiMapDef[k];
+                    const row = document.createElement('div'); row.className='midi-row';
+                    const hasMap = midiConfig[k];
+                    row.innerHTML = `<span style="color:#aaa">${v.l}</span><button class="midi-btn ${midiBinding===k?'learning':''}">${hasMap ? (hasMap.t+':'+hasMap.v) : 'MAP'}</button>`;
+                    row.querySelector('button').onclick = () => { midiBinding = k; renderMidi(); };
+                    list.appendChild(row);
+                });
+            }
+        }
+        
+        try {
+            if(navigator.requestMIDIAccess) {
+                navigator.requestMIDIAccess().then(m => {
+                    for(let i of m.inputs.values()) i.onmidimessage = (msg) => {
+                        const [c, n, v] = msg.data; const type = (c>=176 && c<=191)?'cc':(c>=144 && c<=159)?'note':null;
+                        if(!type || (type==='note' && v===0)) return;
+                        if(midiBinding) {
+                            midiConfig[midiBinding] = { t:type, v:n };
+                            notify(`MAPPED: ${midiMapDef[midiBinding].l}`);
+                            midiBinding = null; renderMidi();
+                            return;
+                        }
+                        for(const [key, map] of Object.entries(midiConfig)) {
+                            if(map.t === type && map.v === n) midiMapDef[key].f(v/127.0);
+                        }
+                    };
+                }).catch(e => console.log("MIDI access denied"));
+            }
+        } catch(e) {}
     </script>
 </body>
 </html>
