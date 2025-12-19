@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS v14 - FINAL STABLE</title>
+    <title>IRIS v15 - STABLE RELEASE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -65,9 +65,13 @@
             gap: 20px; position: relative;
         }
 
-        #scale-strip { position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: #080808; cursor: ew-resize; z-index: 50; }
-        #scale-fill { height: 100%; width: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-        #scale-input { position: absolute; top: -10px; left: 0; width: 100%; height: 20px; opacity: 0; cursor: ew-resize; }
+        /* CORRECCIÓN BARRA ESCALA */
+        #scale-strip { position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: #080808; z-index: 50; }
+        #scale-fill { height: 100%; width: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); pointer-events: none; }
+        #scale-input { 
+            position: absolute; top: -10px; left: 0; width: 100%; height: 30px; 
+            opacity: 0; cursor: ew-resize; z-index: 100; margin: 0; 
+        }
 
         .panel { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
         h3 { font-family: 'Montserrat', sans-serif; font-size: 10px; letter-spacing: 2px; color: var(--text-dim); margin: 0 0 10px 0; border-bottom: 1px solid #222; padding-bottom: 5px; }
@@ -96,20 +100,22 @@
         .param-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; font-size: 10px; width: 100%; }
         .param-label { color: #888; width: 50px; flex-shrink: 0; }
         
-        /* SLIDERS CUSTOM (CORREGIDO PARA EVITAR BOTONES GIGANTES) */
+        /* CORRECCIÓN DISEÑO SLIDERS */
         .param-slider {
             -webkit-appearance: none; appearance: none;
             width: 100%; height: 2px; background: #333;
-            outline: none; flex-grow: 1; min-width: 0;
+            outline: none; flex-grow: 1; min-width: 0; margin: 0;
         }
         .param-slider::-webkit-slider-thumb {
             -webkit-appearance: none; appearance: none;
-            width: 10px; height: 10px; border-radius: 50%; 
-            background: #556677; cursor: pointer; border: 1px solid #000;
+            width: 12px; height: 12px; border-radius: 50%; 
+            background: #556677; cursor: pointer; border: 2px solid #000;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
         }
         .param-slider::-moz-range-thumb {
-            width: 10px; height: 10px; border-radius: 50%;
-            background: #556677; cursor: pointer; border: 1px solid #000;
+            width: 12px; height: 12px; border-radius: 50%;
+            background: #556677; cursor: pointer; border: 2px solid #000;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5); border: none;
         }
         .param-slider:hover::-webkit-slider-thumb { background: var(--accent); }
         .param-slider:hover::-moz-range-thumb { background: var(--accent); }
@@ -145,7 +151,7 @@
 
     <div id="boot">
         <h1 style="font-size:70px; letter-spacing:15px; color:#fff; margin: 0 0 10px 0; font-family: 'Rajdhani'; font-weight: 700;">IRIS</h1>
-        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Edition v14</h2>
+        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Edition v15</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; letter-spacing: 2px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -544,6 +550,37 @@
             }
         }
 
+        function cycleWebcam(engine) {
+            let m = engine.state.camMix;
+            let next = 0.0;
+            // CICLO: OFF(0) -> MIX(0.5) -> CAM(1.0) -> OFF(0)
+            if(m === 0.0) next = 0.5;
+            else if(m === 0.5) next = 1.0;
+            else next = 0.0;
+
+            engine.state.camMix = next;
+
+            if(next > 0) {
+                if(engine.webcam.vid.srcObject) {
+                    engine.webcam.vid.play();
+                } else {
+                    navigator.mediaDevices.getUserMedia({video:{width:1280, height:720}})
+                    .then(s => {
+                        engine.webcam.vid.srcObject = s;
+                        engine.webcam.vid.onloadedmetadata = () => {
+                            engine.webcam.vid.play();
+                            const newTex = new THREE.VideoTexture(engine.webcam.vid);
+                            engine.uniforms.uTexCam.value = newTex;
+                            engine.webcam.tex = newTex;
+                        };
+                    })
+                    .catch(e => { console.error(e); notify("ERROR CAMARA"); });
+                }
+            }
+            let label = (next === 0.0) ? "OFF" : (next === 0.5 ? "MIX" : "ONLY");
+            notify(`WEBCAM: ${label}`);
+        }
+
         function updateFader(isRemote = false) {
             document.getElementById('crossfader-handle').style.left = (activeMix.state.crossfade * 100) + '%';
             const pre = activeId;
@@ -558,7 +595,12 @@
         // --- PRESETS JSON (Carga y Descarga) ---
         function applyPresetObj(obj, isRemote = false) {
              Object.assign(mix1.state, obj.mix1);
+             // RECONSTRUCCION DE COLORES (FLICKER FIX)
+             if(obj.mix1.tint) mix1.state.tint = new THREE.Color(obj.mix1.tint.r, obj.mix1.tint.g, obj.mix1.tint.b);
+             
              Object.assign(mix2.state, obj.mix2);
+             if(obj.mix2.tint) mix2.state.tint = new THREE.Color(obj.mix2.tint.r, obj.mix2.tint.g, obj.mix2.tint.b);
+
              micGain = obj.global.micGain;
              document.getElementById('sl-gain').value = micGain;
              setActive(activeId, true);
@@ -660,6 +702,7 @@
             }
 
             if(k==='m') { activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; document.getElementById('sl-rgb').value=0; window.uiUpdate('color', 0); notify("RESET"); }
+            if(k==='n') { cycleWebcam(activeMix); }
             if(k==='ñ') { 
                 if(outputMode === 'OFF') setOutput('1');
                 else if(outputMode === '1') setOutput('2');
@@ -723,6 +766,7 @@
             'out_1':{l:'Proj 1', f:()=>setOutput('1')}, 
             'out_2':{l:'Proj 2', f:()=>setOutput('2')},
             'out_cycle':{l:'Cycle Out (Ñ)', f:(v)=>{ if(v>0.5){ if(outputMode==='OFF') setOutput('1'); else if(outputMode==='1') setOutput('2'); else setOutput('OFF'); }}},
+            'webcam':{l:'Webcam Cycle', f:(v)=>{ if(v>0.5) cycleWebcam(activeMix); }},
             'speed':{l:'Knob Speed', f:(v)=>window.uiUpdate('speed', v*5)},
             'glitch':{l:'Knob Glitch', f:(v)=>window.uiUpdate('glitch', v*5)},
             'geo':{l:'Knob Geo', f:(v)=>window.uiUpdate('geo', v*10)},
@@ -742,7 +786,7 @@
         function renderMidi() {
             const list = document.getElementById('midi-list'); list.innerHTML='';
             const groups = {
-                'GENERAL': ['work_a','work_b','crossfader','reset','load_clip'],
+                'GENERAL': ['work_a','work_b','crossfader','reset','load_clip','webcam'],
                 'SALIDAS': ['out_off','out_1','out_2','out_cycle'],
                 'AJUSTES': ['speed','glitch','geo','color','gain','bloom'],
                 'EFECTOS 2D': ['fx_1','fx_2','fx_3','fx_4','fx_5','fx_6','fx_7','fx_8','fx_9','fx_10'],
