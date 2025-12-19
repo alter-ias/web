@@ -3,284 +3,411 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>IRIS | Interactive 3D Concept</title>
+    <title>IRIS | Modular Infinite Control</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background: #0a0a0a;
-            font-family: sans-serif;
+            background: #050505;
+            font-family: 'Inter', sans-serif;
         }
 
-        #info {
+        #overlay {
             position: absolute;
-            bottom: 20px;
-            left: 0;
+            pointer-events: none;
             width: 100%;
-            text-align: center;
-            color: #444;
-            pointer-events: none;
-            letter-spacing: 2px;
-            font-size: 11px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 40px;
+            box-sizing: border-box;
         }
 
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #00E5FF;
-            font-size: 14px;
+        .header {
+            color: #fff;
+            text-transform: uppercase;
             letter-spacing: 4px;
-            transition: opacity 0.5s;
+            font-size: 14px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            display: flex;
+            justify-content: space-between;
         }
 
-        #instructions {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            text-align: right;
+        .footer {
             color: #666;
-            font-size: 10px;
-            letter-spacing: 1px;
-            pointer-events: none;
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        .controls {
+            pointer-events: auto;
+            color: #888;
+            text-align: right;
+            font-size: 11px;
+            line-height: 1.8;
         }
 
         .key {
             border: 1px solid #444;
-            padding: 2px 4px;
-            border-radius: 3px;
-            color: #888;
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #fff;
+            background: #222;
         }
     </style>
 </head>
 
 <body>
-    <div id="loading">GENERATING MODEL...</div>
-    <div id="instructions">
-        SCROLL : ZOOM<br>
-        <span class="key">CTRL</span> + SCROLL : EXPLODE VIEW<br>
-        DRAG : ROTATE
+    <div id="overlay">
+        <div class="header">
+            <span>IRIS // Modular System</span>
+            <span>Mk.II Concept</span>
+        </div>
+        <div class="controls">
+            SCROLL : ZOOM<br>
+            <span class="key">CTRL</span> + SCROLL : EXPLODE MODULES<br>
+            DRAG : ORBIT VIEW
+        </div>
+        <div class="footer">ALTERLAB GENERATIVE HARDWARE</div>
     </div>
-    <div id="info">IRIS // ALTERLAB GENERATIVE SYSTEMS</div>
+
+    <!-- Import Map for convenience -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.skypack.dev/three@0.136.0",
+                "three/addons/": "https://cdn.skypack.dev/three@0.136.0/examples/jsm/"
+            }
+        }
+    </script>
 
     <script type="module">
-        import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
-        import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/controls/OrbitControls.js';
-        import { RoundedBoxGeometry } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/geometries/RoundedBoxGeometry.js';
-        import { RectAreaLightUniformsLib } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/lights/RectAreaLightUniformsLib.js';
-        import { FontLoader } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/loaders/FontLoader.js';
-        import { TextGeometry } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/geometries/TextGeometry.js';
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+        import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
         // --- CONFIG ---
-        const SCENE_BG = 0xebebeb;
-        const AL_COLOR = 0xffffff;
-        const AL_ROUGHNESS = 0.25;
-        const AL_METALNESS = 0.95;
+        const CONFIG = {
+            gridSize: 3, // 3x3 grid
+            moduleSize: 2.0,
+            gap: 0.1,
+            colors: {
+                bg: 0x050505,
+                chassis: 0x1a1a1a,
+                accent: 0x00E5FF,
+                highlight: 0xffffff,
+                ledOff: 0x222222
+            }
+        };
 
-        // --- INIT ---
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        // --- STATE ---
+        const state = {
+            explode: 0.0,
+            targetExplode: 0.0
+        };
+
+        // --- SCENE SETUP ---
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0;
+        renderer.toneMappingExposure = 0.8;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(SCENE_BG);
-        scene.fog = new THREE.Fog(SCENE_BG, 15, 30);
+        scene.background = new THREE.Color(CONFIG.colors.bg);
+        scene.fog = new THREE.FogExp2(CONFIG.colors.bg, 0.02);
 
-        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.set(0, 10, 8);
+        const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(8, 12, 12);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.minDistance = 3;
-        controls.maxDistance = 20;
-        controls.enableZoom = true;
+        controls.maxDistance = 30;
 
         // --- LIGHTING ---
         RectAreaLightUniformsLib.init();
-        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+
+        const ambient = new THREE.AmbientLight(0xffffff, 0.2);
         scene.add(ambient);
 
-        const spot1 = new THREE.SpotLight(0xffffff, 5);
-        spot1.position.set(5, 10, 5);
+        const spot1 = new THREE.SpotLight(0xffffff, 8);
+        spot1.position.set(10, 20, 10);
         spot1.angle = Math.PI / 6;
-        spot1.penumbra = 0.5;
+        spot1.penumbra = 1;
         spot1.castShadow = true;
-        spot1.shadow.mapSize.width = 2048;
-        spot1.shadow.mapSize.height = 2048;
         scene.add(spot1);
 
-        const rectLight = new THREE.RectAreaLight(0xffffff, 2, 10, 10);
-        rectLight.position.set(-5, 5, 5);
-        rectLight.lookAt(0, 0, 0);
-        scene.add(rectLight);
-
-        const spot2 = new THREE.SpotLight(0xddeeff, 3);
-        spot2.position.set(0, 5, -8);
+        const spot2 = new THREE.SpotLight(0x00acc1, 5); // Cyan rim light
+        spot2.position.set(-10, 5, -10);
         spot2.lookAt(0, 0, 0);
         scene.add(spot2);
 
+        const rectLight = new THREE.RectAreaLight(0xffffff, 2, 20, 20);
+        rectLight.position.set(0, 10, 0);
+        rectLight.lookAt(0, 0, 0);
+        scene.add(rectLight);
+
+        // --- POST PROCESSING ---
+        const composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+
+        // Resolution, strength, radius, threshold
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 0.85);
+        composer.addPass(bloomPass);
+
         // --- MATERIALS ---
-        const mats = {
-            aluminum: new THREE.MeshStandardMaterial({ color: AL_COLOR, roughness: AL_ROUGHNESS, metalness: AL_METALNESS }),
-            ceramic: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.1, metalness: 0.0, transmission: 0.1, thickness: 0.5, clearcoat: 1.0 }),
-            glass: new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.0, metalness: 0.0, transmission: 0.95, thickness: 1.0, clearcoat: 1.0 }),
-            plasticBlack: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.0 }),
-            glowCyan: new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00E5FF, emissiveIntensity: 2.0, toneMapped: false }),
-            glowWhite: new THREE.MeshStandardMaterial({ color: 0xaaccff, emissive: 0xaaccff, emissiveIntensity: 1.5, toneMapped: false }),
-            glowRose: new THREE.MeshStandardMaterial({ color: 0xffaacc, emissive: 0xff88aa, emissiveIntensity: 1.5, toneMapped: false }),
-            glowInd: new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.0, toneMapped: false }),
-            text: new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.4, metalness: 0.8 })
+        const materials = {
+            chassis: new THREE.MeshStandardMaterial({
+                color: CONFIG.colors.chassis,
+                roughness: 0.3,
+                metalness: 0.8
+            }),
+            panel: new THREE.MeshPhysicalMaterial({
+                color: 0x111111,
+                roughness: 0.2,
+                metalness: 0.1,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1
+            }),
+            connector: new THREE.MeshStandardMaterial({
+                color: 0x333333,
+                roughness: 0.5,
+                metalness: 0.9
+            }),
+            led: new THREE.MeshStandardMaterial({
+                color: CONFIG.colors.accent,
+                emissive: CONFIG.colors.accent,
+                emissiveIntensity: 3.0,
+                toneMapped: false
+            }),
+            glowText: new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                emissive: 0xffffff,
+                emissiveIntensity: 0.8
+            })
         };
 
-        // --- ANIMATION PARTS ---
-        const parts = {
-            chassis: [],
-            fader: [],
-            knobs: [],
-            keysLeft: [],
-            keysRight: [],
-            center: [],
-            corners: []
-        };
+        // --- MODULE SYSTEM ---
+        const modules = [];
 
-        const group = new THREE.Group();
-        scene.add(group);
+        class Module {
+            constructor(x, z, type) {
+                this.homePos = new THREE.Vector3(x * (CONFIG.moduleSize + CONFIG.gap), 0, z * (CONFIG.moduleSize + CONFIG.gap));
+                this.group = new THREE.Group();
+                this.group.position.copy(this.homePos);
+                this.parts = []; // Array of { mesh, homeLocalPos, explodeSpeed }
 
-        // 1. MAIN CHASSIS
-        const chassisGeo = new RoundedBoxGeometry(6, 0.6, 4, 10, 0.15);
-        const chassis = new THREE.Mesh(chassisGeo, mats.aluminum);
-        chassis.castShadow = true; chassis.receiveShadow = true;
-        group.add(chassis);
-        parts.chassis.push({ mesh: chassis, home: chassis.position.clone() });
+                this.createChassis();
+                this.createConnectors();
 
-        // 2. CROSSFADER
-        const faderGrp = new THREE.Group();
-        const slotGeo = new RoundedBoxGeometry(2.5, 0.05, 0.15, 2, 0.02);
-        const slot = new THREE.Mesh(slotGeo, mats.plasticBlack);
-        slot.position.set(0, 0.301, 1.2);
-        faderGrp.add(slot);
-        const handleGeo = new RoundedBoxGeometry(0.3, 0.4, 0.12, 4, 0.02);
-        const handle = new THREE.Mesh(handleGeo, mats.aluminum);
-        handle.position.set(0, 0.45, 1.2);
-        handle.castShadow = true;
-        faderGrp.add(handle);
-        const haloGeo = new THREE.PlaneGeometry(0.5, 0.3);
-        const halo = new THREE.Mesh(haloGeo, mats.glowCyan);
-        halo.rotation.x = -Math.PI / 2;
-        halo.position.set(0, 0.302, 1.2);
-        faderGrp.add(halo);
-        group.add(faderGrp);
-        parts.fader.push({ mesh: faderGrp, home: faderGrp.position.clone() });
+                if (type === 'fader') this.createFader();
+                else if (type === 'knob') this.createKnobs();
+                else if (type === 'pad') this.createPads();
+                else if (type === 'touch') this.createTouch();
+                else if (type === 'roller') this.createRoller();
+                else this.createBlank(); // Default
 
-        // 3. KNOBS
-        const knobGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.2, 32);
-        for (let i = 0; i < 6; i++) {
-            const x = -2.0 + (i * 0.8);
-            const z = 0.6;
-            const kGrp = new THREE.Group();
-            kGrp.position.set(x, 0.3, z);
-            const body = new THREE.Mesh(knobGeo, mats.aluminum);
-            body.position.y = 0.1; body.castShadow = true;
-            const indGeo = new THREE.CircleGeometry(0.02, 16);
-            const ind = new THREE.Mesh(indGeo, mats.glowInd);
-            ind.rotation.x = -Math.PI / 2; ind.position.set(0, 0.201, -0.18);
-            kGrp.add(body); kGrp.add(ind);
-            group.add(kGrp);
-            parts.knobs.push({ mesh: kGrp, home: kGrp.position.clone() });
-        }
+                scene.add(this.group);
+                modules.push(this);
+            }
 
-        // 4. KEY MATRIX
-        const keyGeo = new RoundedBoxGeometry(0.35, 0.1, 0.35, 4, 0.02);
-        const padGeo = new THREE.PlaneGeometry(0.36, 0.36);
-        const lg = new THREE.Group();
-        const rg = new THREE.Group();
-        group.add(lg); group.add(rg);
-        parts.keysLeft.push({ mesh: lg, home: lg.position.clone() });
-        parts.keysRight.push({ mesh: rg, home: rg.position.clone() });
+            createChassis() {
+                const geo = new RoundedBoxGeometry(CONFIG.moduleSize, 0.5, CONFIG.moduleSize, 4, 0.05);
+                const mesh = new THREE.Mesh(geo, materials.chassis);
+                mesh.position.y = 0.25;
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+                this.group.add(mesh);
+                // Top Panel
+                const panelGeo = new RoundedBoxGeometry(CONFIG.moduleSize - 0.2, 0.05, CONFIG.moduleSize - 0.2, 2, 0.02);
+                const panel = new THREE.Mesh(panelGeo, materials.panel);
+                panel.position.y = 0.51;
+                panel.receiveShadow = true;
+                this.group.add(panel);
+            }
 
-        for (let row = 0; row < 4; row++) {
-            for (let col = 0; col < 4; col++) {
-                const k1 = new THREE.Mesh(keyGeo, mats.ceramic);
-                k1.position.set(-2.2 + col * 0.4, 0.32, -1.2 + row * 0.4);
-                k1.castShadow = true; lg.add(k1);
-                const p1 = new THREE.Mesh(padGeo, mats.glowWhite);
-                p1.rotation.x = -Math.PI / 2; p1.position.set(k1.position.x, 0.301, k1.position.z); lg.add(p1);
+            createConnectors() {
+                // Visualize magnetic connectors on sides
+                const geo = new THREE.CylinderGeometry(0.05, 0.05, 0.55, 8);
+                geo.rotateZ(Math.PI / 2);
 
-                const k2 = new THREE.Mesh(keyGeo, mats.ceramic);
-                k2.position.set(1.0 + col * 0.4, 0.32, -1.2 + row * 0.4);
-                k2.castShadow = true; rg.add(k2);
-                const p2 = new THREE.Mesh(padGeo, mats.glowRose);
-                p2.rotation.x = -Math.PI / 2; p2.position.set(k2.position.x, 0.301, k2.position.z); rg.add(p2);
+                const sides = [
+                    { x: CONFIG.moduleSize / 2, z: 0, rot: 0 },
+                    { x: -CONFIG.moduleSize / 2, z: 0, rot: 0 },
+                    { x: 0, z: CONFIG.moduleSize / 2, rot: Math.PI / 2 },
+                    { x: 0, z: -CONFIG.moduleSize / 2, rot: Math.PI / 2 }
+                ];
+
+                sides.forEach(s => {
+                    const m = new THREE.Mesh(geo, materials.connector);
+                    m.position.set(s.x, 0.25, s.z);
+                    m.rotation.y = s.rot;
+                    this.group.add(m);
+                });
+            }
+
+            addToParts(mesh, speed = 1.0) {
+                this.group.add(mesh);
+                this.parts.push({
+                    mesh: mesh,
+                    home: mesh.position.clone(),
+                    speed: speed
+                });
+            }
+
+            createFader() {
+                const trackGeo = new THREE.BoxGeometry(0.1, 0.02, 1.4);
+                const track = new THREE.Mesh(trackGeo, new THREE.MeshStandardMaterial({ color: 0x000 }));
+                track.position.set(0, 0.54, 0);
+                this.group.add(track);
+
+                const capGeo = new RoundedBoxGeometry(0.3, 0.4, 0.15, 4, 0.02);
+                const cap = new THREE.Mesh(capGeo, materials.chassis);
+                cap.castShadow = true;
+                cap.position.set(0, 0.7, 0);
+
+                // Glow line on cap
+                const lineGeo = new THREE.BoxGeometry(0.32, 0.05, 0.02);
+                const line = new THREE.Mesh(lineGeo, materials.led);
+                line.position.set(0, 0.8, 0);
+                cap.add(line);
+
+                this.addToParts(cap, 2.0);
+            }
+
+            createKnobs() {
+                // 4 Knobs
+                for (let i = 0; i < 4; i++) {
+                    const x = (i % 2 === 0) ? -0.5 : 0.5;
+                    const z = (i < 2) ? -0.5 : 0.5;
+
+                    const kGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.3, 32);
+                    const kMesh = new THREE.Mesh(kGeo, materials.chassis);
+                    kMesh.castShadow = true;
+                    kMesh.position.set(x, 0.65, z);
+
+                    // Ring Indicator
+                    const ringGeo = new THREE.TorusGeometry(0.3, 0.02, 4, 32);
+                    ringGeo.rotateX(Math.PI / 2);
+                    const ring = new THREE.Mesh(ringGeo, materials.led);
+                    ring.position.set(x, 0.54, z); // Base
+                    this.group.add(ring);
+
+                    this.addToParts(kMesh, 1.5 + Math.random());
+                }
+            }
+
+            createPads() {
+                // 4x4 Grid
+                const padGeo = new RoundedBoxGeometry(0.3, 0.1, 0.3, 2, 0.02);
+                for (let r = 0; r < 4; r++) {
+                    for (let c = 0; c < 4; c++) {
+                        const x = -0.6 + c * 0.4;
+                        const z = -0.6 + r * 0.4;
+
+                        // Randomly light up some pads
+                        const active = Math.random() > 0.8;
+                        const mat = active ? materials.led : materials.connector;
+
+                        const pad = new THREE.Mesh(padGeo, mat);
+                        pad.position.set(x, 0.55, z);
+                        pad.castShadow = true;
+
+                        this.addToParts(pad, 1.0 + (r + c) * 0.1);
+                    }
+                }
+            }
+
+            createTouch() {
+                const surfaceGeo = new THREE.PlaneGeometry(1.6, 1.6);
+                surfaceGeo.rotateX(-Math.PI / 2);
+                const surface = new THREE.Mesh(surfaceGeo, new THREE.MeshPhysicalMaterial({
+                    color: 0x000000, roughness: 0.1, metalness: 0.5, transparent: true, opacity: 0.9
+                }));
+                surface.position.set(0, 0.54, 0);
+                this.group.add(surface);
+
+                const cursorGeo = new THREE.RingGeometry(0.1, 0.12, 32);
+                cursorGeo.rotateX(-Math.PI / 2);
+                const cursor = new THREE.Mesh(cursorGeo, materials.led);
+                cursor.position.set(0.2, 0.55, -0.3);
+                this.addToParts(cursor, 0.5);
+            }
+
+            createRoller() {
+                // Cylindrical Roller
+                const rollerGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.6, 64);
+                rollerGeo.rotateZ(Math.PI / 2);
+                const roller = new THREE.Mesh(rollerGeo, materials.chassis);
+                roller.position.set(0, 0.5, 0);
+                roller.castShadow = true;
+
+                // Glowing stripe on roller
+                const stripeGeo = new THREE.TorusGeometry(0.81, 0.02, 4, 64);
+                const stripe = new THREE.Mesh(stripeGeo, materials.led);
+                stripe.rotation.y = Math.PI / 2;
+                roller.add(stripe);
+
+                // Cutout in chassis for it?
+                // Visual hack: just place it on top for now, maybe add a cradle
+                const cradleGeo = new THREE.BoxGeometry(1.8, 0.2, 0.8);
+                const cradle = new THREE.Mesh(cradleGeo, materials.panel);
+                cradle.position.set(0, 0.5, 0);
+                this.group.add(cradle);
+
+                this.addToParts(roller, 1.5);
+            }
+            createBlank() {
+                // Logo
+            }
+
+            update(explodeVal) {
+                // 1. Move entire module away from center
+                const centerDist = this.homePos.clone().normalize();
+                this.group.position.x = this.homePos.x + (centerDist.x * explodeVal * 2.0);
+                this.group.position.z = this.homePos.z + (centerDist.z * explodeVal * 2.0);
+
+                // 2. Explode parts upwards
+                this.parts.forEach(p => {
+                    p.mesh.position.y = p.home.y + (explodeVal * p.speed);
+                });
             }
         }
 
-        // 5. CENTER DETAILS (Fixed: Removed collision button, added Glass)
-        const cGrp = new THREE.Group();
-        group.add(cGrp);
-        parts.center.push({ mesh: cGrp, home: cGrp.position.clone() });
-        const glassBtnGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.05, 64);
-        const glassBtn = new THREE.Mesh(glassBtnGeo, mats.glass);
-        glassBtn.position.set(0, 0.32, -0.6); cGrp.add(glassBtn);
-        // REMOVED smBtn here
+        // --- GENERATE GRID ---
+        const layout = [
+            ['knob', 'fader', 'knob'],
+            ['pad', 'touch', 'pad'],
+            ['roller', 'fader', 'roller']
+        ];
 
-        // 6. CORNER BUTTONS (NEW)
-        const cornerBtnGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.1, 32);
-        // Left Corner
-        const cbL = new THREE.Mesh(cornerBtnGeo, mats.aluminum);
-        cbL.position.set(-2.5, 0.32, 1.5);
-        cbL.castShadow = true;
-        group.add(cbL);
-        parts.corners.push({ mesh: cbL, home: cbL.position.clone() });
+        for (let r = 0; r < 3; r++) {
+            for (let c = 0; c < 3; c++) {
+                const type = layout[r][c];
+                new Module(c - 1, r - 1, type);
+            }
+        }
 
-        // Right Corner
-        const cbR = new THREE.Mesh(cornerBtnGeo, mats.aluminum);
-        cbR.position.set(2.5, 0.32, 1.5);
-        cbR.castShadow = true;
-        group.add(cbR);
-        parts.corners.push({ mesh: cbR, home: cbR.position.clone() });
+        // --- ANIMATION LOOP ---
 
-
-        // 7. TEXT
-        const loader = new FontLoader();
-        loader.load('https://cdn.skypack.dev/three@0.136.0/examples/fonts/helvetiker_regular.typeface.json', function (font) {
-            const tGeo1 = new TextGeometry('IRIS', { font: font, size: 0.15, height: 0.01 });
-            const tMesh1 = new THREE.Mesh(tGeo1, mats.text);
-            tMesh1.rotation.x = -Math.PI / 2; tMesh1.position.set(-2.8, 0.301, -1.6);
-            group.add(tMesh1);
-            parts.chassis.push({ mesh: tMesh1, home: tMesh1.position.clone() });
-
-            const tGeo2 = new TextGeometry('ALTERLAB GENERATIVE SYSTEMS', { font: font, size: 0.06, height: 0.005 });
-            const tMesh2 = new THREE.Mesh(tGeo2, mats.text);
-            tMesh2.position.set(-1.5, 0.0, -2.01); tMesh2.rotation.y = Math.PI;
-            group.add(tMesh2);
-            parts.chassis.push({ mesh: tMesh2, home: tMesh2.position.clone() });
-
-            document.getElementById('loading').style.opacity = 0;
-        });
-
-        const floorGeo = new THREE.PlaneGeometry(50, 50);
-        const floorMat = new THREE.ShadowMaterial({ opacity: 0.1 });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2; floor.position.y = -0.3;
-        scene.add(floor);
-
-        // --- EXPLOSION LOGIC ---
-        let explodeTarget = 0.0;
-        let explodeCurrent = 0.0;
-
+        // Input handling
         window.addEventListener('wheel', (e) => {
             if (e.ctrlKey) {
                 e.preventDefault();
                 controls.enableZoom = false;
-                explodeTarget += e.deltaY * 0.0005;
-                explodeTarget = Math.max(0, Math.min(1, explodeTarget));
+                state.targetExplode += e.deltaY * 0.001;
+                state.targetExplode = Math.max(0, Math.min(2.0, state.targetExplode));
             } else {
                 controls.enableZoom = true;
             }
@@ -294,60 +421,23 @@
             requestAnimationFrame(animate);
             controls.update();
 
-            explodeCurrent += (explodeTarget - explodeCurrent) * 0.1;
+            // Smooth interpolation
+            state.explode += (state.targetExplode - state.explode) * 0.1;
 
-            if (Math.abs(explodeTarget - explodeCurrent) > 0.0001 || explodeCurrent > 0.001) {
-                // FADER
-                parts.fader.forEach(p => {
-                    p.mesh.position.y = p.home.y + explodeCurrent * 1.5;
-                    p.mesh.position.z = p.home.z + explodeCurrent * 0.5;
-                });
-                // KNOBS
-                parts.knobs.forEach((p, i) => {
-                    const stagger = i * 0.05 * explodeCurrent;
-                    p.mesh.position.y = p.home.y + explodeCurrent * 2.0 + stagger;
-                });
-                // KEYS
-                parts.keysLeft.forEach(p => {
-                    p.mesh.position.y = p.home.y + explodeCurrent * 2.5;
-                    p.mesh.position.x = p.home.x - explodeCurrent * 1.0;
-                    p.mesh.position.z = p.home.z - explodeCurrent * 0.5;
-                    p.mesh.rotation.z = explodeCurrent * 0.1;
-                });
-                parts.keysRight.forEach(p => {
-                    p.mesh.position.y = p.home.y + explodeCurrent * 2.5;
-                    p.mesh.position.x = p.home.x + explodeCurrent * 1.0;
-                    p.mesh.position.z = p.home.z - explodeCurrent * 0.5;
-                    p.mesh.rotation.z = -explodeCurrent * 0.1;
-                });
-                // CENTER
-                parts.center.forEach(p => {
-                    p.mesh.position.y = p.home.y + explodeCurrent * 3.0;
-                });
-                // CORNERS
-                parts.corners.forEach(p => {
-                    // Fly outward to corners
-                    const dirX = Math.sign(p.home.x);
-                    p.mesh.position.y = p.home.y + explodeCurrent * 1.0;
-                    p.mesh.position.x = p.home.x + (dirX * explodeCurrent * 1.5);
-                    p.mesh.position.z = p.home.z + explodeCurrent * 1.0;
-                });
+            modules.forEach(m => m.update(state.explode));
 
-                // TEXT
-                parts.chassis.forEach(p => {
-                    if (p.mesh !== chassis) p.mesh.position.y = p.home.y + explodeCurrent * 0.05;
-                });
-            }
-            renderer.render(scene, camera);
+            composer.render();
         }
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
         });
 
         animate();
+
     </script>
 </body>
 
