@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS v15 - STABLE RELEASE</title>
+    <title>IRIS V.1.2 - PARTY EDITION</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -11,7 +11,7 @@
             --bg-color: #000;
             --panel-bg: rgba(10, 12, 15, 0.98);
             --accent: #00E5FF;
-            --net-color: #00ff88;
+            --net-color: #ff0055; /* Color cambiado a Rojo Neón para Party Mode */
             --text-dim: #556677;
             --ui-scale: 1.0;
         }
@@ -65,7 +65,6 @@
             gap: 20px; position: relative;
         }
 
-        /* CORRECCIÓN BARRA ESCALA */
         #scale-strip { position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: #080808; z-index: 50; }
         #scale-fill { height: 100%; width: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); pointer-events: none; }
         #scale-input { 
@@ -100,7 +99,6 @@
         .param-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; font-size: 10px; width: 100%; }
         .param-label { color: #888; width: 50px; flex-shrink: 0; }
         
-        /* CORRECCIÓN DISEÑO SLIDERS */
         .param-slider {
             -webkit-appearance: none; appearance: none;
             width: 100%; height: 2px; background: #333;
@@ -145,13 +143,14 @@
         .net-input { background: #000; border: 1px solid #333; color: #fff; padding: 10px; width: 70%; font-family: monospace; }
         .net-action { padding: 10px 20px; background: #222; color: #fff; border: 1px solid #444; cursor: pointer; margin-left: 10px;}
         .net-action:hover { border-color: var(--net-color); color: var(--net-color); }
+        .peer-list { margin-top: 10px; color: #666; font-size: 10px; }
     </style>
 </head>
 <body>
 
     <div id="boot">
         <h1 style="font-size:70px; letter-spacing:15px; color:#fff; margin: 0 0 10px 0; font-family: 'Rajdhani'; font-weight: 700;">IRIS</h1>
-        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Edition v15</h2>
+        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v16</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; letter-spacing: 2px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -219,7 +218,7 @@
                     <button class="util-btn" onclick="document.getElementById('file-input').click()">VID</button>
                     <button class="util-btn" onclick="exportPreset()">SAVE P</button>
                     <button class="util-btn" onclick="document.getElementById('json-input').click()">LOAD P</button>
-                    <button class="util-btn net-btn" id="btn-net">DUO</button>
+                    <button class="util-btn net-btn" id="btn-net">PARTY</button>
                 </div>
                 <div class="sliders-grid">
                     <div>
@@ -246,7 +245,7 @@
 
     <div id="net-overlay">
         <div id="net-panel">
-            <div class="midi-head"><h2 style="color:var(--net-color); margin:0; font-size:18px;">RED P2P (DUO MODE)</h2><button class="util-btn" onclick="document.getElementById('net-overlay').style.display='none'">CERRAR</button></div>
+            <div class="midi-head"><h2 style="color:var(--net-color); margin:0; font-size:18px;">RED P2P (PARTY MODE)</h2><button class="util-btn" onclick="document.getElementById('net-overlay').style.display='none'">CERRAR</button></div>
             <div style="padding: 20px 0;">
                 <div class="net-stat" id="my-id-display">CONECTANDO AL SERVIDOR...</div>
                 <div style="border-top:1px solid #333; margin: 10px 0;"></div>
@@ -256,6 +255,7 @@
                     <button class="net-action" id="btn-connect-p2p">CONECTAR</button>
                 </div>
                 <div class="net-stat" id="connection-status" style="margin-top:20px; color:#fff;">ESTADO: OFFLINE</div>
+                <div class="peer-list" id="peers-list">Usuarios conectados: 0</div>
             </div>
         </div>
     </div>
@@ -429,15 +429,18 @@
         let audio = { vol: 0, bass: 0 };
         let micGain = 5.0;
 
-        // --- 3. RED P2P (WEBRTC) ---
+        // --- 3. RED P2P MULTI-USUARIO (PARTY MODE) ---
         let peer = null;
-        let conn = null;
+        let connections = []; // Array para múltiples conexiones
         let myPeerId = null;
 
-        function sendData(type, payload) {
-            if (conn && conn.open) {
-                conn.send({ type: type, payload: payload });
-            }
+        function broadcastData(type, payload, excludeConn = null) {
+            // Envia a TODOS los conectados excepto el que envió el mensaje original (para evitar bucles)
+            connections.forEach(conn => {
+                if (conn !== excludeConn && conn.open) {
+                    conn.send({ type: type, payload: payload });
+                }
+            });
         }
 
         function initNetwork() {
@@ -446,7 +449,7 @@
             peer.on('open', (id) => {
                 myPeerId = id;
                 document.getElementById('my-id-display').innerText = "TU ID: " + id;
-                document.getElementById('connection-status').innerText = "ESTADO: ESPERANDO CONEXIÓN...";
+                document.getElementById('connection-status').innerText = "ESPERANDO CONEXIONES...";
             });
 
             peer.on('connection', (c) => {
@@ -460,15 +463,36 @@
         }
 
         function setupConnection(c) {
-            conn = c;
-            document.getElementById('connection-status').innerText = "ESTADO: CONECTADO CON " + conn.peer;
-            document.getElementById('connection-status').style.color = "#00ff88";
-            notify("P2P CONECTADO");
+            connections.push(c); // Agregamos a la lista en lugar de reemplazar
+            updatePeerCount();
+            notify("NUEVO USUARIO CONECTADO");
 
-            conn.on('data', (data) => {
-                handleRemoteData(data);
+            c.on('data', (data) => {
+                handleRemoteData(data, c);
             });
-            conn.on('open', () => { sendData('chat', 'Hola desde IRIS!'); });
+            
+            c.on('close', () => {
+                connections = connections.filter(conn => conn !== c);
+                updatePeerCount();
+            });
+
+            c.on('open', () => { 
+                // Al conectarse, enviamos el estado actual al nuevo usuario para sincronizarlo
+                c.send({ type: 'preset_load', payload: { obj: getCurrentState() } });
+            });
+        }
+
+        function updatePeerCount() {
+            document.getElementById('connection-status').innerText = "ESTADO: ONLINE";
+            document.getElementById('connection-status').style.color = "#ff0055";
+            document.getElementById('peers-list').innerText = `Usuarios conectados: ${connections.length}`;
+        }
+
+        function getCurrentState() {
+            return {
+                mix1: mix1.state, mix2: mix2.state,
+                global: { micGain: micGain }, timestamp: Date.now()
+            };
         }
 
         document.getElementById('btn-connect-p2p').onclick = () => {
@@ -479,9 +503,10 @@
             }
         };
 
-        function handleRemoteData(data) {
+        function handleRemoteData(data, sourceConn) {
             const p = data.payload;
             
+            // 1. Aplicar cambios localmente
             if(data.type === 'ui_param') {
                 updateParam(p.key, p.value, true); 
             } else if (data.type === 'setActive') {
@@ -498,6 +523,10 @@
             } else if (data.type === 'preset_load') {
                 applyPresetObj(p.obj, true);
             }
+
+            // 2. Retransmitir (Relay) a los demás usuarios
+            // Si yo recibo datos de A, se los paso a B y C para que todos estén sincronizados.
+            broadcastData(data.type, p, sourceConn);
         }
 
         // --- 4. FUNCIONES DE INTERFAZ ---
@@ -523,7 +552,7 @@
                 if(key==='gain') document.getElementById('sl-gain').value = val;
                 if(key==='color') document.getElementById('sl-rgb').value = val;
             } else {
-                sendData('ui_param', { key: key, value: val });
+                broadcastData('ui_param', { key: key, value: val });
             }
         };
 
@@ -546,7 +575,7 @@
             updateFader(true); 
             if(!isRemote) {
                 notify(`EDITANDO: MIX ${id}`);
-                sendData('setActive', { id: id });
+                broadcastData('setActive', { id: id });
             }
         }
 
@@ -588,7 +617,7 @@
             document.getElementById(`st-${pre}-b`).className = activeMix.state.crossfade > 0.5 ? 'ds-active' : 'ds-inactive';
             
             if(!isRemote) {
-                sendData('crossfader', { val: activeMix.state.crossfade });
+                broadcastData('crossfader', { val: activeMix.state.crossfade });
             }
         }
 
@@ -605,7 +634,7 @@
              document.getElementById('sl-gain').value = micGain;
              setActive(activeId, true);
              notify(isRemote ? "PRESET REMOTO CARGADO" : "PRESET CARGADO");
-             if(!isRemote) sendData('preset_load', { obj: obj });
+             if(!isRemote) broadcastData('preset_load', { obj: obj });
         }
 
         function importPreset(file) {
@@ -684,21 +713,21 @@
                 const mode = num === 0 ? 10 : num;
                 activeMix.state.mode = mode; 
                 notify(`FX ${mode}`); 
-                sendData('mode', {val: mode});
+                broadcastData('mode', {val: mode});
             }
             
             const styles = {'z':1, 'x':2, 'c':3, 'v':4, 'b':0};
             if(styles[k]!==undefined) { 
                 activeMix.state.style=styles[k]; 
                 notify(k==='z'?"ESTILO MALLA":"STYLE CHG"); 
-                sendData('style', {val: styles[k]});
+                broadcastData('style', {val: styles[k]});
             }
             
             const deforms = {'q':1, 'w':2, 'e':3, 'r':4, 't':5, 'y':6, 'u':7, 'i':8, 'o':9, 'p':10};
             if(deforms[k]) { 
                 activeMix.state.distType=deforms[k]; 
                 notify(`DEFORM 3D #${deforms[k]}`); 
-                sendData('dist', {val: deforms[k]});
+                broadcastData('dist', {val: deforms[k]});
             }
 
             if(k==='m') { activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; document.getElementById('sl-rgb').value=0; window.uiUpdate('color', 0); notify("RESET"); }
