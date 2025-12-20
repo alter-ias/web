@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS V.1.2 - PARTY EDITION</title>
+    <title>IRIS V.1.3 - PARTY EDITION + AUDIO</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -11,7 +11,7 @@
             --bg-color: #000;
             --panel-bg: rgba(10, 12, 15, 0.98);
             --accent: #00E5FF;
-            --net-color: #ff0055; /* Color cambiado a Rojo Neón para Party Mode */
+            --net-color: #ff0055;
             --text-dim: #556677;
             --ui-scale: 1.0;
         }
@@ -150,7 +150,7 @@
 
     <div id="boot">
         <h1 style="font-size:70px; letter-spacing:15px; color:#fff; margin: 0 0 10px 0; font-family: 'Rajdhani'; font-weight: 700;">IRIS</h1>
-        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v16</h2>
+        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v16 + Audio</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; letter-spacing: 2px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -216,6 +216,7 @@
                     <button class="util-btn" id="btn-midi">MIDI</button>
                     <button class="util-btn" id="btn-proj">WIN</button>
                     <button class="util-btn" onclick="document.getElementById('file-input').click()">VID</button>
+                    <button class="util-btn" onclick="document.getElementById('audio-input').click()">MP3</button>
                     <button class="util-btn" onclick="exportPreset()">SAVE P</button>
                     <button class="util-btn" onclick="document.getElementById('json-input').click()">LOAD P</button>
                     <button class="util-btn net-btn" id="btn-net">PARTY</button>
@@ -263,6 +264,7 @@
     <div id="notify">NOTIFICACIÓN</div>
     <input type="file" id="file-input" accept="video/*" style="display:none">
     <input type="file" id="json-input" accept=".json" style="display:none">
+    <input type="file" id="audio-input" accept="audio/*" style="display:none">
 
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
@@ -435,7 +437,6 @@
         let myPeerId = null;
 
         function broadcastData(type, payload, excludeConn = null) {
-            // Envia a TODOS los conectados excepto el que envió el mensaje original (para evitar bucles)
             connections.forEach(conn => {
                 if (conn !== excludeConn && conn.open) {
                     conn.send({ type: type, payload: payload });
@@ -463,7 +464,7 @@
         }
 
         function setupConnection(c) {
-            connections.push(c); // Agregamos a la lista en lugar de reemplazar
+            connections.push(c); 
             updatePeerCount();
             notify("NUEVO USUARIO CONECTADO");
 
@@ -477,7 +478,6 @@
             });
 
             c.on('open', () => { 
-                // Al conectarse, enviamos el estado actual al nuevo usuario para sincronizarlo
                 c.send({ type: 'preset_load', payload: { obj: getCurrentState() } });
             });
         }
@@ -524,8 +524,7 @@
                 applyPresetObj(p.obj, true);
             }
 
-            // 2. Retransmitir (Relay) a los demás usuarios
-            // Si yo recibo datos de A, se los paso a B y C para que todos estén sincronizados.
+            // 2. Retransmitir (Relay)
             broadcastData(data.type, p, sourceConn);
         }
 
@@ -582,7 +581,6 @@
         function cycleWebcam(engine) {
             let m = engine.state.camMix;
             let next = 0.0;
-            // CICLO: OFF(0) -> MIX(0.5) -> CAM(1.0) -> OFF(0)
             if(m === 0.0) next = 0.5;
             else if(m === 0.5) next = 1.0;
             else next = 0.0;
@@ -621,10 +619,9 @@
             }
         }
 
-        // --- PRESETS JSON (Carga y Descarga) ---
+        // --- PRESETS JSON ---
         function applyPresetObj(obj, isRemote = false) {
              Object.assign(mix1.state, obj.mix1);
-             // RECONSTRUCCION DE COLORES (FLICKER FIX)
              if(obj.mix1.tint) mix1.state.tint = new THREE.Color(obj.mix1.tint.r, obj.mix1.tint.g, obj.mix1.tint.b);
              
              Object.assign(mix2.state, obj.mix2);
@@ -651,20 +648,88 @@
         document.getElementById('json-input').onchange = (e) => importPreset(e.target.files[0]);
 
         // --- AUDIO & INIT ---
+        // Variables globales de audio para acceder desde fuera
+        let audioCtx, analyser;
+        let mix1Audio = null;
+        let mix2Audio = null;
+
         async function initAudio() {
             try {
-                const ctx = new (window.AudioContext||window.webkitAudioContext)();
-                const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-                const ana = ctx.createAnalyser(); ana.fftSize=512;
-                const src = ctx.createMediaStreamSource(stream); src.connect(ana);
-                const data = new Uint8Array(ana.frequencyBinCount);
+                // Crear Contexto
+                audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 512;
+
+                // Conectar Micrófono (Solo al analizador, NO a los parlantes para evitar acople)
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+                    const micSrc = audioCtx.createMediaStreamSource(stream);
+                    const micGainNode = audioCtx.createGain();
+                    micGainNode.gain.value = 1.0; // Ganancia base del mic
+                    micSrc.connect(micGainNode);
+                    micGainNode.connect(analyser);
+                } catch(err) {
+                    console.log("Micrófono no disponible, usando solo audio interno.");
+                }
+
+                // Loop de análisis
+                const data = new Uint8Array(analyser.frequencyBinCount);
                 const loop = () => {
-                    requestAnimationFrame(loop); ana.getByteFrequencyData(data);
-                    let b = 0; for(let i=0; i<10; i++) b+=data[i];
+                    requestAnimationFrame(loop); 
+                    analyser.getByteFrequencyData(data);
+                    let b = 0; 
+                    // Tomamos rango bajo de frecuencias
+                    for(let i=0; i<10; i++) b+=data[i];
                     audio.bass = (b/10/255) * micGain;
-                }; loop();
-            } catch(e) {}
+                }; 
+                loop();
+
+            } catch(e) { console.error(e); }
         }
+
+        // Función para cargar audio MP3
+        function loadAudioFile(file, targetMixId) {
+            if(!audioCtx) return;
+            const reader = new FileReader();
+            notify("CARGANDO AUDIO...");
+            reader.onload = function(e) {
+                const arrayBuffer = e.target.result;
+                audioCtx.decodeAudioData(arrayBuffer, function(buffer) {
+                    
+                    // Detener audio anterior si existe en ese canal
+                    if(targetMixId === 1 && mix1Audio) { try{ mix1Audio.stop(); }catch(e){} }
+                    if(targetMixId === 2 && mix2Audio) { try{ mix2Audio.stop(); }catch(e){} }
+
+                    const source = audioCtx.createBufferSource();
+                    source.buffer = buffer;
+                    source.loop = true;
+
+                    // Crear ganancia para este track
+                    const trackGain = audioCtx.createGain();
+                    trackGain.gain.value = 0.8; 
+
+                    // Conexiones: Fuente -> Ganancia -> Analizador -> Parlantes
+                    source.connect(trackGain);
+                    trackGain.connect(analyser); // Para que las visuales reaccionen
+                    trackGain.connect(audioCtx.destination); // Para escuchar
+
+                    source.start(0);
+
+                    if(targetMixId === 1) mix1Audio = source;
+                    else mix2Audio = source;
+
+                    notify(`AUDIO EN MIX ${targetMixId}`);
+                }, function(e) { notify("ERROR DECODIFICAR"); });
+            }
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Listener para el input de audio
+        document.getElementById('audio-input').onchange = (e) => {
+            if(e.target.files[0]) {
+                loadAudioFile(e.target.files[0], activeId);
+            }
+        };
 
         function resize() {
             const w = document.getElementById('cont-1').clientWidth;
@@ -684,6 +749,7 @@
             await initAudio();
             initNetwork();
             document.getElementById('boot').style.display='none';
+            // Cargar videos por defecto para tener algo en pantalla
             mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=1.0; 
             mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=0.0; 
             mix2.loadClip('assets/videos/iris.webm'); mix2.state.crossfade=1.0;
@@ -705,7 +771,6 @@
 
         window.addEventListener('keydown', (e) => {
             const k = e.key.toLowerCase();
-            // J/K para video, ya NO para JSON
             if(['a','s','d','f','g','h','j','k','l'].includes(k)) document.getElementById('file-input').click();
             
             const num = parseInt(k);
