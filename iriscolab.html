@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS V.1.7 - AUDIO CROSSFADE</title>
+    <title>IRIS V.1.8 - REACTIVE CORE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -57,7 +57,7 @@
         /* UI CONTROL */
         #ui-wrapper { flex-shrink: 0; width: 100%; background: transparent; z-index: 10; display: flex; justify-content: center; align-items: flex-end; position: relative; }
         #dashboard {
-            width: 100%; height: 420px; /* Ajustado para el nuevo control */
+            width: 100%; height: 450px; /* Aumentado para el scope */
             background: var(--panel-bg);
             border-top: 1px solid rgba(0,229,255,0.1);
             transform-origin: top center; transform: scale(var(--ui-scale));
@@ -91,6 +91,12 @@
         #crossfader-track { width: 100%; height: 8px; background: #000; border-radius: 4px; position: relative; border: 1px solid #333; margin-top: 10px;}
         #crossfader-handle { width: 60px; height: 20px; background: var(--accent); position: absolute; top: -6px; left: 50%; transform: translateX(-50%); border-radius: 2px; box-shadow: 0 0 10px var(--accent); transition: left 0.1s; }
 
+        /* VISUALIZER SCOPE */
+        #audio-scope {
+            width: 100%; height: 60px; background: #050505; border: 1px solid #333;
+            margin-top: 15px; border-radius: 4px; box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+        }
+
         .out-matrix { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; }
         .out-btn { padding: 8px; background: #1a0505; border: 1px solid #331111; color: #ff3366; font-family: 'Montserrat'; font-weight: 700; font-size: 9px; cursor: pointer; }
         .out-btn.active-off { background: #ff0055; color: #fff; border-color: #ff0055; box-shadow: 0 0 20px #ff0055; }
@@ -120,7 +126,6 @@
         .param-slider:hover::-webkit-slider-thumb { background: var(--accent); }
         .param-slider:hover::-moz-range-thumb { background: var(--accent); }
         
-        /* AUDIO X-FADER STYLE (Slider centralizado) */
         .audio-xf-slider::-webkit-slider-thumb { border-color: var(--audio-ui); background: #555; }
         .audio-xf-slider:hover::-webkit-slider-thumb { background: var(--audio-ui); }
 
@@ -132,20 +137,14 @@
         .mic-on { border-color: var(--mic-color); color: var(--mic-color); box-shadow: 0 0 5px var(--mic-color); background: rgba(0,255,100,0.1); }
         .mic-on:hover { background: var(--mic-color); color: #000; }
 
-        /* AUDIO CONSOLE STYLE UPDATED */
         .audio-console {
             margin-top: 10px; border: 1px solid #333; background: #080808; padding: 10px;
-            display: flex; flex-direction: column; gap: 8px; /* Cambiado a columna para apilar decks y crossfader */
+            display: flex; flex-direction: column; gap: 8px;
         }
-        .audio-decks-wrapper {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-        }
-        /* FIX: min-width: 0 para evitar desborde de texto en grid items */
+        .audio-decks-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .deck-audio { border: 1px solid #222; padding: 5px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
         .deck-title { font-size: 10px; color: var(--audio-ui); font-weight: bold; border-bottom: 1px solid #222; padding-bottom: 2px; margin-bottom: 2px; display:flex; justify-content: space-between; }
-        /* FIX: Asegurar que el texto se corta correctamente */
         .track-name { color: #666; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; display: block; }
-        
         .audio-controls { display: flex; gap: 2px; }
         .audio-btn { flex: 1; background: #111; border: 1px solid #333; color: #888; font-size: 9px; cursor: pointer; padding: 4px 0; }
         .audio-btn:hover { border-color: var(--audio-ui); color: var(--audio-ui); }
@@ -180,7 +179,7 @@
 
     <div id="boot">
         <h1 style="font-size:70px; letter-spacing:15px; color:#fff; margin: 0 0 10px 0; font-family: 'Rajdhani'; font-weight: 700;">IRIS</h1>
-        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v1.7 - Audio X-Fade</h2>
+        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v1.8 - Reactive Core</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; letter-spacing: 2px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -232,6 +231,9 @@
                         <button id="btn-mix-2" class="work-btn">MIX 2</button>
                     </div>
                     <div id="crossfader-track"><div id="crossfader-handle"></div></div>
+                    
+                    <canvas id="audio-scope"></canvas>
+                    
                     <div style="text-align:center; font-size:9px; color:#444; margin-top:5px;">SCROLL PARA MEZCLAR</div>
                 </div>
             </div>
@@ -338,7 +340,7 @@
             setTimeout(()=>n.style.opacity=0, 1500);
         }
         
-        // --- 1. MOTOR DE MEZCLA (VISUALES) ---
+        // --- 1. MOTOR DE MEZCLA (VISUALES REACTIVAS) ---
         class MixerEngine {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
@@ -363,15 +365,92 @@
                 this.uniforms = {
                     uTexA: { value: this.deckA.tex }, uTexB: { value: this.deckB.tex },
                     uCrossfade: { value: 0.0 }, uTexCam: { value: this.webcam.tex }, uMix: { value: 0.0 },
-                    uTime: { value: 0 }, uBass: { value: 0 }, 
+                    uTime: { value: 0 }, uBass: { value: 0 }, uHigh: { value: 0 },
                     uMode: { value: 1 }, uStyle: { value: 0 }, uDistType: { value: 0 },
                     uSpeed: { value: 1.0 }, uGeoStrength: { value: 4.0 },
                     uRGBShift: { value: 0.0 },
                     uTint: { value: new THREE.Color(1,1,1) }, uTintMix: { value: 0.0 }
                 };
 
-                const vert = `uniform float uTime; uniform float uSpeed; uniform float uGeoStrength; uniform int uDistType; uniform float uBass; uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade; uniform sampler2D uTexCam; uniform float uMix; uniform int uStyle; varying vec2 vUv; void main() { vUv = uv; vec3 pos = position; float t = uTime * uSpeed; float d = 0.0; float str = uGeoStrength * (0.1 + uBass * 0.8); if(uDistType==1) d = sin(pos.x*2.+t)*cos(pos.y*1.5+t); if(uDistType==2) d = sin(pos.y*10.+t)*0.5 * sin(pos.x*10.); if(uDistType==3) { vec2 b=floor(uv*10.); d=(fract(sin(dot(b,vec2(12.9,78.2)))*43758.5)>0.5)?1.0:0.0; d*=sin(t*5.); } if(uDistType==4) d = sin(length(pos.xy)*5.0 - t*3.0); if(uDistType==5) d = cos(pos.x*5.0 + t) + sin(pos.y*5.0 + t); if(uDistType==6) d = sin(pos.y*20.0 + t*10.0) * 0.2; if(uDistType==7) d = (sin(pos.x*3.0+t) * sin(pos.y*3.0+t)) * sin(t); if(uDistType==8) d = tan(pos.x + t) * 0.1; if(uDistType==9) d = abs(sin(pos.x*4.0+t)) * abs(cos(pos.y*4.0)); if(uDistType==10) d = fract(pos.x*2.0+t) * fract(pos.y*2.0+t); pos.z += d * str; if(uStyle == 1) { vec3 cA = texture2D(uTexA, uv).rgb; vec3 cB = texture2D(uTexB, uv).rgb; vec3 col = mix(cA, cB, uCrossfade); vec3 cam = texture2D(uTexCam, uv).rgb; col = mix(col, cam, uMix); float lum = dot(col, vec3(0.333)); pos.z += lum * 3.5; } gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0); }`;
-                const frag = `uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade; uniform sampler2D uTexCam; uniform float uMix; uniform float uTime; uniform float uSpeed; uniform float uBass; uniform float uRGBShift; uniform int uMode; uniform int uStyle; uniform vec3 uTint; uniform float uTintMix; varying vec2 vUv; float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); } vec3 rgbSplit(sampler2D t, vec2 uv, float a) { return vec3(texture2D(t, uv-vec2(a,0)).r, texture2D(t, uv).g, texture2D(t, uv+vec2(a,0)).b); } void main() { vec2 uv = vUv; float t = uTime * uSpeed; if(uMode==2) uv.x = abs(uv.x-0.5)+0.5; if(uMode==3) { vec2 c=uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,0.52); uv=0.5+r*vec2(cos(a),sin(a)); } if(uMode==4) uv += vec2(sin(uv.y*10.+t)*0.05, 0.0); if(uMode==5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); } if(uMode==6) { float pixels = 50.0 + uBass*50.0; uv = floor(uv * pixels) / pixels; } if(uMode==7) { uv.x += sin(uv.y * 20.0 + t) * 0.02; uv.y += cos(uv.x * 20.0 + t) * 0.02; } if(uMode==8) { vec2 p = uv - 0.5; uv = 0.5 + vec2(abs(p.x), abs(p.y)); } if(uMode==9) { uv = fract(uv * 2.0); } if(uMode==10) { float angle = t; mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)); uv = (uv-0.5)*rot + 0.5; } float shift = uRGBShift; vec3 cA = rgbSplit(uTexA, uv, shift); vec3 cB = rgbSplit(uTexB, uv, shift); vec3 col = mix(cA, cB, uCrossfade); vec3 cam = rgbSplit(uTexCam, uv, shift); col = mix(col, cam, uMix); float lum = dot(col, vec3(0.333)); if(uStyle==1) { vec2 grid = fract(vUv * vec2(160.0, 90.0)); float mask = step(0.15, grid.x) * step(0.15, grid.y) * step(grid.x, 0.85) * step(grid.y, 0.85); col *= mask; if(lum < 0.1) col *= 0.1; } if(uStyle==2) { col = vec3(step(0.9, rand(floor(uv*100.0)))); col*=lum; } if(uStyle==3) { col = vec3(floor(lum*4.0)/4.0); } if(uStyle==4) { float g = step(0.5, sin(uv.y*100.0+t*10.0)); col *= g; } col = mix(col, col*uTint, uTintMix); gl_FragColor = vec4(col, 1.0); }`;
+                // SHADER CON REACTIVIDAD REAL
+                // 1. La distorsión geométrica depende PURAMENTE de uBass (si uBass=0, dist=0).
+                // 2. El Glitch (Modo 6, 7) y RGB dependen de uHigh.
+                const vert = `
+                    uniform float uTime; uniform float uSpeed; uniform float uGeoStrength; uniform int uDistType; uniform float uBass;
+                    uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade; uniform sampler2D uTexCam; uniform float uMix; uniform int uStyle;
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv; vec3 pos = position; float t = uTime * uSpeed; float d = 0.0;
+                        
+                        // REACTIVIDAD: Multiplicador directo de graves. Si bass es 0, str es 0.
+                        float str = uGeoStrength * uBass * 3.0; 
+
+                        if(uDistType==1) d = sin(pos.x*2.+t)*cos(pos.y*1.5+t);
+                        if(uDistType==2) d = sin(pos.y*10.+t)*0.5 * sin(pos.x*10.);
+                        if(uDistType==3) { vec2 b=floor(uv*10.); d=(fract(sin(dot(b,vec2(12.9,78.2)))*43758.5)>0.5)?1.0:0.0; d*=sin(t*5.); }
+                        if(uDistType==4) d = sin(length(pos.xy)*5.0 - t*3.0);
+                        if(uDistType==5) d = cos(pos.x*5.0 + t) + sin(pos.y*5.0 + t);
+                        if(uDistType==6) d = sin(pos.y*20.0 + t*10.0) * 0.2;
+                        if(uDistType==7) d = (sin(pos.x*3.0+t) * sin(pos.y*3.0+t)) * sin(t);
+                        if(uDistType==8) d = tan(pos.x + t) * 0.1;
+                        if(uDistType==9) d = abs(sin(pos.x*4.0+t)) * abs(cos(pos.y*4.0));
+                        if(uDistType==10) d = fract(pos.x*2.0+t) * fract(pos.y*2.0+t);
+                        
+                        pos.z += d * str; // Se aplica la deformación escalada por el audio
+
+                        if(uStyle == 1) {
+                            vec3 cA = texture2D(uTexA, uv).rgb; vec3 cB = texture2D(uTexB, uv).rgb;
+                            vec3 col = mix(cA, cB, uCrossfade);
+                            vec3 cam = texture2D(uTexCam, uv).rgb; col = mix(col, cam, uMix);
+                            float lum = dot(col, vec3(0.333)); pos.z += lum * 3.5;
+                        }
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                    }
+                `;
+
+                const frag = `
+                    uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
+                    uniform sampler2D uTexCam; uniform float uMix;
+                    uniform float uTime; uniform float uSpeed; uniform float uBass; uniform float uHigh; uniform float uRGBShift;
+                    uniform int uMode; uniform int uStyle; uniform vec3 uTint; uniform float uTintMix;
+                    varying vec2 vUv;
+                    float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+                    vec3 rgbSplit(sampler2D t, vec2 uv, float a) {
+                        return vec3(texture2D(t, uv-vec2(a,0)).r, texture2D(t, uv).g, texture2D(t, uv+vec2(a,0)).b);
+                    }
+                    void main() {
+                        vec2 uv = vUv; float t = uTime * uSpeed;
+                        
+                        // EFECTOS 2D MODIFICADOS POR AGUDOS (uHigh)
+                        if(uMode==2) uv.x = abs(uv.x-0.5)+0.5;
+                        if(uMode==3) { vec2 c=uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,0.52); uv=0.5+r*vec2(cos(a),sin(a)); }
+                        if(uMode==4) uv += vec2(sin(uv.y*10.+t)*0.05, 0.0);
+                        if(uMode==5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
+                        if(uMode==6) { float pixels = 50.0 + uHigh*100.0; uv = floor(uv * pixels) / pixels; } // Pixelate reactivo a agudos
+                        if(uMode==7) { uv.x += sin(uv.y * 20.0 + t) * (0.02 + uHigh*0.1); } // Onda reactiva
+                        if(uMode==8) { vec2 p = uv - 0.5; uv = 0.5 + vec2(abs(p.x), abs(p.y)); }
+                        if(uMode==9) { uv = fract(uv * 2.0); }
+                        if(uMode==10) { float angle = t + uBass; mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)); uv = (uv-0.5)*rot + 0.5; }
+                        
+                        // RGB SHIFT REACTIVO
+                        float shift = uRGBShift + (uHigh * 0.05); // Los agudos siempre añaden un poco de aberración
+                        vec3 cA = rgbSplit(uTexA, uv, shift); vec3 cB = rgbSplit(uTexB, uv, shift);
+                        vec3 col = mix(cA, cB, uCrossfade);
+                        vec3 cam = rgbSplit(uTexCam, uv, shift); col = mix(col, cam, uMix);
+                        float lum = dot(col, vec3(0.333));
+                        
+                        if(uStyle==1) { 
+                            vec2 grid = fract(vUv * vec2(160.0, 90.0));
+                            float mask = step(0.15, grid.x) * step(0.15, grid.y) * step(grid.x, 0.85) * step(grid.y, 0.85);
+                            col *= mask; if(lum < 0.1) col *= 0.1;
+                        } 
+                        if(uStyle==2) { col = vec3(step(0.9 - uHigh*0.5, rand(floor(uv*100.0)))); col*=lum; } // Ruido reactivo
+                        if(uStyle==3) { col = vec3(floor(lum*4.0)/4.0); }
+                        if(uStyle==4) { float g = step(0.5, sin(uv.y*100.0+t*10.0)); col *= g; }
+                        col = mix(col, col*uTint, uTintMix);
+                        gl_FragColor = vec4(col, 1.0);
+                    }
+                `;
 
                 this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 9, 160, 90), new THREE.ShaderMaterial({
                     uniforms: this.uniforms, vertexShader: vert, fragmentShader: frag, side: THREE.DoubleSide
@@ -398,7 +477,9 @@
 
             resize(w,h) { this.renderer.setSize(w,h); this.camera.aspect = w/h; this.camera.updateProjectionMatrix(); }
             render(t, audio) {
-                this.uniforms.uTime.value = t; this.uniforms.uBass.value = audio.bass;
+                this.uniforms.uTime.value = t; 
+                this.uniforms.uBass.value = audio.bass; // Enviar graves
+                this.uniforms.uHigh.value = audio.high; // Enviar agudos
                 this.uniforms.uSpeed.value = this.state.speed; this.uniforms.uGeoStrength.value = this.state.geo;
                 this.uniforms.uCrossfade.value = this.state.crossfade; this.uniforms.uMode.value = this.state.mode;
                 this.uniforms.uStyle.value = this.state.style; this.uniforms.uDistType.value = this.state.distType;
@@ -414,7 +495,7 @@
         let activeMix = mix1; let activeId = 1;
         let outputMode = 'OFF';
         let projWin = null;
-        let audio = { vol: 0, bass: 0 };
+        let audio = { vol: 0, bass: 0, high: 0 }; // Added high
         let visualGain = 8.0; 
 
         // --- 3. RED P2P ---
@@ -552,19 +633,19 @@
         function importPreset(file) { const reader = new FileReader(); reader.onload = (e) => { try { applyPresetObj(JSON.parse(e.target.result), false); } catch(e) { console.error(e); notify("ARCHIVO CORRUPTO"); } }; reader.readAsText(file); }
         document.getElementById('json-input').onchange = (e) => importPreset(e.target.files[0]);
 
-        // --- 5. AUDIO SYSTEM (UPDATED) ---
+        // --- 5. AUDIO SYSTEM & VISUALIZER ---
         let audioCtx, analyser;
         let globalMicNode = null;
         let globalMicGain = null;
         let isMicOn = true;
         let audioCrossfadeVal = 0.5;
+        let scopeCanvas, scopeCtx;
 
         class AudioTrack {
             constructor(id) {
                 this.id = id; this.buffer = null; this.source = null; this.gainNode = null;
                 this.startTime = 0; this.pausedAt = 0; this.isPlaying = false; this.fileName = "NO TRACK";
-                this.baseVol = 0.8; // Volumen del slider individual
-                this.fadeVol = 1.0; // Volumen calculado por el crossfader
+                this.baseVol = 0.8; this.fadeVol = 1.0;
             }
             loadFile(file) {
                 if(!audioCtx) return;
@@ -581,7 +662,7 @@
                 if(!this.buffer || this.isPlaying) return;
                 this.source = audioCtx.createBufferSource(); this.source.buffer = this.buffer; this.source.loop = true;
                 this.gainNode = audioCtx.createGain(); 
-                this.updateGain(); // Aplica volumen inicial
+                this.updateGain(); 
                 this.source.connect(this.gainNode); this.gainNode.connect(analyser); this.gainNode.connect(audioCtx.destination); 
                 this.source.start(0, this.pausedAt); this.startTime = audioCtx.currentTime - this.pausedAt;
                 this.isPlaying = true; this.updateUI('PLAYING'); document.getElementById(`play-${this.id}`).classList.add('active');
@@ -595,16 +676,9 @@
                 if(this.source) { try{this.source.stop();}catch(e){} this.source = null; }
                 this.pausedAt = 0; this.isPlaying = false; this.updateUI('STOP'); document.getElementById(`play-${this.id}`).classList.remove('active');
             }
-            
-            // Setters de Volumen
             setBaseVolume(val) { this.baseVol = parseFloat(val); this.updateGain(); }
             setFadeVolume(val) { this.fadeVol = parseFloat(val); this.updateGain(); }
-            
-            updateGain() {
-                // El volumen final es la combinación del slider individual Y el crossfader
-                if(this.gainNode) this.gainNode.gain.value = this.baseVol * this.fadeVol;
-            }
-
+            updateGain() { if(this.gainNode) this.gainNode.gain.value = this.baseVol * this.fadeVol; }
             updateUI(status) {
                 document.getElementById(`status-${this.id}`).innerText = status;
                 document.getElementById(`status-${this.id}`).style.color = status==='PLAYING'?'#00E5FF':'#666';
@@ -613,38 +687,69 @@
         const tracks = [new AudioTrack(1), new AudioTrack(2)];
         window.tracks = tracks;
 
-        // Función del Crossfader de Audio
         window.updateAudioXF = function(val, isRemote = false) {
             audioCrossfadeVal = parseFloat(val);
-            // Lógica Lineal Simple:
-            // Izquierda (0): Track 1 = 100%, Track 2 = 0%
-            // Centro (0.5): Track 1 = 50%, Track 2 = 50% (Lineal)
             tracks[0].setFadeVolume(1.0 - audioCrossfadeVal);
             tracks[1].setFadeVolume(audioCrossfadeVal);
-            
-            if(isRemote) {
-                document.getElementById('audio-xfader').value = audioCrossfadeVal;
-            } else {
-                broadcastData('audio_xf', { val: audioCrossfadeVal });
-            }
+            if(isRemote) { document.getElementById('audio-xfader').value = audioCrossfadeVal; } 
+            else { broadcastData('audio_xf', { val: audioCrossfadeVal }); }
         }
-        // Inicializar crossfader
         updateAudioXF(0.5);
 
         async function initAudio() {
             try {
                 audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-                analyser = audioCtx.createAnalyser(); analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.8;
+                analyser = audioCtx.createAnalyser(); analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.85;
+                
+                // MIC
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
                     globalMicNode = audioCtx.createMediaStreamSource(stream);
                     globalMicGain = audioCtx.createGain(); globalMicGain.gain.value = 1.0; 
                     globalMicNode.connect(globalMicGain); globalMicGain.connect(analyser);
                 } catch(err) { console.log("Sin Micrófono"); }
-                const data = new Uint8Array(analyser.frequencyBinCount);
-                const loop = () => { requestAnimationFrame(loop); analyser.getByteFrequencyData(data); let b = 0; for(let i=0; i<15; i++) b+=data[i]; audio.bass = (b/15/255) * visualGain; }; 
+
+                // SCOPE CANVAS
+                scopeCanvas = document.getElementById('audio-scope');
+                scopeCtx = scopeCanvas.getContext('2d');
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+
+                const loop = () => {
+                    requestAnimationFrame(loop); 
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    // 1. Calcular Bass y Highs
+                    let b = 0; let h = 0;
+                    for(let i=0; i<10; i++) b += dataArray[i]; // Primeros 10 bins = Bass
+                    for(let i=40; i<100; i++) h += dataArray[i]; // Bins medios-altos = High
+                    
+                    audio.bass = (b/10/255) * visualGain; 
+                    audio.high = (h/60/255) * visualGain; 
+
+                    // 2. Dibujar Scope
+                    drawScope(dataArray, bufferLength);
+                }; 
                 loop();
             } catch(e) { console.error(e); }
+        }
+
+        function drawScope(data, len) {
+            if(!scopeCtx) return;
+            const w = scopeCanvas.width = scopeCanvas.clientWidth;
+            const h = scopeCanvas.height = scopeCanvas.clientHeight;
+            scopeCtx.fillStyle = '#050505'; scopeCtx.fillRect(0,0,w,h);
+            scopeCtx.lineWidth = 1; scopeCtx.strokeStyle = '#00E5FF';
+            scopeCtx.beginPath();
+            const sliceWidth = w * 1.0 / len;
+            let x = 0;
+            for(let i = 0; i < len; i++) {
+                const v = data[i] / 255.0;
+                const y = h - (v * h);
+                if(i===0) scopeCtx.moveTo(x,y); else scopeCtx.lineTo(x,y);
+                x += sliceWidth;
+            }
+            scopeCtx.stroke();
         }
 
         window.toggleMic = function() {
