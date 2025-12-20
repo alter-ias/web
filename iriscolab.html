@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS V.1.6 - FULL CONTROL</title>
+    <title>IRIS V.1.7 - AUDIO CROSSFADE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -57,7 +57,7 @@
         /* UI CONTROL */
         #ui-wrapper { flex-shrink: 0; width: 100%; background: transparent; z-index: 10; display: flex; justify-content: center; align-items: flex-end; position: relative; }
         #dashboard {
-            width: 100%; height: 380px; 
+            width: 100%; height: 420px; /* Ajustado para el nuevo control */
             background: var(--panel-bg);
             border-top: 1px solid rgba(0,229,255,0.1);
             transform-origin: top center; transform: scale(var(--ui-scale));
@@ -119,6 +119,10 @@
         }
         .param-slider:hover::-webkit-slider-thumb { background: var(--accent); }
         .param-slider:hover::-moz-range-thumb { background: var(--accent); }
+        
+        /* AUDIO X-FADER STYLE (Slider centralizado) */
+        .audio-xf-slider::-webkit-slider-thumb { border-color: var(--audio-ui); background: #555; }
+        .audio-xf-slider:hover::-webkit-slider-thumb { background: var(--audio-ui); }
 
         .util-btn { padding: 6px; background: transparent; border: 1px solid #444; color: #888; font-size: 9px; cursor: pointer; flex: 1; margin: 0 2px;}
         .util-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -128,14 +132,20 @@
         .mic-on { border-color: var(--mic-color); color: var(--mic-color); box-shadow: 0 0 5px var(--mic-color); background: rgba(0,255,100,0.1); }
         .mic-on:hover { background: var(--mic-color); color: #000; }
 
-        /* AUDIO CONSOLE STYLE */
+        /* AUDIO CONSOLE STYLE UPDATED */
         .audio-console {
             margin-top: 10px; border: 1px solid #333; background: #080808; padding: 10px;
+            display: flex; flex-direction: column; gap: 8px; /* Cambiado a columna para apilar decks y crossfader */
+        }
+        .audio-decks-wrapper {
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
         }
-        .deck-audio { border: 1px solid #222; padding: 5px; display: flex; flex-direction: column; gap: 5px; }
+        /* FIX: min-width: 0 para evitar desborde de texto en grid items */
+        .deck-audio { border: 1px solid #222; padding: 5px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
         .deck-title { font-size: 10px; color: var(--audio-ui); font-weight: bold; border-bottom: 1px solid #222; padding-bottom: 2px; margin-bottom: 2px; display:flex; justify-content: space-between; }
-        .track-name { color: #666; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        /* FIX: Asegurar que el texto se corta correctamente */
+        .track-name { color: #666; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; display: block; }
+        
         .audio-controls { display: flex; gap: 2px; }
         .audio-btn { flex: 1; background: #111; border: 1px solid #333; color: #888; font-size: 9px; cursor: pointer; padding: 4px 0; }
         .audio-btn:hover { border-color: var(--audio-ui); color: var(--audio-ui); }
@@ -150,7 +160,6 @@
         #net-panel { border-color: var(--net-color); height: auto; width: 600px; }
         .midi-head { display: flex; justify-content: space-between; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 10px; }
         
-        /* MIDI LIST OPTIMIZADO PARA MUCHOS ELEMENTOS */
         #midi-list { flex-grow: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; align-content: start; }
         .midi-group-container { border: 1px solid #222; background: #0c0c0c; padding: 5px; }
         .midi-group { color: var(--accent); border-bottom: 1px solid #333; margin-bottom: 5px; font-weight: bold; font-size: 11px; text-transform: uppercase; padding: 2px;}
@@ -171,7 +180,7 @@
 
     <div id="boot">
         <h1 style="font-size:70px; letter-spacing:15px; color:#fff; margin: 0 0 10px 0; font-family: 'Rajdhani'; font-weight: 700;">IRIS</h1>
-        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v1.6 - Stable</h2>
+        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v1.7 - Audio X-Fade</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; letter-spacing: 2px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -243,27 +252,33 @@
                 </div>
                 
                 <div class="audio-console">
-                    <div class="deck-audio">
-                        <div class="deck-title"><span>TRACK 1</span> <span id="status-1" style="color:#666">STOP</span></div>
-                        <div class="track-name" id="name-audio-1">NO TRACK</div>
-                        <div class="audio-controls">
-                            <button class="audio-btn" onclick="document.getElementById('file-audio-1').click()">LOAD</button>
-                            <button class="audio-btn" id="play-1" onclick="tracks[0].play()">PLAY</button>
-                            <button class="audio-btn" onclick="tracks[0].pause()">PAUSE</button>
-                            <button class="audio-btn" onclick="tracks[0].stop()">STOP</button>
+                    <div class="audio-decks-wrapper">
+                        <div class="deck-audio">
+                            <div class="deck-title"><span>TRACK 1</span> <span id="status-1" style="color:#666">STOP</span></div>
+                            <div class="track-name" id="name-audio-1">NO TRACK</div>
+                            <div class="audio-controls">
+                                <button class="audio-btn" onclick="document.getElementById('file-audio-1').click()">LOAD</button>
+                                <button class="audio-btn" id="play-1" onclick="tracks[0].play()">PLAY</button>
+                                <button class="audio-btn" onclick="tracks[0].pause()">PAUSE</button>
+                                <button class="audio-btn" onclick="tracks[0].stop()">STOP</button>
+                            </div>
+                            <input type="range" id="vol-1" class="param-slider" min="0" max="1" step="0.01" value="0.8" oninput="tracks[0].setBaseVolume(this.value)">
                         </div>
-                        <input type="range" id="vol-1" class="param-slider" min="0" max="1" step="0.01" value="0.8" oninput="tracks[0].setVolume(this.value)">
+                        <div class="deck-audio">
+                            <div class="deck-title"><span>TRACK 2</span> <span id="status-2" style="color:#666">STOP</span></div>
+                            <div class="track-name" id="name-audio-2">NO TRACK</div>
+                            <div class="audio-controls">
+                                <button class="audio-btn" onclick="document.getElementById('file-audio-2').click()">LOAD</button>
+                                <button class="audio-btn" id="play-2" onclick="tracks[1].play()">PLAY</button>
+                                <button class="audio-btn" onclick="tracks[1].pause()">PAUSE</button>
+                                <button class="audio-btn" onclick="tracks[1].stop()">STOP</button>
+                            </div>
+                            <input type="range" id="vol-2" class="param-slider" min="0" max="1" step="0.01" value="0.8" oninput="tracks[1].setBaseVolume(this.value)">
+                        </div>
                     </div>
-                    <div class="deck-audio">
-                        <div class="deck-title"><span>TRACK 2</span> <span id="status-2" style="color:#666">STOP</span></div>
-                        <div class="track-name" id="name-audio-2">NO TRACK</div>
-                        <div class="audio-controls">
-                            <button class="audio-btn" onclick="document.getElementById('file-audio-2').click()">LOAD</button>
-                            <button class="audio-btn" id="play-2" onclick="tracks[1].play()">PLAY</button>
-                            <button class="audio-btn" onclick="tracks[1].pause()">PAUSE</button>
-                            <button class="audio-btn" onclick="tracks[1].stop()">STOP</button>
-                        </div>
-                        <input type="range" id="vol-2" class="param-slider" min="0" max="1" step="0.01" value="0.8" oninput="tracks[1].setVolume(this.value)">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="font-size:9px; color:var(--audio-ui)">X-FADE</span>
+                        <input type="range" id="audio-xfader" class="param-slider audio-xf-slider" min="0" max="1" step="0.01" value="0.5" oninput="updateAudioXF(this.value)">
                     </div>
                 </div>
 
@@ -431,7 +446,6 @@
         }
         
         function getCurrentState() { 
-            // Crear una copia SEGURA del estado
             return { 
                 mix1: { ...mix1.state, tint: {r:mix1.state.tint.r, g:mix1.state.tint.g, b:mix1.state.tint.b} },
                 mix2: { ...mix2.state, tint: {r:mix2.state.tint.r, g:mix2.state.tint.g, b:mix2.state.tint.b} },
@@ -450,6 +464,7 @@
             else if (data.type === 'style') { activeMix.state.style = p.val; notify("REMOTE: STYLE"); }
             else if (data.type === 'dist') { activeMix.state.distType = p.val; notify("REMOTE: DEFORM"); }
             else if (data.type === 'preset_load') applyPresetObj(p.obj, true);
+            else if (data.type === 'audio_xf') { updateAudioXF(p.val, true); }
             broadcastData(data.type, p, sourceConn);
         }
 
@@ -508,7 +523,6 @@
             if(!isRemote) broadcastData('crossfader', { val: activeMix.state.crossfade });
         }
         
-        // --- JSON SAFE LOADING FIXED ---
         window.exportPreset = function() {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(getCurrentState()));
             const dlAnchorElem = document.createElement('a');
@@ -520,15 +534,10 @@
 
         function applyPresetObj(obj, isRemote = false) {
              try {
-                 // Copiar propiedades simples
                  Object.assign(mix1.state, obj.mix1);
                  Object.assign(mix2.state, obj.mix2);
-                 
-                 // RECONSTRUIR OBJETOS COMPLEX (THREE.Color)
-                 // Si no se hace esto, tint queda como objeto plano {r,g,b} y three.js falla
                  if(obj.mix1.tint) mix1.state.tint = new THREE.Color(obj.mix1.tint.r, obj.mix1.tint.g, obj.mix1.tint.b);
                  else mix1.state.tint = new THREE.Color(1,1,1);
-                 
                  if(obj.mix2.tint) mix2.state.tint = new THREE.Color(obj.mix2.tint.r, obj.mix2.tint.g, obj.mix2.tint.b);
                  else mix2.state.tint = new THREE.Color(1,1,1);
 
@@ -538,24 +547,24 @@
                  setActive(activeId, true); 
                  notify(isRemote ? "PRESET REMOTO" : "PRESET CARGADO"); 
                  if(!isRemote) broadcastData('preset_load', { obj: obj });
-             } catch(e) {
-                 console.error("Error aplicando preset:", e);
-                 notify("ERROR DE PRESET");
-             }
+             } catch(e) { console.error("Error aplicando preset:", e); notify("ERROR DE PRESET"); }
         }
         function importPreset(file) { const reader = new FileReader(); reader.onload = (e) => { try { applyPresetObj(JSON.parse(e.target.result), false); } catch(e) { console.error(e); notify("ARCHIVO CORRUPTO"); } }; reader.readAsText(file); }
         document.getElementById('json-input').onchange = (e) => importPreset(e.target.files[0]);
 
-        // --- 5. AUDIO SYSTEM ---
+        // --- 5. AUDIO SYSTEM (UPDATED) ---
         let audioCtx, analyser;
         let globalMicNode = null;
         let globalMicGain = null;
         let isMicOn = true;
+        let audioCrossfadeVal = 0.5;
 
         class AudioTrack {
             constructor(id) {
                 this.id = id; this.buffer = null; this.source = null; this.gainNode = null;
                 this.startTime = 0; this.pausedAt = 0; this.isPlaying = false; this.fileName = "NO TRACK";
+                this.baseVol = 0.8; // Volumen del slider individual
+                this.fadeVol = 1.0; // Volumen calculado por el crossfader
             }
             loadFile(file) {
                 if(!audioCtx) return;
@@ -571,7 +580,8 @@
             play() {
                 if(!this.buffer || this.isPlaying) return;
                 this.source = audioCtx.createBufferSource(); this.source.buffer = this.buffer; this.source.loop = true;
-                this.gainNode = audioCtx.createGain(); this.gainNode.gain.value = 0.8; 
+                this.gainNode = audioCtx.createGain(); 
+                this.updateGain(); // Aplica volumen inicial
                 this.source.connect(this.gainNode); this.gainNode.connect(analyser); this.gainNode.connect(audioCtx.destination); 
                 this.source.start(0, this.pausedAt); this.startTime = audioCtx.currentTime - this.pausedAt;
                 this.isPlaying = true; this.updateUI('PLAYING'); document.getElementById(`play-${this.id}`).classList.add('active');
@@ -585,7 +595,16 @@
                 if(this.source) { try{this.source.stop();}catch(e){} this.source = null; }
                 this.pausedAt = 0; this.isPlaying = false; this.updateUI('STOP'); document.getElementById(`play-${this.id}`).classList.remove('active');
             }
-            setVolume(val) { if(this.gainNode) this.gainNode.gain.value = val; }
+            
+            // Setters de Volumen
+            setBaseVolume(val) { this.baseVol = parseFloat(val); this.updateGain(); }
+            setFadeVolume(val) { this.fadeVol = parseFloat(val); this.updateGain(); }
+            
+            updateGain() {
+                // El volumen final es la combinación del slider individual Y el crossfader
+                if(this.gainNode) this.gainNode.gain.value = this.baseVol * this.fadeVol;
+            }
+
             updateUI(status) {
                 document.getElementById(`status-${this.id}`).innerText = status;
                 document.getElementById(`status-${this.id}`).style.color = status==='PLAYING'?'#00E5FF':'#666';
@@ -593,6 +612,24 @@
         }
         const tracks = [new AudioTrack(1), new AudioTrack(2)];
         window.tracks = tracks;
+
+        // Función del Crossfader de Audio
+        window.updateAudioXF = function(val, isRemote = false) {
+            audioCrossfadeVal = parseFloat(val);
+            // Lógica Lineal Simple:
+            // Izquierda (0): Track 1 = 100%, Track 2 = 0%
+            // Centro (0.5): Track 1 = 50%, Track 2 = 50% (Lineal)
+            tracks[0].setFadeVolume(1.0 - audioCrossfadeVal);
+            tracks[1].setFadeVolume(audioCrossfadeVal);
+            
+            if(isRemote) {
+                document.getElementById('audio-xfader').value = audioCrossfadeVal;
+            } else {
+                broadcastData('audio_xf', { val: audioCrossfadeVal });
+            }
+        }
+        // Inicializar crossfader
+        updateAudioXF(0.5);
 
         async function initAudio() {
             try {
@@ -668,12 +705,10 @@
         }
         document.getElementById('btn-proj').onclick = () => { projWin = window.open("", "PROJ", "width=800,height=600"); if(projWin){ projWin.document.write(`<body style="margin:0;background:#000;overflow:hidden"><video id="v" autoplay style="width:100vw;height:100vh;object-fit:cover;opacity:0"></video></body>`); projWin.focus(); if(outputMode !== 'OFF') setOutput(outputMode); } };
 
-        // --- MAPEO MIDI COMPLETO ---
-        // Generador de diccionario completo
+        // --- MAPEO MIDI ---
         const midiMapDef = {
-            // General
             'work_a':{l:'Select Mix 1', f:()=>setActive(1)}, 'work_b':{l:'Select Mix 2', f:()=>setActive(2)},
-            'crossfader':{l:'Fader (Knob/Slide)', f:(v)=>{activeMix.state.crossfade=v; updateFader();}},
+            'crossfader':{l:'Visual X-Fader', f:(v)=>{activeMix.state.crossfade=v; updateFader();}},
             'reset':{l:'Reset FX', f:()=>{activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; activeMix.state.rgb=0; activeMix.state.tintMix=0; document.getElementById('sl-rgb').value=0;}},
             'load_clip':{l:'Cargar Video', f:()=>document.getElementById('file-input').click()},
             'out_cycle':{l:'Cycle Out (Ñ)', f:(v)=>{ if(v>0.5){ if(outputMode==='OFF') setOutput('1'); else if(outputMode==='1') setOutput('2'); else setOutput('OFF'); }}},
@@ -683,15 +718,12 @@
             'bloom':{l:'Knob Bloom', f:(v)=>window.uiUpdate('bloom', v*3)}, 'gain':{l:'Vis Gain', f:(v)=>window.uiUpdate('gain', v*20)},
             // Audio
             'mic_toggle':{l:'Mic On/Off', f:(v)=>{ if(v>0.5) window.toggleMic(); }},
-            'play_1':{l:'Deck 1 Play', f:(v)=>{ if(v>0.5) tracks[0].play(); }}, 'stop_1':{l:'Deck 1 Stop', f:(v)=>{ if(v>0.5) tracks[0].stop(); }}, 'vol_1':{l:'Deck 1 Vol', f:(v)=>{ tracks[0].setVolume(v); document.getElementById('vol-1').value=v; }},
-            'play_2':{l:'Deck 2 Play', f:(v)=>{ if(v>0.5) tracks[1].play(); }}, 'stop_2':{l:'Deck 2 Stop', f:(v)=>{ if(v>0.5) tracks[1].stop(); }}, 'vol_2':{l:'Deck 2 Vol', f:(v)=>{ tracks[1].setVolume(v); document.getElementById('vol-2').value=v; }},
+            'play_1':{l:'Deck 1 Play', f:(v)=>{ if(v>0.5) tracks[0].play(); }}, 'stop_1':{l:'Deck 1 Stop', f:(v)=>{ if(v>0.5) tracks[0].stop(); }}, 'vol_1':{l:'Deck 1 Vol', f:(v)=>{ tracks[0].setBaseVolume(v); document.getElementById('vol-1').value=v; }},
+            'play_2':{l:'Deck 2 Play', f:(v)=>{ if(v>0.5) tracks[1].play(); }}, 'stop_2':{l:'Deck 2 Stop', f:(v)=>{ if(v>0.5) tracks[1].stop(); }}, 'vol_2':{l:'Deck 2 Vol', f:(v)=>{ tracks[1].setBaseVolume(v); document.getElementById('vol-2').value=v; }},
+            'audio_xf':{l:'Audio X-Fader', f:(v)=>updateAudioXF(v)}
         };
-
-        // Generar FX 1-10
         for(let i=1;i<=10;i++) midiMapDef[`fx_${i}`] = {l:`FX 2D ${i}`, f:()=>activeMix.state.mode=i};
-        // Generar Deforms 1-10
         for(let i=1;i<=10;i++) midiMapDef[`def_${i}`] = {l:`Deform 3D ${i}`, f:()=>activeMix.state.distType=i};
-        // Estilos
         const styles = ['Malla','Pixel','Liquid','Quad','Tile'];
         for(let i=0;i<styles.length;i++) midiMapDef[`style_${i+1}`] = {l:`Style ${styles[i]}`, f:()=>activeMix.state.style=i+1};
 
@@ -699,16 +731,14 @@
         
         function renderMidi() { 
             const list = document.getElementById('midi-list'); list.innerHTML=''; 
-            
             const groups = {
-                'AUDIO DECK': ['mic_toggle','play_1','stop_1','vol_1','play_2','stop_2','vol_2'],
+                'AUDIO DECK': ['mic_toggle','audio_xf','play_1','stop_1','vol_1','play_2','stop_2','vol_2'],
                 'GENERAL': ['work_a','work_b','crossfader','reset','load_clip','out_cycle'],
                 'AJUSTES': ['speed','glitch','geo','color','bloom','gain'],
                 'EFECTOS 2D': Array.from({length:10},(_,i)=>`fx_${i+1}`),
                 'DEFORM 3D': Array.from({length:10},(_,i)=>`def_${i+1}`),
                 'ESTILOS': Array.from({length:5},(_,i)=>`style_${i+1}`)
             };
-
             for(const [grpName, keys] of Object.entries(groups)) { 
                 const cont = document.createElement('div'); cont.className='midi-group-container';
                 const h=document.createElement('div'); h.className='midi-group'; h.innerText=grpName; cont.appendChild(h);
@@ -718,8 +748,7 @@
                         row.innerHTML=`<span style="font-size:9px;color:#888;">${midiMapDef[k].l}</span><button class="midi-btn ${midiBinding===k?'learning':''}">${midiConfig[k]?(midiConfig[k].t+':'+midiConfig[k].v):'MAP'}</button>`; 
                         row.querySelector('button').onclick=()=>{midiBinding=k; renderMidi();}; cont.appendChild(row); 
                     }
-                }); 
-                list.appendChild(cont);
+                }); list.appendChild(cont);
             } 
         }
 
