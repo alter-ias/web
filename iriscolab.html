@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS V.1.9 - IMPULSE</title>
+    <title>IRIS V.2.0 - EQ REACTION</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -57,12 +57,12 @@
         /* UI CONTROL */
         #ui-wrapper { flex-shrink: 0; width: 100%; background: transparent; z-index: 10; display: flex; justify-content: center; align-items: flex-end; position: relative; }
         #dashboard {
-            width: 100%; height: 480px; /* Mas alto para el nuevo grafico */
+            width: 100%; height: 500px; /* Un poco mas alto */
             background: var(--panel-bg);
             border-top: 1px solid rgba(0,229,255,0.1);
             transform-origin: top center; transform: scale(var(--ui-scale));
             width: calc(100% / var(--ui-scale));
-            display: grid; grid-template-columns: 200px 1fr 300px;
+            display: grid; grid-template-columns: 200px 1fr 320px;
             padding: 20px 40px; box-sizing: border-box;
             gap: 20px; position: relative;
         }
@@ -91,11 +91,33 @@
         #crossfader-track { width: 100%; height: 8px; background: #000; border-radius: 4px; position: relative; border: 1px solid #333; margin-top: 5px;}
         #crossfader-handle { width: 60px; height: 20px; background: var(--accent); position: absolute; top: -6px; left: 50%; transform: translateX(-50%); border-radius: 2px; box-shadow: 0 0 10px var(--accent); transition: left 0.1s; }
 
-        /* NUEVO VISUALIZADOR GRUESO */
+        /* VISUALIZADOR ESTILO ONDA */
         #audio-scope {
-            width: 100%; height: 120px; background: #080808; border: 1px solid #333;
+            width: 100%; height: 140px; background: #050505; border: 1px solid #333;
             margin-top: 15px; border-radius: 4px; box-shadow: inset 0 0 30px #000;
         }
+
+        /* EQUALIZADOR DE REACCION */
+        .eq-panel {
+            display: flex; justify-content: space-between; gap: 10px; margin-top: 10px;
+            background: #080808; padding: 10px; border: 1px solid #222;
+        }
+        .eq-band {
+            display: flex; flex-direction: column; align-items: center; flex: 1;
+        }
+        .eq-slider-container {
+            height: 80px; width: 10px; background: #111; border: 1px solid #333; position: relative; border-radius: 5px; margin-bottom: 5px;
+        }
+        .eq-fill {
+            position: absolute; bottom: 0; left: 0; width: 100%; background: var(--audio-ui);
+            border-radius: 0 0 4px 4px; pointer-events: none;
+        }
+        .eq-input {
+            position: absolute; top: 0; left: -10px; width: 30px; height: 100%; 
+            -webkit-appearance: slider-vertical; opacity: 0; cursor: ns-resize;
+        }
+        .eq-label { font-size: 8px; color: #666; text-align: center; font-weight: bold; }
+        .eq-val { font-size: 9px; color: var(--audio-ui); font-family: monospace; }
 
         .out-matrix { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px; }
         .out-btn { padding: 8px; background: #1a0505; border: 1px solid #331111; color: #ff3366; font-family: 'Montserrat'; font-weight: 700; font-size: 9px; cursor: pointer; }
@@ -179,7 +201,7 @@
 
     <div id="boot">
         <h1 style="font-size:70px; letter-spacing:15px; color:#fff; margin: 0 0 10px 0; font-family: 'Rajdhani'; font-weight: 700;">IRIS</h1>
-        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v1.9 - Impulse</h2>
+        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v2.0 - EQ Mod</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; letter-spacing: 2px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -234,7 +256,37 @@
                     
                     <canvas id="audio-scope"></canvas>
                     
-                    <div style="text-align:center; font-size:9px; color:#444; margin-top:5px;">AUDIO SPECTRUM (L: BASS | R: HIGH)</div>
+                    <div class="eq-panel">
+                        <div style="font-size:9px; color:#444; writing-mode: vertical-rl; transform: rotate(180deg); text-align:center;">REACTIVITY EQ</div>
+                        
+                        <div class="eq-band">
+                            <div class="eq-slider-container">
+                                <div class="eq-fill" id="fill-eq-low" style="height: 50%; background:#00E5FF;"></div>
+                                <input type="range" class="eq-input" min="0" max="2" step="0.1" value="1.0" oninput="updateEq('low', this.value)">
+                            </div>
+                            <span class="eq-label">LOW</span>
+                            <span class="eq-label" style="color:#00E5FF">GEO</span>
+                        </div>
+
+                        <div class="eq-band">
+                            <div class="eq-slider-container">
+                                <div class="eq-fill" id="fill-eq-mid" style="height: 50%; background:#ff00de;"></div>
+                                <input type="range" class="eq-input" min="0" max="2" step="0.1" value="1.0" oninput="updateEq('mid', this.value)">
+                            </div>
+                            <span class="eq-label">MID</span>
+                            <span class="eq-label" style="color:#ff00de">DIST</span>
+                        </div>
+
+                        <div class="eq-band">
+                            <div class="eq-slider-container">
+                                <div class="eq-fill" id="fill-eq-high" style="height: 50%; background:#ffaa00;"></div>
+                                <input type="range" class="eq-input" min="0" max="2" step="0.1" value="1.0" oninput="updateEq('high', this.value)">
+                            </div>
+                            <span class="eq-label">HI</span>
+                            <span class="eq-label" style="color:#ffaa00">FX</span>
+                        </div>
+                    </div>
+
                 </div>
             </div>
 
@@ -364,7 +416,9 @@
                 this.uniforms = {
                     uTexA: { value: this.deckA.tex }, uTexB: { value: this.deckB.tex },
                     uCrossfade: { value: 0.0 }, uTexCam: { value: this.webcam.tex }, uMix: { value: 0.0 },
-                    uTime: { value: 0 }, uBass: { value: 0 }, uHigh: { value: 0 },
+                    uTime: { value: 0 }, 
+                    uBass: { value: 0 }, uMid: { value: 0 }, uHigh: { value: 0 }, // Separated bands
+                    uEqLow: { value: 1.0 }, uEqMid: { value: 1.0 }, uEqHigh: { value: 1.0 }, // EQ Gains
                     uMode: { value: 1 }, uStyle: { value: 0 }, uDistType: { value: 0 },
                     uSpeed: { value: 1.0 }, uGeoStrength: { value: 4.0 },
                     uRGBShift: { value: 0.0 },
@@ -372,16 +426,24 @@
                 };
 
                 const vert = `
-                    uniform float uTime; uniform float uSpeed; uniform float uGeoStrength; uniform int uDistType; uniform float uBass;
+                    uniform float uTime; uniform float uSpeed; uniform float uGeoStrength; uniform int uDistType;
+                    uniform float uBass; uniform float uMid; uniform float uHigh; // RAW
+                    uniform float uEqLow; uniform float uEqMid; uniform float uEqHigh; // GAINS
                     uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade; uniform sampler2D uTexCam; uniform float uMix; uniform int uStyle;
                     varying vec2 vUv;
                     void main() {
-                        vUv = uv; vec3 pos = position; float t = uTime * uSpeed; 
+                        vUv = uv; vec3 pos = position; 
+                        
+                        // AUDIO REACTIVITY MAPPING
+                        float rBass = uBass * uEqLow;
+                        float rMid = uMid * uEqMid;
+                        float rHigh = uHigh * uEqHigh;
+
+                        float t = uTime * (uSpeed + rMid * 2.0); // Medios aceleran el tiempo
                         
                         // CERO AUDIO = CERO MOVIMIENTO
-                        // uBass viene normalizado (0 a 1). Si es 0, el multiplicador es 0.
                         float deformation = 0.0;
-                        float str = uGeoStrength * uBass * 3.0; // Intensidad controlada por volumen
+                        float str = uGeoStrength * rBass * 4.0; // Bajos deforman geometria
 
                         if(uDistType==1) deformation = sin(pos.x*2.+t)*cos(pos.y*1.5+t);
                         if(uDistType==2) deformation = sin(pos.y*10.+t)*0.5 * sin(pos.x*10.);
@@ -394,14 +456,15 @@
                         if(uDistType==9) deformation = abs(sin(pos.x*4.0+t)) * abs(cos(pos.y*4.0));
                         if(uDistType==10) deformation = fract(pos.x*2.0+t) * fract(pos.y*2.0+t);
                         
-                        // APLICAR DEFORMACION SOLO SI HAY AUDIO
                         pos.z += deformation * str; 
+                        // Medios añaden jitter extra
+                        pos.x += sin(t*20.0) * rMid * 0.1;
 
                         if(uStyle == 1) {
                             vec3 cA = texture2D(uTexA, uv).rgb; vec3 cB = texture2D(uTexB, uv).rgb;
                             vec3 col = mix(cA, cB, uCrossfade);
                             vec3 cam = texture2D(uTexCam, uv).rgb; col = mix(col, cam, uMix);
-                            float lum = dot(col, vec3(0.333)); pos.z += lum * 3.5 * uBass; // Malla tambien reacciona
+                            float lum = dot(col, vec3(0.333)); pos.z += lum * 3.5 * rBass; 
                         }
                         gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
                     }
@@ -410,7 +473,10 @@
                 const frag = `
                     uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
                     uniform sampler2D uTexCam; uniform float uMix;
-                    uniform float uTime; uniform float uSpeed; uniform float uBass; uniform float uHigh; uniform float uRGBShift;
+                    uniform float uTime; uniform float uSpeed; 
+                    uniform float uBass; uniform float uMid; uniform float uHigh;
+                    uniform float uEqLow; uniform float uEqMid; uniform float uEqHigh;
+                    uniform float uRGBShift;
                     uniform int uMode; uniform int uStyle; uniform vec3 uTint; uniform float uTintMix;
                     varying vec2 vUv;
                     float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
@@ -418,21 +484,25 @@
                         return vec3(texture2D(t, uv-vec2(a,0)).r, texture2D(t, uv).g, texture2D(t, uv+vec2(a,0)).b);
                     }
                     void main() {
-                        vec2 uv = vUv; float t = uTime * uSpeed;
+                        vec2 uv = vUv; 
+                        float rBass = uBass * uEqLow;
+                        float rMid = uMid * uEqMid;
+                        float rHigh = uHigh * uEqHigh;
+                        float t = uTime * (uSpeed + rMid);
                         
                         // EFECTOS SOLO SI HAY AUDIO (O Modo Normal)
                         if(uMode==2) uv.x = abs(uv.x-0.5)+0.5;
                         if(uMode==3) { vec2 c=uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,0.52); uv=0.5+r*vec2(cos(a),sin(a)); }
-                        if(uMode==4) uv += vec2(sin(uv.y*10.+t)*0.05*uBass, 0.0);
-                        if(uMode==5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(uBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
-                        if(uMode==6) { float pixels = 50.0 + uHigh*100.0; uv = floor(uv * pixels) / pixels; } 
-                        if(uMode==7) { uv.x += sin(uv.y * 20.0 + t) * (0.02 * uBass); } 
+                        if(uMode==4) uv += vec2(sin(uv.y*10.+t)*0.05*rBass, 0.0);
+                        if(uMode==5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(rBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
+                        if(uMode==6) { float pixels = 50.0 + rHigh*100.0; uv = floor(uv * pixels) / pixels; } 
+                        if(uMode==7) { uv.x += sin(uv.y * 20.0 + t) * (0.02 * rBass); } 
                         if(uMode==8) { vec2 p = uv - 0.5; uv = 0.5 + vec2(abs(p.x), abs(p.y)); }
                         if(uMode==9) { uv = fract(uv * 2.0); }
-                        if(uMode==10) { float angle = t + uBass; mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)); uv = (uv-0.5)*rot + 0.5; }
+                        if(uMode==10) { float angle = t + rBass; mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)); uv = (uv-0.5)*rot + 0.5; }
                         
-                        // RGB FIJO + POCO AUDIO
-                        float shift = uRGBShift + (uHigh * 0.02); 
+                        // RGB FIJO + POCO AUDIO (Highs affect RGB)
+                        float shift = uRGBShift + (rHigh * 0.05); 
                         vec3 cA = rgbSplit(uTexA, uv, shift); vec3 cB = rgbSplit(uTexB, uv, shift);
                         vec3 col = mix(cA, cB, uCrossfade);
                         vec3 cam = rgbSplit(uTexCam, uv, shift); col = mix(col, cam, uMix);
@@ -443,10 +513,14 @@
                             float mask = step(0.15, grid.x) * step(0.15, grid.y) * step(grid.x, 0.85) * step(grid.y, 0.85);
                             col *= mask; if(lum < 0.1) col *= 0.1;
                         } 
-                        if(uStyle==2) { col = vec3(step(0.9 - uHigh*0.5, rand(floor(uv*100.0)))); col*=lum; } 
+                        if(uStyle==2) { col = vec3(step(0.9 - rHigh*0.5, rand(floor(uv*100.0)))); col*=lum; } 
                         if(uStyle==3) { col = vec3(floor(lum*4.0)/4.0); }
                         if(uStyle==4) { float g = step(0.5, sin(uv.y*100.0+t*10.0)); col *= g; }
                         col = mix(col, col*uTint, uTintMix);
+                        
+                        // Flash blanco en agudos muy fuertes
+                        if(rHigh > 0.8) col += vec3(0.2, 0.2, 0.2);
+
                         gl_FragColor = vec4(col, 1.0);
                     }
                 `;
@@ -475,10 +549,17 @@
             }
 
             resize(w,h) { this.renderer.setSize(w,h); this.camera.aspect = w/h; this.camera.updateProjectionMatrix(); }
-            render(t, audio) {
+            render(t, audio, eq) {
                 this.uniforms.uTime.value = t; 
-                this.uniforms.uBass.value = audio.bass; // Graves impulsan geometria
-                this.uniforms.uHigh.value = audio.high; // Agudos impulsan detalles
+                this.uniforms.uBass.value = audio.bass; 
+                this.uniforms.uMid.value = audio.mid;
+                this.uniforms.uHigh.value = audio.high; 
+                
+                // Aplicar EQ
+                this.uniforms.uEqLow.value = eq.low;
+                this.uniforms.uEqMid.value = eq.mid;
+                this.uniforms.uEqHigh.value = eq.high;
+
                 this.uniforms.uSpeed.value = this.state.speed; this.uniforms.uGeoStrength.value = this.state.geo;
                 this.uniforms.uCrossfade.value = this.state.crossfade; this.uniforms.uMode.value = this.state.mode;
                 this.uniforms.uStyle.value = this.state.style; this.uniforms.uDistType.value = this.state.distType;
@@ -494,8 +575,9 @@
         let activeMix = mix1; let activeId = 1;
         let outputMode = 'OFF';
         let projWin = null;
-        let audio = { vol: 0, bass: 0, high: 0 }; 
-        let sensitivity = 10.0; // REEMPLAZA A BLOOM
+        let audio = { vol: 0, bass: 0, mid: 0, high: 0 }; 
+        let eqSettings = { low: 1.0, mid: 1.0, high: 1.0 };
+        let sensitivity = 10.0; 
 
         // --- 3. RED P2P ---
         let peer = null; let connections = []; let myPeerId = null;
@@ -529,7 +611,7 @@
             return { 
                 mix1: { ...mix1.state, tint: {r:mix1.state.tint.r, g:mix1.state.tint.g, b:mix1.state.tint.b} },
                 mix2: { ...mix2.state, tint: {r:mix2.state.tint.r, g:mix2.state.tint.g, b:mix2.state.tint.b} },
-                global: { sensitivity: sensitivity }, 
+                global: { sensitivity: sensitivity, eq: eqSettings }, 
                 timestamp: Date.now() 
             }; 
         }
@@ -545,6 +627,7 @@
             else if (data.type === 'dist') { activeMix.state.distType = p.val; notify("REMOTE: DEFORM"); }
             else if (data.type === 'preset_load') applyPresetObj(p.obj, true);
             else if (data.type === 'audio_xf') { updateAudioXF(p.val, true); }
+            else if (data.type === 'eq') { updateEq(p.band, p.val, true); }
             broadcastData(data.type, p, sourceConn);
         }
 
@@ -554,7 +637,7 @@
             if(key === 'speed') activeMix.state.speed = val;
             if(key === 'glitch') activeMix.state.glitch = val;
             if(key === 'geo') activeMix.state.geo = val;
-            if(key === 'sens') sensitivity = val; // Sensibilidad al audio
+            if(key === 'sens') sensitivity = val; 
             if(key === 'color') {
                 activeMix.state.rgb = val;
                 if(val > 0) { activeMix.state.tint.setHSL(val, 1.0, 0.5); activeMix.state.tintMix = 1.0; }
@@ -569,6 +652,24 @@
             } else { broadcastData('ui_param', { key: key, value: val }); }
         };
         window.updateParam = window.uiUpdate; 
+
+        // EQ LOGIC
+        window.updateEq = function(band, value, isRemote = false) {
+            const val = parseFloat(value);
+            eqSettings[band] = val;
+            // Update UI Fills
+            if(band === 'low') document.getElementById('fill-eq-low').style.height = (val/2)*100 + '%';
+            if(band === 'mid') document.getElementById('fill-eq-mid').style.height = (val/2)*100 + '%';
+            if(band === 'high') document.getElementById('fill-eq-high').style.height = (val/2)*100 + '%';
+            
+            if(isRemote) {
+                 // Update Slider positions
+                 const input = document.querySelector(`.eq-input[oninput*="'${band}'"]`);
+                 if(input) input.value = val;
+            } else {
+                broadcastData('eq', { band: band, val: val });
+            }
+        }
 
         function setActive(id, isRemote = false) {
             activeId = id; activeMix = (id===1) ? mix1 : mix2;
@@ -619,7 +720,15 @@
                  if(obj.mix2.tint) mix2.state.tint = new THREE.Color(obj.mix2.tint.r, obj.mix2.tint.g, obj.mix2.tint.b);
                  else mix2.state.tint = new THREE.Color(1,1,1);
 
-                 if(obj.global && obj.global.sensitivity) sensitivity = obj.global.sensitivity;
+                 if(obj.global) {
+                    if(obj.global.sensitivity) sensitivity = obj.global.sensitivity;
+                    if(obj.global.eq) {
+                        eqSettings = obj.global.eq;
+                        updateEq('low', eqSettings.low, true);
+                        updateEq('mid', eqSettings.mid, true);
+                        updateEq('high', eqSettings.high, true);
+                    }
+                 }
                  document.getElementById('sl-sens').value = sensitivity;
                  
                  setActive(activeId, true); 
@@ -630,7 +739,7 @@
         function importPreset(file) { const reader = new FileReader(); reader.onload = (e) => { try { applyPresetObj(JSON.parse(e.target.result), false); } catch(e) { console.error(e); notify("ARCHIVO CORRUPTO"); } }; reader.readAsText(file); }
         document.getElementById('json-input').onchange = (e) => importPreset(e.target.files[0]);
 
-        // --- 5. AUDIO SYSTEM & VISUALIZER (FIXED LAG) ---
+        // --- 5. AUDIO SYSTEM & VISUALIZER (DOT WAVES) ---
         let audioCtx, analyser;
         let globalMicNode = null;
         let globalMicGain = null;
@@ -697,8 +806,8 @@
             try {
                 audioCtx = new (window.AudioContext||window.webkitAudioContext)();
                 analyser = audioCtx.createAnalyser(); 
-                analyser.fftSize = 256; // Menos bins = mas rapido
-                analyser.smoothingTimeConstant = 0.5; // MENOR LATENCIA (Antes 0.85)
+                analyser.fftSize = 512; // Mas resolucion para los puntos
+                analyser.smoothingTimeConstant = 0.6; 
                 
                 // MIC
                 try {
@@ -714,46 +823,72 @@
                 const bufferLength = analyser.frequencyBinCount;
                 const dataArray = new Uint8Array(bufferLength);
 
+                let offset = 0;
+
                 const loop = () => {
                     requestAnimationFrame(loop); 
                     analyser.getByteFrequencyData(dataArray);
+                    offset += 0.05;
                     
                     // 1. Calcular Bass y Highs para el Shader
-                    let b = 0; let h = 0;
-                    for(let i=0; i<8; i++) b += dataArray[i]; 
-                    for(let i=30; i<60; i++) h += dataArray[i]; 
+                    let b = 0; let m = 0; let h = 0;
+                    for(let i=0; i<10; i++) b += dataArray[i]; // Bass 0-10
+                    for(let i=10; i<80; i++) m += dataArray[i]; // Mid 10-80
+                    for(let i=80; i<200; i++) h += dataArray[i]; // High 80-200
                     
                     // Multiplicado por sensibilidad global
-                    audio.bass = (b/8/255) * sensitivity; 
-                    audio.high = (h/30/255) * sensitivity; 
+                    audio.bass = (b/10/255) * sensitivity; 
+                    audio.mid = (m/70/255) * sensitivity;
+                    audio.high = (h/120/255) * sensitivity; 
 
-                    // 2. Dibujar Scope (BARRAS)
-                    drawScope(dataArray, bufferLength);
+                    // 2. Dibujar Scope (DOT WAVES)
+                    drawDotWaves(dataArray, bufferLength, offset);
                 }; 
                 loop();
             } catch(e) { console.error(e); }
         }
 
-        function drawScope(data, len) {
+        function drawDotWaves(data, len, offset) {
             if(!scopeCtx) return;
             const w = scopeCanvas.width = scopeCanvas.clientWidth;
             const h = scopeCanvas.height = scopeCanvas.clientHeight;
             scopeCtx.fillStyle = '#050505'; scopeCtx.fillRect(0,0,w,h);
             
-            const barWidth = (w / len) * 2.5;
-            let barHeight;
-            let x = 0;
+            const centerY = h / 2;
+            const sliceWidth = w / 100; // Menos puntos, mas grandes
+            
+            // DIBUJAR 3 ONDAS
+            for(let layer = 0; layer < 3; layer++) {
+                let color = '';
+                if(layer === 0) color = '#00E5FF'; // Cyan
+                if(layer === 1) color = '#ff00de'; // Magenta
+                if(layer === 2) color = '#ffaa00'; // Orange
 
-            for(let i = 0; i < len; i++) {
-                barHeight = (data[i]/255) * h;
-                
-                // Color Gradient Logic
-                if(i < 10) scopeCtx.fillStyle = '#00E5FF'; // Graves = Cyan
-                else scopeCtx.fillStyle = '#ff0055'; // Agudos = Red/Pink
+                for(let i = 0; i < 100; i++) {
+                    const index = Math.floor((i / 100) * (len * 0.7)); // Usamos solo el 70% del espectro (graves/medios)
+                    const val = data[index] / 255.0;
+                    
+                    // Matematica de onda: Seno base + Valor de audio
+                    const x = i * sliceWidth + (sliceWidth/2);
+                    
+                    // Desfase por capa
+                    const phase = offset + (layer * 2); 
+                    const sineWave = Math.sin((i * 0.1) + phase) * 20; // Movimiento ondulante base
+                    
+                    // Amplitud basada en audio. Capas traseras reaccionan menos
+                    const amplitude = (val * 50) * (1 - (layer * 0.2)); 
+                    const y = centerY + sineWave + (layer === 1 ? -amplitude : amplitude); // Invertir una capa para simular ADN
 
-                scopeCtx.fillRect(x, h - barHeight, barWidth, barHeight);
-                x += barWidth + 1;
+                    const radius = (val * 3) + 1; // Tamaño del punto basado en volumen
+                    
+                    scopeCtx.beginPath();
+                    scopeCtx.arc(x, y, radius, 0, Math.PI * 2);
+                    scopeCtx.fillStyle = color;
+                    scopeCtx.globalAlpha = 0.8 - (layer * 0.2); // Transparencia
+                    scopeCtx.fill();
+                }
             }
+            scopeCtx.globalAlpha = 1.0;
         }
 
         window.toggleMic = function() {
@@ -769,7 +904,7 @@
         // --- EVENTS ---
         function resize() { const w = document.getElementById('cont-1').clientWidth; const h = document.getElementById('cont-1').clientHeight; mix1.resize(w,h); mix2.resize(w,h); }
         window.addEventListener('resize', resize);
-        function animate() { requestAnimationFrame(animate); const t = performance.now()*0.001; mix1.render(t, audio); mix2.render(t, audio); }
+        function animate() { requestAnimationFrame(animate); const t = performance.now()*0.001; mix1.render(t, audio, eqSettings); mix2.render(t, audio, eqSettings); }
 
         document.getElementById('btn-start').onclick = async () => {
             await initAudio(); initNetwork();
@@ -825,6 +960,8 @@
             'speed':{l:'Knob Speed', f:(v)=>window.uiUpdate('speed', v*5)}, 'glitch':{l:'Knob Glitch', f:(v)=>window.uiUpdate('glitch', v*5)}, 
             'geo':{l:'Knob Geo', f:(v)=>window.uiUpdate('geo', v*10)}, 'color':{l:'Knob Color', f:(v)=>window.uiUpdate('color', v)}, 
             'sens':{l:'Knob Sens', f:(v)=>window.uiUpdate('sens', v*50)}, 
+            // EQ
+            'eq_low':{l:'EQ Low (Geo)', f:(v)=>window.updateEq('low', v*2)}, 'eq_mid':{l:'EQ Mid (Dist)', f:(v)=>window.updateEq('mid', v*2)}, 'eq_high':{l:'EQ Hi (FX)', f:(v)=>window.updateEq('high', v*2)},
             // Audio
             'mic_toggle':{l:'Mic On/Off', f:(v)=>{ if(v>0.5) window.toggleMic(); }},
             'play_1':{l:'Deck 1 Play', f:(v)=>{ if(v>0.5) tracks[0].play(); }}, 'stop_1':{l:'Deck 1 Stop', f:(v)=>{ if(v>0.5) tracks[0].stop(); }}, 'vol_1':{l:'Deck 1 Vol', f:(v)=>{ tracks[0].setBaseVolume(v); document.getElementById('vol-1').value=v; }},
@@ -842,6 +979,7 @@
             const list = document.getElementById('midi-list'); list.innerHTML=''; 
             const groups = {
                 'AUDIO DECK': ['mic_toggle','audio_xf','play_1','stop_1','vol_1','play_2','stop_2','vol_2'],
+                'REACTIVITY EQ': ['eq_low','eq_mid','eq_high'],
                 'GENERAL': ['work_a','work_b','crossfader','reset','load_clip','out_cycle'],
                 'AJUSTES': ['speed','glitch','geo','color','sens'],
                 'EFECTOS 2D': Array.from({length:10},(_,i)=>`fx_${i+1}`),
