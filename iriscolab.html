@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>IRIS V.2.0 - EQ REACTION</title>
+    <title>IRIS V.2.1 - ALEX CORE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -201,7 +201,7 @@
 
     <div id="boot">
         <h1 style="font-size:70px; letter-spacing:15px; color:#fff; margin: 0 0 10px 0; font-family: 'Rajdhani'; font-weight: 700;">IRIS</h1>
-        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v2.0 - EQ Mod</h2>
+        <h2 style="font-size: 14px; font-family: 'Montserrat'; letter-spacing: 5px; color: #667788; text-transform: uppercase; font-weight: 400; margin-bottom: 40px;">Network Party Edition v2.1 - Alex Core</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:transparent; border:1px solid #00E5FF; color:#fff; font-family:'Rajdhani'; font-size:18px; letter-spacing: 2px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -617,8 +617,10 @@
         }
 
         document.getElementById('btn-connect-p2p').onclick = () => { const remoteId = document.getElementById('remote-id').value; if(remoteId) { const c = peer.connect(remoteId); setupConnection(c); } };
+        
         function handleRemoteData(data, sourceConn) {
             const p = data.payload;
+            // APLICAMOS EL CAMBIO LOCALMENTE PERO *NO* LO DIFUNDIMOS DE NUEVO (Evita Loop)
             if(data.type === 'ui_param') updateParam(p.key, p.value, true); 
             else if (data.type === 'setActive') setActive(p.id, true);
             else if (data.type === 'crossfader') { activeMix.state.crossfade = p.val; updateFader(true); }
@@ -628,7 +630,8 @@
             else if (data.type === 'preset_load') applyPresetObj(p.obj, true);
             else if (data.type === 'audio_xf') { updateAudioXF(p.val, true); }
             else if (data.type === 'eq') { updateEq(p.band, p.val, true); }
-            broadcastData(data.type, p, sourceConn);
+            
+            // ELIMINADO: broadcastData(...) -> Esto causaba el loop infinito en redes pequeñas
         }
 
         // --- 4. UI LOGIC ---
@@ -663,7 +666,6 @@
             if(band === 'high') document.getElementById('fill-eq-high').style.height = (val/2)*100 + '%';
             
             if(isRemote) {
-                 // Update Slider positions
                  const input = document.querySelector(`.eq-input[oninput*="'${band}'"]`);
                  if(input) input.value = val;
             } else {
@@ -764,6 +766,23 @@
                     }, () => notify("ERROR AUDIO"));
                 }; reader.readAsArrayBuffer(file);
             }
+            // NUEVO METODO: Carga desde URL para el arranque automatico
+            loadUrl(url) {
+                if(!audioCtx) return;
+                fetch(url)
+                    .then(response => response.arrayBuffer())
+                    .then(arrayBuffer => audioCtx.decodeAudioData(arrayBuffer))
+                    .then(audioBuffer => {
+                        this.buffer = audioBuffer;
+                        this.fileName = url.split('/').pop().toUpperCase();
+                        this.stop();
+                        document.getElementById(`name-audio-${this.id}`).innerText = this.fileName;
+                        this.play();
+                        notify(`AUTO-PLAY: ${this.fileName}`);
+                    })
+                    .catch(e => console.error("Error cargando audio inicial", e));
+            }
+            
             play() {
                 if(!this.buffer || this.isPlaying) return;
                 this.source = audioCtx.createBufferSource(); this.source.buffer = this.buffer; this.source.loop = true;
@@ -806,10 +825,9 @@
             try {
                 audioCtx = new (window.AudioContext||window.webkitAudioContext)();
                 analyser = audioCtx.createAnalyser(); 
-                analyser.fftSize = 512; // Mas resolucion para los puntos
+                analyser.fftSize = 512; 
                 analyser.smoothingTimeConstant = 0.6; 
                 
-                // MIC
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
                     globalMicNode = audioCtx.createMediaStreamSource(stream);
@@ -817,7 +835,6 @@
                     globalMicNode.connect(globalMicGain); globalMicGain.connect(analyser);
                 } catch(err) { console.log("Sin Micrófono"); }
 
-                // SCOPE CANVAS
                 scopeCanvas = document.getElementById('audio-scope');
                 scopeCtx = scopeCanvas.getContext('2d');
                 const bufferLength = analyser.frequencyBinCount;
@@ -830,18 +847,15 @@
                     analyser.getByteFrequencyData(dataArray);
                     offset += 0.05;
                     
-                    // 1. Calcular Bass y Highs para el Shader
                     let b = 0; let m = 0; let h = 0;
-                    for(let i=0; i<10; i++) b += dataArray[i]; // Bass 0-10
-                    for(let i=10; i<80; i++) m += dataArray[i]; // Mid 10-80
-                    for(let i=80; i<200; i++) h += dataArray[i]; // High 80-200
+                    for(let i=0; i<10; i++) b += dataArray[i]; 
+                    for(let i=10; i<80; i++) m += dataArray[i]; 
+                    for(let i=80; i<200; i++) h += dataArray[i]; 
                     
-                    // Multiplicado por sensibilidad global
                     audio.bass = (b/10/255) * sensitivity; 
                     audio.mid = (m/70/255) * sensitivity;
                     audio.high = (h/120/255) * sensitivity; 
 
-                    // 2. Dibujar Scope (DOT WAVES)
                     drawDotWaves(dataArray, bufferLength, offset);
                 }; 
                 loop();
@@ -855,36 +869,28 @@
             scopeCtx.fillStyle = '#050505'; scopeCtx.fillRect(0,0,w,h);
             
             const centerY = h / 2;
-            const sliceWidth = w / 100; // Menos puntos, mas grandes
+            const sliceWidth = w / 100; 
             
-            // DIBUJAR 3 ONDAS
             for(let layer = 0; layer < 3; layer++) {
                 let color = '';
-                if(layer === 0) color = '#00E5FF'; // Cyan
-                if(layer === 1) color = '#ff00de'; // Magenta
-                if(layer === 2) color = '#ffaa00'; // Orange
+                if(layer === 0) color = '#00E5FF'; 
+                if(layer === 1) color = '#ff00de'; 
+                if(layer === 2) color = '#ffaa00'; 
 
                 for(let i = 0; i < 100; i++) {
-                    const index = Math.floor((i / 100) * (len * 0.7)); // Usamos solo el 70% del espectro (graves/medios)
+                    const index = Math.floor((i / 100) * (len * 0.7)); 
                     const val = data[index] / 255.0;
-                    
-                    // Matematica de onda: Seno base + Valor de audio
                     const x = i * sliceWidth + (sliceWidth/2);
-                    
-                    // Desfase por capa
                     const phase = offset + (layer * 2); 
-                    const sineWave = Math.sin((i * 0.1) + phase) * 20; // Movimiento ondulante base
-                    
-                    // Amplitud basada en audio. Capas traseras reaccionan menos
+                    const sineWave = Math.sin((i * 0.1) + phase) * 20; 
                     const amplitude = (val * 50) * (1 - (layer * 0.2)); 
-                    const y = centerY + sineWave + (layer === 1 ? -amplitude : amplitude); // Invertir una capa para simular ADN
-
-                    const radius = (val * 3) + 1; // Tamaño del punto basado en volumen
+                    const y = centerY + sineWave + (layer === 1 ? -amplitude : amplitude); 
+                    const radius = (val * 3) + 1; 
                     
                     scopeCtx.beginPath();
                     scopeCtx.arc(x, y, radius, 0, Math.PI * 2);
                     scopeCtx.fillStyle = color;
-                    scopeCtx.globalAlpha = 0.8 - (layer * 0.2); // Transparencia
+                    scopeCtx.globalAlpha = 0.8 - (layer * 0.2); 
                     scopeCtx.fill();
                 }
             }
@@ -909,8 +915,14 @@
         document.getElementById('btn-start').onclick = async () => {
             await initAudio(); initNetwork();
             document.getElementById('boot').style.display='none';
-            mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=1.0; mix1.loadClip('assets/videos/iris.webm'); mix1.state.crossfade=0.0; 
-            mix2.loadClip('assets/videos/iris.webm'); mix2.state.crossfade=1.0; mix2.loadClip('assets/videos/iris.webm'); mix2.state.crossfade=0.0;
+            
+            // CARGA DE VIDEO DE ARRANQUE (ALEX.WEBM)
+            mix1.loadClip('assets/videos/alex.webm'); mix1.state.crossfade=1.0; mix1.loadClip('assets/videos/alex.webm'); mix1.state.crossfade=0.0; 
+            mix2.loadClip('assets/videos/alex.webm'); mix2.state.crossfade=1.0; mix2.loadClip('assets/videos/alex.webm'); mix2.state.crossfade=0.0;
+            
+            // CARGA Y REPRODUCCION AUTOMATICA DE AUDIO
+            tracks[0].loadUrl('assets/videos/alex.mp3');
+
             resize(); animate();
         };
 
