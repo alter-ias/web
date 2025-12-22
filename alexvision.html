@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>ALEX V.1.0 - ULTRA CONTROL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@500;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    
+    <style>
+        /* --- ESTÉTICA ALEX / VINTAGE MINIMALIST --- */
+        :root {
+            --bg-paper: #E8E4D9;     /* Fondo Crema/Papel */
+            --ink-black: #0A0A0A;    /* Negro Tinta */
+            --ultra-orange: #FF3300; /* Naranja Mecánica */
+            --pure-white: #FFFFFF;
+            
+            --panel-bg: #111111;     /* Fondo de los paneles de control */
+            --text-on-dark: #E8E4D9;
+            --text-on-light: #0A0A0A;
+            
+            --accent: #FF3300;       /* Reemplaza al Cyan */
+            --net-color: #555555;    /* Color de red más sobrio */
+            --mic-color: #FF3300;    /* Micrófono en naranja */
+            --ui-scale: 1.0;
+        }
+
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: var(--ultra-orange); /* El marco naranja externo */
+            font-family: 'Rajdhani', sans-serif; 
+            color: var(--text-on-dark); 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            padding: 15px; /* Crea el borde naranja */
+            box-sizing: border-box;
+        }
+
+        /* El contenedor principal actúa como el papel crema */
+        #main-wrapper {
+            background: var(--bg-paper);
+            width: 100%;
+            height: 100%;
+            display: flex; 
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.1); /* Sutil textura de profundidad */
+        }
+
+        /* VIEWPORT */
+        #viewport {
+            flex-grow: 1; position: relative; overflow: hidden;
+            display: flex; justify-content: center; align-items: center; gap: 20px;
+            background: transparent; z-index: 1; padding: 20px; box-sizing: border-box;
+            transition: height 0.1s;
+        }
+
+        .monitor-container {
+            width: 100%; height: 100%; max-width: 800px; position: relative;
+            border: 2px solid var(--ink-black); /* Borde negro sólido */
+            transition: 0.2s;
+            display: flex; justify-content: center; align-items: center;
+            background: #000; overflow: hidden; aspect-ratio: 16/9;
+        }
+        .monitor-container canvas { width: 100%; height: 100%; object-fit: contain; }
+        
+        .monitor-container.editing { 
+            border: 4px solid var(--ultra-orange); /* Borde de edición Naranja grueso */
+            transform: scale(1.01);
+            z-index: 10;
+            box-shadow: 10px 10px 0px rgba(0,0,0,0.2); /* Sombra dura estilo retro */
+        }
+
+        .monitor-label {
+            position: absolute; top: 0; left: 0; 
+            background: var(--ink-black); color: var(--bg-paper);
+            padding: 5px 10px;
+            font-family: 'Montserrat'; font-weight: 800; font-size: 20px; 
+            letter-spacing: 1px; z-index: 2;
+        }
+        .monitor-container.editing .monitor-label { background: var(--ultra-orange); color: #000; }
+
+        .deck-status-bar {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            display: flex; justify-content: space-between; padding: 5px 10px; box-sizing: border-box;
+            background: var(--ink-black); font-size: 11px; font-family: monospace; z-index: 2;
+        }
+        .ds-active { color: var(--ultra-orange); font-weight: bold; }
+        .ds-inactive { color: #666; }
+        .fader-visual { color: #fff; font-weight: bold; letter-spacing: 3px;}
+
+        /* UI CONTROL */
+        #ui-wrapper { flex-shrink: 0; width: 100%; background: transparent; z-index: 10; display: flex; justify-content: center; align-items: flex-end; position: relative; }
+        
+        #dashboard {
+            height: 380px; 
+            background: var(--ink-black); /* Panel negro para contraste */
+            border-top: 4px solid var(--ultra-orange);
+            transform-origin: top center; 
+            width: 100%;
+            display: grid; grid-template-columns: 180px 1fr 280px;
+            padding: 25px 30px 10px 30px; box-sizing: border-box;
+            gap: 15px; position: relative;
+            transition: height 0.1s, transform 0.1s;
+        }
+
+        #scale-strip { position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: #333; z-index: 50; }
+        #scale-fill { height: 100%; width: 50%; background: var(--pure-white); pointer-events: none; }
+        #scale-input { 
+            position: absolute; top: -10px; left: 0; width: 100%; height: 30px; 
+            opacity: 0; cursor: ew-resize; z-index: 100; margin: 0; 
+        }
+
+        .panel { display: flex; flex-direction: column; justify-content: space-between; height: 100%; }
+        
+        h3 { 
+            font-family: 'Montserrat', sans-serif; font-size: 11px; letter-spacing: 2px; 
+            color: var(--ultra-orange); margin: 0 0 8px 0; 
+            border-bottom: 2px solid #333; padding-bottom: 3px; 
+            text-transform: uppercase;
+        }
+        
+        .shortcut-row { display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px; color: #888; border-bottom: 1px dotted #333;}
+        .key-badge { color: #fff; font-weight: 700; background: #333; padding: 0 3px; border-radius: 2px;}
+
+        .mix-center { display: flex; flex-direction: column; height: 100%; justify-content: flex-start; gap: 8px; }
+        .work-grid { display: flex; gap: 10px; margin-bottom: 0; }
+        
+        .work-btn {
+            flex: 1; padding: 8px; background: #222; border: 1px solid #444; color: #888;
+            font-family: 'Rajdhani'; font-weight: 700; font-size: 20px; cursor: pointer; text-align: center;
+            transition: 0.1s; text-transform: uppercase; border-radius: 0;
+        }
+        .work-btn.selected { 
+            background: var(--ultra-orange); color: #000; border: 1px solid var(--ultra-orange);
+            box-shadow: none; /* Estilo plano */
+        }
+
+        #crossfader-track { width: 100%; height: 10px; background: #222; position: relative; border: 1px solid #444; margin-top: 0;}
+        #crossfader-handle { 
+            width: 40px; height: 18px; background: var(--pure-white); 
+            position: absolute; top: -5px; left: 50%; transform: translateX(-50%); 
+            border: 2px solid #000; border-radius: 10px; /* Estilo píldora */
+            transition: left 0.1s; 
+        }
+
+        /* VISUALIZADOR ESTILO OJO */
+        #audio-scope {
+            width: 100%; height: 80px; background: #000; border: 2px solid #333;
+            border-radius: 100px; /* Forma de ojo */
+            margin: 5px 0;
+        }
+
+        /* EQ COMPACTO */
+        .eq-panel {
+            display: flex; justify-content: space-between; gap: 5px; margin-top: 0;
+            background: #000; padding: 8px; border: 1px solid #333;
+            height: 100px;
+        }
+        .eq-band { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .eq-slider-container {
+            height: 100%; width: 12px; background: #222; border: 1px solid #444; position: relative; margin-bottom: 3px;
+        }
+        .eq-fill { position: absolute; bottom: 0; left: 0; width: 100%; pointer-events: none; }
+        .eq-input { position: absolute; top: 0; left: -10px; width: 30px; height: 100%; -webkit-appearance: slider-vertical; opacity: 0; cursor: ns-resize; }
+        .eq-label { font-size: 9px; color: #fff; text-align: center; font-weight: bold; line-height: 1; }
+
+        /* Colores de EQ Vintage */
+        #fill-eq-low { background: var(--pure-white); }
+        #fill-eq-mid { background: #888; }
+        #fill-eq-high { background: var(--ultra-orange); }
+
+        .out-matrix { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 8px; }
+        .out-btn { padding: 8px; background: #220000; border: 1px solid #440000; color: #ff5555; font-family: 'Montserrat';
