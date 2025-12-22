@@ -3,202 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX CONTROL | KOROVA HARDWARE</title>
+    <title>ALEX CONTROL | V.2.0</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
+        /* --- VARIABLES DE TEMA (Default: LUDOVICO / DARK) --- */
         :root {
-            --bg-paper: #E8E4D9;     /* Crema Moloko */
-            --ink-black: #101010;    /* Negro Bombín */
-            --ultra-orange: #FF3300; /* Naranja Mecánica */
-            --chrome: #aaaaaa;
+            --bg-color: #050505;      /* Negro casi absoluto */
+            --text-main: #E8E4D9;     /* Crema para texto */
+            --text-sub: #888888;
+            --accent: #FF3300;        /* Naranja Mecánica */
+            --glass-panel: rgba(20, 20, 20, 0.8);
+            --border-color: #333;
+        }
+
+        /* TEMA MOLOKO (CLARO) */
+        [data-theme="moloko"] {
+            --bg-color: #E8E4D9;
+            --text-main: #101010;
+            --text-sub: #555555;
+            --accent: #FF3300;
+            --glass-panel: rgba(230, 230, 230, 0.8);
+            --border-color: #ccc;
+        }
+
+        /* TEMA ULTRAVIOLENCIA (NARANJA) */
+        [data-theme="ultra"] {
+            --bg-color: #FF3300;
+            --text-main: #000000;
+            --text-sub: #2a0000;
+            --accent: #FFFFFF; /* Acento blanco sobre naranja */
+            --glass-panel: rgba(255, 60, 0, 0.8);
+            --border-color: #aa1100;
         }
 
         body {
             margin: 0;
-            background: var(--bg-paper);
-            color: var(--ink-black);
+            background: var(--bg-color);
+            color: var(--text-main);
             font-family: 'Montserrat', sans-serif;
             overflow: hidden;
+            transition: background 0.5s ease, color 0.5s ease;
         }
 
-        /* --- LAYOUT SPLIT --- */
-        #canvas-container {
+        /* --- BOTÓN DE CAMBIO DE TEMA --- */
+        #theme-toggle {
             position: fixed;
-            top: 0;
-            right: 0;
-            width: 60%;
-            height: 100vh;
-            z-index: 10;
-            background: var(--bg-paper); /* Fondo sólido limpio */
+            top: 30px;
+            left: 10%; /* Alineado con el padding del contenido */
+            z-index: 100;
+            background: transparent;
+            border: 2px solid var(--text-main);
+            color: var(--text-main);
+            padding: 10px 20px;
+            font-family: 'Rajdhani';
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 10px;
+            transition: 0.3s;
+        }
+        #theme-toggle:hover {
+            background: var(--text-main);
+            color: var(--bg-color);
         }
 
-        /* Degradado lateral para que el texto se lea sobre el 3D si se cruzan */
-        #canvas-container::after {
-            content: ''; position: absolute; top:0; left:0; width: 20%; height: 100%;
-            background: linear-gradient(90deg, var(--bg-paper), transparent);
-            pointer-events: none;
+        /* --- LAYOUT --- */
+        #canvas-container {
+            position: fixed; top: 0; right: 0; width: 65%; height: 100vh; z-index: 10;
+            /* La magia de la transición suave está aquí: un degradado que usa la variable de fondo */
+            mask-image: linear-gradient(to right, transparent 0%, black 20%);
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%);
         }
 
         #content-sidebar {
-            position: relative;
-            width: 40%;
-            height: 100vh;
-            overflow-y: auto;
-            z-index: 20;
-            background: transparent;
-            scrollbar-width: none;
+            position: relative; width: 45%; height: 100vh; overflow-y: auto; z-index: 20;
+            background: transparent; scrollbar-width: none;
         }
         #content-sidebar::-webkit-scrollbar { display: none; }
 
         section {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 0 10% 0 15%; /* Más padding izquierdo */
-            box-sizing: border-box;
+            min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
+            padding: 0 10% 0 20%; box-sizing: border-box; /* Más espacio a la izquierda */
         }
 
-        /* --- TYPOGRAPHY & UI --- */
+        /* --- TYPOGRAPHY --- */
         .content-box {
-            padding: 40px 0;
-            border-left: 6px solid var(--ultra-orange); /* Línea gruesa Naranja */
-            padding-left: 30px;
-            opacity: 0;
-            transform: translateY(30px);
-            transition: 0.8s cubic-bezier(0.16, 1, 0.3, 1); /* Easing "Snappy" */
+            border-left: 4px solid var(--accent); padding-left: 30px;
+            opacity: 0; transform: translateY(30px); transition: 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
-
-        .content-box.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        .content-box.visible { opacity: 1; transform: translateY(0); }
 
         h1 {
-            font-family: 'Montserrat';
-            font-weight: 900;
-            font-size: 90px;
-            margin: 0;
-            line-height: 0.8;
-            letter-spacing: -4px;
-            text-transform: uppercase;
-            color: var(--ink-black);
+            font-family: 'Montserrat'; font-weight: 900; font-size: 85px; margin: 0;
+            line-height: 0.85; letter-spacing: -3px; text-transform: uppercase;
+            color: var(--text-main);
         }
-
         h2 {
-            font-family: 'Rajdhani';
-            font-weight: 700;
-            font-size: 14px;
-            letter-spacing: 4px;
-            margin: 0 0 25px 0;
-            color: var(--ultra-orange);
-            text-transform: uppercase;
+            font-family: 'Rajdhani'; font-weight: 700; font-size: 14px; letter-spacing: 6px;
+            margin: 0 0 20px 0; color: var(--accent); text-transform: uppercase;
         }
-
         h3 {
-            font-family: 'Montserrat';
-            font-weight: 800;
-            font-size: 40px;
-            margin: 0 0 10px 0;
-            color: var(--ink-black);
-            line-height: 1;
+            font-family: 'Montserrat'; font-weight: 800; font-size: 32px; margin: 10px 0;
+            color: var(--text-main);
         }
-
         p {
-            font-family: 'Rajdhani';
-            font-weight: 600;
-            font-size: 18px;
-            line-height: 1.5;
-            color: #555;
-            margin-bottom: 20px;
-            max-width: 400px;
+            font-family: 'Rajdhani'; font-weight: 600; font-size: 18px; line-height: 1.6;
+            color: var(--text-sub); margin-bottom: 25px; max-width: 420px;
         }
 
-        .accent { color: var(--ultra-orange); font-weight: 700; }
-
-        /* Interfaz de Ayuda Estilo Técnico */
+        /* --- UI ELEMENTS --- */
         .interaction-hint {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 30;
-            text-align: right;
-            font-family: 'Rajdhani';
-            font-weight: 700;
-            font-size: 11px;
-            color: var(--ink-black);
-            letter-spacing: 1px;
-            pointer-events: none;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 15px;
-            border: 2px solid var(--ink-black);
-            line-height: 1.8;
+            position: fixed; bottom: 30px; right: 30px; z-index: 30;
+            text-align: right; font-family: 'Rajdhani'; font-weight: 700; font-size: 10px;
+            color: var(--text-sub); letter-spacing: 1px; pointer-events: none;
+            padding: 10px; border-right: 2px solid var(--accent);
         }
 
-        .key {
-            background: var(--ink-black);
-            color: var(--bg-paper);
-            padding: 1px 5px;
-            border-radius: 2px;
-        }
-
-        /* Botones Sólidos */
         .btn-cta {
-            padding: 18px 40px;
-            background: var(--ink-black);
-            color: #fff;
-            border: none;
-            font-family: 'Montserrat';
-            font-weight: 800;
-            font-size: 14px;
-            cursor: pointer;
-            transition: 0.2s;
-            text-decoration: none;
-            display: inline-block;
-            letter-spacing: 1px;
-            margin-right: 10px;
-            margin-bottom: 10px;
-            text-align: center;
-            text-transform: uppercase;
+            padding: 15px 35px; background: var(--text-main); color: var(--bg-color);
+            border: 2px solid var(--text-main); font-family: 'Montserrat'; font-weight: 800;
+            font-size: 12px; cursor: pointer; transition: 0.3s; text-decoration: none;
+            display: inline-block; letter-spacing: 1px; margin-right: 10px; text-transform: uppercase;
         }
+        .btn-cta:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+        
+        .btn-cta.secondary { background: transparent; color: var(--text-main); }
+        .btn-cta.secondary:hover { background: var(--text-main); color: var(--bg-color); }
 
-        .btn-cta:hover {
-            background: var(--ultra-orange);
-            color: var(--ink-black);
-            transform: translateY(-2px);
-            box-shadow: 5px 5px 0px rgba(0,0,0,0.1);
-        }
-
-        .btn-cta.secondary {
-            background: transparent;
-            border: 3px solid var(--ink-black);
-            color: var(--ink-black);
-        }
-
-        .btn-cta.secondary:hover {
-            background: var(--ink-black);
-            color: #fff;
-            border-color: var(--ink-black);
-        }
-
-        .eco-list {
-            list-style: none; padding: 0; margin-bottom: 20px;
-            display: flex; flex-wrap: wrap; gap: 10px;
-        }
-        .eco-badge {
-            background: #dcd8cc; color: #666; 
-            padding: 5px 10px; font-size: 10px; font-weight: 700; font-family: 'Rajdhani';
-            border: 1px solid #bbb;
-        }
-
-        /* --- MOBILE RESPONSIVE --- */
+        /* Mobile */
         @media (max-width: 768px) {
-            #canvas-container { width: 100%; height: 50vh; top: 0; left: 0; }
-            #content-sidebar { width: 100%; height: 50vh; top: 50vh; background: var(--bg-paper); border-top: 4px solid var(--ultra-orange); }
-            section { min-height: 50vh; padding: 40px 30px; border-bottom: 1px solid #ccc; justify-content: flex-start;}
-            h1 { font-size: 60px; }
-            h3 { font-size: 28px; }
-            #canvas-container::after { display: none; }
+            #canvas-container { width: 100%; height: 50vh; top: 0; right: 0; mask-image: none; -webkit-mask-image: none; border-bottom: 1px solid var(--border-color);}
+            #content-sidebar { width: 100%; height: 50vh; top: 50vh; background: var(--bg-color); }
+            section { min-height: 50vh; padding: 40px 30px; justify-content: flex-start; }
+            h1 { font-size: 50px; }
+            #theme-toggle { top: 10px; left: 10px; padding: 5px 10px; font-size: 9px; }
         }
     </style>
     <script type="importmap">
@@ -210,451 +149,358 @@
         }
     </script>
 </head>
-<body>
+<body data-theme="ludovico">
+
+    <button id="theme-toggle">CAMBIAR TEMA: LUDOVICO (DARK)</button>
 
     <div id="canvas-container"></div>
 
     <div class="interaction-hint">
         SCROLL &darr; : ROTAR<br>
-        <span class="key">CTRL</span> + SCROLL : EXPLOSIÓN<br>
+        CTRL + SCROLL : EXPLOSIÓN<br>
         DRAG : ORBITAR
     </div>
 
     <div id="content-sidebar">
         <section id="sec-intro">
-            <div class="content-box visible" style="border:none; padding-left:0;">
-                <h2>KOROVA HARDWARE V.1.0</h2>
-                <h1 style="color:var(--ultra-orange)">ALEX</h1>
+            <div class="content-box visible">
+                <h2>HARDWARE V.2.0</h2>
+                <h1>ALEX</h1>
                 <h1>CONTROL</h1>
                 <br>
-                <p>La batuta física para la ultra-violencia digital. <br>Controla todo el ecosistema con precisión quirúrgica.</p>
-                
-                <div style="margin-top: 40px; font-size: 10px; font-weight:800; letter-spacing: 2px; color: var(--ink-black);">
-                    ▼ DESPLAZA PARA INICIAR
-                </div>
-            </div>
-        </section>
-
-        <section id="sec-ecosystem">
-            <div class="content-box">
-                <h2>CENTRO DE COMANDO</h2>
-                <h3>ECOSISTEMA UNIFICADO</h3>
-                <p>Un solo controlador para dominarlos a todos. Mapeo instantáneo al cambiar de software.</p>
-                <ul class="eco-list">
-                    <li class="eco-badge">ALEX VISION 1.6</li>
-                    <li class="eco-badge">CINE LIBRE</li>
-                    <li class="eco-badge">KOROVA SYNTH</li>
-                    <li class="eco-badge">VOICE ASSIST</li>
-                </ul>
-                <p>Detecta automáticamente qué módulo de Alex estás usando y reconfigura los LEDs y la sensibilidad.</p>
-            </div>
-        </section>
-
-        <section id="sec-materials">
-            <div class="content-box">
-                <h2>DISEÑO MOLOKO</h2>
-                <h3>CERÁMICA & FUEGO</h3>
-                <p>Chasis de compuesto cerámico blanco de alto impacto. Placa frontal de aluminio anodizado negro mate.</p>
-                <p>Retroiluminación <span class="accent">Naranja Puro</span> para feedback visual en tiempo real sin distracciones neón.</p>
-            </div>
-        </section>
-
-        <section id="sec-tech">
-            <div class="content-box">
-                <h2>ARQUITECTURA</h2>
-                <h3>ANATOMÍA DEL CONTROL</h3>
-                <p>Despiece del sistema. Sensores magnéticos Hall Effect en todos los faders y knobs para una vida útil infinita.</p>
-                <p>Mantén presionada la tecla <span class="key">CTRL</span> y usa el scroll para ver el interior.</p>
-            </div>
-        </section>
-
-        <section id="sec-cta">
-            <div class="content-box" style="border:none;">
-                <h2>ESTADO: PROTOTIPO</h2>
-                <h3>ÚNETE A LA SINFONÍA</h3>
-                <p>El hardware está listo. El software está vivo. ¿Estás listo para el control total?</p>
+                <p>Interfaz física de alta densidad. Diseñada para la oscuridad. Ejecuta Alex Vision, Synth y Cine Libre con tacto analógico.</p>
                 <br>
-                <a href="#" class="btn-cta">RESERVAR AHORA</a>
-                <a href="#" class="btn-cta secondary">VER SPECS</a>
-                <div style="margin-top: 40px; font-size: 10px; color: #888; font-family:'Rajdhani'; font-weight:700;">
-                    DISEÑADO POR ALTERLAB GENERATIVE SYSTEMS<br>
-                    HECHO EN MÉXICO
-                </div>
+                <a href="#" class="btn-cta">RESERVAR</a>
+                <a href="#" class="btn-cta secondary">VER DETALLES</a>
             </div>
         </section>
-        
-        <div style="height: 10vh;"></div>
+
+        <section id="sec-contrast">
+            <div class="content-box">
+                <h2>VISIBILIDAD TOTAL</h2>
+                <h3>MODO NOCTURNO NATIVO</h3>
+                <p>El chasis se adapta a tu entorno. En la oscuridad, Alex Control es una sombra de metal negro donde solo existe la información.</p>
+                <p>Retroiluminación de <span style="color:var(--accent); font-weight:bold;">fósforo naranja</span> que no fatiga la vista durante sesiones largas de edición.</p>
+            </div>
+        </section>
+
+        <section id="sec-grid">
+            <div class="content-box">
+                <h2>MODULARIDAD</h2>
+                <h3>GRID MAGNÉTICO DE 9 PUNTOS</h3>
+                <p>Intercambia faders por knobs en caliente. El bus de datos óptico elimina la latencia mecánica.</p>
+                <p>Construido en aluminio aeroespacial anodizado para disipación térmica pasiva.</p>
+            </div>
+        </section>
+
+        <div style="height: 20vh;"></div>
     </div>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-        import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- SCROLL & UI LOGIC ---
-        const sidebar = document.getElementById('content-sidebar');
-        const sections = document.querySelectorAll('section');
-        let scrollY = 0;
-        let pScroll = 0;
-
-        function updateScroll() {
-            scrollY = sidebar.scrollTop;
-            const max = sidebar.scrollHeight - sidebar.clientHeight;
-            pScroll = Math.max(0, Math.min(1, scrollY / max));
-
-            sections.forEach(sec => {
-                const rect = sec.getBoundingClientRect();
-                if (rect.top < window.innerHeight * 0.6) {
-                    const box = sec.querySelector('.content-box');
-                    if (box) box.classList.add('visible');
-                }
-            });
-        }
-        sidebar.addEventListener('scroll', updateScroll);
-        updateScroll();
-
-        // --- 3D CONFIGURATION (ALEX PALETTE) ---
-        const CONFIG = {
-            moduleSize: 2.0,
-            gap: 0.15, // Un poco más de separación para elegancia
-            colors: {
-                chassis: 0xffffff, // Blanco Cerámica (Fondo papel)
-                plate: 0x101010,   // Negro Tinta
-                accent: 0xFF3300,  // Naranja Mecánica
-                metal: 0x888888,   // Cromo botones
-                text: 0xaaaaaa     // Texto serigrafiado
+        // --- THEME MANAGEMENT ---
+        const themes = {
+            ludovico: { // DARK (Default)
+                label: "LUDOVICO (DARK)",
+                bg: 0x050505,
+                chassis: 0x151515, // Metal Oscuro
+                plate: 0x000000,   // Negro Absoluto
+                details: 0x333333,
+                led: 0xFF3300,     // Naranja
+                fogDensity: 0.03
+            },
+            moloko: { // LIGHT
+                label: "MOLOKO (LIGHT)",
+                bg: 0xE8E4D9,
+                chassis: 0xFFFFFF, // Cerámica Blanca
+                plate: 0xDDDDDD,   // Aluminio Claro
+                details: 0x999999,
+                led: 0xFF3300,     // Naranja
+                fogDensity: 0.02
+            },
+            ultra: { // ORANGE
+                label: "ULTRAVIOLENCIA",
+                bg: 0xFF3300,
+                chassis: 0x101010, // Negro sobre naranja
+                plate: 0x000000,
+                details: 0x440000,
+                led: 0xFFFFFF,     // LED Blanco para contraste
+                fogDensity: 0.015
             }
         };
 
-        const container = document.getElementById('canvas-container');
+        let currentThemeKey = 'ludovico';
+        const toggleBtn = document.getElementById('theme-toggle');
+        const bodyEl = document.body;
 
-        // Renderer Setup
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        // --- 3D SETUP ---
+        const container = document.getElementById('canvas-container');
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); // Alpha false para controlar color de fondo en 3D
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
+        renderer.toneMappingExposure = 1.0;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
-        // Fog Crema para fundirse con el HTML
-        scene.fog = new THREE.FogExp2(0xE8E4D9, 0.02); 
-
-        const camera = new THREE.PerspectiveCamera(30, container.clientWidth / container.clientHeight, 0.1, 100);
-        camera.position.set(12, 16, 12); // Ángulo isométrico clásico
+        const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(10, 12, 10);
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.minDistance = 5;
-        controls.maxDistance = 40;
-        controls.enableZoom = false; // Zoom controlado manualmente por lógica
+        controls.enableZoom = false;
 
-        // --- POST PROCESSING (BLOOM SUTIL) ---
-        const composer = new EffectComposer(renderer);
-        const renderPass = new RenderPass(scene, camera);
-        composer.addPass(renderPass);
-        
-        // Bloom muy selectivo: Solo el naranja brillará, lo blanco no.
-        // Threshold alto (0.9), Radio bajo, Intensidad media.
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(container.clientWidth, container.clientHeight), 1.0, 0.3, 0.92);
-        composer.addPass(bloomPass);
+        // --- MATERIALS (Dynamic) ---
+        const matChassis = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.2 });
+        const matPlate = new THREE.MeshStandardMaterial({ roughness: 0.2, metalness: 0.5 });
+        const matDetail = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.1 });
+        const matLed = new THREE.MeshStandardMaterial({ emissiveIntensity: 3.0, toneMapped: false });
 
-        // --- LIGHTING (ESTUDIO FOTOGRÁFICO) ---
-        RectAreaLightUniformsLib.init();
-        
-        // Luz ambiente suave
-        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        // --- FUNCTION TO APPLY THEME 3D ---
+        function applyTheme3D(key) {
+            const t = themes[key];
+            
+            // 1. Update DOM
+            bodyEl.setAttribute('data-theme', key);
+            toggleBtn.innerText = "CAMBIAR TEMA: " + t.label;
+
+            // 2. Update 3D Environment
+            scene.background = new THREE.Color(t.bg);
+            scene.fog = new THREE.FogExp2(t.bg, t.fogDensity);
+
+            // 3. Update Materials
+            matChassis.color.setHex(t.chassis);
+            matPlate.color.setHex(t.plate);
+            matDetail.color.setHex(t.details);
+            
+            matLed.color.setHex(t.led);
+            matLed.emissive.setHex(t.led);
+        }
+
+        // Init Theme
+        applyTheme3D(currentThemeKey);
+
+        toggleBtn.addEventListener('click', () => {
+            if(currentThemeKey === 'ludovico') currentThemeKey = 'moloko';
+            else if(currentThemeKey === 'moloko') currentThemeKey = 'ultra';
+            else currentThemeKey = 'ludovico';
+            applyTheme3D(currentThemeKey);
+        });
+
+        // --- LIGHTING ---
+        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambient);
 
-        // Luz Principal (Key Light) - Proyecta sombras definidas
-        const spot1 = new THREE.DirectionalLight(0xffffff, 1.5);
-        spot1.position.set(10, 20, 5);
-        spot1.castShadow = true;
-        spot1.shadow.mapSize.width = 2048;
-        spot1.shadow.mapSize.height = 2048;
-        spot1.shadow.bias = -0.0001;
-        scene.add(spot1);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        mainLight.position.set(5, 10, 5);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 2048;
+        mainLight.shadow.mapSize.height = 2048;
+        mainLight.shadow.normalBias = 0.02; 
+        scene.add(mainLight);
 
-        // Luz de Relleno (Fill Light) - Naranja muy sutil
-        const spot2 = new THREE.SpotLight(0xffaa88, 1.0);
-        spot2.position.set(-10, 10, -5);
-        scene.add(spot2);
+        const rimLight = new THREE.SpotLight(0xffffff, 2.0);
+        rimLight.position.set(-10, 5, -10);
+        rimLight.lookAt(0,0,0);
+        scene.add(rimLight);
 
-        // Luz de Acento (Rim Light) - Para resaltar bordes negros
-        const rectLight = new THREE.RectAreaLight(0xffffff, 2, 20, 20);
-        rectLight.position.set(0, 10, -10);
-        rectLight.lookAt(0, 0, 0);
-        scene.add(rectLight);
-
-        // --- MATERIALS ---
-        const materials = {
-            // Cerámica Blanca
-            chassis: new THREE.MeshPhysicalMaterial({ 
-                color: CONFIG.colors.chassis, 
-                roughness: 0.2, 
-                metalness: 0.1, 
-                clearcoat: 0.5 
-            }),
-            // Metal Negro Mate (Placa superior)
-            plate: new THREE.MeshStandardMaterial({ 
-                color: CONFIG.colors.plate, 
-                roughness: 0.4, 
-                metalness: 0.6 
-            }),
-            // Cromo Oscuro (Conectores)
-            connector: new THREE.MeshStandardMaterial({ 
-                color: 0x333333, 
-                roughness: 0.2, 
-                metalness: 1.0 
-            }),
-            // LED Apagado vs Encendido
-            led: new THREE.MeshStandardMaterial({ 
-                color: CONFIG.colors.accent, 
-                emissive: CONFIG.colors.accent, 
-                emissiveIntensity: 2.0 
-            }),
-            plasticKnob: new THREE.MeshStandardMaterial({
-                color: 0x111111,
-                roughness: 0.5,
-                metalness: 0.0
-            })
-        };
-
-        // --- MODULAR SYSTEM LOGIC ---
-        const moduleGroup = new THREE.Group(); 
+        // --- MODELING THE CONTROLLER ---
+        const moduleGroup = new THREE.Group();
         scene.add(moduleGroup);
-        const modules = [];
 
-        class Module {
-            constructor(x, z, type) {
-                this.homePos = new THREE.Vector3(x * (CONFIG.moduleSize + CONFIG.gap), 0, z * (CONFIG.moduleSize + CONFIG.gap));
-                this.group = new THREE.Group();
-                this.group.position.copy(this.homePos);
-                this.parts = []; // { mesh, homeLocalPos, speed }
-                
-                this.createBase();
-                
-                if (type === 'fader') this.createFader();
-                else if (type === 'knob') this.createKnobs();
-                else if (type === 'pad') this.createPads();
-                else if (type === 'screen') this.createScreen(); // Nuevo tipo: Pantalla
-                
-                moduleGroup.add(this.group);
-                modules.push(this);
-            }
+        const gap = 0.1;
+        const size = 2.0;
 
-            createBase() {
-                // Base Blanca (Cuerpo)
-                const geo = new RoundedBoxGeometry(CONFIG.moduleSize, 0.6, CONFIG.moduleSize, 4, 0.05);
-                const mesh = new THREE.Mesh(geo, materials.chassis);
-                mesh.position.y = 0.3;
-                mesh.castShadow = true;
-                mesh.receiveShadow = true;
-                this.group.add(mesh);
+        function createModule(x, z, type) {
+            const group = new THREE.Group();
+            
+            // Base Chassis
+            const geoBase = new RoundedBoxGeometry(size, 0.5, size, 4, 0.05);
+            const base = new THREE.Mesh(geoBase, matChassis);
+            base.position.y = 0;
+            base.castShadow = true; base.receiveShadow = true;
+            group.add(base);
 
-                // Placa Negra (Top)
-                const panelGeo = new RoundedBoxGeometry(CONFIG.moduleSize - 0.1, 0.05, CONFIG.moduleSize - 0.1, 2, 0.02);
-                const panel = new THREE.Mesh(panelGeo, materials.plate);
-                panel.position.y = 0.61;
-                panel.receiveShadow = true;
-                this.group.add(panel);
-                
-                // Tornillos decorativos (Naranja)
-                const screwGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.05);
-                const screwPos = [
-                    {x: 0.8, z: 0.8}, {x: -0.8, z: 0.8}, {x: 0.8, z: -0.8}, {x: -0.8, z: -0.8}
-                ];
-                screwPos.forEach(p => {
-                    const s = new THREE.Mesh(screwGeo, new THREE.MeshStandardMaterial({color: 0x333}));
-                    s.position.set(p.x, 0.64, p.z);
-                    this.group.add(s);
-                });
-            }
+            // Top Plate
+            const geoPlate = new RoundedBoxGeometry(size - 0.2, 0.05, size - 0.2, 2, 0.02);
+            const plate = new THREE.Mesh(geoPlate, matPlate);
+            plate.position.y = 0.26;
+            plate.receiveShadow = true;
+            group.add(plate);
 
-            addToParts(mesh, speed = 1.0) {
-                this.group.add(mesh);
-                this.parts.push({ mesh: mesh, home: mesh.position.clone(), speed: speed });
-            }
-
-            createFader() {
-                // Slot
-                const track = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.02, 1.4), new THREE.MeshStandardMaterial({ color: 0x050505 }));
-                track.position.set(0, 0.64, 0);
-                this.group.add(track);
-                
-                // Cap
-                const cap = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.5, 0.15, 4, 0.05), materials.plasticKnob);
-                cap.castShadow = true; 
-                cap.position.set(0, 0.8, 0);
-                
-                // Línea naranja en el fader
-                const line = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.05, 0.02), materials.led);
-                line.position.set(0, 0.26, 0); 
-                cap.add(line);
-                
-                this.addToParts(cap, 2.5);
-            }
-
-            createKnobs() {
-                const kGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.4, 32);
-                for (let i = 0; i < 1; i++) { // Un knob gigante central estilo "Master"
-                    const kMesh = new THREE.Mesh(kGeo, materials.plasticKnob);
-                    kMesh.castShadow = true; 
-                    kMesh.position.set(0, 0.8, 0);
-                    
-                    // Indicador led
-                    const ind = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.2), materials.led);
-                    ind.position.set(0, 0.21, 0.2);
-                    kMesh.add(ind);
-
-                    this.addToParts(kMesh, 2.0);
-                }
-            }
-
-            createPads() {
-                const padGeo = new RoundedBoxGeometry(0.35, 0.1, 0.35, 2, 0.05);
-                for (let r = 0; r < 2; r++) {
-                    for (let c = 0; c < 2; c++) {
-                        // Algunos pads prendidos, otros apagados
-                        const active = (r+c) % 2 === 0; 
-                        const mat = active ? materials.led : new THREE.MeshStandardMaterial({color:0x333, roughness:0.8});
-                        
-                        const pad = new THREE.Mesh(padGeo, mat);
-                        pad.position.set(-0.45 + c * 0.9, 0.68, -0.45 + r * 0.9);
-                        pad.castShadow = true;
-                        this.addToParts(pad, 1.5 + (r + c) * 0.2);
+            // Components
+            if (type === 'knob') {
+                const kGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.4, 32);
+                const knob = new THREE.Mesh(kGeo, matChassis); // Knob matches chassis color
+                knob.position.y = 0.5; knob.castShadow = true;
+                group.add(knob);
+                // LED Marker
+                const mark = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.25), matLed);
+                mark.position.set(0, 0.71, 0.15);
+                group.add(mark);
+            } else if (type === 'fader') {
+                const track = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 1.4), matDetail);
+                track.position.y = 0.29;
+                group.add(track);
+                const cap = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.6), matChassis);
+                cap.position.y = 0.45; cap.castShadow = true;
+                group.add(cap);
+                const line = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.02, 0.02), matLed);
+                line.position.y = 0.61;
+                group.add(line);
+            } else if (type === 'pad') {
+                const pGeo = new RoundedBoxGeometry(0.5, 0.1, 0.5, 2, 0.02);
+                for(let px=-0.4; px<=0.4; px+=0.8) {
+                    for(let pz=-0.4; pz<=0.4; pz+=0.8) {
+                        const pad = new THREE.Mesh(pGeo, matDetail);
+                        pad.position.set(px, 0.32, pz);
+                        group.add(pad);
+                        // Small led dot
+                        const dot = new THREE.Mesh(new THREE.CircleGeometry(0.05, 16), matLed);
+                        dot.rotation.x = -Math.PI/2;
+                        dot.position.set(px, 0.38, pz);
+                        group.add(dot);
                     }
                 }
             }
+
+            group.position.set(x * (size + gap), 0, z * (size + gap));
             
-            createScreen() {
-                // Un módulo especial con "pantalla" (Cine Libre / Alex Vision)
-                const screenGeo = new THREE.PlaneGeometry(1.4, 1.4);
-                screenGeo.rotateX(-Math.PI/2);
-                const screenMat = new THREE.MeshBasicMaterial({ color: 0x000 });
-                const screen = new THREE.Mesh(screenGeo, screenMat);
-                screen.position.set(0, 0.64, 0);
-                this.group.add(screen);
-                
-                // Texto en pantalla (simulado con geometría simple o textura)
-                const bar = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.02, 0.05), materials.led);
-                bar.position.set(0, 0.65, 0);
-                
-                // Onda de audio simple
-                const wave1 = bar.clone(); wave1.scale.set(0.5,1,1); wave1.position.z = 0.2;
-                const wave2 = bar.clone(); wave2.scale.set(0.7,1,1); wave2.position.z = -0.2;
-                
-                this.addToParts(bar, 1.2);
-                this.addToParts(wave1, 1.4);
-                this.addToParts(wave2, 1.6);
-            }
-
-            update(explodeVal) {
-                // Mover el módulo completo (Expandir Grid)
-                const centerDist = this.homePos.clone().normalize();
-                // Expansión radial del chasis
-                this.group.position.x = this.homePos.x + (centerDist.x * explodeVal * 1.5);
-                this.group.position.z = this.homePos.z + (centerDist.z * explodeVal * 1.5);
-                
-                // Explosión vertical de componentes (Despiece)
-                this.parts.forEach(p => {
-                    p.mesh.position.y = p.home.y + (explodeVal * p.speed);
-                    // Rotación sutil al explotar para dinamismo
-                    p.mesh.rotation.y = explodeVal * p.speed * 0.5;
-                });
-            }
+            // Save initial posY for explosion animation
+            group.userData.homeY = 0;
+            // Add custom explode offset for components inside if we wanted complex explosion
+            
+            moduleGroup.add(group);
+            return group;
         }
 
-        // --- GRID GENERATION ---
-        // Layout asimétrico para parecer un controlador real pro
+        // Generate 3x3 Grid
         const layout = [
-            ['knob', 'screen', 'knob'],
-            ['fader', 'screen', 'fader'],
-            ['pad', 'knob', 'pad']
+            ['knob', 'fader', 'knob'],
+            ['pad', 'knob', 'pad'],
+            ['fader', 'pad', 'fader']
         ];
-
-        for (let r = 0; r < 3; r++) {
-            for (let c = 0; c < 3; c++) {
-                new Module(c - 1, r - 1, layout[r][c]);
+        
+        const modules = [];
+        for(let r=0; r<3; r++){
+            for(let c=0; c<3; c++){
+                const m = createModule(c-1, r-1, layout[r][c]);
+                modules.push(m);
             }
         }
 
-        // Suelo para sombras
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.ShadowMaterial({ opacity: 0.05, color: 0x000000 }));
-        floor.rotation.x = -Math.PI / 2; 
-        floor.position.y = 0;
-        scene.add(floor);
+        // --- POST PROCESSING (BLOOM) ---
+        const composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        composer.addPass(bloomPass);
 
-        // --- INTERACTION LOGIC (CTRL to Explode) ---
-        let explodeTarget = 0.0;
-        let explodeCurrent = 0.0;
+        // --- INTERACTION & ANIMATION ---
+        // Scroll Logic DOM
+        const sidebar = document.getElementById('content-sidebar');
+        const contentBoxes = document.querySelectorAll('.content-box');
+        let scrollY = 0;
+        let scrollPct = 0;
+
+        sidebar.addEventListener('scroll', () => {
+            scrollY = sidebar.scrollTop;
+            const max = sidebar.scrollHeight - sidebar.clientHeight;
+            scrollPct = Math.max(0, Math.min(1, scrollY / max));
+
+            contentBoxes.forEach(box => {
+                const rect = box.getBoundingClientRect();
+                if(rect.top < window.innerHeight * 0.7) box.classList.add('visible');
+            });
+        });
+
+        // Explosion Logic (Ctrl + Wheel)
+        let explodeTarget = 0;
+        let explodeCurrent = 0;
 
         window.addEventListener('wheel', (e) => {
-            if (e.ctrlKey || e.metaKey) {
+            if(e.ctrlKey || e.metaKey) {
                 e.preventDefault();
-                controls.enableRotate = false; // Bloquear rotación al explotar
-                explodeTarget += e.deltaY * 0.003;
-                explodeTarget = Math.max(0, Math.min(3.0, explodeTarget));
+                controls.enableRotate = false;
+                explodeTarget += e.deltaY * 0.005;
+                explodeTarget = Math.max(0, Math.min(2, explodeTarget));
             } else {
                 controls.enableRotate = true;
             }
-        }, { passive: false });
+        }, {passive:false});
 
         window.addEventListener('keyup', (e) => {
             if (e.key === 'Control' || e.key === 'Meta') controls.enableRotate = true;
         });
 
-        // Mobile Gestures
-        let lastScale = 1;
-        document.addEventListener('gesturestart', (e) => { e.preventDefault(); lastScale = 1; controls.enabled = false; });
-        document.addEventListener('gesturechange', (e) => {
-            e.preventDefault();
-            const delta = e.scale - lastScale;
-            lastScale = e.scale;
-            explodeTarget += delta * 2.0;
-            explodeTarget = Math.max(0, Math.min(3.0, explodeTarget));
-        });
-        document.addEventListener('gestureend', (e) => { e.preventDefault(); controls.enabled = true; });
-
-        // --- ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
 
-            // 1. Rotación automática sutil basada en scroll HTML
-            const targetRotY = pScroll * 0.8; 
-            const targetRotX = pScroll * 0.4;
+            // 1. Rotation from Scroll
+            // Smooth rotation based on scroll percentage
+            const targetRotY = scrollPct * Math.PI * 0.5;
+            const targetRotX = scrollPct * Math.PI * 0.2;
             
-            // Suavizado de rotación
             moduleGroup.rotation.y += (targetRotY - moduleGroup.rotation.y) * 0.05;
             moduleGroup.rotation.x += (targetRotX - moduleGroup.rotation.x) * 0.05;
 
-            // 2. Lógica de Explosión
+            // 2. Explosion Animation
             explodeCurrent += (explodeTarget - explodeCurrent) * 0.1;
-            modules.forEach(m => m.update(explodeCurrent));
+            
+            // Animate modules expanding outward from center
+            modules.forEach(m => {
+                // Calculate direction from center (0,0,0)
+                const dist = Math.sqrt(m.position.x*m.position.x + m.position.z*m.position.z);
+                if(dist > 0) {
+                    // Normalized dir
+                    const dx = m.position.x / dist;
+                    const dz = m.position.z / dist;
+                    
+                    // Original Home positions were set at creation. 
+                    // To do this simply, we recalculate based on grid indices
+                    // But here we can cheat: just offset based on explodeCurrent * direction
+                    // We need base positions. Let's use userData we set earlier? 
+                    // Actually simple expansion:
+                    // scale the group position? No, gap increase.
+                    
+                    // Re-calculate target position based on grid
+                    // To do it right without complex state, let's just scale the whole moduleGroup gap?
+                    // No, individual parts need to fly up.
+                }
+                // Vertical explosion of parts (simple version: lift the whole module or parts)
+                // Let's lift the top plate and components relative to base
+                m.children.forEach((child, idx) => {
+                    // index 0 is base, 1 is plate, others are components
+                    if(idx > 0) {
+                        child.position.y = (child.geometry.type === 'RoundedBoxGeometry' && idx===1 ? 0.26 : 0.5) + (explodeCurrent * idx * 0.2);
+                    }
+                });
+            });
 
-            // 3. Render
             composer.render();
         }
 
-        // --- RESIZE HANDLER ---
         window.addEventListener('resize', () => {
             const w = container.clientWidth;
             const h = container.clientHeight;
-            camera.aspect = w / h;
-            camera.updateProjectionMatrix();
-            renderer.setSize(w, h);
-            composer.setSize(w, h);
+            camera.aspect = w/h; camera.updateProjectionMatrix();
+            renderer.setSize(w,h); composer.setSize(w,h);
         });
 
         animate();
+        // Trigger initial scroll check
+        sidebar.dispatchEvent(new Event('scroll'));
+
     </script>
 </body>
 </html>
