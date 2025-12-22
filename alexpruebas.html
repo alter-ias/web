@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>ALEX V.1.5 - SILENT CONTROL</title>
+    <title>ALEX V.1.6 - SNAPPY RESPONSE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@500;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -240,7 +240,7 @@
              <div style="position: absolute; top: 40px; left: 50%; transform: translateX(-50%); width: 160px; height: 10px; background: #000;"></div>
         </div>
         <h1 style="font-size:90px; letter-spacing:-5px; color:#101010; margin: 0 0 10px 0; font-family: 'Montserrat'; font-weight: 900; line-height: 0.8;">ALEX</h1>
-        <h2 style="font-size: 16px; font-family: 'Rajdhani'; letter-spacing: 5px; color: #555; text-transform: uppercase; font-weight: 700; margin-bottom: 40px;">System V.1.5 - Silent Edition</h2>
+        <h2 style="font-size: 16px; font-family: 'Rajdhani'; letter-spacing: 5px; color: #555; text-transform: uppercase; font-weight: 700; margin-bottom: 40px;">System V.1.6 - Snappy Edition</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:#101010; border:none; color:#E8E4D9; font-family:'Montserrat'; font-weight: 800; font-size:20px; letter-spacing: 1px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -421,8 +421,7 @@
 
         // --- NOTIFICACIÓN SILENCIOSA ---
         window.notify = function(msg) {
-            // El usuario solicitó eliminar las notificaciones visuales grandes.
-            // La función se mantiene vacía para no romper las llamadas existentes en el código.
+            // Silenciado por diseño
         }
         
         // --- 1. MOTOR DE MEZCLA HD ---
@@ -792,7 +791,9 @@
         async function initAudio() {
             try {
                 audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-                analyser = audioCtx.createAnalyser(); analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.6; 
+                analyser = audioCtx.createAnalyser(); analyser.fftSize = 512; 
+                analyser.smoothingTimeConstant = 0.3; // SUAVIZADO REDUCIDO PARA MAYOR VELOCIDAD DE RESPUESTA
+                
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
                     globalMicNode = audioCtx.createMediaStreamSource(stream);
@@ -808,7 +809,17 @@
                     requestAnimationFrame(loop); analyser.getByteFrequencyData(dataArray); offset += 0.05;
                     let b = 0; let m = 0; let h = 0;
                     for(let i=0; i<10; i++) b += dataArray[i]; for(let i=10; i<80; i++) m += dataArray[i]; for(let i=80; i<200; i++) h += dataArray[i]; 
-                    audio.bass = (b/10/255) * sensitivity; audio.mid = (m/70/255) * sensitivity; audio.high = (h/120/255) * sensitivity; 
+                    
+                    // RESPUESTA EXPONENCIAL (ELEVADO AL CUBO)
+                    // Esto mata el ruido de fondo y hace que la animación corte de golpe
+                    let normBass = b/10/255;
+                    let normMid = m/70/255;
+                    let normHigh = h/120/255;
+
+                    audio.bass = Math.pow(normBass, 3) * sensitivity * 3.0; 
+                    audio.mid = Math.pow(normMid, 3) * sensitivity * 3.0; 
+                    audio.high = Math.pow(normHigh, 3) * sensitivity * 3.0; 
+                    
                     drawDotWaves(dataArray, bufferLength, offset);
                 }; loop();
             } catch(e) { console.error(e); }
