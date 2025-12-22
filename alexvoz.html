@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ALEX VOICE | KOROVA AUDIO</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-paper: #E8E4D9;     /* Crema Moloko */
+            --ink-black: #101010;    /* Negro Bombín */
+            --ultra-orange: #FF3300; /* Naranja Mecánica */
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg-paper);
+            color: var(--ink-black);
+            font-family: 'Montserrat', sans-serif;
+            overflow: hidden;
+        }
+
+        /* --- LAYOUT SPLIT --- */
+        #canvas-container {
+            position: fixed; top: 0; right: 0; width: 60%; height: 100vh; z-index: 10;
+            background: var(--bg-paper);
+        }
+        /* Degradado lateral */
+        #canvas-container::after {
+            content: ''; position: absolute; top:0; left:0; width: 30%; height: 100%;
+            background: linear-gradient(90deg, var(--bg-paper), transparent); pointer-events: none;
+        }
+
+        #content-sidebar {
+            position: relative; width: 40%; height: 100vh; overflow-y: auto; z-index: 20;
+            background: transparent; scrollbar-width: none;
+        }
+        #content-sidebar::-webkit-scrollbar { display: none; }
+
+        section {
+            min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
+            padding: 0 10% 0 15%; box-sizing: border-box;
+        }
+
+        /* --- TYPOGRAPHY & UI --- */
+        .content-box {
+            padding: 40px 0; border-left: 8px solid var(--ultra-orange); padding-left: 40px;
+            opacity: 0; transform: translateY(40px); transition: 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .content-box.visible { opacity: 1; transform: translateY(0); }
+
+        h1 {
+            font-family: 'Montserrat'; font-weight: 900; font-size: 100px; margin: 0; line-height: 0.85;
+            letter-spacing: -5px; text-transform: uppercase; color: var(--ink-black);
+        }
+        h2 {
+            font-family: 'Rajdhani'; font-weight: 700; font-size: 16px; letter-spacing: 5px;
+            margin: 0 0 30px 0; color: var(--ultra-orange); text-transform: uppercase;
+        }
+        h3 {
+            font-family: 'Montserrat'; font-weight: 800; font-size: 45px; margin: 0 0 15px 0;
+            color: var(--ink-black); line-height: 1; letter-spacing: -1px;
+        }
+        p {
+            font-family: 'Rajdhani'; font-weight: 600; font-size: 20px; line-height: 1.5;
+            color: #444; margin-bottom: 30px; max-width: 450px;
+        }
+        .accent { color: var(--ultra-orange); font-weight: 800; }
+
+        /* Overlay de Activación de Audio */
+        .audio-hint {
+            position: fixed; top: 30px; right: 30px; z-index: 30;
+            display: flex; align-items: center; gap: 10px;
+        }
+        #mic-btn {
+            background: var(--ultra-orange); color: var(--ink-black); border: none;
+            padding: 15px 25px; font-family: 'Montserrat'; font-weight: 800; font-size: 12px;
+            letter-spacing: 1px; cursor: pointer; text-transform: uppercase;
+            box-shadow: 5px 5px 0 rgba(0,0,0,0.2); transition: 0.2s;
+        }
+        #mic-btn:hover { transform: translate(-2px, -2px); box-shadow: 7px 7px 0 rgba(0,0,0,0.2); background: #fff; }
+        #mic-status { font-family: 'Rajdhani'; font-weight: 700; font-size: 12px; color: var(--ultra-orange); opacity: 0; transition: 0.3s;}
+
+        /* Botones Sólidos */
+        .btn-cta {
+            padding: 20px 50px; background: var(--ink-black); color: #fff; border: none;
+            font-family: 'Montserrat'; font-weight: 900; font-size: 16px; cursor: pointer;
+            transition: 0.2s; text-decoration: none; display: inline-block; letter-spacing: 1px;
+            margin-right: 10px; margin-bottom: 10px; text-align: center; text-transform: uppercase;
+        }
+        .btn-cta:hover { background: var(--ultra-orange); color: var(--ink-black); transform: translateY(-3px); box-shadow: 8px 8px 0px rgba(0,0,0,0.15); }
+        .btn-cta.secondary { background: transparent; border: 4px solid var(--ink-black); color: var(--ink-black); }
+        .btn-cta.secondary:hover { background: var(--ink-black); color: #fff; border-color: var(--ink-black); }
+
+        /* --- MOBILE --- */
+        @media (max-width: 768px) {
+            #canvas-container { width: 100%; height: 60vh; top: 0; left: 0; }
+            #content-sidebar { width: 100%; height: 40vh; top: 60vh; background: var(--bg-paper); border-top: 6px solid var(--ultra-orange); }
+            section { min-height: 40vh; padding: 40px 30px; border-bottom: 1px solid #ccc; justify-content: flex-start;}
+            h1 { font-size: 60px; } h3 { font-size: 30px; } p { font-size: 16px; }
+            #canvas-container::after { display: none; }
+            .audio-hint { top: auto; bottom: 30px; right: 30px; }
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.skypack.dev/three@0.136.0",
+                "three/addons/": "https://cdn.skypack.dev/three@0.136.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div class="audio-hint">
+        <span id="mic-status">ESCUCHANDO...</span>
+        <button id="mic-btn">ACTIVAR ESCUCHA</button>
+    </div>
+
+    <div id="content-sidebar">
+        <section id="sec-intro">
+            <div class="content-box visible" style="border:none; padding-left:0;">
+                <h2>KOROVA AUDIO V.1.0</h2>
+                <h1 style="color:var(--ultra-orange)">ALEX</h1>
+                <h1>VOICE</h1>
+                <br>
+                <p>No es un asistente. Es un <span class="accent">cómplice</span>. El primer sistema de voz diseñado para la sofisticación ultraviolenta.</p>
+                
+                <div style="margin-top: 40px; font-size: 12px; font-weight:800; letter-spacing: 2px; color: var(--ink-black); opacity: 0.6;">
+                    ▼ DESPLAZA PARA CONOCER MÁS
+                </div>
+            </div>
+        </section>
+
+        <section id="sec-eye">
+            <div class="content-box">
+                <h2>INTERFAZ VISUAL</h2>
+                <h3>EL OJO QUE TODO LO VE</h3>
+                <p>Olvida los anillos de luz azul difusa. ALEX posee un iris reactivo de alta resolución.</p>
+                <p>Visualiza tus comandos y la música en tiempo real con una estética de osciloscopio naranja puro. Cuando te mira, sabes que está escuchando.</p>
+                <p style="font-size: 14px; color: var(--ultra-orange);">* Activa el micrófono arriba para probar el visualizador.</p>
+            </div>
+        </section>
+
+        <section id="sec-sound">
+            <div class="content-box">
+                <h2>INGENIERÍA ACÚSTICA</h2>
+                <h3>FIDELIDAD GRADO LUDOVICO</h3>
+                <p>Diseñado para la Novena Sinfonía. Un woofer de excursión larga en la base de rejilla metálica y un tweeter de cerámica para agudos que cortan como un bisturí.</p>
+                <p>Sonido directo, brutal y sin colorantes. Escucha la verdad, oh mis hermanos.</p>
+            </div>
+        </section>
+
+        <section id="sec-cta">
+            <div class="content-box" style="border:none;">
+                <h2>INTEGRACIÓN TOTAL</h2>
+                <h3>LA VOZ DEL SISTEMA</h3>
+                <p>Controla tu hardware, lanza visuales en Vision 1.6 y busca en Cine Libre solo con tu voz. El centro neurálgico de tu ecosistema.</p>
+                <br>
+                <a href="#" class="btn-cta">ADQUIRIR UNIDAD</a>
+                <a href="#" class="btn-cta secondary">ESCUCHAR DEMO</a>
+            </div>
+        </section>
+        
+        <div style="height: 10vh;"></div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+        import { RectAreaLightUniformsLib } from 'three/addons/lights/RectAreaLightUniformsLib.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- AUDIO INPUT & ANALYSIS ---
+        let audioContext, analyser, dataArray;
+        let isMicActive = false;
+        const audioData = { low: 0.0, high: 0.0 };
+
+        document.getElementById('mic-btn').addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 512;
+                analyser.smoothingTimeConstant = 0.5; // Respuesta suave pero rápida
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                isMicActive = true;
+                document.getElementById('mic-btn').style.display = 'none';
+                document.getElementById('mic-status').style.opacity = 1;
+            } catch (err) {
+                console.error("Error de micrófono:", err);
+                alert("Se requiere acceso al micrófono para la visualización.");
+            }
+        });
+
+        function updateAudio() {
+            if (!isMicActive) return;
+            analyser.getByteFrequencyData(dataArray);
+            // Calculate average for low and high bands
+            let lowSum = 0, highSum = 0;
+            for (let i = 0; i < 50; i++) lowSum += dataArray[i];
+            for (let i = 100; i < 200; i++) highSum += dataArray[i];
+            
+            // Normalize and apply some exponential curve for snappiness
+            audioData.low = Math.pow(lowSum / 50 / 255, 2.5) * 2.0;
+            audioData.high = Math.pow(highSum / 100 / 255, 3.0) * 3.0;
+        }
+
+        // --- SCROLL LOGIC ---
+        const sidebar = document.getElementById('content-sidebar');
+        const sections = document.querySelectorAll('section');
+        function updateScroll() {
+            sections.forEach(sec => {
+                const rect = sec.getBoundingClientRect();
+                if (rect.top < window.innerHeight * 0.6) {
+                    const box = sec.querySelector('.content-box');
+                    if (box) box.classList.add('visible');
+                }
+            });
+        }
+        sidebar.addEventListener('scroll', updateScroll);
+        updateScroll();
+
+        // --- 3D SETUP ---
+        const CONFIG = {
+            colors: {
+                chassis: 0xE8E4D9, // Crema Moloko
+                grill: 0x222222,    // Metal oscuro
+                eyeAccent: new THREE.Color(0xFF3300), // Naranja
+                eyeIdle: new THREE.Color(0x550000)   // Rojo oscuro inactivo
+            }
+        };
+        const container = document.getElementById('canvas-container');
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.1;
+        renderer.shadowMap.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0xE8E4D9, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(0, 8, 18); // Vista frontal imponente
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.enableZoom = false; controls.enablePan = false;
+        controls.minPolarAngle = Math.PI / 2.5; controls.maxPolarAngle = Math.PI / 1.8; // Limitar rotación vertical
+
+        // --- POST PROCESSING (BLOOM INTENSO PARA EL OJO) ---
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        // Threshold alto para que solo brille el ojo naranja
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(container.clientWidth, container.clientHeight), 1.8, 0.5, 0.85);
+        composer.addPass(bloomPass);
+
+        // --- LIGHTING ---
+        RectAreaLightUniformsLib.init();
+        const ambient = new THREE.AmbientLight(0xffffff, 0.4); scene.add(ambient);
+        // Luz principal dramática desde arriba a la derecha
+        const keyLight = new THREE.SpotLight(0xffffff, 10);
+        keyLight.position.set(10, 20, 10);
+        keyLight.angle = 0.3; keyLight.penumbra = 0.5; keyLight.castShadow = true;
+        keyLight.shadow.mapSize.set(2048,2048);
+        scene.add(keyLight);
+        // Luz de recorte naranja para el borde
+        const rimLight = new THREE.SpotLight(CONFIG.colors.eyeAccent, 5);
+        rimLight.position.set(-15, 10, -5);
+        scene.add(rimLight);
+
+        // --- SPEAKER MODEL & SHADER ---
+        const speakerGroup = new THREE.Group(); scene.add(speakerGroup);
+
+        // Materiales
+        const chassisMat = new THREE.MeshPhysicalMaterial({ color: CONFIG.colors.chassis, roughness: 0.3, metalness: 0.1, clearcoat: 0.3 });
+        const grillMat = new THREE.MeshStandardMaterial({ color: CONFIG.colors.grill, roughness: 0.7, metalness: 0.8, wireframe: false });
+
+        // 1. Cuerpo Principal (Obelisco Cerámico)
+        const bodyGeo = new RoundedBoxGeometry(4, 8, 4, 4, 0.2);
+        // Tapering effect (haciéndolo más estrecho arriba)
+        const pos = bodyGeo.attributes.position;
+        for(let i=0; i<pos.count; i++){
+            const y = pos.getY(i);
+            if(y > 0) {
+                pos.setX(i, pos.getX(i) * 0.85);
+                pos.setZ(i, pos.getZ(i) * 0.85);
+            }
+        }
+        bodyGeo.computeVertexNormals();
+        const body = new THREE.Mesh(bodyGeo, chassisMat);
+        body.position.y = 4.2; body.castShadow = true; body.receiveShadow = true;
+        speakerGroup.add(body);
+
+        // 2. Base de Rejilla
+        const baseGeo = new RoundedBoxGeometry(4.2, 2, 4.2, 2, 0.1);
+        const base = new THREE.Mesh(baseGeo, grillMat);
+        base.position.y = 1.0; base.castShadow = true;
+        speakerGroup.add(base);
+        // Textura de rejilla simulada con otro mesh
+        const grillTexGeo = new THREE.CylinderGeometry(2.2, 2.2, 1.8, 64, 8, true);
+        const grillTexMat = new THREE.MeshStandardMaterial({color:0x111111, roughness:0.9, metalness:0.5, wireframe:true});
+        const grillTex = new THREE.Mesh(grillTexGeo, grillTexMat);
+        grillTex.position.y = 1.0;
+        speakerGroup.add(grillTex);
+
+        // 3. EL OJO (Shader Visualizer)
+        // Geometría de la pantalla
+        const eyeGeo = new THREE.CircleGeometry(1.2, 64);
+        
+        // Shader Material personalizado
+        const eyeUniforms = {
+            uTime: { value: 0 },
+            uLow: { value: 0.0 },
+            uHigh: { value: 0.0 },
+            uColorAccent: { value: CONFIG.colors.eyeAccent },
+            uColorIdle: { value: CONFIG.colors.eyeIdle }
+        };
+
+        const eyeMat = new THREE.ShaderMaterial({
+            uniforms: eyeUniforms,
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float uTime;
+                uniform float uLow;
+                uniform float uHigh;
+                uniform vec3 uColorAccent;
+                uniform vec3 uColorIdle;
+                varying vec2 vUv;
+
+                // Ruido simple
+                float random (in vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898,78.233)))*43758.5453123); }
+                float noise (in vec2 st) {
+                    vec2 i = floor(st); vec2 f = fract(st);
+                    float a = random(i); float b = random(i + vec2(1.0, 0.0));
+                    float c = random(i + vec2(0.0, 1.0)); float d = random(i + vec2(1.0, 1.0));
+                    vec2 u = f * f * (3.0 - 2.0 * f);
+                    return mix(a, b, u.x) + (c - a)* u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+                }
+
+                void main() {
+                    vec2 uv = vUv - 0.5;
+                    float dist = length(uv);
+                    float angle = atan(uv.y, uv.x);
+
+                    // Estado inactivo: un punto rojo pulsante central
+                    float idleGlow = 1.0 - smoothstep(0.0, 0.5, dist);
+                    vec3 finalColor = mix(uColorIdle * 0.5, uColorIdle, sin(uTime * 2.0)*0.5+0.5) * idleGlow;
+
+                    // Estado activo: visualizador
+                    float activity = uLow + uHigh;
+
+                    // Anillos concéntricos reactivos a bajos
+                    float rings = sin(dist * 20.0 - uTime * 5.0 + uLow * 10.0);
+                    rings = smoothstep(0.2, 0.8, rings) * uLow;
+                    
+                    // Ruido radial reactivo a altos (el "iris" nervioso)
+                    float n = noise(vec2(uv.x * 10.0 + uHigh*5.0, uv.y * 10.0 + uTime));
+                    float radialNoise = smoothstep(0.3, 0.4 + uHigh*0.3, dist + n*0.1);
+                    
+                    // Combinar visuales
+                    vec3 activeColor = uColorAccent * (rings + (1.0-radialNoise)*uHigh*2.0);
+                    
+                    // Mezclar inactivo/activo basado en la presencia de audio
+                    float activationMix = smoothstep(0.01, 0.1, activity);
+                    finalColor = mix(finalColor, activeColor, activationMix);
+
+                    // Borde oscuro
+                    finalColor *= smoothstep(0.5, 0.45, dist);
+
+                    gl_FragColor = vec4(finalColor, 1.0);
+                }
+            `,
+            toneMapped: false // Para que el bloom funcione bien
+        });
+
+        const eye = new THREE.Mesh(eyeGeo, eyeMat);
+        eye.position.set(0, 5.5, 1.76); // Posición en el frente del cuerpo
+        speakerGroup.add(eye);
+
+        // Luz real que emana del ojo
+        const eyeLight = new THREE.PointLight(CONFIG.colors.eyeAccent, 0, 5);
+        eyeLight.position.copy(eye.position);
+        eyeLight.position.z += 0.5;
+        scene.add(eyeLight);
+
+        // Suelo
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.ShadowMaterial({ opacity: 0.1 }));
+        floor.rotation.x = -Math.PI / 2; scene.add(floor);
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = performance.now() * 0.001;
+            updateAudio();
+
+            // Actualizar Shader
+            eyeUniforms.uTime.value = time;
+            // Suavizar transición de valores de audio
+            eyeUniforms.uLow.value += (audioData.low - eyeUniforms.uLow.value) * 0.2;
+            eyeUniforms.uHigh.value += (audioData.high - eyeUniforms.uHigh.value) * 0.2;
+
+            // Actualizar la luz real del ojo basada en la actividad
+            const totalActivity = eyeUniforms.uLow.value + eyeUniforms.uHigh.value;
+            eyeLight.intensity = 1.0 + totalActivity * 10.0; // Brillo base + reactivo
+
+            // Rotación lenta y sutil del parlante
+            speakerGroup.rotation.y = Math.sin(time * 0.2) * 0.15;
+
+            controls.update();
+            composer.render();
+        }
+
+        window.addEventListener('resize', () => {
+            const w = container.clientWidth; const h = container.clientHeight;
+            camera.aspect = w / h; camera.updateProjectionMatrix();
+            renderer.setSize(w, h); composer.setSize(w, h);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
