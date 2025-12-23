@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | PROTOTYPE</title>
+    <title>ALEX ASSISTANT | V.2.0 FIXED</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
-        /* --- ESTILOS IGUALES AL ORIGINAL --- */
+        /* --- ESTILOS VISUALES --- */
         :root {
             --bg-color: #050505;
             --text-main: #E8E4D9;
             --text-sub: #888888;
-            --accent: #FF6600; /* Naranja ajustado al modelo */
+            --accent: #FF6600; 
             --glass-panel: rgba(20, 20, 20, 0.8);
             --border-color: #333;
         }
 
         [data-theme="ultra"] {
-            --bg-color: #FF3300;
+            /* He oscurecido un poco el rojo de fondo para mejorar el contraste con el modelo */
+            --bg-color: #D02200; 
             --text-main: #000000;
             --text-sub: #2a0000;
             --accent: #FFFFFF;
@@ -124,9 +125,9 @@
     <div id="canvas-container"></div>
 
     <div class="interaction-hint">
-        SCROLL : ROTAR MODELO<br>
-        CTRL + SCROLL : EXPLOSIÓN / DESARMADO<br>
-        DRAG : ORBITAR CAMARA
+        SCROLL : ZOOM<br>
+        CTRL + SCROLL : EXPLOSIÓN<br>
+        CLICK IZQ : ROTAR | CLICK DER : MOVER
     </div>
 
     <div id="content-sidebar">
@@ -178,14 +179,12 @@
                 label: "LUDOVICO (DARK)",
                 bg: 0x050505,
                 fogDensity: 0.02,
-                lightIntensity: 1.0,
                 accentColor: 0xFF4400 
             },
             ultra: { 
                 label: "ULTRAVIOLENCIA",
-                bg: 0xFF3300,
+                bg: 0xB01100, // Rojo más oscuro y rico para evitar saturación
                 fogDensity: 0.015,
-                lightIntensity: 1.5,
                 accentColor: 0xFFFFFF 
             }
         };
@@ -199,170 +198,131 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
+        
+        // --- CORRECCIÓN DE EXPOSICIÓN ---
+        // Usamos ACESFilmic para un contraste cinematográfico, pero bajamos la exposición
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0;
+        renderer.toneMappingExposure = 0.6; // Valor bajo para evitar el efecto "foco quemado"
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(30, container.clientWidth / container.clientHeight, 0.1, 100);
-        camera.position.set(0, 4, 14); // Cámara frontal pero un poco elevada
+        camera.position.set(0, 4, 14);
 
+        // --- CONFIGURACIÓN DE CONTROLES (CORREGIDO) ---
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.enableZoom = false;
-        // Limitamos el ángulo vertical para que no se vea feo desde abajo
-        controls.maxPolarAngle = Math.PI / 1.4;
+        controls.enableZoom = true; // Habilitamos el Zoom nativo con scroll
+        controls.zoomSpeed = 1.2;
+        controls.enableRotate = true; // Click izquierdo para orbitar
+        controls.enablePan = true;    // Click derecho para paneo
 
-        // --- MATERIALES ---
-        // Material negro mate para el sombrero y las botas
+        // --- MATERIALES (CORREGIDOS PARA SER MATE) ---
+        
         const matBlackPlastic = new THREE.MeshStandardMaterial({ 
             color: 0x111111, 
-            roughness: 0.4, 
+            roughness: 0.6, // Más rugoso para menos brillo especular
             metalness: 0.1 
         });
 
-        // Material blanco rugoso para el cuerpo (tela)
         const matWhiteFabric = new THREE.MeshStandardMaterial({ 
-            color: 0xeeeeee, 
-            roughness: 0.9, 
-            metalness: 0.0,
-            bumpScale: 0.02
+            color: 0xcccccc, // Un gris muy claro en vez de blanco puro 0xffffff
+            roughness: 1.0,  // Rugosidad máxima para simular tela (cero brillo)
+            metalness: 0.0
         });
-        // Creamos una textura de ruido procedural simple para simular tela si es posible, 
-        // pero por simplicidad usaremos alta rugosidad.
 
-        // Material Naranja Brillante (Stripe y luces)
+        // Material Brillante (Stripe y luces)
+        // Usamos emissive alto para que brille con el Bloom, pero el color base oscuro
         const matAccent = new THREE.MeshStandardMaterial({
-            color: 0xFF4400,
-            emissive: 0xFF2200,
-            emissiveIntensity: 0.8,
+            color: 0x000000,
+            emissive: 0xFF4400,
+            emissiveIntensity: 2.0, // Intensidad fuerte para el Bloom
             roughness: 0.2
         });
 
-        // Material LED (para los ojos)
         const matLed = new THREE.MeshBasicMaterial({ color: 0xFF6600 });
 
-        // --- ILUMINACIÓN ---
-        const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+        // --- ILUMINACIÓN (REDUCIDA) ---
+        const ambient = new THREE.AmbientLight(0xffffff, 0.2); // Ambiente tenue
         scene.add(ambient);
 
-        const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 0.8); // Luz principal menos intensa
         mainLight.position.set(5, 5, 5);
         mainLight.castShadow = true;
-        mainLight.shadow.mapSize.width = 1024;
-        mainLight.shadow.mapSize.height = 1024;
         scene.add(mainLight);
 
-        const fillLight = new THREE.SpotLight(0xffffff, 0.5);
+        // Luces de relleno sutiles
+        const fillLight = new THREE.SpotLight(0xffffff, 0.3);
         fillLight.position.set(-5, 2, 5);
         scene.add(fillLight);
 
-        const backLight = new THREE.SpotLight(0x4444ff, 1.0);
+        const backLight = new THREE.SpotLight(0x4444ff, 0.5);
         backLight.position.set(0, 5, -10);
         scene.add(backLight);
 
-        // --- CONSTRUCCIÓN DEL ROBOT (ALEX) ---
+        // --- CONSTRUCCIÓN DEL ROBOT ---
         const robotGroup = new THREE.Group();
         scene.add(robotGroup);
-
-        const parts = []; // Array para guardar las partes y sus vectores de explosión
+        const parts = [];
 
         function addPart(mesh, explodeDirection) {
             robotGroup.add(mesh);
             parts.push({
                 mesh: mesh,
-                originalY: mesh.position.y, // Solo nos interesa mover en Y verticalmente
-                direction: explodeDirection, // Multiplicador de fuerza
-                speed: 1.0
+                originalY: mesh.position.y, 
+                direction: explodeDirection
             });
         }
 
-        // 1. LAS BOTAS (FEET)
+        // PIEZAS
         const bootGeo = new RoundedBoxGeometry(1.4, 1.2, 1.8, 8, 0.4);
-        
         const bootL = new THREE.Mesh(bootGeo, matBlackPlastic);
-        bootL.position.set(-0.75, 0.6, 0); // Ligeramente a la izquierda
-        bootL.castShadow = true; bootL.receiveShadow = true;
-        // Dirección de explosión: Hacia abajo (-1)
+        bootL.position.set(-0.75, 0.6, 0); bootL.castShadow = true; bootL.receiveShadow = true;
         addPart(bootL, -1.0); 
 
         const bootR = new THREE.Mesh(bootGeo, matBlackPlastic);
-        bootR.position.set(0.75, 0.6, 0); // Ligeramente a la derecha
-        bootR.castShadow = true; bootR.receiveShadow = true;
+        bootR.position.set(0.75, 0.6, 0); bootR.castShadow = true; bootR.receiveShadow = true;
         addPart(bootR, -1.0);
 
-        // 2. EL CUERPO (CILINDRO BLANCO)
-        // Altura aprox 3 unidades
-        const bodyHeight = 3.0;
         const bodyRadius = 1.6;
-        const bodyGeo = new THREE.CylinderGeometry(bodyRadius, bodyRadius, bodyHeight, 64);
-        const bodyMesh = new THREE.Mesh(bodyGeo, matWhiteFabric);
-        bodyMesh.position.set(0, 2.7, 0); // Encima de las botas
-        bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
-        // Dirección explosión: Se queda quieto o sube muy poco (0.2)
+        const bodyGeo = new THREE.CylinderGeometry(bodyRadius, bodyRadius, 3.0, 64);
+        const bodyMesh = new THREE.Mesh(bodyGeo, matWhiteFabric); // Tela mate
+        bodyMesh.position.set(0, 2.7, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
         addPart(bodyMesh, 0.2);
 
-        // LOGO "ALEX" (Simulado con geometría simple negra)
-        const logoGeo = new THREE.PlaneGeometry(1.0, 0.3);
-        const logoMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-        const logoMesh = new THREE.Mesh(logoGeo, logoMat);
-        logoMesh.position.set(0, -0.8, bodyRadius + 0.01); // Pegado al frente del cuerpo
-        bodyMesh.add(logoMesh); // Hijo del cuerpo para que se mueva con él
+        const logoMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 0.3), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+        logoMesh.position.set(0, -0.8, bodyRadius + 0.01);
+        bodyMesh.add(logoMesh);
 
-        // 3. LA FRANJA NARANJA (STRIPE)
         const stripeGeo = new THREE.TorusGeometry(bodyRadius + 0.02, 0.15, 4, 64);
         const stripeMesh = new THREE.Mesh(stripeGeo, matAccent);
         stripeMesh.rotation.x = Math.PI / 2;
-        stripeMesh.position.set(0, 2.7, 0); // En el centro del cuerpo
-        // Dirección explosión: Sube un poco más que el cuerpo para separarse (1.0)
+        stripeMesh.position.set(0, 2.7, 0);
         addPart(stripeMesh, 0.8);
 
-        // 4. LA CABEZA (SOMBRERO)
-        // Usamos una esfera cortada a la mitad + un borde
         const headGroup = new THREE.Group();
-        headGroup.position.set(0, 4.2, 0); // Arriba del cuerpo
+        headGroup.position.set(0, 4.2, 0);
         
-        // Domo
-        const domeGeo = new THREE.SphereGeometry(bodyRadius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
-        const domeMesh = new THREE.Mesh(domeGeo, matBlackPlastic);
+        const domeMesh = new THREE.Mesh(new THREE.SphereGeometry(bodyRadius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2), matBlackPlastic);
         headGroup.add(domeMesh);
 
-        // Ala del sombrero (Brim)
-        const brimGeo = new THREE.CylinderGeometry(bodyRadius + 0.4, bodyRadius, 0.1, 64);
-        const brimMesh = new THREE.Mesh(brimGeo, matBlackPlastic);
-        brimMesh.position.y = 0; // Base del domo
+        const brimMesh = new THREE.Mesh(new THREE.CylinderGeometry(bodyRadius + 0.4, bodyRadius, 0.1, 64), matBlackPlastic);
+        brimMesh.position.y = 0;
         headGroup.add(brimMesh);
 
-        // Ojos (3 Puntos Naranjas)
         const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
-        const eyePositions = [-0.4, 0, 0.4];
-        
-        eyePositions.forEach(xPos => {
+        [-0.4, 0, 0.4].forEach(xPos => {
             const eye = new THREE.Mesh(eyeGeo, matLed);
-            // Posicionarlos en la superficie de la esfera
-            // Un poco de trig para ponerlos al frente
             eye.position.set(xPos, 0.6, bodyRadius - 0.15);
             headGroup.add(eye);
         });
 
-        // Orificios de micrófono (detalles)
-        const micGeo = new THREE.CircleGeometry(0.03, 8);
-        const micMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 1 });
-        for(let i=0; i<5; i++){
-            const mic = new THREE.Mesh(micGeo, micMat);
-            mic.position.set((i-2)*0.15, 0.3, bodyRadius - 0.05);
-            mic.lookAt(0, 10, 20); // Orientar ligeramente
-            headGroup.add(mic);
-        }
-
-        // Dirección explosión: Cabeza sube mucho (2.5)
         addPart(headGroup, 2.5);
 
-
-        // --- LOGICA DE TEMA ---
+        // --- LÓGICA DE TEMA ACTUALIZADA ---
         function applyTheme3D(key) {
             const t = themes[key];
             bodyEl.setAttribute('data-theme', key);
@@ -371,12 +331,9 @@
             scene.background = new THREE.Color(t.bg);
             scene.fog = new THREE.FogExp2(t.bg, t.fogDensity);
 
-            // Cambiar color de acento
-            matAccent.color.setHex(t.accentColor);
-            matAccent.emissive.setHex(key === 'ultra' ? 0xaaaaaa : 0xFF2200);
-            matLed.color.setHex(t.accentColor);
+            matAccent.emissive.setHex(key === 'ultra' ? 0xFFFFFF : 0xFF4400);
+            matLed.color.setHex(key === 'ultra' ? 0xFFFFFF : 0xFF6600);
         }
-
         applyTheme3D(currentThemeKey);
 
         toggleBtn.addEventListener('click', () => {
@@ -384,24 +341,36 @@
             applyTheme3D(currentThemeKey);
         });
 
-
-        // --- POST PROCESSING (BLOOM) ---
+        // --- POST PROCESSING (BLOOM CALIBRADO) ---
         const composer = new EffectComposer(renderer);
-        const renderPass = new RenderPass(scene, camera);
-        composer.addPass(renderPass);
+        composer.addPass(new RenderPass(scene, camera));
 
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.5, 0.4);
-        bloomPass.threshold = 0.2;
-        bloomPass.strength = 0.8; 
+        // CORRECCIÓN CLAVE: Umbral alto (0.85).
+        // Esto significa que solo lo que brille MÁS que 0.85 tendrá resplandor.
+        // El cuerpo blanco no brillará, pero las luces LEDs (intensidad > 1) sí.
+        bloomPass.threshold = 0.85; 
+        bloomPass.strength = 0.4;  // Bloom suave, no radioactivo
         bloomPass.radius = 0.5;
         composer.addPass(bloomPass);
 
+        // --- INTERACCIÓN CORREGIDA ---
+        let explodeTarget = 0;
+        let explodeCurrent = 0;
 
-        // --- INTERACCIÓN Y SCROLL ---
+        window.addEventListener('wheel', (e) => {
+            // Si presiona CTRL, controlamos la explosión manualmente
+            if(e.ctrlKey || e.metaKey) {
+                e.preventDefault(); // Evitamos el zoom del navegador y del OrbitControls
+                
+                explodeTarget += e.deltaY * 0.002; 
+                explodeTarget = Math.max(0, Math.min(2.0, explodeTarget));
+            } 
+            // Si NO presiona CTRL, no hacemos nada aquí, dejamos que OrbitControls haga el Zoom por defecto
+        }, { passive: false });
+
         const sidebar = document.getElementById('content-sidebar');
         const contentBoxes = document.querySelectorAll('.content-box');
-        
-        // 1. Mostrar contenido al hacer scroll en el sidebar
         sidebar.addEventListener('scroll', () => {
             contentBoxes.forEach(box => {
                 const rect = box.getBoundingClientRect();
@@ -409,63 +378,24 @@
             });
         });
 
-        // 2. Controlar Modelo con Scroll y Ctrl
-        let explodeTarget = 0;
-        let explodeCurrent = 0;
-        let rotationTargetY = 0;
-
-        window.addEventListener('wheel', (e) => {
-            if(e.ctrlKey || e.metaKey) {
-                // MODO EXPLOSIÓN
-                e.preventDefault(); // Evitar zoom del navegador
-                
-                // Sensibilidad
-                explodeTarget += e.deltaY * 0.002; 
-                // Limitar rango de 0 (armado) a 2 (desarmado)
-                explodeTarget = Math.max(0, Math.min(2.0, explodeTarget));
-
-            } else {
-                // MODO ROTACIÓN (Scroll normal)
-                // Rotamos el grupo entero del robot
-                rotationTargetY += e.deltaY * 0.002;
-            }
-        }, { passive: false });
-
-
-        // --- LOOP DE ANIMACIÓN ---
         function animate() {
             requestAnimationFrame(animate);
-            
             controls.update();
 
-            // Interpolación suave (Lerp) para la explosión
+            // Animación de explosión suave
             explodeCurrent += (explodeTarget - explodeCurrent) * 0.05;
 
-            // Interpolación suave para la rotación con scroll
-            robotGroup.rotation.y += (rotationTargetY - robotGroup.rotation.y) * 0.05;
-            
-            // Animación flotante suave idle
+            // Animación de flotación "idle"
             const time = Date.now() * 0.001;
-            robotGroup.position.y = Math.sin(time) * 0.1 - 1; // Un leve "respiro" vertical
+            robotGroup.position.y = Math.sin(time) * 0.1 - 0.5;
 
-            // APLICAR EXPLOSIÓN A LAS PARTES
             parts.forEach(p => {
-                // Calculamos nueva posición Y
-                // Posición original + (Factor de explosión * Dirección específica de la parte)
-                const offsetY = p.direction * explodeCurrent;
-                p.mesh.position.y = p.originalY + offsetY;
-                
-                // Opcional: Rotar ligeramente las partes al explotar para efecto dramático
-                if (p.direction > 1) { // Si es la cabeza
-                    p.mesh.rotation.z = explodeCurrent * 0.1; 
-                }
+                p.mesh.position.y = p.originalY + (p.direction * explodeCurrent);
             });
 
-            // Renderizar con Bloom
             composer.render();
         }
 
-        // Resize handler
         window.addEventListener('resize', () => {
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
@@ -474,7 +404,6 @@
         });
 
         animate();
-
     </script>
 </body>
 </html>
