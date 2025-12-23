@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX CONTROL | V.2.0</title>
+    <title>ALEX CONTROL | V.2.1</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
         /* --- VARIABLES DE TEMA (Default: LUDOVICO / DARK) --- */
@@ -16,14 +16,14 @@
             --border-color: #333;
         }
 
-        /* TEMA MOLOKO (CLARO) */
+        /* TEMA MOLOKO (CLARO - Ajustado para contraste) */
         [data-theme="moloko"] {
-            --bg-color: #E8E4D9;
+            --bg-color: #d1d1d1;      /* Gris plata para fondo, no blanco puro */
             --text-main: #101010;
-            --text-sub: #555555;
-            --accent: #FF3300;
+            --text-sub: #444444;
+            --accent: #FF4400;
             --glass-panel: rgba(230, 230, 230, 0.8);
-            --border-color: #ccc;
+            --border-color: #999;
         }
 
         /* TEMA ULTRAVIOLENCIA (NARANJA) */
@@ -31,7 +31,7 @@
             --bg-color: #FF3300;
             --text-main: #000000;
             --text-sub: #2a0000;
-            --accent: #FFFFFF; /* Acento blanco sobre naranja */
+            --accent: #FFFFFF;
             --glass-panel: rgba(255, 60, 0, 0.8);
             --border-color: #aa1100;
         }
@@ -49,7 +49,7 @@
         #theme-toggle {
             position: fixed;
             top: 30px;
-            left: 10%; /* Alineado con el padding del contenido */
+            left: 10%;
             z-index: 100;
             background: transparent;
             border: 2px solid var(--text-main);
@@ -71,20 +71,21 @@
         /* --- LAYOUT --- */
         #canvas-container {
             position: fixed; top: 0; right: 0; width: 65%; height: 100vh; z-index: 10;
-            /* La magia de la transición suave está aquí: un degradado que usa la variable de fondo */
-            mask-image: linear-gradient(to right, transparent 0%, black 20%);
-            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%);
+            /* Máscara de degradado ajustada para suavizar la unión con el texto */
+            mask-image: linear-gradient(to right, transparent 0%, black 15%);
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%);
         }
 
         #content-sidebar {
             position: relative; width: 45%; height: 100vh; overflow-y: auto; z-index: 20;
             background: transparent; scrollbar-width: none;
+            scroll-behavior: smooth;
         }
         #content-sidebar::-webkit-scrollbar { display: none; }
 
         section {
             min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
-            padding: 0 10% 0 20%; box-sizing: border-box; /* Más espacio a la izquierda */
+            padding: 0 10% 0 20%; box-sizing: border-box;
         }
 
         /* --- TYPOGRAPHY --- */
@@ -164,7 +165,7 @@
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>HARDWARE V.2.0</h2>
+                <h2>HARDWARE V.2.1</h2>
                 <h1>ALEX</h1>
                 <h1>CONTROL</h1>
                 <br>
@@ -204,34 +205,43 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- THEME MANAGEMENT ---
+        // --- CONFIGURACIÓN DE TEMAS ---
         const themes = {
             ludovico: { // DARK (Default)
                 label: "LUDOVICO (DARK)",
                 bg: 0x050505,
-                chassis: 0x151515, // Metal Oscuro
-                plate: 0x000000,   // Negro Absoluto
+                chassis: 0x111111,
+                plate: 0x000000,
                 details: 0x333333,
-                led: 0xFF3300,     // Naranja
-                fogDensity: 0.03
+                led: 0xFF3300,
+                fogDensity: 0.03,
+                bloomStrength: 1.5,
+                bloomThreshold: 0.1,
+                lights: 1.2
             },
-            moloko: { // LIGHT
+            moloko: { // LIGHT (Optimizado para visibilidad)
                 label: "MOLOKO (LIGHT)",
-                bg: 0xE8E4D9,
-                chassis: 0xFFFFFF, // Cerámica Blanca
-                plate: 0xDDDDDD,   // Aluminio Claro
-                details: 0x999999,
-                led: 0xFF3300,     // Naranja
-                fogDensity: 0.02
+                bg: 0xdcdcdc,      // Gris medio para contraste
+                chassis: 0xf0f0f0, // Casi blanco
+                plate: 0xbbbbbb,   // Aluminio visible
+                details: 0x666666, // Detalles oscuros
+                led: 0xFF4400,     // Naranja intenso
+                fogDensity: 0.01,
+                bloomStrength: 0.8, // Menos bloom para no quemar el blanco
+                bloomThreshold: 0.6, // Solo brilla lo muy brillante
+                lights: 1.0
             },
             ultra: { // ORANGE
                 label: "ULTRAVIOLENCIA",
                 bg: 0xFF3300,
-                chassis: 0x101010, // Negro sobre naranja
+                chassis: 0x101010,
                 plate: 0x000000,
                 details: 0x440000,
-                led: 0xFFFFFF,     // LED Blanco para contraste
-                fogDensity: 0.015
+                led: 0xFFFFFF,
+                fogDensity: 0.015,
+                bloomStrength: 1.2,
+                bloomThreshold: 0.2,
+                lights: 1.4
             }
         };
 
@@ -241,13 +251,13 @@
 
         // --- 3D SETUP ---
         const container = document.getElementById('canvas-container');
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false }); // Alpha false para controlar color de fondo en 3D
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.0;
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Sombras suaves
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
@@ -259,34 +269,64 @@
         controls.dampingFactor = 0.05;
         controls.enableZoom = false;
 
-        // --- MATERIALS (Dynamic) ---
-        const matChassis = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.2 });
-        const matPlate = new THREE.MeshStandardMaterial({ roughness: 0.2, metalness: 0.5 });
+        // --- MATERIALES (Dinámicos) ---
+        // Ajustamos roughness para mejor definición en el tema blanco
+        const matChassis = new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.3 }); 
+        const matPlate = new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0.6 });
         const matDetail = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.1 });
         const matLed = new THREE.MeshStandardMaterial({ emissiveIntensity: 3.0, toneMapped: false });
 
-        // --- FUNCTION TO APPLY THEME 3D ---
+        // --- POST PROCESSING (BLOOM) ---
+        const composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+        
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        composer.addPass(bloomPass);
+
+        // --- LUCES ---
+        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambient);
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        mainLight.position.set(5, 10, 5);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 2048;
+        mainLight.shadow.mapSize.height = 2048;
+        mainLight.shadow.bias = -0.0001; // Evitar artefactos en sombras
+        scene.add(mainLight);
+
+        // Luz trasera (Rim Light) para separar el objeto del fondo oscuro
+        const rimLight = new THREE.SpotLight(0xffffff, 2.0);
+        rimLight.position.set(-10, 5, -10);
+        rimLight.lookAt(0,0,0);
+        scene.add(rimLight);
+
+        // --- FUNCIÓN APLICAR TEMA ---
         function applyTheme3D(key) {
             const t = themes[key];
             
-            // 1. Update DOM
+            // 1. DOM
             bodyEl.setAttribute('data-theme', key);
             toggleBtn.innerText = "CAMBIAR TEMA: " + t.label;
 
-            // 2. Update 3D Environment
+            // 2. Ambiente 3D
             scene.background = new THREE.Color(t.bg);
             scene.fog = new THREE.FogExp2(t.bg, t.fogDensity);
 
-            // 3. Update Materials
+            // 3. Materiales
             matChassis.color.setHex(t.chassis);
             matPlate.color.setHex(t.plate);
             matDetail.color.setHex(t.details);
-            
             matLed.color.setHex(t.led);
             matLed.emissive.setHex(t.led);
+
+            // 4. Ajustes visuales (Bloom y Luces)
+            bloomPass.strength = t.bloomStrength;
+            bloomPass.threshold = t.bloomThreshold;
+            mainLight.intensity = t.lights;
         }
 
-        // Init Theme
         applyTheme3D(currentThemeKey);
 
         toggleBtn.addEventListener('click', () => {
@@ -296,28 +336,11 @@
             applyTheme3D(currentThemeKey);
         });
 
-        // --- LIGHTING ---
-        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-        scene.add(ambient);
-
-        const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        mainLight.position.set(5, 10, 5);
-        mainLight.castShadow = true;
-        mainLight.shadow.mapSize.width = 2048;
-        mainLight.shadow.mapSize.height = 2048;
-        mainLight.shadow.normalBias = 0.02; 
-        scene.add(mainLight);
-
-        const rimLight = new THREE.SpotLight(0xffffff, 2.0);
-        rimLight.position.set(-10, 5, -10);
-        rimLight.lookAt(0,0,0);
-        scene.add(rimLight);
-
-        // --- MODELING THE CONTROLLER ---
+        // --- MODELADO ---
         const moduleGroup = new THREE.Group();
         scene.add(moduleGroup);
 
-        const gap = 0.1;
+        const gap = 0.15; // Un poco más de gap para que se vean las líneas de separación
         const size = 2.0;
 
         function createModule(x, z, type) {
@@ -330,60 +353,57 @@
             base.castShadow = true; base.receiveShadow = true;
             group.add(base);
 
-            // Top Plate
+            // Top Plate (Elevado sutilmente para evitar z-fighting)
             const geoPlate = new RoundedBoxGeometry(size - 0.2, 0.05, size - 0.2, 2, 0.02);
             const plate = new THREE.Mesh(geoPlate, matPlate);
-            plate.position.y = 0.26;
+            plate.position.y = 0.28; // Ligeramente más alto
             plate.receiveShadow = true;
             group.add(plate);
 
-            // Components
+            // Componentes
             if (type === 'knob') {
                 const kGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.4, 32);
-                const knob = new THREE.Mesh(kGeo, matChassis); // Knob matches chassis color
-                knob.position.y = 0.5; knob.castShadow = true;
+                const knob = new THREE.Mesh(kGeo, matChassis);
+                knob.position.y = 0.55; knob.castShadow = true;
                 group.add(knob);
-                // LED Marker
+                
                 const mark = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.25), matLed);
-                mark.position.set(0, 0.71, 0.15);
+                mark.position.set(0, 0.76, 0.15);
                 group.add(mark);
             } else if (type === 'fader') {
                 const track = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 1.4), matDetail);
-                track.position.y = 0.29;
+                track.position.y = 0.32; // Evitar overlap con el plato
                 group.add(track);
+                
                 const cap = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.6), matChassis);
-                cap.position.y = 0.45; cap.castShadow = true;
+                cap.position.y = 0.5; cap.castShadow = true;
                 group.add(cap);
+                
                 const line = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.02, 0.02), matLed);
-                line.position.y = 0.61;
+                line.position.y = 0.66;
                 group.add(line);
             } else if (type === 'pad') {
                 const pGeo = new RoundedBoxGeometry(0.5, 0.1, 0.5, 2, 0.02);
                 for(let px=-0.4; px<=0.4; px+=0.8) {
                     for(let pz=-0.4; pz<=0.4; pz+=0.8) {
                         const pad = new THREE.Mesh(pGeo, matDetail);
-                        pad.position.set(px, 0.32, pz);
+                        pad.position.set(px, 0.36, pz);
                         group.add(pad);
-                        // Small led dot
+                        
                         const dot = new THREE.Mesh(new THREE.CircleGeometry(0.05, 16), matLed);
                         dot.rotation.x = -Math.PI/2;
-                        dot.position.set(px, 0.38, pz);
+                        dot.position.set(px, 0.42, pz);
                         group.add(dot);
                     }
                 }
             }
 
             group.position.set(x * (size + gap), 0, z * (size + gap));
-            
-            // Save initial posY for explosion animation
-            group.userData.homeY = 0;
-            // Add custom explode offset for components inside if we wanted complex explosion
-            
             moduleGroup.add(group);
             return group;
         }
 
-        // Generate 3x3 Grid
+        // Grid 3x3
         const layout = [
             ['knob', 'fader', 'knob'],
             ['pad', 'knob', 'pad'],
@@ -398,15 +418,7 @@
             }
         }
 
-        // --- POST PROCESSING (BLOOM) ---
-        const composer = new EffectComposer(renderer);
-        const renderPass = new RenderPass(scene, camera);
-        composer.addPass(renderPass);
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        composer.addPass(bloomPass);
-
-        // --- INTERACTION & ANIMATION ---
-        // Scroll Logic DOM
+        // --- INTERACCIÓN Y ANIMACIÓN ---
         const sidebar = document.getElementById('content-sidebar');
         const contentBoxes = document.querySelectorAll('.content-box');
         let scrollY = 0;
@@ -415,15 +427,17 @@
         sidebar.addEventListener('scroll', () => {
             scrollY = sidebar.scrollTop;
             const max = sidebar.scrollHeight - sidebar.clientHeight;
-            scrollPct = Math.max(0, Math.min(1, scrollY / max));
+            // Clampeo seguro
+            scrollPct = max > 0 ? scrollY / max : 0;
 
             contentBoxes.forEach(box => {
                 const rect = box.getBoundingClientRect();
-                if(rect.top < window.innerHeight * 0.7) box.classList.add('visible');
+                // Aparición más temprana
+                if(rect.top < window.innerHeight * 0.75) box.classList.add('visible');
             });
         });
 
-        // Explosion Logic (Ctrl + Wheel)
+        // Lógica de Explosión
         let explodeTarget = 0;
         let explodeCurrent = 0;
 
@@ -432,7 +446,7 @@
                 e.preventDefault();
                 controls.enableRotate = false;
                 explodeTarget += e.deltaY * 0.005;
-                explodeTarget = Math.max(0, Math.min(2, explodeTarget));
+                explodeTarget = Math.max(0, Math.min(2.5, explodeTarget)); // Rango aumentado
             } else {
                 controls.enableRotate = true;
             }
@@ -446,43 +460,32 @@
             requestAnimationFrame(animate);
             controls.update();
 
-            // 1. Rotation from Scroll
-            // Smooth rotation based on scroll percentage
-            const targetRotY = scrollPct * Math.PI * 0.5;
-            const targetRotX = scrollPct * Math.PI * 0.2;
+            // 1. Rotación Sync con Scroll (MEJORADA)
+            // Multiplicamos por PI * 1.2 para que gire más de 180 grados a lo largo de la página
+            // y añadimos un ligero tilt en Z para dinamismo
+            const targetRotY = scrollPct * Math.PI * 1.2;
+            const targetRotX = scrollPct * Math.PI * 0.25;
             
-            moduleGroup.rotation.y += (targetRotY - moduleGroup.rotation.y) * 0.05;
-            moduleGroup.rotation.x += (targetRotX - moduleGroup.rotation.x) * 0.05;
+            moduleGroup.rotation.y += (targetRotY - moduleGroup.rotation.y) * 0.08;
+            moduleGroup.rotation.x += (targetRotX - moduleGroup.rotation.x) * 0.08;
+            moduleGroup.rotation.z = -scrollPct * 0.2; // Tilt lateral sutil
 
-            // 2. Explosion Animation
+            // 2. Animación de Explosión
             explodeCurrent += (explodeTarget - explodeCurrent) * 0.1;
             
-            // Animate modules expanding outward from center
             modules.forEach(m => {
-                // Calculate direction from center (0,0,0)
-                const dist = Math.sqrt(m.position.x*m.position.x + m.position.z*m.position.z);
-                if(dist > 0) {
-                    // Normalized dir
-                    const dx = m.position.x / dist;
-                    const dz = m.position.z / dist;
-                    
-                    // Original Home positions were set at creation. 
-                    // To do this simply, we recalculate based on grid indices
-                    // But here we can cheat: just offset based on explodeCurrent * direction
-                    // We need base positions. Let's use userData we set earlier? 
-                    // Actually simple expansion:
-                    // scale the group position? No, gap increase.
-                    
-                    // Re-calculate target position based on grid
-                    // To do it right without complex state, let's just scale the whole moduleGroup gap?
-                    // No, individual parts need to fly up.
-                }
-                // Vertical explosion of parts (simple version: lift the whole module or parts)
-                // Let's lift the top plate and components relative to base
                 m.children.forEach((child, idx) => {
-                    // index 0 is base, 1 is plate, others are components
+                    // idx 0 = base, 1 = plate, >1 = componentes
+                    // Elevación base de componentes
+                    let baseY = 0;
+                    if (idx === 0) baseY = 0;
+                    else if (idx === 1) baseY = 0.28;
+                    else baseY = 0.55; // altura aprox componentes
+
+                    // Cada pieza sube proporcionalmente a su "capa"
                     if(idx > 0) {
-                        child.position.y = (child.geometry.type === 'RoundedBoxGeometry' && idx===1 ? 0.26 : 0.5) + (explodeCurrent * idx * 0.2);
+                        // idx * 0.3 da más separación entre plato y knob
+                        child.position.y = baseY + (explodeCurrent * idx * 0.4); 
                     }
                 });
             });
@@ -495,10 +498,11 @@
             const h = container.clientHeight;
             camera.aspect = w/h; camera.updateProjectionMatrix();
             renderer.setSize(w,h); composer.setSize(w,h);
+            bloomPass.resolution.set(w,h);
         });
 
         animate();
-        // Trigger initial scroll check
+        // Trigger inicial
         sidebar.dispatchEvent(new Event('scroll'));
 
     </script>
