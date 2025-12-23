@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX CONTROL | V.2.1</title>
+    <title>ALEX CONTROL | V.2.2 FINAL</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
         /* --- VARIABLES DE TEMA --- */
@@ -11,7 +11,6 @@
             --bg-color: #050505;
             --text-main: #E8E4D9;
             --text-sub: #888888;
-            /* Naranja visual para UI */
             --accent: #FF3300; 
             --glass-panel: rgba(20, 20, 20, 0.8);
             --border-color: #333;
@@ -130,14 +129,14 @@
 
     <div class="interaction-hint">
         SCROLL &darr; : ROTAR<br>
-        CTRL + SCROLL : EXPLOSIÓN 3D<br>
+        CTRL + SCROLL : EXPLOSIÓN<br>
         DRAG : ORBITAR
     </div>
 
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>HARDWARE V.2.1</h2>
+                <h2>HARDWARE V.2.2</h2>
                 <h1>ALEX</h1>
                 <h1>CONTROL</h1>
                 <br>
@@ -186,9 +185,7 @@
                 chassis: 0x151515,
                 plate: 0x000000,
                 details: 0x333333,
-                // CORRECCIÓN COLOR V.2.1: Rojo-Naranja (#FF2200) 
-                // para que el Bloom lo renderice como Naranja Intenso.
-                led: 0xFF2200, 
+                led: 0xFF2200, // Rojo-Naranja calibrado para Bloom
                 ledIntensity: 1.5, 
                 fogDensity: 0.03
             },
@@ -198,7 +195,7 @@
                 chassis: 0x101010,
                 plate: 0x000000,
                 details: 0x440000,
-                led: 0xFFFFFF, // Blanco puro
+                led: 0xFFFFFF, 
                 ledIntensity: 2.0,
                 fogDensity: 0.015
             }
@@ -228,7 +225,7 @@
         controls.dampingFactor = 0.05;
         controls.enableZoom = false;
 
-        // --- MATERIALS (Shared & Dynamic) ---
+        // --- MATERIALS ---
         const matChassis = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.2 });
         const matPlate = new THREE.MeshStandardMaterial({ roughness: 0.2, metalness: 0.5 });
         const matDetail = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.1 });
@@ -272,7 +269,7 @@
         rimLight.position.set(-10, 5, -10); rimLight.lookAt(0,0,0);
         scene.add(rimLight);
 
-        // --- IRIS 3D LOGIC ---
+        // --- IRIS / ALEX LOGIC ---
         const moduleGroup = new THREE.Group();
         scene.add(moduleGroup);
         const CONFIG = { moduleSize: 2.0, gap: 0.1 };
@@ -280,6 +277,7 @@
 
         class Module {
             constructor(x, z, type) {
+                // Guardamos la posición "home" del MÓDULO (su centro)
                 this.homePos = new THREE.Vector3(x * (CONFIG.moduleSize + CONFIG.gap), 0, z * (CONFIG.moduleSize + CONFIG.gap));
                 this.group = new THREE.Group();
                 this.group.position.copy(this.homePos);
@@ -300,10 +298,10 @@
 
             addToParts(mesh, speed = 1.0) {
                 this.group.add(mesh);
-                // Guardamos posición local original
                 this.parts.push({ mesh: mesh, home: mesh.position.clone(), speed: speed });
             }
 
+            // --- GEOMETRIES (Igual que V.2.1) ---
             createChassis() {
                 const geo = new RoundedBoxGeometry(CONFIG.moduleSize, 0.5, CONFIG.moduleSize, 4, 0.05);
                 const mesh = new THREE.Mesh(geo, matChassis);
@@ -342,28 +340,22 @@
 
                 const cap = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.4, 0.15, 4, 0.02), matChassis);
                 cap.castShadow = true; cap.position.set(0, 0.45, 0);
-                
                 const line = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.05, 0.02), matLed);
                 line.position.set(0, 0.21, 0); 
                 cap.add(line);
-                
                 this.addToParts(cap, 0.6);
             }
 
             createKnobs() {
                 const kGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.3, 32);
                 const ringGeo = new THREE.TorusGeometry(0.3, 0.02, 4, 32); ringGeo.rotateX(Math.PI / 2);
-                
                 for (let i = 0; i < 4; i++) {
                     const x = (i % 2 === 0) ? -0.5 : 0.5;
                     const z = (i < 2) ? -0.5 : 0.5;
-                    
                     const kMesh = new THREE.Mesh(kGeo, matChassis);
                     kMesh.castShadow = true; kMesh.position.set(x, 0.45, z);
-                    
                     const ring = new THREE.Mesh(ringGeo, matLed);
                     ring.position.set(x, 0.30, z); 
-                    
                     this.addToParts(ring, 0.3);
                     this.addToParts(kMesh, 0.5 + Math.random() * 0.2);
                 }
@@ -376,12 +368,10 @@
                         const pad = new THREE.Mesh(padGeo, matDetail);
                         pad.position.set(-0.6 + c * 0.4, 0.32, -0.6 + r * 0.4);
                         pad.castShadow = true;
-                        
                         const dot = new THREE.Mesh(new THREE.CircleGeometry(0.05, 16), matLed);
                         dot.rotation.x = -Math.PI/2;
                         dot.position.y = 0.06; 
                         pad.add(dot);
-
                         this.addToParts(pad, 0.4 + (r + c) * 0.05);
                     }
                 }
@@ -392,7 +382,6 @@
                 const surface = new THREE.Mesh(surfaceGeo, matGlass);
                 surface.position.set(0, 0.28, 0); 
                 this.addToParts(surface, 0.22);
-
                 const cursor = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.12, 32), matLed);
                 cursor.rotation.x = -Math.PI / 2; cursor.position.set(0.2, 0.29, -0.3);
                 this.addToParts(cursor, 0.23);
@@ -402,36 +391,32 @@
                 const rGroup = new THREE.Group();
                 const geo = new THREE.CylinderGeometry(0.8, 0.8, 0.6, 64, 1, false, 0, Math.PI);
                 const roller = new THREE.Mesh(geo, matChassis);
-                
                 roller.rotateZ(Math.PI / 2); 
                 roller.rotateX(-Math.PI / 2); 
                 roller.castShadow = true;
-                
                 const sGeo = new THREE.CylinderGeometry(0.81, 0.81, 0.05, 64, 1, false, 0, Math.PI);
                 const stripe = new THREE.Mesh(sGeo, matLed);
                 stripe.rotation.copy(roller.rotation);
-                
                 rGroup.add(roller);
                 rGroup.add(stripe);
                 rGroup.position.set(0, 0.5, 0); 
-
                 const cradle = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.3, 0.8), matDetail);
                 cradle.position.set(0, 0.3, 0);
                 this.addToParts(cradle, 0.3);
-                
                 this.addToParts(rGroup, 0.8);
             }
 
             update(explodeVal) {
-                this.parts.forEach(p => {
-                    // 1. Desplazamiento VERTICAL (Y) aumentado
-                    p.mesh.position.y = p.home.y + (explodeVal * p.speed * 4.0);
+                // CORRECCIÓN CRÍTICA DE ANIMACIÓN:
+                // 1. Separamos los MÓDULOS (Movemos el grupo entero desde el centro del grid 0,0)
+                // Usamos homePos porque homePos.x/z es la distancia al centro del grid.
+                this.group.position.x = this.homePos.x + (this.homePos.x * explodeVal * 0.8);
+                this.group.position.z = this.homePos.z + (this.homePos.z * explodeVal * 0.8);
 
-                    // 2. CORRECCIÓN: Desplazamiento HORIZONTAL (X y Z)
-                    // Las piezas se alejan del centro (0,0) de su módulo local.
-                    // Multiplicamos su posición X/Z original por el valor de explosión.
-                    p.mesh.position.x = p.home.x + (p.home.x * explodeVal * 1.5);
-                    p.mesh.position.z = p.home.z + (p.home.z * explodeVal * 1.5);
+                // 2. Elevamos las PIEZAS (Solo movimiento Vertical Y)
+                // Eliminamos cualquier movimiento X/Z dentro del módulo para evitar que "vuelen".
+                this.parts.forEach(p => {
+                    p.mesh.position.y = p.home.y + (explodeVal * p.speed * 3.0); // Factor de altura amplio
                 });
             }
         }
@@ -452,7 +437,6 @@
         // --- POST PROCESSING ---
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-        // Ajustamos el umbral (0.5) para que solo brillen los LEDs y no todo el metal
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 0.5);
         composer.addPass(bloomPass);
 
@@ -478,7 +462,8 @@
                 e.preventDefault();
                 controls.enableRotate = false;
                 explodeTarget += e.deltaY * 0.005;
-                explodeTarget = Math.max(0, Math.min(5, explodeTarget));
+                // Limitamos la explosión a un rango sano (0 a 2.5) para que no se alejen demasiado
+                explodeTarget = Math.max(0, Math.min(2.5, explodeTarget));
             } else {
                 controls.enableRotate = true;
             }
