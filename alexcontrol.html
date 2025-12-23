@@ -11,7 +11,8 @@
             --bg-color: #050505;
             --text-main: #E8E4D9;
             --text-sub: #888888;
-            --accent: #FF3300;
+            /* CAMBIO: Naranja más profundo para evitar que parezca amarillo */
+            --accent: #FF4500; 
             --glass-panel: rgba(20, 20, 20, 0.8);
             --border-color: #333;
         }
@@ -185,7 +186,8 @@
                 chassis: 0x151515,
                 plate: 0x000000,
                 details: 0x333333,
-                led: 0xFF3300, // NARANJA PURO
+                // CAMBIO: #FF4500 (OrangeRed) en lugar de #FF3300 para que se vea naranja y no amarillo
+                led: 0xFF4500, 
                 fogDensity: 0.03
             },
             ultra: { 
@@ -216,7 +218,7 @@
 
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
-        camera.position.set(10, 14, 14); // Cámara más alta como en Iris
+        camera.position.set(10, 14, 14); 
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
@@ -227,8 +229,8 @@
         const matChassis = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.2 });
         const matPlate = new THREE.MeshStandardMaterial({ roughness: 0.2, metalness: 0.5 });
         const matDetail = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.1 });
-        const matLed = new THREE.MeshStandardMaterial({ emissiveIntensity: 3.0, toneMapped: false });
-        // Material vidrio negro para el Touch Strip
+        // CAMBIO: EmissiveIntensity bajado de 3.0 a 2.0 para conservar el color naranja bajo el Bloom
+        const matLed = new THREE.MeshStandardMaterial({ emissiveIntensity: 2.0, toneMapped: false });
         const matGlass = new THREE.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.1, transmission: 0.0, clearcoat: 1.0 });
 
         function applyTheme3D(key) {
@@ -278,14 +280,13 @@
                 this.homePos = new THREE.Vector3(x * (CONFIG.moduleSize + CONFIG.gap), 0, z * (CONFIG.moduleSize + CONFIG.gap));
                 this.group = new THREE.Group();
                 this.group.position.copy(this.homePos);
-                this.parts = []; // Array of { mesh, homeLocalPos, speed }
+                this.parts = []; 
                 
                 this.createChassis();
                 this.createConnectors();
 
-                // Usamos la lógica de modelos de Iris
                 if (type === 'fader') this.createFader();
-                else if (type === 'knob') this.createKnobs(); // Cluster de 4 knobs
+                else if (type === 'knob') this.createKnobs(); 
                 else if (type === 'pad') this.createPads();
                 else if (type === 'touch') this.createTouch();
                 else if (type === 'roller') this.createRoller();
@@ -296,23 +297,21 @@
 
             addToParts(mesh, speed = 1.0) {
                 this.group.add(mesh);
-                // ESTA ES LA CLAVE: Guardamos la posición local original (home)
                 this.parts.push({ mesh: mesh, home: mesh.position.clone(), speed: speed });
             }
 
             createChassis() {
                 const geo = new RoundedBoxGeometry(CONFIG.moduleSize, 0.5, CONFIG.moduleSize, 4, 0.05);
                 const mesh = new THREE.Mesh(geo, matChassis);
-                mesh.position.y = 0; // Base en 0
+                mesh.position.y = 0; 
                 mesh.castShadow = true; mesh.receiveShadow = true;
-                this.group.add(mesh); // La base no se mueve, no va a parts
+                this.group.add(mesh); 
 
-                // Top Panel (Este si se mueve un poco)
                 const panelGeo = new RoundedBoxGeometry(CONFIG.moduleSize - 0.2, 0.05, CONFIG.moduleSize - 0.2, 2, 0.02);
                 const panel = new THREE.Mesh(panelGeo, matPlate);
                 panel.position.y = 0.26;
                 panel.receiveShadow = true;
-                this.addToParts(panel, 0.2); // Se levanta ligeramente
+                this.addToParts(panel, 0.2); 
             }
 
             createConnectors() {
@@ -326,9 +325,9 @@
                 ];
                 sides.forEach(s => {
                     const m = new THREE.Mesh(geo, matDetail);
-                    m.position.set(s.x, 0, s.z); // En el centro vertical de la base
+                    m.position.set(s.x, 0, s.z); 
                     m.rotation.y = s.rot;
-                    this.group.add(m); // No explotan
+                    this.group.add(m); 
                 });
             }
 
@@ -348,7 +347,6 @@
             }
 
             createKnobs() {
-                // Modelo Iris: 4 Knobs pequeños
                 const kGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.3, 32);
                 const ringGeo = new THREE.TorusGeometry(0.3, 0.02, 4, 32); ringGeo.rotateX(Math.PI / 2);
                 
@@ -369,17 +367,15 @@
 
             createPads() {
                 const padGeo = new RoundedBoxGeometry(0.3, 0.1, 0.3, 2, 0.02);
-                // 4x4 Pads
                 for (let r = 0; r < 4; r++) {
                     for (let c = 0; c < 4; c++) {
                         const pad = new THREE.Mesh(padGeo, matDetail);
                         pad.position.set(-0.6 + c * 0.4, 0.32, -0.6 + r * 0.4);
                         pad.castShadow = true;
                         
-                        // Dot LED
                         const dot = new THREE.Mesh(new THREE.CircleGeometry(0.05, 16), matLed);
                         dot.rotation.x = -Math.PI/2;
-                        dot.position.y = 0.06; // relativo al pad
+                        dot.position.y = 0.06; 
                         pad.add(dot);
 
                         this.addToParts(pad, 0.4 + (r + c) * 0.05);
@@ -413,7 +409,7 @@
                 
                 rGroup.add(roller);
                 rGroup.add(stripe);
-                rGroup.position.set(0, 0.5, 0); // Altura inicial
+                rGroup.position.set(0, 0.5, 0); 
 
                 const cradle = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.3, 0.8), matDetail);
                 cradle.position.set(0, 0.3, 0);
@@ -423,10 +419,10 @@
             }
 
             update(explodeVal) {
-                // Mover partes basado en su posición HOME guardada
-                // Cuando explodeVal es 0, vuelve exactamente a home.y
+                // CAMBIO IMPORTANTE: Aumenté el multiplicador de 0.5 a 3.5
+                // Esto crea la "explosión" amplia que se ve en el video.
                 this.parts.forEach(p => {
-                    p.mesh.position.y = p.home.y + (explodeVal * p.speed * 0.5);
+                    p.mesh.position.y = p.home.y + (explodeVal * p.speed * 3.5);
                 });
             }
         }
@@ -472,7 +468,8 @@
                 e.preventDefault();
                 controls.enableRotate = false;
                 explodeTarget += e.deltaY * 0.005;
-                explodeTarget = Math.max(0, Math.min(2, explodeTarget));
+                // CAMBIO: Aumenté el límite máximo de 2 a 5 para permitir más separación
+                explodeTarget = Math.max(0, Math.min(5, explodeTarget));
             } else {
                 controls.enableRotate = true;
             }
