@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.6.0 FINAL</title>
+    <title>ALEX ASSISTANT | V.7.0 INTERNAL</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
         /* --- ESTILOS VISUALES --- */
@@ -132,11 +132,11 @@
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>AI ASSISTANT V.6.0</h2>
+                <h2>AI ASSISTANT V.7.0</h2>
                 <h1>ALEX</h1>
                 <h1>VOICE</h1>
                 <br>
-                <p>El asistente doméstico redefinido. Diseño retro-futurista con acústica de 360 grados y acabados en polímero mate.</p>
+                <p>El asistente doméstico redefinido. Ahora con Core-AI visible y arquitectura de sonido expuesta.</p>
                 <br>
                 <a href="#" class="btn-cta">COMPRAR AHORA</a>
                 <a href="#" class="btn-cta secondary">VER SPECS</a>
@@ -157,7 +157,7 @@
                 <h2>INTERFAZ HÁPTICA</h2>
                 <h3>CABEZA SENSITIVA</h3>
                 <p>El módulo superior (The Hat) contiene los controles táctiles capacitivos y la matriz visual de 3 puntos LED.</p>
-                <p>Base reforzada en forma de botas para aislamiento de vibraciones graves.</p>
+                <p>Presiona CTRL + SCROLL para revelar el núcleo.</p>
             </div>
         </section>
 
@@ -206,9 +206,7 @@
 
         const scene = new THREE.Scene();
         
-        // --- CÁMARA Y CONTROLES (COORDENADAS EXACTAS) ---
-        // Aplicando exactamente los valores proporcionados:
-        // Cam X: -0.5, Cam Y: 3.5, Cam Z: 12.5, Target Y: 3.5
+        // --- CÁMARA (Tus coordenadas exactas conservadas) ---
         const initialCamPos = new THREE.Vector3(-0.5, 3.5, 12.5);
         const initialTargetY = 3.5;
 
@@ -221,73 +219,50 @@
         controls.enableZoom = true;
         controls.enableRotate = true;
         controls.enablePan = true;
-        
-        // Establecemos el Target (Mira) exactamente donde pediste
         controls.target.set(0, initialTargetY, 0);
 
-        // --- MATERIALES ---
-        
-        // Material Armadura (Sombrero/Botas)
+        // --- MATERIALES EXTERNOS ---
         const matArmor = new THREE.MeshStandardMaterial({ 
-            color: 0x111111, 
-            roughness: 0.6, 
-            metalness: 0.1 
+            color: 0x111111, roughness: 0.6, metalness: 0.1 
         });
 
-        // Material Cuerpo
         const matBody = new THREE.MeshStandardMaterial({ 
-            color: 0xeeeeee, 
-            roughness: 0.7, 
-            metalness: 0.0
+            color: 0xeeeeee, roughness: 0.7, metalness: 0.0
         });
 
-        // Material Acento (Banda/Botones)
         const matAccent = new THREE.MeshStandardMaterial({
-            color: 0x000000,
-            emissive: 0xFF4400,
-            emissiveIntensity: 2.0,
-            roughness: 0.2
+            color: 0x000000, emissive: 0xFF4400, emissiveIntensity: 2.0, roughness: 0.2
+        });
+
+        // --- MATERIALES INTERNOS (NUEVOS) ---
+        // Metal oscuro para el chasis
+        const matTech = new THREE.MeshStandardMaterial({ 
+            color: 0x222222, roughness: 0.3, metalness: 0.8 
+        });
+        
+        // Material brillante para el núcleo (cambiará de color con el tema)
+        const matCore = new THREE.MeshStandardMaterial({ 
+            color: 0xFFFFFF, emissive: 0xFF4400, emissiveIntensity: 3.0, wireframe: true 
         });
 
         // --- TEXTURA LOGO ---
         function createLogoTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 128;
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, 512, 128);
-            ctx.font = '900 100px "Montserrat", sans-serif';
-            ctx.fillStyle = '#111111'; 
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('ALEX', 256, 64);
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.needsUpdate = true;
+            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
+            const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 512, 128);
+            ctx.font = '900 100px "Montserrat", sans-serif'; ctx.fillStyle = '#111111'; 
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ALEX', 256, 64);
+            const texture = new THREE.CanvasTexture(canvas); texture.needsUpdate = true;
             return texture;
         }
-        
         const logoTexture = createLogoTexture();
-        const matLogo = new THREE.MeshBasicMaterial({ 
-            map: logoTexture,
-            transparent: true,
-            opacity: 1.0
-        });
+        const matLogo = new THREE.MeshBasicMaterial({ map: logoTexture, transparent: true, opacity: 1.0 });
 
         // --- ILUMINACIÓN ---
-        const ambient = new THREE.AmbientLight(0xffffff, 0.3);
-        scene.add(ambient);
+        const ambient = new THREE.AmbientLight(0xffffff, 0.3); scene.add(ambient);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.0); mainLight.position.set(5, 5, 8); mainLight.castShadow = true; scene.add(mainLight);
+        const rimLight = new THREE.SpotLight(0xffffff, 2.0); rimLight.position.set(0, 5, -10); rimLight.lookAt(0, 0, 0); scene.add(rimLight);
 
-        const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
-        mainLight.position.set(5, 5, 8);
-        mainLight.castShadow = true;
-        scene.add(mainLight);
-
-        const rimLight = new THREE.SpotLight(0xffffff, 2.0);
-        rimLight.position.set(0, 5, -10);
-        rimLight.lookAt(0, 0, 0);
-        scene.add(rimLight);
-
-        // --- ROBOT ---
+        // --- ENSAMBLAJE DEL ROBOT (CAPA POR CAPA) ---
         const robotGroup = new THREE.Group();
         scene.add(robotGroup);
         const parts = [];
@@ -301,51 +276,64 @@
             });
         }
 
-        const bootGeo = new RoundedBoxGeometry(1.4, 1.2, 1.8, 8, 0.4);
-        const bootL = new THREE.Mesh(bootGeo, matArmor);
-        bootL.position.set(-0.75, 0.6, 0); bootL.castShadow = true; bootL.receiveShadow = true;
-        addPart(bootL, -1.0); 
+        // 1. ESTRUCTURA INTERNA (Estática o poco movimiento)
+        const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 3.5, 16), matTech);
+        spine.position.y = 2.5; 
+        addPart(spine, 0.0); // La columna se queda fija
 
-        const bootR = new THREE.Mesh(bootGeo, matArmor);
-        bootR.position.set(0.75, 0.6, 0); bootR.castShadow = true; bootR.receiveShadow = true;
-        addPart(bootR, -1.0);
+        const magnet = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.6, 32), matTech);
+        magnet.position.y = 1.5;
+        addPart(magnet, 0.1); // El imán sube un poquito
+
+        const cone = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 0.4, 0.8, 32, 1, true), matTech);
+        cone.position.y = 2.2;
+        addPart(cone, 0.15);
+
+        // 2. NÚCLEO IA
+        const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 0), matCore);
+        core.position.y = 3.2;
+        const aiCore = core; // Referencia para animación
+        addPart(core, 0.2); 
+
+        // 3. PIEZAS EXTERNAS (Gran movimiento)
+        const bootGeo = new RoundedBoxGeometry(1.4, 1.2, 1.8, 8, 0.4);
+        const bootL = new THREE.Mesh(bootGeo, matArmor); bootL.position.set(-0.75, 0.6, 0); bootL.castShadow = true; bootL.receiveShadow = true;
+        addPart(bootL, -0.5); // Las botas bajan
+
+        const bootR = new THREE.Mesh(bootGeo, matArmor); bootR.position.set(0.75, 0.6, 0); bootR.castShadow = true; bootR.receiveShadow = true;
+        addPart(bootR, -0.5);
 
         const bodyRadius = 1.6;
         const bodyGeo = new THREE.CylinderGeometry(bodyRadius, bodyRadius, 3.0, 64);
         const bodyMesh = new THREE.Mesh(bodyGeo, matBody);
         bodyMesh.position.set(0, 2.7, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
-        addPart(bodyMesh, 0.2);
-
+        
         const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), matLogo);
         logoPlane.position.set(0, -0.5, bodyRadius + 0.01);
         bodyMesh.add(logoPlane);
 
-        const stripeGeo = new THREE.TorusGeometry(bodyRadius + 0.02, 0.15, 4, 64);
-        const stripeMesh = new THREE.Mesh(stripeGeo, matAccent);
-        stripeMesh.rotation.x = Math.PI / 2;
-        stripeMesh.position.set(0, 2.7, 0);
-        addPart(stripeMesh, 0.8);
+        // El cuerpo sube MUCHO (+1.5) para revelar el interior
+        addPart(bodyMesh, 1.5); 
+
+        const stripe = new THREE.Mesh(new THREE.TorusGeometry(bodyRadius + 0.02, 0.15, 4, 64), matAccent);
+        stripe.rotation.x = Math.PI / 2; stripe.position.set(0, 2.7, 0);
+        addPart(stripe, 1.5); // Sube junto con el cuerpo
 
         const headGroup = new THREE.Group();
         headGroup.position.set(0, 4.2, 0);
-        
-        const domeMesh = new THREE.Mesh(new THREE.SphereGeometry(bodyRadius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2), matArmor);
-        headGroup.add(domeMesh);
+        headGroup.add(new THREE.Mesh(new THREE.SphereGeometry(bodyRadius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2), matArmor));
+        const brim = new THREE.Mesh(new THREE.CylinderGeometry(bodyRadius + 0.4, bodyRadius, 0.1, 64), matArmor); brim.position.y = 0;
+        headGroup.add(brim);
 
-        const brimMesh = new THREE.Mesh(new THREE.CylinderGeometry(bodyRadius + 0.4, bodyRadius, 0.1, 64), matArmor);
-        brimMesh.position.y = 0;
-        headGroup.add(brimMesh);
-
-        const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
-        [-0.4, 0, 0.4].forEach(xPos => {
-            const eye = new THREE.Mesh(eyeGeo, matAccent);
-            eye.position.set(xPos, 0.6, bodyRadius - 0.15);
-            headGroup.add(eye);
+        [-0.4, 0, 0.4].forEach(x => {
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), matAccent);
+            eye.position.set(x, 0.6, bodyRadius - 0.15); headGroup.add(eye);
         });
 
-        addPart(headGroup, 2.5);
+        // La cabeza sale disparada hacia arriba (+3.0)
+        addPart(headGroup, 3.0); 
 
-        // --- LÓGICA DE TEMA (INVERSIÓN CONFIRMADA) ---
+        // --- LÓGICA DE TEMA ACTUALIZADA CON NÚCLEO ---
         function applyTheme3D(key) {
             const t = themes[key];
             bodyEl.setAttribute('data-theme', key);
@@ -356,20 +344,22 @@
             rimLight.intensity = t.rimIntensity;
 
             if (key === 'ultra') {
-                // TEMA ULTRA: Inversión solicitada
-                matBody.color.setHex(0x111111); // Cuerpo Negro
-                matArmor.color.setHex(0xFF6600); // Sombrero/Patas Naranjas
-                matAccent.emissive.setHex(0xFFFFFF); // Banda Blanca
+                // TEMA ULTRA: Inversión + Núcleo Blanco
+                matBody.color.setHex(0x111111);
+                matArmor.color.setHex(0xFF6600);
+                matAccent.emissive.setHex(0xFFFFFF);
+                matCore.emissive.setHex(0xFFFFFF); // Núcleo Blanco
                 
                 logoTexture.image.getContext('2d').fillStyle = '#EEEEEE';
                 logoTexture.image.getContext('2d').fillText('ALEX', 256, 64);
                 logoTexture.needsUpdate = true;
 
             } else {
-                // TEMA LUDOVICO: Clásico
-                matBody.color.setHex(0xEEEEEE); // Cuerpo Blanco
-                matArmor.color.setHex(0x111111); // Sombrero/Patas Negros
-                matAccent.emissive.setHex(0xFF4400); // Banda Naranja
+                // TEMA LUDOVICO: Clásico + Núcleo Naranja
+                matBody.color.setHex(0xEEEEEE);
+                matArmor.color.setHex(0x111111);
+                matAccent.emissive.setHex(0xFF4400);
+                matCore.emissive.setHex(0xFF4400); // Núcleo Naranja
                 
                 logoTexture.image.getContext('2d').fillStyle = '#111111';
                 logoTexture.image.getContext('2d').fillText('ALEX', 256, 64);
@@ -387,9 +377,7 @@
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.5, 0.4);
-        bloomPass.threshold = 0.85; 
-        bloomPass.strength = 0.4;  
-        bloomPass.radius = 0.5;
+        bloomPass.threshold = 0.85; bloomPass.strength = 0.4; bloomPass.radius = 0.5;
         composer.addPass(bloomPass);
 
         // --- ANIMACIÓN ---
@@ -398,11 +386,10 @@
 
         window.addEventListener('wheel', (e) => {
             if(e.ctrlKey || e.metaKey) {
-                controls.enableZoom = false; 
-                e.preventDefault(); 
-                e.stopPropagation();
+                controls.enableZoom = false; e.preventDefault(); e.stopPropagation();
                 explodeTarget += e.deltaY * 0.002; 
-                explodeTarget = Math.max(0, Math.min(2.0, explodeTarget));
+                // Aumento el rango de explosión a 2.5 para que se aprecie bien el interior
+                explodeTarget = Math.max(0, Math.min(2.5, explodeTarget));
             } else {
                 controls.enableZoom = true;
             }
@@ -427,15 +414,19 @@
             explodeCurrent += (explodeTarget - explodeCurrent) * 0.05;
             const time = Date.now() * 0.001;
             
-            // CORRECCIÓN FINAL DE ALTURA:
-            // Desvinculamos la posición del robot del target de la cámara.
-            // Lo dejamos fijo en Y = 1.0 (base) + flotación.
-            // Esto asegura que si tu cámara mira a Y=3.5, vea el robot tal cual lo configuraste.
+            // Flotación Base en Y=1.0
             robotGroup.position.y = (Math.sin(time) * 0.1) + 1.0; 
 
             parts.forEach(p => {
                 p.mesh.position.y = p.originalY + (p.direction * explodeCurrent);
             });
+
+            // Rotación del Núcleo IA
+            if(aiCore) {
+                aiCore.rotation.x = time * 0.5;
+                aiCore.rotation.y = time * 0.8;
+            }
+
             composer.render();
         }
 
