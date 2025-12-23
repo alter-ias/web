@@ -3,14 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX VOICE | V.2.0 LUDOVICO</title>
+    <title>ALEX ASSISTANT | PROTOTYPE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
+        /* --- ESTILOS IGUALES AL ORIGINAL --- */
         :root {
-            --bg-color: #050505;      /* Negro Absoluto */
-            --text-main: #E8E4D9;     /* Crema */
-            --accent: #FF3300;        /* Naranja Mecánica */
-            --metal: #1a1a1a;
+            --bg-color: #050505;
+            --text-main: #E8E4D9;
+            --text-sub: #888888;
+            --accent: #FF6600; /* Naranja ajustado al modelo */
+            --glass-panel: rgba(20, 20, 20, 0.8);
+            --border-color: #333;
+        }
+
+        [data-theme="ultra"] {
+            --bg-color: #FF3300;
+            --text-main: #000000;
+            --text-sub: #2a0000;
+            --accent: #FFFFFF;
+            --glass-panel: rgba(255, 60, 0, 0.8);
+            --border-color: #aa1100;
         }
 
         body {
@@ -19,78 +31,81 @@
             color: var(--text-main);
             font-family: 'Montserrat', sans-serif;
             overflow: hidden;
+            transition: background 0.5s ease, color 0.5s ease;
         }
 
-        /* --- LAYOUT --- */
+        #theme-toggle {
+            position: fixed; top: 30px; left: 10%; z-index: 100;
+            background: transparent; border: 2px solid var(--text-main); color: var(--text-main);
+            padding: 10px 20px; font-family: 'Rajdhani'; font-weight: 700; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 2px; font-size: 10px; transition: 0.3s;
+        }
+        #theme-toggle:hover { background: var(--text-main); color: var(--bg-color); }
+
         #canvas-container {
-            position: fixed; top: 0; right: 0; width: 60%; height: 100vh; z-index: 10;
-            /* Máscara de degradado para fundir el 3D con el texto */
-            mask-image: linear-gradient(to right, transparent 0%, black 30%);
-            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 30%);
+            position: fixed; top: 0; right: 0; width: 65%; height: 100vh; z-index: 10;
+            mask-image: linear-gradient(to right, transparent 0%, black 20%);
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%);
         }
 
         #content-sidebar {
-            position: relative; width: 40%; height: 100vh; overflow-y: auto; z-index: 20;
+            position: relative; width: 45%; height: 100vh; overflow-y: auto; z-index: 20;
             background: transparent; scrollbar-width: none;
         }
         #content-sidebar::-webkit-scrollbar { display: none; }
 
         section {
             min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
-            padding: 0 10% 0 15%; box-sizing: border-box;
+            padding: 0 10% 0 20%; box-sizing: border-box;
         }
 
-        /* --- UI ELEMENTS --- */
         .content-box {
-            padding: 40px 0; border-left: 6px solid var(--accent); padding-left: 30px;
-            opacity: 0; transform: translateY(40px); transition: 1s cubic-bezier(0.16, 1, 0.3, 1);
+            border-left: 4px solid var(--accent); padding-left: 30px;
+            opacity: 0; transform: translateY(30px); transition: 0.8s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .content-box.visible { opacity: 1; transform: translateY(0); }
 
         h1 {
-            font-family: 'Montserrat'; font-weight: 900; font-size: 90px; margin: 0; line-height: 0.85;
-            letter-spacing: -4px; text-transform: uppercase; color: var(--text-main);
+            font-family: 'Montserrat'; font-weight: 900; font-size: 85px; margin: 0;
+            line-height: 0.85; letter-spacing: -3px; text-transform: uppercase;
+            color: var(--text-main);
         }
         h2 {
-            font-family: 'Rajdhani'; font-weight: 700; font-size: 14px; letter-spacing: 5px;
+            font-family: 'Rajdhani'; font-weight: 700; font-size: 14px; letter-spacing: 6px;
             margin: 0 0 20px 0; color: var(--accent); text-transform: uppercase;
         }
         h3 {
-            font-family: 'Montserrat'; font-weight: 800; font-size: 36px; margin: 0 0 15px 0;
-            color: var(--text-main); line-height: 1;
+            font-family: 'Montserrat'; font-weight: 800; font-size: 32px; margin: 10px 0;
+            color: var(--text-main);
         }
         p {
             font-family: 'Rajdhani'; font-weight: 600; font-size: 18px; line-height: 1.6;
-            color: #888; margin-bottom: 30px; max-width: 420px;
+            color: var(--text-sub); margin-bottom: 25px; max-width: 420px;
         }
-
-        /* Botón de Micrófono */
-        .mic-control {
-            position: fixed; top: 30px; right: 30px; z-index: 100;
-            display: flex; align-items: center; gap: 15px;
-        }
-        #mic-btn {
-            background: transparent; border: 2px solid var(--accent); color: var(--accent);
-            padding: 10px 20px; font-family: 'Rajdhani'; font-weight: 700; cursor: pointer;
-            text-transform: uppercase; letter-spacing: 2px; transition: 0.3s;
-        }
-        #mic-btn:hover { background: var(--accent); color: #000; box-shadow: 0 0 20px var(--accent); }
-        #mic-status { font-family: 'Rajdhani'; font-weight: 700; color: var(--accent); opacity: 0; font-size: 12px;}
 
         .interaction-hint {
             position: fixed; bottom: 30px; right: 30px; z-index: 30;
             text-align: right; font-family: 'Rajdhani'; font-weight: 700; font-size: 10px;
-            color: #666; letter-spacing: 1px; pointer-events: none;
+            color: var(--text-sub); letter-spacing: 1px; pointer-events: none;
             padding: 10px; border-right: 2px solid var(--accent);
         }
 
-        /* Mobile */
+        .btn-cta {
+            padding: 15px 35px; background: var(--text-main); color: var(--bg-color);
+            border: 2px solid var(--text-main); font-family: 'Montserrat'; font-weight: 800;
+            font-size: 12px; cursor: pointer; transition: 0.3s; text-decoration: none;
+            display: inline-block; letter-spacing: 1px; margin-right: 10px; text-transform: uppercase;
+        }
+        .btn-cta:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .btn-cta.secondary { background: transparent; color: var(--text-main); }
+        .btn-cta.secondary:hover { background: var(--text-main); color: var(--bg-color); }
+
         @media (max-width: 768px) {
-            #canvas-container { width: 100%; height: 50vh; top: 0; left: 0; mask-image: none; -webkit-mask-image: none; border-bottom: 1px solid #333;}
-            #content-sidebar { width: 100%; height: 50vh; top: 50vh; }
-            section { min-height: 50vh; padding: 40px 30px; justify-content: flex-start;}
+            #canvas-container { width: 100%; height: 50vh; top: 0; right: 0; mask-image: none; border-bottom: 1px solid var(--border-color);}
+            #content-sidebar { width: 100%; height: 50vh; top: 50vh; background: var(--bg-color); }
+            section { min-height: 50vh; padding: 40px 30px; justify-content: flex-start; }
             h1 { font-size: 50px; }
-            .mic-control { top: auto; bottom: 30px; left: 30px; right: auto; }
+            #theme-toggle { top: 10px; left: 10px; padding: 5px 10px; font-size: 9px; }
         }
     </style>
     <script type="importmap">
@@ -102,273 +117,364 @@
         }
     </script>
 </head>
-<body>
+<body data-theme="ludovico">
+
+    <button id="theme-toggle">CAMBIAR TEMA: LUDOVICO</button>
 
     <div id="canvas-container"></div>
 
-    <div class="mic-control">
-        <span id="mic-status">OJO ACTIVO</span>
-        <button id="mic-btn">ACTIVAR MICRÓFONO</button>
-    </div>
-
     <div class="interaction-hint">
-        SCROLL &darr; : ROTAR<br>
-        <span style="color:var(--accent)">CTRL + SCROLL : REVELAR NÚCLEO</span><br>
-        CLICK + DRAG : ORBITAR
+        SCROLL : ROTAR MODELO<br>
+        CTRL + SCROLL : EXPLOSIÓN / DESARMADO<br>
+        DRAG : ORBITAR CAMARA
     </div>
 
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>AUDIO V.2.0</h2>
+                <h2>AI ASSISTANT V.1.0</h2>
                 <h1>ALEX</h1>
                 <h1>VOICE</h1>
                 <br>
-                <p>El monolito que escucha. Sin tela amigable. Sin curvas suaves. Solo geometría brutalista y sonido puro.</p>
+                <p>El asistente doméstico redefinido. Diseño retro-futurista con acústica de 360 grados y acabados en polímero mate.</p>
+                <br>
+                <a href="#" class="btn-cta">COMPRAR AHORA</a>
+                <a href="#" class="btn-cta secondary">VER SPECS</a>
             </div>
         </section>
 
-        <section id="sec-core">
+        <section id="sec-design">
             <div class="content-box">
-                <h2>ARQUITECTURA INTERNA</h2>
-                <h3>EL CEREBRO DE CRISTAL</h3>
-                <p>Alex no es solo un altavoz. En su interior flota un núcleo de procesamiento fotónico.</p>
-                <p>Mantén <span style="color:var(--accent); font-weight:bold;">CTRL</span> y usa el scroll para abrir el chasis y ver el corazón del sistema.</p>
+                <h2>INGENIERÍA ACÚSTICA</h2>
+                <h3>TEJIDO SONORO</h3>
+                <p>El cuerpo cilíndrico está recubierto de una malla textil acústica blanca de alta densidad que oculta los arrays de micrófonos omnidireccionales.</p>
+                <p>El anillo central de <span style="color:var(--accent); font-weight:bold;">Estado Naranja</span> indica actividad neuronal.</p>
             </div>
         </section>
 
-        <section id="sec-eye">
+        <section id="sec-tech">
             <div class="content-box">
-                <h2>INTERFAZ VISUAL</h2>
-                <h3>IRIS REACTIVO</h3>
-                <p>El ojo central responde en tiempo real a las frecuencias de tu voz y la música.</p>
-                <p>Cuando te mira en rojo oscuro, está esperando. Cuando brilla en naranja, está ejecutando.</p>
+                <h2>INTERFAZ HÁPTICA</h2>
+                <h3>CABEZA SENSITIVA</h3>
+                <p>El módulo superior (The Hat) contiene los controles táctiles capacitivos y la matriz visual de 3 puntos LED.</p>
+                <p>Base reforzada en forma de botas para aislamiento de vibraciones graves.</p>
             </div>
         </section>
-        
+
         <div style="height: 20vh;"></div>
     </div>
 
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- AUDIO ---
-        let audioCtx, analyser, dataArray;
-        let isMicActive = false;
-        let audioLevels = { bass: 0, mid: 0, high: 0 };
+        // --- GESTIÓN DE TEMAS ---
+        const themes = {
+            ludovico: { 
+                label: "LUDOVICO (DARK)",
+                bg: 0x050505,
+                fogDensity: 0.02,
+                lightIntensity: 1.0,
+                accentColor: 0xFF4400 
+            },
+            ultra: { 
+                label: "ULTRAVIOLENCIA",
+                bg: 0xFF3300,
+                fogDensity: 0.015,
+                lightIntensity: 1.5,
+                accentColor: 0xFFFFFF 
+            }
+        };
 
-        document.getElementById('mic-btn').addEventListener('click', async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioCtx.createAnalyser();
-                analyser.fftSize = 512;
-                analyser.smoothingTimeConstant = 0.5;
-                const src = audioCtx.createMediaStreamSource(stream);
-                src.connect(analyser);
-                dataArray = new Uint8Array(analyser.frequencyBinCount);
-                isMicActive = true;
-                document.getElementById('mic-btn').style.display = 'none';
-                document.getElementById('mic-status').style.opacity = 1;
-            } catch(e) { console.error(e); alert("Micrófono necesario para efectos visuales."); }
-        });
+        let currentThemeKey = 'ludovico';
+        const toggleBtn = document.getElementById('theme-toggle');
+        const bodyEl = document.body;
 
-        function updateAudio() {
-            if(!isMicActive) return;
-            analyser.getByteFrequencyData(dataArray);
-            let b=0, m=0, h=0;
-            for(let i=0; i<10; i++) b+=dataArray[i];
-            for(let i=10; i<50; i++) m+=dataArray[i];
-            for(let i=50; i<150; i++) h+=dataArray[i];
-            audioLevels.bass = Math.pow(b/10/255, 3) * 5.0; // Snappy
-            audioLevels.mid = Math.pow(m/40/255, 3) * 5.0;
-            audioLevels.high = Math.pow(h/100/255, 3) * 5.0;
-        }
-
-        // --- SCROLL UI ---
-        const sidebar = document.getElementById('content-sidebar');
-        const sections = document.querySelectorAll('section');
-        sidebar.addEventListener('scroll', () => {
-            sections.forEach(sec => {
-                const r = sec.getBoundingClientRect();
-                if(r.top < window.innerHeight * 0.6) sec.querySelector('.content-box').classList.add('visible');
-            });
-        });
-
-        // --- 3D SCENE ---
+        // --- ESCENA 3D ---
         const container = document.getElementById('canvas-container');
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 1.0;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050505);
-        scene.fog = new THREE.FogExp2(0x050505, 0.02);
-
-        const camera = new THREE.PerspectiveCamera(35, container.clientWidth/container.clientHeight, 0.1, 100);
-        camera.position.set(15, 12, 15);
+        const camera = new THREE.PerspectiveCamera(30, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(0, 4, 14); // Cámara frontal pero un poco elevada
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true; 
-        controls.enableZoom = false; // Zoom controlado por lógica de explosión
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enableZoom = false;
+        // Limitamos el ángulo vertical para que no se vea feo desde abajo
+        controls.maxPolarAngle = Math.PI / 1.4;
 
-        // --- POST PROCESSING ---
-        const composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
-        const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.5, 0.9);
-        composer.addPass(bloom);
-
-        // --- LIGHTS ---
-        const ambient = new THREE.AmbientLight(0xffffff, 0.1); scene.add(ambient);
-        const spot = new THREE.SpotLight(0xffffff, 20);
-        spot.position.set(10, 20, 10); spot.angle = 0.5; spot.penumbra = 0.5;
-        scene.add(spot);
-        const rim = new THREE.SpotLight(0xFF3300, 10); // Naranja rim
-        rim.position.set(-10, 10, -10);
-        scene.add(rim);
-
-        // --- MODELING ALEX VOICE V2 ---
-        const group = new THREE.Group(); scene.add(group);
-        const upperPart = new THREE.Group(); group.add(upperPart); // Parte que se eleva
-        const corePart = new THREE.Group(); group.add(corePart);   // El núcleo interno
-
-        // Materiales Ludovico
-        const matBody = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4, metalness: 0.8 }); // Metal negro
-        const matGrill = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.9, metalness: 0.5, wireframe: false });
-        const matCore = new THREE.MeshPhysicalMaterial({ color: 0xFFFFFF, transmission: 0.9, opacity: 1, roughness: 0.0, ior: 1.5, thickness: 2.0 }); // Cristal
-        const matGlow = new THREE.MeshBasicMaterial({ color: 0xFF3300 });
-
-        // 1. BASE (Estática)
-        // CylinderGeometry(radiusTop, radiusBottom, height, radialSegments)
-        // Usamos 4 segmentos para hacer un obelisco cuadrado (pirámide truncada)
-        const baseGeo = new THREE.CylinderGeometry(2.2, 2.2, 3, 4);
-        baseGeo.rotateY(Math.PI/4); // Alinear caras
-        const base = new THREE.Mesh(baseGeo, matGrill);
-        base.position.y = 1.5;
-        group.add(base);
-
-        // 2. CUERPO SUPERIOR (Móvil)
-        const bodyGeo = new THREE.CylinderGeometry(2.0, 2.2, 8, 4);
-        bodyGeo.rotateY(Math.PI/4);
-        const body = new THREE.Mesh(bodyGeo, matBody);
-        body.position.y = 4; // Centro relativo al grupo upperPart (que moveremos)
-        upperPart.add(body);
-        upperPart.position.y = 3; // Posición inicial sobre la base
-
-        // 3. EL OJO (En el cuerpo superior)
-        const eyeGeo = new THREE.CircleGeometry(0.8, 32);
-        
-        // Shader para el ojo (Mismo concepto, colores ajustados)
-        const eyeUniforms = { uTime: {value:0}, uBass: {value:0}, uHigh: {value:0} };
-        const eyeMat = new THREE.ShaderMaterial({
-            uniforms: eyeUniforms,
-            vertexShader: `varying vec2 vUv; void main(){vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-            fragmentShader: `
-                uniform float uTime; uniform float uBass; uniform float uHigh;
-                varying vec2 vUv;
-                void main(){
-                    vec2 p = vUv - 0.5; float r = length(p);
-                    // Estado inactivo (rojo oscuro)
-                    vec3 col = vec3(0.2, 0.0, 0.0) * (1.0-smoothstep(0.0, 0.5, r));
-                    // Actividad (Naranja Brillante)
-                    float ring = sin(r*20.0 - uTime*5.0 + uBass*5.0);
-                    vec3 active = vec3(1.0, 0.2, 0.0) * smoothstep(0.2, 0.5, ring) * (uBass+0.2);
-                    // Ruido radial (Altos)
-                    float rays = sin(atan(p.y,p.x)*20.0 + uTime*10.0) * uHigh;
-                    col += active + vec3(1.0, 0.5, 0.0)*rays;
-                    if(r>0.5) discard; // Corte circular perfecto
-                    gl_FragColor = vec4(col, 1.0);
-                }
-            `,
-            toneMapped: false
+        // --- MATERIALES ---
+        // Material negro mate para el sombrero y las botas
+        const matBlackPlastic = new THREE.MeshStandardMaterial({ 
+            color: 0x111111, 
+            roughness: 0.4, 
+            metalness: 0.1 
         });
-        const eye = new THREE.Mesh(eyeGeo, eyeMat);
-        eye.position.set(0, 5, 1.82); // Pegado al frente
-        upperPart.add(eye);
 
-        // 4. EL NÚCLEO (Visible al explotar)
-        const coreGeo = new THREE.IcosahedronGeometry(1.0, 0);
-        const core = new THREE.Mesh(coreGeo, matCore);
-        core.position.y = 4.5; // Centro interno
-        corePart.add(core);
-        
-        // Anillos de datos alrededor del núcleo
-        const ringGeo = new THREE.TorusGeometry(1.5, 0.02, 16, 64);
-        const ring1 = new THREE.Mesh(ringGeo, matGlow); ring1.rotation.x = Math.PI/2;
-        const ring2 = new THREE.Mesh(ringGeo, matGlow); ring2.rotation.x = Math.PI/2; ring2.rotation.y = 0.5;
-        ring1.position.y = 4.5; ring2.position.y = 4.5;
-        corePart.add(ring1); corePart.add(ring2);
-        
-        // El núcleo empieza oculto (escala 0)
-        corePart.scale.set(0,0,0);
+        // Material blanco rugoso para el cuerpo (tela)
+        const matWhiteFabric = new THREE.MeshStandardMaterial({ 
+            color: 0xeeeeee, 
+            roughness: 0.9, 
+            metalness: 0.0,
+            bumpScale: 0.02
+        });
+        // Creamos una textura de ruido procedural simple para simular tela si es posible, 
+        // pero por simplicidad usaremos alta rugosidad.
 
-        // --- INTERACTION ---
+        // Material Naranja Brillante (Stripe y luces)
+        const matAccent = new THREE.MeshStandardMaterial({
+            color: 0xFF4400,
+            emissive: 0xFF2200,
+            emissiveIntensity: 0.8,
+            roughness: 0.2
+        });
+
+        // Material LED (para los ojos)
+        const matLed = new THREE.MeshBasicMaterial({ color: 0xFF6600 });
+
+        // --- ILUMINACIÓN ---
+        const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambient);
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        mainLight.position.set(5, 5, 5);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 1024;
+        mainLight.shadow.mapSize.height = 1024;
+        scene.add(mainLight);
+
+        const fillLight = new THREE.SpotLight(0xffffff, 0.5);
+        fillLight.position.set(-5, 2, 5);
+        scene.add(fillLight);
+
+        const backLight = new THREE.SpotLight(0x4444ff, 1.0);
+        backLight.position.set(0, 5, -10);
+        scene.add(backLight);
+
+        // --- CONSTRUCCIÓN DEL ROBOT (ALEX) ---
+        const robotGroup = new THREE.Group();
+        scene.add(robotGroup);
+
+        const parts = []; // Array para guardar las partes y sus vectores de explosión
+
+        function addPart(mesh, explodeDirection) {
+            robotGroup.add(mesh);
+            parts.push({
+                mesh: mesh,
+                originalY: mesh.position.y, // Solo nos interesa mover en Y verticalmente
+                direction: explodeDirection, // Multiplicador de fuerza
+                speed: 1.0
+            });
+        }
+
+        // 1. LAS BOTAS (FEET)
+        const bootGeo = new RoundedBoxGeometry(1.4, 1.2, 1.8, 8, 0.4);
+        
+        const bootL = new THREE.Mesh(bootGeo, matBlackPlastic);
+        bootL.position.set(-0.75, 0.6, 0); // Ligeramente a la izquierda
+        bootL.castShadow = true; bootL.receiveShadow = true;
+        // Dirección de explosión: Hacia abajo (-1)
+        addPart(bootL, -1.0); 
+
+        const bootR = new THREE.Mesh(bootGeo, matBlackPlastic);
+        bootR.position.set(0.75, 0.6, 0); // Ligeramente a la derecha
+        bootR.castShadow = true; bootR.receiveShadow = true;
+        addPart(bootR, -1.0);
+
+        // 2. EL CUERPO (CILINDRO BLANCO)
+        // Altura aprox 3 unidades
+        const bodyHeight = 3.0;
+        const bodyRadius = 1.6;
+        const bodyGeo = new THREE.CylinderGeometry(bodyRadius, bodyRadius, bodyHeight, 64);
+        const bodyMesh = new THREE.Mesh(bodyGeo, matWhiteFabric);
+        bodyMesh.position.set(0, 2.7, 0); // Encima de las botas
+        bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
+        // Dirección explosión: Se queda quieto o sube muy poco (0.2)
+        addPart(bodyMesh, 0.2);
+
+        // LOGO "ALEX" (Simulado con geometría simple negra)
+        const logoGeo = new THREE.PlaneGeometry(1.0, 0.3);
+        const logoMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+        const logoMesh = new THREE.Mesh(logoGeo, logoMat);
+        logoMesh.position.set(0, -0.8, bodyRadius + 0.01); // Pegado al frente del cuerpo
+        bodyMesh.add(logoMesh); // Hijo del cuerpo para que se mueva con él
+
+        // 3. LA FRANJA NARANJA (STRIPE)
+        const stripeGeo = new THREE.TorusGeometry(bodyRadius + 0.02, 0.15, 4, 64);
+        const stripeMesh = new THREE.Mesh(stripeGeo, matAccent);
+        stripeMesh.rotation.x = Math.PI / 2;
+        stripeMesh.position.set(0, 2.7, 0); // En el centro del cuerpo
+        // Dirección explosión: Sube un poco más que el cuerpo para separarse (1.0)
+        addPart(stripeMesh, 0.8);
+
+        // 4. LA CABEZA (SOMBRERO)
+        // Usamos una esfera cortada a la mitad + un borde
+        const headGroup = new THREE.Group();
+        headGroup.position.set(0, 4.2, 0); // Arriba del cuerpo
+        
+        // Domo
+        const domeGeo = new THREE.SphereGeometry(bodyRadius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+        const domeMesh = new THREE.Mesh(domeGeo, matBlackPlastic);
+        headGroup.add(domeMesh);
+
+        // Ala del sombrero (Brim)
+        const brimGeo = new THREE.CylinderGeometry(bodyRadius + 0.4, bodyRadius, 0.1, 64);
+        const brimMesh = new THREE.Mesh(brimGeo, matBlackPlastic);
+        brimMesh.position.y = 0; // Base del domo
+        headGroup.add(brimMesh);
+
+        // Ojos (3 Puntos Naranjas)
+        const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
+        const eyePositions = [-0.4, 0, 0.4];
+        
+        eyePositions.forEach(xPos => {
+            const eye = new THREE.Mesh(eyeGeo, matLed);
+            // Posicionarlos en la superficie de la esfera
+            // Un poco de trig para ponerlos al frente
+            eye.position.set(xPos, 0.6, bodyRadius - 0.15);
+            headGroup.add(eye);
+        });
+
+        // Orificios de micrófono (detalles)
+        const micGeo = new THREE.CircleGeometry(0.03, 8);
+        const micMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 1 });
+        for(let i=0; i<5; i++){
+            const mic = new THREE.Mesh(micGeo, micMat);
+            mic.position.set((i-2)*0.15, 0.3, bodyRadius - 0.05);
+            mic.lookAt(0, 10, 20); // Orientar ligeramente
+            headGroup.add(mic);
+        }
+
+        // Dirección explosión: Cabeza sube mucho (2.5)
+        addPart(headGroup, 2.5);
+
+
+        // --- LOGICA DE TEMA ---
+        function applyTheme3D(key) {
+            const t = themes[key];
+            bodyEl.setAttribute('data-theme', key);
+            toggleBtn.innerText = "CAMBIAR TEMA: " + t.label;
+            
+            scene.background = new THREE.Color(t.bg);
+            scene.fog = new THREE.FogExp2(t.bg, t.fogDensity);
+
+            // Cambiar color de acento
+            matAccent.color.setHex(t.accentColor);
+            matAccent.emissive.setHex(key === 'ultra' ? 0xaaaaaa : 0xFF2200);
+            matLed.color.setHex(t.accentColor);
+        }
+
+        applyTheme3D(currentThemeKey);
+
+        toggleBtn.addEventListener('click', () => {
+            currentThemeKey = (currentThemeKey === 'ludovico') ? 'ultra' : 'ludovico';
+            applyTheme3D(currentThemeKey);
+        });
+
+
+        // --- POST PROCESSING (BLOOM) ---
+        const composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.5, 0.4);
+        bloomPass.threshold = 0.2;
+        bloomPass.strength = 0.8; 
+        bloomPass.radius = 0.5;
+        composer.addPass(bloomPass);
+
+
+        // --- INTERACCIÓN Y SCROLL ---
+        const sidebar = document.getElementById('content-sidebar');
+        const contentBoxes = document.querySelectorAll('.content-box');
+        
+        // 1. Mostrar contenido al hacer scroll en el sidebar
+        sidebar.addEventListener('scroll', () => {
+            contentBoxes.forEach(box => {
+                const rect = box.getBoundingClientRect();
+                if(rect.top < window.innerHeight * 0.7) box.classList.add('visible');
+            });
+        });
+
+        // 2. Controlar Modelo con Scroll y Ctrl
         let explodeTarget = 0;
         let explodeCurrent = 0;
+        let rotationTargetY = 0;
 
         window.addEventListener('wheel', (e) => {
             if(e.ctrlKey || e.metaKey) {
-                e.preventDefault();
-                controls.enableRotate = false;
-                explodeTarget += e.deltaY * 0.005;
-                explodeTarget = Math.max(0, Math.min(1, explodeTarget));
+                // MODO EXPLOSIÓN
+                e.preventDefault(); // Evitar zoom del navegador
+                
+                // Sensibilidad
+                explodeTarget += e.deltaY * 0.002; 
+                // Limitar rango de 0 (armado) a 2 (desarmado)
+                explodeTarget = Math.max(0, Math.min(2.0, explodeTarget));
+
             } else {
-                controls.enableRotate = true;
+                // MODO ROTACIÓN (Scroll normal)
+                // Rotamos el grupo entero del robot
+                rotationTargetY += e.deltaY * 0.002;
             }
-        }, {passive:false});
+        }, { passive: false });
 
-        window.addEventListener('keyup', (e) => {
-            if(e.key==='Control' || e.key==='Meta') controls.enableRotate = true;
-        });
 
-        // --- ANIMATION LOOP ---
+        // --- LOOP DE ANIMACIÓN ---
         function animate() {
             requestAnimationFrame(animate);
-            const t = performance.now()*0.001;
-            updateAudio();
-
-            // Shader update
-            eyeUniforms.uTime.value = t;
-            eyeUniforms.uBass.value += (audioLevels.bass - eyeUniforms.uBass.value)*0.2;
-            eyeUniforms.uHigh.value += (audioLevels.high - eyeUniforms.uHigh.value)*0.2;
-
-            // Explosion Animation Logic
-            explodeCurrent += (explodeTarget - explodeCurrent) * 0.1;
-
-            // 1. Levantar carcasa superior
-            upperPart.position.y = 3 + explodeCurrent * 4.0; // Sube 4 unidades
             
-            // 2. Aparecer Núcleo
-            const coreScale = Math.min(1, explodeCurrent * 2.0); // Aparece rápido
-            corePart.scale.set(coreScale, coreScale, coreScale);
-            
-            // 3. Animar Núcleo
-            core.rotation.y = t;
-            core.rotation.z = t * 0.5;
-            ring1.rotation.z = -t;
-            ring2.rotation.x = Math.PI/2 + Math.sin(t)*0.2;
-
-            // Rotación general suave
-            group.rotation.y = Math.sin(t*0.1) * 0.2;
-
             controls.update();
+
+            // Interpolación suave (Lerp) para la explosión
+            explodeCurrent += (explodeTarget - explodeCurrent) * 0.05;
+
+            // Interpolación suave para la rotación con scroll
+            robotGroup.rotation.y += (rotationTargetY - robotGroup.rotation.y) * 0.05;
+            
+            // Animación flotante suave idle
+            const time = Date.now() * 0.001;
+            robotGroup.position.y = Math.sin(time) * 0.1 - 1; // Un leve "respiro" vertical
+
+            // APLICAR EXPLOSIÓN A LAS PARTES
+            parts.forEach(p => {
+                // Calculamos nueva posición Y
+                // Posición original + (Factor de explosión * Dirección específica de la parte)
+                const offsetY = p.direction * explodeCurrent;
+                p.mesh.position.y = p.originalY + offsetY;
+                
+                // Opcional: Rotar ligeramente las partes al explotar para efecto dramático
+                if (p.direction > 1) { // Si es la cabeza
+                    p.mesh.rotation.z = explodeCurrent * 0.1; 
+                }
+            });
+
+            // Renderizar con Bloom
             composer.render();
         }
 
-        window.addEventListener('resize', ()=>{
-            const w=container.clientWidth, h=container.clientHeight;
-            camera.aspect=w/h; camera.updateProjectionMatrix();
-            renderer.setSize(w,h); composer.setSize(w,h);
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            composer.setSize(container.clientWidth, container.clientHeight);
         });
 
         animate();
+
     </script>
 </body>
 </html>
