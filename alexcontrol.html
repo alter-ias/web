@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX CONTROL | V.2.0</title>
+    <title>ALEX CONTROL | V.2.1</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
         /* --- VARIABLES DE TEMA --- */
@@ -11,13 +11,13 @@
             --bg-color: #050505;
             --text-main: #E8E4D9;
             --text-sub: #888888;
-            /* CAMBIO: Naranja más profundo para evitar que parezca amarillo */
-            --accent: #FF4500; 
+            /* AJUSTE: Naranja visual en CSS */
+            --accent: #FF3300; 
             --glass-panel: rgba(20, 20, 20, 0.8);
             --border-color: #333;
         }
 
-        /* TEMA ULTRAVIOLENCIA (NARANJA) */
+        /* TEMA ULTRAVIOLENCIA */
         [data-theme="ultra"] {
             --bg-color: #FF3300;
             --text-main: #000000;
@@ -130,14 +130,14 @@
 
     <div class="interaction-hint">
         SCROLL &darr; : ROTAR<br>
-        CTRL + SCROLL : EXPLOSIÓN<br>
+        CTRL + SCROLL : EXPLOSIÓN 3D<br>
         DRAG : ORBITAR
     </div>
 
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>HARDWARE V.2.0</h2>
+                <h2>HARDWARE V.2.1</h2>
                 <h1>ALEX</h1>
                 <h1>CONTROL</h1>
                 <br>
@@ -186,8 +186,10 @@
                 chassis: 0x151515,
                 plate: 0x000000,
                 details: 0x333333,
-                // CAMBIO: #FF4500 (OrangeRed) en lugar de #FF3300 para que se vea naranja y no amarillo
-                led: 0xFF4500, 
+                // CORRECCIÓN COLOR: Usamos un rojo-naranja profundo (#FF2200). 
+                // Al sumarse con la luz, se verá NARANJA PURO, no amarillo.
+                led: 0xFF2200, 
+                ledIntensity: 1.5, // Intensidad controlada
                 fogDensity: 0.03
             },
             ultra: { 
@@ -196,7 +198,8 @@
                 chassis: 0x101010,
                 plate: 0x000000,
                 details: 0x440000,
-                led: 0xFFFFFF, // BLANCO
+                led: 0xFFFFFF, // Blanco
+                ledIntensity: 2.0,
                 fogDensity: 0.015
             }
         };
@@ -211,7 +214,7 @@
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0;
+        renderer.toneMappingExposure = 0.9; // Ligera reducción de exposición para saturar colores
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
@@ -229,8 +232,7 @@
         const matChassis = new THREE.MeshStandardMaterial({ roughness: 0.4, metalness: 0.2 });
         const matPlate = new THREE.MeshStandardMaterial({ roughness: 0.2, metalness: 0.5 });
         const matDetail = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.1 });
-        // CAMBIO: EmissiveIntensity bajado de 3.0 a 2.0 para conservar el color naranja bajo el Bloom
-        const matLed = new THREE.MeshStandardMaterial({ emissiveIntensity: 2.0, toneMapped: false });
+        const matLed = new THREE.MeshStandardMaterial({ toneMapped: false }); // Config dinámica
         const matGlass = new THREE.MeshPhysicalMaterial({ color: 0x000000, roughness: 0.1, transmission: 0.0, clearcoat: 1.0 });
 
         function applyTheme3D(key) {
@@ -247,6 +249,7 @@
             
             matLed.color.setHex(t.led);
             matLed.emissive.setHex(t.led);
+            matLed.emissiveIntensity = t.ledIntensity;
         }
 
         applyTheme3D(currentThemeKey);
@@ -297,6 +300,7 @@
 
             addToParts(mesh, speed = 1.0) {
                 this.group.add(mesh);
+                // Guardamos posición local original
                 this.parts.push({ mesh: mesh, home: mesh.position.clone(), speed: speed });
             }
 
@@ -419,10 +423,15 @@
             }
 
             update(explodeVal) {
-                // CAMBIO IMPORTANTE: Aumenté el multiplicador de 0.5 a 3.5
-                // Esto crea la "explosión" amplia que se ve en el video.
                 this.parts.forEach(p => {
-                    p.mesh.position.y = p.home.y + (explodeVal * p.speed * 3.5);
+                    // 1. Desplazamiento VERTICAL (Y) aumentado
+                    p.mesh.position.y = p.home.y + (explodeVal * p.speed * 4.0);
+
+                    // 2. CORRECCIÓN: Desplazamiento HORIZONTAL (X y Z)
+                    // Las piezas se alejan del centro (0,0) de su módulo local.
+                    // Multiplicamos su posición X/Z original por el valor de explosión.
+                    p.mesh.position.x = p.home.x + (p.home.x * explodeVal * 1.5);
+                    p.mesh.position.z = p.home.z + (p.home.z * explodeVal * 1.5);
                 });
             }
         }
@@ -443,7 +452,8 @@
         // --- POST PROCESSING ---
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 0.85);
+        // Ajustamos el umbral (0.5) para que solo brillen los LEDs y no todo el metal
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 0.5);
         composer.addPass(bloomPass);
 
         // --- INTERACTION ---
@@ -468,7 +478,6 @@
                 e.preventDefault();
                 controls.enableRotate = false;
                 explodeTarget += e.deltaY * 0.005;
-                // CAMBIO: Aumenté el límite máximo de 2 a 5 para permitir más separación
                 explodeTarget = Math.max(0, Math.min(5, explodeTarget));
             } else {
                 controls.enableRotate = true;
