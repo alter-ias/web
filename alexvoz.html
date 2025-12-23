@@ -3,25 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX | CINEMATIC RENDER</title>
-    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;900&display=swap" rel="stylesheet">
+    <title>ALEX ASSISTANT | V.3.0 PERFECT CONTRAST</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
+        /* --- VARIABLES DE COLOR AJUSTADAS PARA ALTO CONTRASTE --- */
         :root {
-            /* Colores base dinámicos */
-            --bg-color: #050505; 
-            --text-main: #FFFFFF;
-            --text-sub: #888888;
-            --accent: #FF4400; 
-            --ui-border: rgba(255,255,255,0.2);
+            /* Tema Dark: Fondo casi negro absoluto para que resalte la Rim Light */
+            --bg-color: #020202; 
+            --text-main: #F0F0F0;
+            --text-sub: #999999;
+            --accent: #FF5500; 
+            --border-color: #333;
         }
 
-        /* TEMA ULTRAVIOLENCE (Sobrescribe variables) */
         [data-theme="ultra"] {
-            --bg-color: #2a0000; /* Rojo muy oscuro, casi negro */
-            --text-main: #FFEEEE;
-            --text-sub: #ff9999;
-            --accent: #FF0000;
-            --ui-border: rgba(255,100,100,0.3);
+            /* Tema Ultra: Rojo profundo y oscuro, NO naranja brillante. 
+               Esto permite que el blanco del robot resalte. */
+            --bg-color: #8a0e00; 
+            --text-main: #FFFFFF;
+            --text-sub: #ffcccc;
+            --accent: #000000;
+            --border-color: #aa1100;
         }
 
         body {
@@ -30,61 +32,76 @@
             color: var(--text-main);
             font-family: 'Montserrat', sans-serif;
             overflow: hidden;
-            transition: background 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transition: background 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
-        /* --- UI LAYER --- */
-        #ui-layer {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; /* Dejar pasar clicks al canvas */
-            z-index: 20;
-            padding: 40px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+        #theme-toggle {
+            position: fixed; top: 30px; left: 10%; z-index: 100;
+            background: transparent; border: 2px solid var(--text-main); color: var(--text-main);
+            padding: 10px 20px; font-family: 'Rajdhani'; font-weight: 700; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 2px; font-size: 10px; transition: 0.3s;
         }
+        #theme-toggle:hover { background: var(--text-main); color: var(--bg-color); }
 
-        /* Header */
-        .header {
-            display: flex; justify-content: space-between; align-items: flex-start;
-        }
-        .brand {
-            font-family: 'Rajdhani'; font-weight: 700; font-size: 24px; letter-spacing: 4px;
-            border-bottom: 2px solid var(--accent); padding-bottom: 5px;
-        }
-
-        #theme-btn {
-            pointer-events: auto;
-            background: transparent; border: 1px solid var(--ui-border);
-            color: var(--text-sub); padding: 10px 20px;
-            font-family: 'Rajdhani'; letter-spacing: 2px; text-transform: uppercase;
-            font-weight: 700; cursor: pointer; transition: 0.3s;
-            font-size: 12px;
-        }
-        #theme-btn:hover { background: var(--text-main); color: var(--bg-color); }
-
-        /* Footer Info */
-        .controls-info {
-            text-align: right;
-            font-family: 'Rajdhani'; font-size: 12px; color: var(--text-sub);
-            letter-spacing: 1px; line-height: 1.5;
-        }
-        .controls-info span { color: var(--accent); font-weight: 700; }
-
-        /* Canvas Container */
         #canvas-container {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 10;
+            position: fixed; top: 0; right: 0; width: 65%; height: 100vh; z-index: 10;
+            /* Máscara ajustada para que el modelo no se corte feo */
+            mask-image: linear-gradient(to right, transparent 0%, black 15%);
+            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 15%);
         }
 
-        /* Loading */
-        #loader {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-family: 'Rajdhani'; font-size: 14px; letter-spacing: 3px;
-            color: var(--text-sub); z-index: 100; pointer-events: none;
-            transition: opacity 0.5s;
+        #content-sidebar {
+            position: relative; width: 45%; height: 100vh; overflow-y: auto; z-index: 20;
+            background: transparent; scrollbar-width: none;
+        }
+        #content-sidebar::-webkit-scrollbar { display: none; }
+
+        section {
+            min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
+            padding: 0 10% 0 20%; box-sizing: border-box;
         }
 
+        .content-box {
+            border-left: 4px solid var(--accent); padding-left: 30px;
+            opacity: 0; transform: translateY(30px); transition: 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .content-box.visible { opacity: 1; transform: translateY(0); }
+
+        h1 {
+            font-family: 'Montserrat'; font-weight: 900; font-size: 85px; margin: 0;
+            line-height: 0.85; letter-spacing: -3px; text-transform: uppercase;
+            color: var(--text-main);
+        }
+        h2 {
+            font-family: 'Rajdhani'; font-weight: 700; font-size: 14px; letter-spacing: 6px;
+            margin: 0 0 20px 0; color: var(--accent); text-transform: uppercase;
+        }
+        p {
+            font-family: 'Rajdhani'; font-weight: 600; font-size: 18px; line-height: 1.6;
+            color: var(--text-sub); margin-bottom: 25px; max-width: 420px;
+        }
+
+        .interaction-hint {
+            position: fixed; bottom: 30px; right: 30px; z-index: 30;
+            text-align: right; font-family: 'Rajdhani'; font-weight: 700; font-size: 10px;
+            color: var(--text-sub); letter-spacing: 1px; pointer-events: none;
+            padding: 10px; border-right: 2px solid var(--accent);
+        }
+
+        .btn-cta {
+            padding: 15px 35px; background: var(--text-main); color: var(--bg-color);
+            border: 2px solid var(--text-main); font-family: 'Montserrat'; font-weight: 800;
+            font-size: 12px; cursor: pointer; transition: 0.3s; text-decoration: none;
+            display: inline-block; letter-spacing: 1px; margin-right: 10px; text-transform: uppercase;
+        }
+        .btn-cta:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .btn-cta.secondary { background: transparent; color: var(--text-main); }
+        .btn-cta.secondary:hover { background: var(--text-main); color: var(--bg-color); }
+
+        @media (max-width: 768px) {
+            #canvas-container { width: 100%; height: 50vh; top: 0; right: 0; mask-image: none;}
+            #content-sidebar { width: 100%; height: 50vh; top: 50vh; background: var(--bg-color); }
+        }
     </style>
     <script type="importmap">
         {
@@ -97,23 +114,48 @@
 </head>
 <body data-theme="ludovico">
 
-    <div id="loader">CARGANDO MODELO NEURAL...</div>
-
-    <div id="ui-layer">
-        <div class="header">
-            <div class="brand">ALEX V.3.0</div>
-            <button id="theme-btn">MODO: LUDOVICO</button>
-        </div>
-
-        <div class="controls-info">
-            MODELO DE REFERENCIA CINEMÁTICA<br>
-            <span>SCROLL</span> : ZOOM ÓPTICO<br>
-            <span>CTRL + SCROLL</span> : VISTA DE DESPIECE<br>
-            <span>DRAG</span> : ORBITAR
-        </div>
-    </div>
+    <button id="theme-toggle">CAMBIAR TEMA: LUDOVICO</button>
 
     <div id="canvas-container"></div>
+
+    <div class="interaction-hint">
+        SCROLL : ZOOM (ACERCAR/ALEJAR)<br>
+        CTRL + SCROLL : DESPIECE (EXPLOSIÓN)<br>
+        CLICK IZQ : ROTAR | CLICK DER : MOVER
+    </div>
+
+    <div id="content-sidebar">
+        <section id="sec-intro">
+            <div class="content-box visible">
+                <h2>AI ASSISTANT V.3.0</h2>
+                <h1>ALEX</h1>
+                <h1>VOICE</h1>
+                <br>
+                <p>Ingeniería de contraste. Polímeros de alta densidad optimizados para visibilidad en cualquier entorno lumínico. Control de precisión.</p>
+                <br>
+                <a href="#" class="btn-cta">COMPRAR AHORA</a>
+                <a href="#" class="btn-cta secondary">VER SPECS</a>
+            </div>
+        </section>
+
+        <section id="sec-design">
+            <div class="content-box">
+                <h2>MATERIALES</h2>
+                <h3>ACABADO SATINADO</h3>
+                <p>El cuerpo refleja la luz ambiental sin saturarse. Las piezas mecánicas negras absorben el 98% de la luz para un contraste puro.</p>
+                <p>Anillo de estado: <span style="color:var(--accent); font-weight:bold;">Neon Core</span>.</p>
+            </div>
+        </section>
+
+        <section id="sec-tech">
+            <div class="content-box">
+                <h2>INTERFAZ</h2>
+                <h3>NAVEGACIÓN DUAL</h3>
+                <p>Usa el scroll para examinar los detalles. Mantén Control presionado para revelar la arquitectura interna.</p>
+            </div>
+        </section>
+        <div style="height: 20vh;"></div>
+    </div>
 
     <script type="module">
         import * as THREE from 'three';
@@ -123,326 +165,263 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- CONFIGURACIÓN DE ESCENA ---
+        // --- GESTIÓN DE TEMAS (COLORES CORREGIDOS) ---
+        const themes = {
+            ludovico: { 
+                label: "LUDOVICO (DARK)",
+                bg: 0x020202, // Negro casi puro
+                fogDensity: 0.02,
+                rimLightIntensity: 3.5, // Luz de borde muy fuerte para silueta
+                mainLightColor: 0xffffff,
+                accentColor: 0xFF5500 
+            },
+            ultra: { 
+                label: "ULTRAVIOLENCIA",
+                bg: 0x8a0e00, // Rojo oscuro profundo (NO naranja brillante)
+                fogDensity: 0.015,
+                rimLightIntensity: 1.0, // Luz de borde normal
+                mainLightColor: 0xddddff, // Luz principal fría para contrastar con fondo cálido
+                accentColor: 0xFFFFFF 
+            }
+        };
+
+        let currentThemeKey = 'ludovico';
+        const toggleBtn = document.getElementById('theme-toggle');
+        const bodyEl = document.body;
+
+        // --- ESCENA ---
         const container = document.getElementById('canvas-container');
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimización
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
         
-        // Tone Mapping para realismo (High Contrast)
+        // Tone Mapping cinematográfico
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0;
+        renderer.toneMappingExposure = 0.9;
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
-        
-        // Cámara cinemática (35mm equivalent)
-        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.set(0, 2.5, 14); // Ángulo frontal ligeramente elevado
+        const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(0, 3, 16);
 
-        // Controles
+        // --- CONTROLES (LÓGICA CORREGIDA) ---
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
-        controls.enablePan = false;
-        controls.minDistance = 5;
-        controls.maxDistance = 20;
+        controls.enableZoom = true;  // Por defecto SI hace zoom
+        controls.enableRotate = true;
+        controls.enablePan = true;
+        controls.zoomSpeed = 0.8;
 
-        // --- GENERADOR DE TEXTURA "ALEX" ---
-        // Esto crea una imagen en memoria con el texto para usarla como textura
-        function createLogoTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1024;
-            canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            
-            // Fondo transparente
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Texto
-            ctx.fillStyle = '#0a0a0a'; // Casi negro
-            ctx.font = '900 130px "Montserrat", sans-serif'; // Bold futurista
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.letterSpacing = '10px'; // Tracking ancho como en el video
-            
-            // Dibujar texto
-            ctx.fillText('ALEX', canvas.width / 2, canvas.height / 2);
-            
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.anisotropy = 16; // Nitidez en ángulos oblicuos
-            return tex;
-        }
-
-        // --- MATERIALES ---
+        // --- MATERIALES (CONTRASTE MEJORADO) ---
         
-        // 1. Cuerpo Blanco (Plástico de alta ingeniería)
-        const matBody = new THREE.MeshPhysicalMaterial({
-            color: 0xeeeeee, // Blanco no absoluto
-            roughness: 0.35, // Satinado
-            metalness: 0.0,
-            clearcoat: 0.3,  // Capa de barniz sutil
+        // 1. Cuerpo Blanco: Más definición en los bordes
+        const matPolymerWhite = new THREE.MeshPhysicalMaterial({ 
+            color: 0xE0E0E0,        
+            roughness: 0.4,         // Satinado perfecto
+            metalness: 0.1,        
+            clearcoat: 0.2,
             clearcoatRoughness: 0.1
         });
 
-        // 2. Negro (Cerámica/Polímero oscuro)
-        const matBlack = new THREE.MeshPhysicalMaterial({
-            color: 0x111111, // Gris muy oscuro para coger especularidad
-            roughness: 0.2,  // Bastante brillante
-            metalness: 0.1,
-            clearcoat: 1.0,  // Muy brillante (como el sombrero del video)
-            clearcoatRoughness: 0.1
+        // 2. Piezas Negras: Un gris muy oscuro (Antracita) para que la luz lo coja
+        // Si fuera negro puro (0x000000) sería invisible en fondo negro.
+        const matPolymerBlack = new THREE.MeshPhysicalMaterial({ 
+            color: 0x222222, 
+            roughness: 0.3,
+            metalness: 0.2,
+            clearcoat: 0.5
         });
 
-        // 3. Luces (Naranja Alexa)
-        const matLight = new THREE.MeshBasicMaterial({ color: 0xff6600 });
-        
-        // 4. Anillo de neón (Emisivo para el Bloom)
-        const matNeon = new THREE.MeshStandardMaterial({
+        // 3. Acento (Luz)
+        const matAccent = new THREE.MeshStandardMaterial({
             color: 0x000000,
-            emissive: 0xff4400,
-            emissiveIntensity: 4.0, // Muy brillante
-            roughness: 0.4
+            emissive: 0xFF4400,
+            emissiveIntensity: 3.0,
+            roughness: 0.0
         });
 
-        // 5. Logo (Transparente)
-        const matLogo = new THREE.MeshStandardMaterial({
-            map: createLogoTexture(),
-            transparent: true,
-            roughness: 0.4,
-            opacity: 0.9
-        });
+        const matLed = new THREE.MeshBasicMaterial({ color: 0xFF6600 });
 
-        // --- GEOMETRÍA DEL ROBOT ---
-        const robotGroup = new THREE.Group();
-        scene.add(robotGroup);
+        // --- ILUMINACIÓN (SISTEMA DE 3 PUNTOS + RIM LIGHT) ---
         
-        // Array para controlar la explosión (despiece)
-        const parts = []; 
-        function registerPart(mesh, axisY, speed) {
-            mesh.userData.homeY = mesh.position.y;
-            mesh.userData.speed = speed;
-            robotGroup.add(mesh);
-            parts.push(mesh);
-        }
+        const ambient = new THREE.AmbientLight(0xffffff, 0.1);
+        scene.add(ambient);
 
-        const bodyRadius = 1.8;
+        // Luz Principal (Key)
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        mainLight.position.set(5, 5, 8);
+        mainLight.castShadow = true;
+        mainLight.shadow.bias = -0.0001;
+        scene.add(mainLight);
 
-        // -- PIES --
-        const bootGeo = new RoundedBoxGeometry(1.5, 1.2, 2.0, 8, 0.5);
-        const bootL = new THREE.Mesh(bootGeo, matBlack);
-        bootL.position.set(-0.9, 0.6, 0); 
-        bootL.castShadow = true; bootL.receiveShadow = true;
-        registerPart(bootL, 0.6, -1.5); // Se mueve hacia abajo
-
-        const bootR = bootL.clone();
-        bootR.position.set(0.9, 0.6, 0);
-        registerPart(bootR, 0.6, -1.5);
-
-        // -- CUERPO CILINDRICO --
-        const bodyGeo = new THREE.CylinderGeometry(bodyRadius, bodyRadius, 3.2, 64);
-        const body = new THREE.Mesh(bodyGeo, matBody);
-        body.position.set(0, 2.8, 0);
-        body.castShadow = true; body.receiveShadow = true;
-        registerPart(body, 2.8, 0); // El cuerpo se queda quieto o se mueve poco
-
-        // -- LOGO DECAL --
-        // Plano curvo pegado al cuerpo
-        const logoGeo = new THREE.CylinderGeometry(bodyRadius + 0.01, bodyRadius + 0.01, 1.5, 64, 1, true, -Math.PI/3, 2*Math.PI/3);
-        const logoMesh = new THREE.Mesh(logoGeo, matLogo);
-        logoMesh.position.set(0, -0.6, 0); // Ajuste de altura del logo
-        logoMesh.scale.x = -1; // Corregir espejo de textura si es necesario
-        body.add(logoMesh);
-
-        // -- ANILLO LUZ --
-        const ringGeo = new THREE.TorusGeometry(bodyRadius + 0.05, 0.08, 16, 100);
-        const ring = new THREE.Mesh(ringGeo, matNeon);
-        ring.rotation.x = Math.PI / 2;
-        ring.position.set(0, 4.35, 0); // Justo encima del cuerpo
-        registerPart(ring, 4.35, 0.8);
-
-        // -- SOMBRERO (BOWL HAT) --
-        const headGroup = new THREE.Group();
-        headGroup.position.set(0, 4.4, 0);
-        
-        // Ala del sombrero
-        const brimGeo = new THREE.CylinderGeometry(bodyRadius + 0.5, bodyRadius, 0.1, 64);
-        const brim = new THREE.Mesh(brimGeo, matBlack);
-        brim.position.y = 0.05;
-        brim.castShadow = true;
-        headGroup.add(brim);
-
-        // Cúpula del sombrero (Media esfera)
-        const domeGeo = new THREE.SphereGeometry(bodyRadius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
-        const dome = new THREE.Mesh(domeGeo, matBlack);
-        dome.position.y = 0.05;
-        dome.castShadow = true;
-        headGroup.add(dome);
-
-        // -- OJOS/LUCES (3 puntos) --
-        // En el video están en la cúpula negra, no en el cuerpo blanco
-        const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
-        
-        const eyeC = new THREE.Mesh(eyeGeo, matLight); // Centro
-        eyeC.position.set(0, 0.8, bodyRadius - 0.1);
-        headGroup.add(eyeC);
-
-        const eyeL = eyeC.clone(); // Izquierda
-        eyeL.position.set(-0.5, 0.8, bodyRadius - 0.2);
-        headGroup.add(eyeL);
-
-        const eyeR = eyeC.clone(); // Derecha
-        eyeR.position.set(0.5, 0.8, bodyRadius - 0.2);
-        headGroup.add(eyeR);
-
-        registerPart(headGroup, 4.4, 2.5); // Sube mucho en el despiece
-
-
-        // --- ILUMINACIÓN CINEMÁTICA ---
-        
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.05); // Muy tenue
-        scene.add(ambientLight);
-
-        // 1. Key Light (Principal) - Suave desde arriba a la derecha
-        const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
-        keyLight.position.set(5, 8, 10);
-        keyLight.castShadow = true;
-        keyLight.shadow.bias = -0.0001;
-        keyLight.shadow.mapSize.width = 2048; // Sombras nítidas
-        keyLight.shadow.mapSize.height = 2048;
-        scene.add(keyLight);
-
-        // 2. Fill Light (Relleno) - Azulada para contraste frío/cálido
-        const fillLight = new THREE.PointLight(0x404060, 0.8);
-        fillLight.position.set(-10, 2, 5);
+        // Luz de Relleno (Fill) - Azulada para dar volumen en las sombras
+        const fillLight = new THREE.PointLight(0x4444aa, 0.5);
+        fillLight.position.set(-8, 0, 5);
         scene.add(fillLight);
 
-        // 3. RIM LIGHT (LUZ DE CONTRASTE) - CRÍTICA
-        // Esta luz va detrás para recortar la silueta negra del sombrero contra el fondo negro
-        const rimLight = new THREE.SpotLight(0xffffff, 5.0);
-        rimLight.position.set(0, 6, -10);
+        // LUZ DE CONTORNO (RIM LIGHT) - CRÍTICA PARA EL FONDO NEGRO
+        // Esta luz está DETRÁS del objeto, iluminando los bordes
+        const rimLight = new THREE.SpotLight(0xffffff, 3.0);
+        rimLight.position.set(0, 5, -10); // Detrás y arriba
         rimLight.lookAt(0, 0, 0);
-        rimLight.penumbra = 0.5;
         scene.add(rimLight);
 
-        // --- POST-PROCESSING (BLOOM) ---
-        const composer = new EffectComposer(renderer);
-        const renderPass = new RenderPass(scene, camera);
-        composer.addPass(renderPass);
+        // --- CONSTRUCCIÓN DEL ROBOT ---
+        const robotGroup = new THREE.Group();
+        scene.add(robotGroup);
+        const parts = [];
 
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloomPass.threshold = 0.1;
-        bloomPass.strength = 0.6; // Intensidad del brillo
-        bloomPass.radius = 0.3;
-        composer.addPass(bloomPass);
-
-        // --- LOGICA DE TEMAS ---
-        const themes = {
-            ludovico: {
-                bg: 0x050505,
-                fog: 0.02,
-                rimInt: 5.0, // Luz trasera fuerte
-                accent: 0xff4400
-            },
-            ultra: {
-                bg: 0x2a0000, // Rojo sangre profundo
-                fog: 0.015,
-                rimInt: 2.0, // Luz trasera más suave
-                accent: 0xff2200
-            }
-        };
-
-        let currentTheme = 'ludovico';
-        
-        function applyTheme(key) {
-            const t = themes[key];
-            const body = document.body;
-            body.setAttribute('data-theme', key);
-            
-            // Background & Niebla
-            scene.background = new THREE.Color(t.bg);
-            scene.fog = new THREE.FogExp2(t.bg, t.fog);
-            
-            // Luces
-            rimLight.intensity = t.rimInt;
-            
-            // Actualizar botón
-            const btn = document.getElementById('theme-btn');
-            btn.innerText = `MODO: ${key.toUpperCase()}`;
+        function addPart(mesh, explodeDirection) {
+            robotGroup.add(mesh);
+            parts.push({ mesh: mesh, homeY: mesh.position.y, dir: explodeDirection });
         }
 
-        document.getElementById('theme-btn').addEventListener('click', () => {
-            currentTheme = (currentTheme === 'ludovico') ? 'ultra' : 'ludovico';
-            applyTheme(currentTheme);
-        });
+        // Botas
+        const bootGeo = new RoundedBoxGeometry(1.4, 1.2, 1.8, 8, 0.4);
+        const bootL = new THREE.Mesh(bootGeo, matPolymerBlack);
+        bootL.position.set(-0.75, 0.6, 0); bootL.castShadow = true; bootL.receiveShadow = true;
+        addPart(bootL, -1.0);
+        const bootR = new THREE.Mesh(bootGeo, matPolymerBlack);
+        bootR.position.set(0.75, 0.6, 0); bootR.castShadow = true; bootR.receiveShadow = true;
+        addPart(bootR, -1.0);
+
+        // Cuerpo
+        const bodyRadius = 1.6;
+        const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(bodyRadius, bodyRadius, 3.0, 64), matPolymerWhite);
+        bodyMesh.position.set(0, 2.7, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
         
-        // Iniciar tema por defecto
-        applyTheme('ludovico');
-        document.getElementById('loader').style.opacity = '0';
+        // Logo grabado (Oscuro para contraste)
+        const logoMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.8, 0.25), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+        logoMesh.position.set(0, -0.8, bodyRadius + 0.01);
+        bodyMesh.add(logoMesh);
+        addPart(bodyMesh, 0.0);
+
+        // Anillo Luz
+        const stripeMesh = new THREE.Mesh(new THREE.TorusGeometry(bodyRadius + 0.02, 0.08, 4, 128), matAccent);
+        stripeMesh.rotation.x = Math.PI / 2; stripeMesh.position.set(0, 2.7, 0);
+        addPart(stripeMesh, 0.6);
+
+        // Cabeza
+        const headGroup = new THREE.Group();
+        headGroup.position.set(0, 4.2, 0);
+        headGroup.add(new THREE.Mesh(new THREE.SphereGeometry(bodyRadius, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matPolymerBlack));
+        
+        const brim = new THREE.Mesh(new THREE.CylinderGeometry(bodyRadius + 0.4, bodyRadius, 0.05, 64), matPolymerBlack);
+        brim.position.y = 0; headGroup.add(brim);
+
+        [-0.4, 0, 0.4].forEach(x => {
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 32), matLed);
+            eye.position.set(x, 0.6, bodyRadius - 0.12); headGroup.add(eye);
+        });
+        addPart(headGroup, 2.2);
 
 
-        // --- LOGICA DE DESPIECE (EXPLOSION) ---
-        let explosionFactor = 0; // 0 = armado, 1 = desarmado
-        let targetExplosion = 0;
+        // --- CAMBIO DE TEMA Y LUCES ---
+        function applyTheme3D(key) {
+            const t = themes[key];
+            bodyEl.setAttribute('data-theme', key);
+            toggleBtn.innerText = "CAMBIAR TEMA: " + t.label;
+            
+            scene.background = new THREE.Color(t.bg);
+            scene.fog = new THREE.FogExp2(t.bg, t.fogDensity);
 
+            // Ajustar luces según el tema para máximo contraste
+            mainLight.color.setHex(t.mainLightColor);
+            rimLight.intensity = t.rimLightIntensity;
+
+            // Ajustar colores del modelo
+            matAccent.emissive.setHex(key === 'ultra' ? 0xFFFFFF : 0xFF4400);
+            matLed.color.setHex(key === 'ultra' ? 0xFFFFFF : 0xFF6600);
+        }
+        applyTheme3D(currentThemeKey);
+
+        toggleBtn.addEventListener('click', () => {
+            currentThemeKey = (currentThemeKey === 'ludovico') ? 'ultra' : 'ludovico';
+            applyTheme3D(currentThemeKey);
+        });
+
+        // --- BLOOM (Sutil) ---
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.5, 0.4);
+        bloomPass.threshold = 0.8; bloomPass.strength = 0.6; bloomPass.radius = 0.4;
+        composer.addPass(bloomPass);
+
+        // --- LÓGICA DE INTERACCIÓN PERFECTA ---
+        let explodeTarget = 0;
+        let explodeCurrent = 0;
+
+        // Listener Global para controlar el Zoom/Explosión
         window.addEventListener('wheel', (e) => {
-            if (e.ctrlKey || e.metaKey) {
-                e.preventDefault(); // Evitar zoom del navegador
-                controls.enableZoom = false; // Desactivar zoom de órbita temporalmente
+            const isCtrl = e.ctrlKey || e.metaKey;
+
+            if (isCtrl) {
+                // MODO EXPLOSIÓN:
+                e.preventDefault(); // Bloquea el scroll de la página y del OrbitControls nativo (si es posible)
                 
-                const delta = e.deltaY * 0.001;
-                targetExplosion += delta;
-                targetExplosion = Math.max(0, Math.min(1, targetExplosion));
+                // 1. Desactivamos el zoom de OrbitControls INSTANTÁNEAMENTE
+                controls.enableZoom = false; 
+
+                // 2. Calculamos la explosión
+                explodeTarget += e.deltaY * 0.002; 
+                explodeTarget = Math.max(0, Math.min(2.0, explodeTarget));
+
             } else {
+                // MODO ZOOM NORMAL:
+                // 1. Reactivamos el zoom de OrbitControls
                 controls.enableZoom = true;
+                
+                // Nota: OrbitControls manejará el zoom automáticamente
             }
         }, { passive: false });
 
-        // Recuperar zoom si se suelta tecla
+        // Backup: Asegurar que si suelta Ctrl, el zoom vuelva
         window.addEventListener('keyup', (e) => {
-            if (e.key === 'Control' || e.key === 'Meta') controls.enableZoom = true;
+            if (e.key === "Control" || e.key === "Meta") {
+                controls.enableZoom = true;
+            }
         });
 
 
-        // --- ANIMATION LOOP ---
+        // Scroll lateral UI
+        const sidebar = document.getElementById('content-sidebar');
+        const contentBoxes = document.querySelectorAll('.content-box');
+        sidebar.addEventListener('scroll', () => {
+            contentBoxes.forEach(box => {
+                if(box.getBoundingClientRect().top < window.innerHeight * 0.7) box.classList.add('visible');
+            });
+        });
+
+        // Loop
         function animate() {
             requestAnimationFrame(animate);
-
-            // Smooth explosion
-            explosionFactor += (targetExplosion - explosionFactor) * 0.1;
-
-            // Mover piezas
-            parts.forEach(mesh => {
-                const home = mesh.userData.homeY;
-                const spd = mesh.userData.speed;
-                // Posición = inicio + (distancia * factor)
-                mesh.position.y = home + (spd * explosionFactor);
-                
-                // Rotación sutil al explotar para dinamismo
-                if(mesh !== body) { // El cuerpo no rota en eje local
-                    mesh.rotation.y = (explosionFactor * spd * 0.2); 
-                }
-            });
-            
-            // Rotación suave "Idle" de todo el grupo
-            robotGroup.rotation.y = Math.sin(Date.now() * 0.0002) * 0.1;
-
             controls.update();
+
+            // Animación suave de explosión
+            explodeCurrent += (explodeTarget - explodeCurrent) * 0.08;
+            
+            // Animación idle
+            robotGroup.position.y = Math.sin(Date.now() * 0.001) * 0.1 - 0.5;
+
+            // Actualizar piezas
+            parts.forEach(p => {
+                p.mesh.position.y = p.homeY + (p.dir * explodeCurrent);
+            });
+
             composer.render();
         }
 
-        // Resize handler
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            composer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            composer.setSize(container.clientWidth, container.clientHeight);
         });
 
         animate();
-
     </script>
 </body>
 </html>
