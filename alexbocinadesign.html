@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; background: #1a1a1a; overflow: hidden; }
+        #canvas-container { width: 100vw; height: 100vh; }
+        .instructions {
+            position: fixed; bottom: 20px; right: 20px; color: #888;
+            font-family: sans-serif; font-size: 12px; pointer-events: none;
+            text-align: right;
+        }
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.skypack.dev/three@0.136.0",
+                "three/addons/": "https://cdn.skypack.dev/three@0.136.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="instructions">
+        <b>MODO INGENIERÍA</b><br>
+        CTRL + SCROLL: VER COMPONENTES INTERNOS<br>
+        CLICK: ROTAR
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // --- CONFIGURACIÓN BÁSICA ---
+        const container = document.getElementById('canvas-container');
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 0.7;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        container.appendChild(renderer.domElement);
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1a1a1a);
+        scene.fog = new THREE.FogExp2(0x1a1a1a, 0.02);
+
+        // --- CÁMARA (Tus coordenadas exactas) ---
+        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(-0.5, 3.5, 12.5);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.target.set(0, 3.5, 0);
+
+        // --- MATERIALES ---
+        const matArmor = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.1 });
+        const matBody = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.7, metalness: 0.0 });
+        const matAccent = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xFF4400, emissiveIntensity: 2.0 });
+        
+        // Material Técnico (Para el interior - Metal oscuro)
+        const matTech = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3, metalness: 0.8 });
+        // Material Núcleo (Brillante)
+        const matCore = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFF4400, emissiveIntensity: 3.0, wireframe: true });
+
+        // --- ILUMINACIÓN ---
+        const ambient = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambient);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        mainLight.position.set(5, 5, 8); mainLight.castShadow = true;
+        scene.add(mainLight);
+        const rimLight = new THREE.SpotLight(0xffffff, 2.0);
+        rimLight.position.set(0, 5, -10); rimLight.lookAt(0,0,0);
+        scene.add(rimLight);
+
+        // --- ENSAMBLAJE DEL ROBOT ---
+        const robotGroup = new THREE.Group();
+        scene.add(robotGroup);
+        const parts = []; // Array para controlar la explosión
+
+        // Función auxiliar para registrar partes móviles
+        // explodeFactor: Cuánto se mueve esta pieza (1.0 = normal, 0.0 = estático, negativo = dirección opuesta)
+        function addPart(mesh, explodeFactor) {
+            robotGroup.add(mesh);
+            parts.push({ mesh: mesh, originalY: mesh.position.y, factor: explodeFactor });
+        }
+
+        // 1. ESTRUCTURA INTERNA (NUEVO)
+        // Columna vertebral
+        const spineGeo = new THREE.CylinderGeometry(0.3, 0.3, 3.5, 16);
+        const spine = new THREE.Mesh(spineGeo, matTech);
+        spine.position.y = 2.5; 
+        addPart(spine, 0.0); // La columna se queda quieta
+
+        // Driver de Audio (Imán y Cono)
+        const magnetGeo = new THREE.CylinderGeometry(0.8, 0.8, 0.6, 32);
+        const magnet = new THREE.Mesh(magnetGeo, matTech);
+        magnet.position.y = 1.5;
+        addPart(magnet, 0.1); // Se mueve muy poco
+
+        const coneGeo = new THREE.CylinderGeometry(1.2, 0.4, 0.8, 32, 1, true);
+        const cone = new THREE.Mesh(coneGeo, matTech);
+        cone.position.y = 2.2;
+        addPart(cone, 0.15);
+
+        // Núcleo IA (Cerebro)
+        const coreGeo = new THREE.IcosahedronGeometry(0.5, 0);
+        const core = new THREE.Mesh(coreGeo, matCore);
+        core.position.y = 3.2;
+        // Guardamos referencia para animar rotación luego
+        const aiCore = core; 
+        addPart(core, 0.2); 
+
+        // 2. CARCASA EXTERNA (BODY)
+        const bodyRadius = 1.6;
+        const bodyGeo = new THREE.CylinderGeometry(bodyRadius, bodyRadius, 3.0, 64);
+        const bodyMesh = new THREE.Mesh(bodyGeo, matBody);
+        bodyMesh.position.set(0, 2.7, 0); bodyMesh.castShadow = true; 
+        
+        // Logo ALEX
+        const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
+        const ctx = canvas.getContext('2d'); ctx.font = '900 100px sans-serif'; ctx.fillStyle = '#111'; 
+        ctx.textAlign = 'center'; ctx.fillText('ALEX', 256, 64);
+        const logoTex = new THREE.CanvasTexture(canvas);
+        const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), new THREE.MeshBasicMaterial({map:logoTex, transparent:true}));
+        logoPlane.position.set(0, -0.5, bodyRadius+0.01);
+        bodyMesh.add(logoPlane);
+
+        // IMPORTANTE: El cuerpo ahora tiene un factor alto (1.5) hacia ARRIBA
+        // para destapar los internos que se quedan abajo.
+        addPart(bodyMesh, 1.5); 
+
+        // Banda Naranja
+        const stripeGeo = new THREE.TorusGeometry(bodyRadius + 0.02, 0.15, 4, 64);
+        const stripe = new THREE.Mesh(stripeGeo, matAccent);
+        stripe.rotation.x = Math.PI / 2;
+        stripe.position.set(0, 2.7, 0);
+        addPart(stripe, 1.5); // Se mueve junto con el cuerpo
+
+        // 3. PIES (BOTAS)
+        const bootGeo = new RoundedBoxGeometry(1.4, 1.2, 1.8, 8, 0.4);
+        const bootL = new THREE.Mesh(bootGeo, matArmor); bootL.position.set(-0.75, 0.6, 0);
+        addPart(bootL, -0.5); // Se van hacia ABAJO
+
+        const bootR = new THREE.Mesh(bootGeo, matArmor); bootR.position.set(0.75, 0.6, 0);
+        addPart(bootR, -0.5); // Se van hacia ABAJO
+
+        // 4. CABEZA (SOMBRERO)
+        const headGroup = new THREE.Group();
+        headGroup.position.set(0, 4.2, 0);
+        const dome = new THREE.Mesh(new THREE.SphereGeometry(bodyRadius, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor);
+        const brim = new THREE.Mesh(new THREE.CylinderGeometry(bodyRadius+0.4, bodyRadius, 0.1, 64), matArmor);
+        headGroup.add(dome); headGroup.add(brim);
+        
+        // Ojos
+        [-0.4, 0, 0.4].forEach(x => {
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12), matAccent);
+            eye.position.set(x, 0.6, bodyRadius-0.15); headGroup.add(eye);
+        });
+
+        // La cabeza sube MUCHO más (3.0) para separarse del cuerpo
+        addPart(headGroup, 3.0); 
+
+
+        // --- POST PROCESSING ---
+        const composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, camera));
+        const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.5, 0.4);
+        bloom.threshold = 0.85; bloom.strength = 0.4; bloom.radius = 0.5;
+        composer.addPass(bloom);
+
+        // --- CONTROL EXPLOSIÓN ---
+        let explodeTarget = 0;
+        let explodeCurrent = 0;
+
+        window.addEventListener('wheel', (e) => {
+            if(e.ctrlKey || e.metaKey) {
+                controls.enableZoom = false; e.preventDefault();
+                explodeTarget += e.deltaY * 0.002;
+                explodeTarget = Math.max(0, Math.min(2.5, explodeTarget)); // Aumenté el rango a 2.5
+            } else { controls.enableZoom = true; }
+        }, { passive: false });
+
+        window.addEventListener('keyup', (e) => { if (e.key === 'Control') controls.enableZoom = true; });
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight); composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- ANIMACIÓN ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+
+            // Suavizado explosión
+            explodeCurrent += (explodeTarget - explodeCurrent) * 0.05;
+
+            // Flotación General
+            const time = Date.now() * 0.001;
+            robotGroup.position.y = (Math.sin(time) * 0.1) + 2.0; // Altura base ajustada
+
+            // Movimiento de piezas
+            parts.forEach(p => {
+                // Posición original + (Factor de dirección * Progreso de explosión)
+                p.mesh.position.y = p.originalY + (p.factor * explodeCurrent);
+            });
+
+            // Rotación del Núcleo IA (Efecto visual extra)
+            if(aiCore) {
+                aiCore.rotation.x = time * 0.5;
+                aiCore.rotation.y = time * 0.8;
+            }
+
+            composer.render();
+        }
+        animate();
+    </script>
+</body>
+</html>
