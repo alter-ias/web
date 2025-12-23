@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.3.0 FINAL</title>
+    <title>ALEX ASSISTANT | V.4.0 FINAL</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
         /* --- ESTILOS VISUALES --- */
         :root {
-            --bg-color: #050505;
+            --bg-color: #1a1a1a; /* Fondo grisáceo para mejor contraste */
             --text-main: #E8E4D9;
             --text-sub: #888888;
             --accent: #FF6600; 
@@ -17,7 +17,7 @@
         }
 
         [data-theme="ultra"] {
-            --bg-color: #900a00; /* Rojo sangre oscuro para contraste */
+            --bg-color: #900a00;
             --text-main: #000000;
             --text-sub: #2a0000;
             --accent: #FFFFFF;
@@ -41,6 +41,16 @@
             text-transform: uppercase; letter-spacing: 2px; font-size: 10px; transition: 0.3s;
         }
         #theme-toggle:hover { background: var(--text-main); color: var(--bg-color); }
+
+        /* --- PANEL DE CONTROL DE CÁMARA (NUEVO) --- */
+        #camera-controls {
+            position: fixed; top: 80px; left: 10%; z-index: 100;
+            background: var(--glass-panel); padding: 15px; border: 1px solid var(--border-color);
+            font-family: 'Rajdhani'; color: var(--text-main); font-size: 12px;
+            backdrop-filter: blur(5px);
+        }
+        #camera-controls label { display: block; margin-bottom: 5px; }
+        #camera-controls input { width: 50px; margin-left: 10px; background: transparent; border: 1px solid var(--text-sub); color: var(--text-main); font-family: inherit; }
 
         #canvas-container {
             position: fixed; top: 0; right: 0; width: 65%; height: 100vh; z-index: 10;
@@ -106,6 +116,7 @@
             section { min-height: 50vh; padding: 40px 30px; justify-content: flex-start; }
             h1 { font-size: 50px; }
             #theme-toggle { top: 10px; left: 10px; padding: 5px 10px; font-size: 9px; }
+            #camera-controls { top: 60px; left: 10px; padding: 10px; }
         }
     </style>
     <script type="importmap">
@@ -120,6 +131,16 @@
 <body data-theme="ludovico">
 
     <button id="theme-toggle">CAMBIAR TEMA: LUDOVICO</button>
+    
+    <div id="camera-controls">
+        <strong>CONTROL POSICIÓN INICIAL</strong><br><br>
+        <label>Cam X: <input type="number" id="camX" value="0" step="0.5"></label>
+        <label>Cam Y: <input type="number" id="camY" value="1.5" step="0.5"></label>
+        <label>Cam Z: <input type="number" id="camZ" value="13" step="0.5"></label>
+        <label>Target Y: <input type="number" id="targetY" value="1.5" step="0.5"></label>
+        <br>
+        <small>Usa esto para encontrar los valores.<br>Luego hardcodéalos en el JS.</small>
+    </div>
 
     <div id="canvas-container"></div>
 
@@ -132,7 +153,7 @@
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>AI ASSISTANT V.3.0</h2>
+                <h2>AI ASSISTANT V.4.0</h2>
                 <h1>ALEX</h1>
                 <h1>VOICE</h1>
                 <br>
@@ -147,7 +168,7 @@
             <div class="content-box">
                 <h2>INGENIERÍA ACÚSTICA</h2>
                 <h3>TEJIDO SONORO</h3>
-                <p>El cuerpo cilíndrico está recubierto de una malla textil acústica blanca de alta densidad que oculta los arrays de micrófonos omnidireccionales.</p>
+                <p>El cuerpo cilíndrico está recubierto de una malla de polímero acústico de alta densidad que oculta los arrays de micrófonos omnidireccionales.</p>
                 <p>El anillo central de <span style="color:var(--accent); font-weight:bold;">Estado Naranja</span> indica actividad neuronal.</p>
             </div>
         </section>
@@ -172,19 +193,19 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- GESTIÓN DE TEMAS ---
+        // --- GESTIÓN DE TEMAS ACTUALIZADA ---
         const themes = {
             ludovico: { 
                 label: "LUDOVICO (DARK)",
-                bg: 0x050505,
+                bg: 0x1a1a1a, // Fondo grisáceo claro para mejor contraste
                 fogDensity: 0.02,
-                rimIntensity: 1.5 // Luz de borde fuerte para separar del fondo negro
+                rimIntensity: 2.0 
             },
             ultra: { 
                 label: "ULTRAVIOLENCIA",
                 bg: 0x900a00, 
                 fogDensity: 0.015,
-                rimIntensity: 0.5
+                rimIntensity: 0.8
             }
         };
 
@@ -198,7 +219,6 @@
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         
-        // Tone mapping cinematográfico
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 0.7;
         renderer.shadowMap.enabled = true;
@@ -207,45 +227,68 @@
 
         const scene = new THREE.Scene();
         
-        // CORRECCIÓN 1: Cámara más alejada y centrada para ver todo el modelo de inicio
-        const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
-        camera.position.set(0, 1, 12); 
+        // --- CÁMARA Y CONTROLES INICIALES ---
+        // Valores iniciales que puedes ajustar con el panel
+        let initialCamPos = new THREE.Vector3(0, 1.5, 13);
+        let initialTargetY = 1.5;
 
-        // --- CONTROLES ---
+        const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.copy(initialCamPos);
+
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
         controls.dampingFactor = 0.05;
         controls.enableZoom = true;
         controls.enableRotate = true;
         controls.enablePan = true;
-        controls.target.set(0, 1.5, 0); // Mirar al centro del cuerpo, no a los pies
+        controls.target.set(0, initialTargetY, 0);
 
-        // --- MATERIALES DINÁMICOS ---
+        // --- LÓGICA DEL PANEL DE CONTROL DE CÁMARA ---
+        function updateCameraFromInputs() {
+            const x = parseFloat(document.getElementById('camX').value);
+            const y = parseFloat(document.getElementById('camY').value);
+            const z = parseFloat(document.getElementById('camZ').value);
+            const ty = parseFloat(document.getElementById('targetY').value);
+
+            camera.position.set(x, y, z);
+            controls.target.set(0, ty, 0);
+            // controls.update() se llama en el loop de animación
+        }
+
+        // Escuchar cambios en los inputs
+        ['camX', 'camY', 'camZ', 'targetY'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateCameraFromInputs);
+        });
+        // Sincronizar inputs con los valores iniciales al cargar
+        document.getElementById('camX').value = initialCamPos.x;
+        document.getElementById('camY').value = initialCamPos.y;
+        document.getElementById('camZ').value = initialCamPos.z;
+        document.getElementById('targetY').value = initialTargetY;
+
+
+        // --- MATERIALES (POLÍMEROS MATE) ---
         
-        // Material para "Armadura" (Botas y Sombrero)
+        // Material para Sombrero y Botas
         const matArmor = new THREE.MeshStandardMaterial({ 
             color: 0x111111, // Empieza negro (Ludovico)
-            roughness: 0.5, 
-            metalness: 0.2 
+            roughness: 0.6,  // Aspecto de polímero mate
+            metalness: 0.1 
         });
 
-        // Material para "Cuerpo" (Cilindro central)
+        // Material para Cuerpo
         const matBody = new THREE.MeshStandardMaterial({ 
-            color: 0xcccccc, // Empieza blanco (Ludovico)
-            roughness: 0.9, 
+            color: 0xeeeeee, // Empieza blanco (Ludovico)
+            roughness: 0.7,  // Aspecto de polímero mate
             metalness: 0.0
         });
 
-        // Material Acento (Banda brillante)
+        // Material Acento (Banda y Botones - SIEMPRE NARANJA)
         const matAccent = new THREE.MeshStandardMaterial({
             color: 0x000000,
             emissive: 0xFF4400,
             emissiveIntensity: 2.0,
             roughness: 0.2
         });
-
-        // Material LED (Ojos)
-        const matLed = new THREE.MeshBasicMaterial({ color: 0xFF6600 });
 
         // --- TEXTURA DEL LOGO "ALEX" ---
         function createLogoTexture() {
@@ -254,18 +297,18 @@
             canvas.height = 128;
             const ctx = canvas.getContext('2d');
             
-            // Fondo transparente (o igual al color del cuerpo para mezclar)
-            ctx.fillStyle = '#cccccc'; // Color base del cuerpo inicial
-            ctx.fillRect(0, 0, 512, 128);
+            // Fondo transparente
+            ctx.clearRect(0, 0, 512, 128);
 
-            // Texto
-            ctx.font = '900 80px "Montserrat", sans-serif';
-            ctx.fillStyle = '#222222';
+            // Texto ALEX
+            ctx.font = '900 100px "Montserrat", sans-serif';
+            ctx.fillStyle = '#111111'; // Color base del logo (cambiará con el tema)
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('ALEX', 256, 64);
 
             const texture = new THREE.CanvasTexture(canvas);
+            texture.needsUpdate = true;
             return texture;
         }
         
@@ -273,7 +316,7 @@
         const matLogo = new THREE.MeshBasicMaterial({ 
             map: logoTexture,
             transparent: true,
-            opacity: 0.9 
+            opacity: 1.0
         });
 
         // --- ILUMINACIÓN ---
@@ -285,9 +328,8 @@
         mainLight.castShadow = true;
         scene.add(mainLight);
 
-        // CORRECCIÓN 2: Luz de Contorno (Rim Light) para que el negro no se pierda en fondo negro
-        const rimLight = new THREE.SpotLight(0x4444ff, 2.0); // Azulada para contraste
-        rimLight.position.set(0, 5, -5);
+        const rimLight = new THREE.SpotLight(0xffffff, 2.0);
+        rimLight.position.set(0, 5, -10);
         rimLight.lookAt(0, 0, 0);
         scene.add(rimLight);
 
@@ -307,8 +349,6 @@
 
         // PIEZAS
         const bootGeo = new RoundedBoxGeometry(1.4, 1.2, 1.8, 8, 0.4);
-        
-        // Usamos matArmor
         const bootL = new THREE.Mesh(bootGeo, matArmor);
         bootL.position.set(-0.75, 0.6, 0); bootL.castShadow = true; bootL.receiveShadow = true;
         addPart(bootL, -1.0); 
@@ -319,15 +359,13 @@
 
         const bodyRadius = 1.6;
         const bodyGeo = new THREE.CylinderGeometry(bodyRadius, bodyRadius, 3.0, 64);
-        // Usamos matBody
         const bodyMesh = new THREE.Mesh(bodyGeo, matBody);
         bodyMesh.position.set(0, 2.7, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
         addPart(bodyMesh, 0.2);
 
-        // CORRECCIÓN 4: Logo ALEX visible
-        // Plano curvo ligeramente delante del cuerpo
-        const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.45), matLogo);
-        logoPlane.position.set(0, 0, bodyRadius + 0.02); // Pegado al frente
+        // LOGO ALEX
+        const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), matLogo);
+        logoPlane.position.set(0, -0.5, bodyRadius + 0.01); // Posición en el cuerpo
         bodyMesh.add(logoPlane);
 
         const stripeGeo = new THREE.TorusGeometry(bodyRadius + 0.02, 0.15, 4, 64);
@@ -339,7 +377,6 @@
         const headGroup = new THREE.Group();
         headGroup.position.set(0, 4.2, 0);
         
-        // Usamos matArmor para el casco
         const domeMesh = new THREE.Mesh(new THREE.SphereGeometry(bodyRadius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2), matArmor);
         headGroup.add(domeMesh);
 
@@ -347,16 +384,17 @@
         brimMesh.position.y = 0;
         headGroup.add(brimMesh);
 
+        // BOTONES (Siempre naranjas)
         const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
         [-0.4, 0, 0.4].forEach(xPos => {
-            const eye = new THREE.Mesh(eyeGeo, matLed);
+            const eye = new THREE.Mesh(eyeGeo, matAccent); // Usan el mismo material que la banda
             eye.position.set(xPos, 0.6, bodyRadius - 0.15);
             headGroup.add(eye);
         });
 
         addPart(headGroup, 2.5);
 
-        // --- LÓGICA DE TEMA (CORRECCIÓN 3) ---
+        // --- LÓGICA DE TEMA ACTUALIZADA ---
         function applyTheme3D(key) {
             const t = themes[key];
             bodyEl.setAttribute('data-theme', key);
@@ -364,29 +402,27 @@
             
             scene.background = new THREE.Color(t.bg);
             scene.fog = new THREE.FogExp2(t.bg, t.fogDensity);
-            
-            // Intensidad de la luz trasera según el tema
             rimLight.intensity = t.rimIntensity;
 
             if (key === 'ultra') {
-                // TEMA ULTRA: Fondo rojo, Cuerpo Negro, Sombrero/Botas Blanco, Acentos Blancos
-                matAccent.emissive.setHex(0xFFFFFF); // Luz blanca
-                matLed.color.setHex(0xFFFFFF);      // Ojos blancos
+                // TEMA ULTRA: Cuerpo Negro, Sombrero/Botas Blancos
+                matBody.color.setHex(0x111111);
+                matArmor.color.setHex(0xEEEEEE);
                 
-                matBody.color.setHex(0x111111);     // Cuerpo Negro
-                matArmor.color.setHex(0xEEEEEE);    // Sombrero/Botas Blancas (Contraste)
-                
-                // Actualizar textura del logo para que se vea en cuerpo negro
-                // (Truco simple: invertimos el color de fondo de la textura re-generándola o cambiamos el color del material si fuera solido)
-                // Para mantenerlo simple aquí, el logo tiene fondo gris claro, se ve bien sobre negro.
+                // Logo blanco para fondo negro
+                logoTexture.image.getContext('2d').fillStyle = '#EEEEEE';
+                logoTexture.image.getContext('2d').fillText('ALEX', 256, 64);
+                logoTexture.needsUpdate = true;
 
             } else {
-                // TEMA LUDOVICO: Fondo Negro, Cuerpo Blanco, Sombrero/Botas Negro, Acentos Naranja
-                matAccent.emissive.setHex(0xFF4400); // Luz naranja
-                matLed.color.setHex(0xFF6600);      // Ojos naranjas
+                // TEMA LUDOVICO: Cuerpo Blanco, Sombrero/Botas Negros
+                matBody.color.setHex(0xEEEEEE);
+                matArmor.color.setHex(0x111111);
                 
-                matBody.color.setHex(0xCCCCCC);     // Cuerpo Blanco (Tela)
-                matArmor.color.setHex(0x111111);    // Sombrero/Botas Negras
+                // Logo negro para fondo blanco
+                logoTexture.image.getContext('2d').fillStyle = '#111111';
+                logoTexture.image.getContext('2d').fillText('ALEX', 256, 64);
+                logoTexture.needsUpdate = true;
             }
         }
         applyTheme3D(currentThemeKey);
@@ -399,42 +435,31 @@
         // --- POST PROCESSING ---
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.5, 0.4);
         bloomPass.threshold = 0.85; 
         bloomPass.strength = 0.4;  
         bloomPass.radius = 0.5;
         composer.addPass(bloomPass);
 
-        // --- INTERACCIÓN (CORRECCIÓN 5) ---
+        // --- INTERACCIÓN ---
         let explodeTarget = 0;
         let explodeCurrent = 0;
 
-        // Listener específico para manejar el conflicto Zoom vs Explosión
         window.addEventListener('wheel', (e) => {
             const isCtrl = e.ctrlKey || e.metaKey;
-
             if(isCtrl) {
-                // Si presiona CTRL: Desactivamos el zoom del control orbital
                 controls.enableZoom = false; 
-                
                 e.preventDefault(); 
                 e.stopPropagation();
-
-                // Calculamos explosión
                 explodeTarget += e.deltaY * 0.002; 
                 explodeTarget = Math.max(0, Math.min(2.0, explodeTarget));
             } else {
-                // Si NO presiona CTRL: Reactivamos zoom normal
                 controls.enableZoom = true;
             }
         }, { passive: false });
 
-        // Si suelta Ctrl, asegurarnos de que el zoom vuelva (opcional, por seguridad)
         window.addEventListener('keyup', (e) => {
-            if (e.key === 'Control' || e.key === 'Meta') {
-                controls.enableZoom = true;
-            }
+            if (e.key === 'Control' || e.key === 'Meta') controls.enableZoom = true;
         });
 
         const sidebar = document.getElementById('content-sidebar');
@@ -449,19 +474,12 @@
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
-
-            // Animación de explosión suave
             explodeCurrent += (explodeTarget - explodeCurrent) * 0.05;
-
-            // Animación de flotación "idle"
             const time = Date.now() * 0.001;
-            // Centro de flotación ajustado
             robotGroup.position.y = (Math.sin(time) * 0.1) + 1.0; 
-
             parts.forEach(p => {
                 p.mesh.position.y = p.originalY + (p.direction * explodeCurrent);
             });
-
             composer.render();
         }
 
