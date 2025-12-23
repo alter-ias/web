@@ -2,73 +2,90 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALEX ASSISTANT | CINEMATIC RENDER</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ALEX | CINEMATIC RENDER</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Montserrat:wght@400;900&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #050505;
-            --text-main: #ffffff;
-            --accent: #FF4500;
+            /* Colores base dinámicos */
+            --bg-color: #050505; 
+            --text-main: #FFFFFF;
+            --text-sub: #888888;
+            --accent: #FF4400; 
+            --ui-border: rgba(255,255,255,0.2);
         }
 
+        /* TEMA ULTRAVIOLENCE (Sobrescribe variables) */
         [data-theme="ultra"] {
-            --bg-color: #4b0000; /* Rojo profundo tipo Kubrick */
-            --text-main: #ffffff;
-            --accent: #ffffff;
+            --bg-color: #2a0000; /* Rojo muy oscuro, casi negro */
+            --text-main: #FFEEEE;
+            --text-sub: #ff9999;
+            --accent: #FF0000;
+            --ui-border: rgba(255,100,100,0.3);
         }
 
         body {
-            margin: 0; background: var(--bg-color); color: var(--text-main);
-            font-family: 'Rajdhani', sans-serif; overflow: hidden;
-            transition: background 1.2s ease-in-out;
+            margin: 0;
+            background: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Montserrat', sans-serif;
+            overflow: hidden;
+            transition: background 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
 
-        /* UI Overlays */
-        #theme-toggle {
-            position: fixed; top: 40px; left: 40px; z-index: 100;
-            background: transparent; border: 1px solid var(--text-main);
-            color: var(--text-main); padding: 12px 24px; cursor: pointer;
-            font-weight: 700; letter-spacing: 2px; transition: 0.3s;
+        /* --- UI LAYER --- */
+        #ui-layer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; /* Dejar pasar clicks al canvas */
+            z-index: 20;
+            padding: 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
-        #theme-toggle:hover { background: var(--text-main); color: #000; }
 
+        /* Header */
+        .header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+        }
+        .brand {
+            font-family: 'Rajdhani'; font-weight: 700; font-size: 24px; letter-spacing: 4px;
+            border-bottom: 2px solid var(--accent); padding-bottom: 5px;
+        }
+
+        #theme-btn {
+            pointer-events: auto;
+            background: transparent; border: 1px solid var(--ui-border);
+            color: var(--text-sub); padding: 10px 20px;
+            font-family: 'Rajdhani'; letter-spacing: 2px; text-transform: uppercase;
+            font-weight: 700; cursor: pointer; transition: 0.3s;
+            font-size: 12px;
+        }
+        #theme-btn:hover { background: var(--text-main); color: var(--bg-color); }
+
+        /* Footer Info */
+        .controls-info {
+            text-align: right;
+            font-family: 'Rajdhani'; font-size: 12px; color: var(--text-sub);
+            letter-spacing: 1px; line-height: 1.5;
+        }
+        .controls-info span { color: var(--accent); font-weight: 700; }
+
+        /* Canvas Container */
         #canvas-container {
-            position: fixed; top: 0; right: 0; width: 100%; height: 100vh;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 10;
         }
 
-        .content {
-            position: relative; z-index: 10; padding: 10vh 5%;
-            width: 35%; pointer-events: none;
+        /* Loading */
+        #loader {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-family: 'Rajdhani'; font-size: 14px; letter-spacing: 3px;
+            color: var(--text-sub); z-index: 100; pointer-events: none;
+            transition: opacity 0.5s;
         }
 
-        h1 { font-family: 'Montserrat'; font-size: 8rem; line-height: 0.8; margin: 0; }
-        .tag { color: var(--accent); font-weight: 700; letter-spacing: 5px; }
-
-        .controls-hint {
-            position: fixed; bottom: 40px; left: 40px; font-size: 11px;
-            opacity: 0.5; line-height: 1.8;
-        }
     </style>
-</head>
-<body data-theme="ludovico">
-
-    <button id="theme-toggle">MODE: LUDOVICO</button>
-
-    <div class="content">
-        <span class="tag">SYSTEM ACTIVE</span>
-        <h1>ALEX</h1>
-        <p>Advanced Logic Electronic eXperience. <br>Diseñado para la eficiencia. Construido para el control.</p>
-    </div>
-
-    <div class="controls-hint">
-        MOUSE: ROTAR MODELO<br>
-        SCROLL: DISTANCIA<br>
-        CTRL + SCROLL: MODO EXPLOSIÓN
-    </div>
-
-    <div id="canvas-container"></div>
-
     <script type="importmap">
         {
             "imports": {
@@ -77,6 +94,26 @@
             }
         }
     </script>
+</head>
+<body data-theme="ludovico">
+
+    <div id="loader">CARGANDO MODELO NEURAL...</div>
+
+    <div id="ui-layer">
+        <div class="header">
+            <div class="brand">ALEX V.3.0</div>
+            <button id="theme-btn">MODO: LUDOVICO</button>
+        </div>
+
+        <div class="controls-info">
+            MODELO DE REFERENCIA CINEMÁTICA<br>
+            <span>SCROLL</span> : ZOOM ÓPTICO<br>
+            <span>CTRL + SCROLL</span> : VISTA DE DESPIECE<br>
+            <span>DRAG</span> : ORBITAR
+        </div>
+    </div>
+
+    <div id="canvas-container"></div>
 
     <script type="module">
         import * as THREE from 'three';
@@ -86,177 +123,317 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- CONFIGURACIÓN ---
+        // --- CONFIGURACIÓN DE ESCENA ---
         const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 2, 12);
-
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimización
+        
+        // Tone Mapping para realismo (High Contrast)
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
+        renderer.toneMappingExposure = 1.0;
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
+        const scene = new THREE.Scene();
+        
+        // Cámara cinemática (35mm equivalent)
+        const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 2.5, 14); // Ángulo frontal ligeramente elevado
+
+        // Controles
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.enablePan = false;
+        controls.minDistance = 5;
+        controls.maxDistance = 20;
 
-        // --- TEXTURA DEL LOGO ALEX (Dinámica) ---
+        // --- GENERADOR DE TEXTURA "ALEX" ---
+        // Esto crea una imagen en memoria con el texto para usarla como textura
         function createLogoTexture() {
             const canvas = document.createElement('canvas');
-            canvas.width = 512; canvas.height = 128;
+            canvas.width = 1024;
+            canvas.height = 256;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = "white"; // Dibujamos en blanco para poder teñirlo
-            ctx.font = "bold 80px Montserrat";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText("ALEX", 256, 64);
+            
+            // Fondo transparente
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Texto
+            ctx.fillStyle = '#0a0a0a'; // Casi negro
+            ctx.font = '900 130px "Montserrat", sans-serif'; // Bold futurista
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.letterSpacing = '10px'; // Tracking ancho como en el video
+            
+            // Dibujar texto
+            ctx.fillText('ALEX', canvas.width / 2, canvas.height / 2);
+            
             const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = 16; // Nitidez en ángulos oblicuos
             return tex;
         }
 
-        // --- MATERIALES MEJORADOS ---
-        const matWhite = new THREE.MeshPhysicalMaterial({
-            color: 0xffffff, roughness: 0.15, metalness: 0.05,
-            clearcoat: 1.0, clearcoatRoughness: 0.1
+        // --- MATERIALES ---
+        
+        // 1. Cuerpo Blanco (Plástico de alta ingeniería)
+        const matBody = new THREE.MeshPhysicalMaterial({
+            color: 0xeeeeee, // Blanco no absoluto
+            roughness: 0.35, // Satinado
+            metalness: 0.0,
+            clearcoat: 0.3,  // Capa de barniz sutil
+            clearcoatRoughness: 0.1
         });
 
+        // 2. Negro (Cerámica/Polímero oscuro)
         const matBlack = new THREE.MeshPhysicalMaterial({
-            color: 0x111111, roughness: 0.8, metalness: 0.1
+            color: 0x111111, // Gris muy oscuro para coger especularidad
+            roughness: 0.2,  // Bastante brillante
+            metalness: 0.1,
+            clearcoat: 1.0,  // Muy brillante (como el sombrero del video)
+            clearcoatRoughness: 0.1
         });
 
-        const matOrange = new THREE.MeshStandardMaterial({
-            color: 0x000000, emissive: 0xff4400, emissiveIntensity: 5
-        });
-
-        const matLogo = new THREE.MeshBasicMaterial({ 
-            map: createLogoTexture(), 
-            transparent: true, 
-            color: 0x000000 // Color del texto "ALEX"
-        });
-
-        // --- CONSTRUCCIÓN DEL MODELO ---
-        const alexGroup = new THREE.Group();
-        const parts = [];
-
-        // Cuerpo (Cilindro con Logo)
-        const bodyGeo = new THREE.CylinderGeometry(1.6, 1.6, 3.2, 64);
-        const body = new THREE.Mesh(bodyGeo, matWhite);
-        body.position.y = 2.8;
-        body.castShadow = true;
+        // 3. Luces (Naranja Alexa)
+        const matLight = new THREE.MeshBasicMaterial({ color: 0xff6600 });
         
-        // El Logo ALEX envuelto
-        const logoGeo = new THREE.CylinderGeometry(1.61, 1.61, 0.8, 64, 1, true);
-        const logo = new THREE.Mesh(logoGeo, matLogo);
-        logo.position.y = -0.8; // Posición baja como en el video
-        body.add(logo);
+        // 4. Anillo de neón (Emisivo para el Bloom)
+        const matNeon = new THREE.MeshStandardMaterial({
+            color: 0x000000,
+            emissive: 0xff4400,
+            emissiveIntensity: 4.0, // Muy brillante
+            roughness: 0.4
+        });
+
+        // 5. Logo (Transparente)
+        const matLogo = new THREE.MeshStandardMaterial({
+            map: createLogoTexture(),
+            transparent: true,
+            roughness: 0.4,
+            opacity: 0.9
+        });
+
+        // --- GEOMETRÍA DEL ROBOT ---
+        const robotGroup = new THREE.Group();
+        scene.add(robotGroup);
         
-        alexGroup.add(body);
-        parts.push({ mesh: body, factor: 0 });
+        // Array para controlar la explosión (despiece)
+        const parts = []; 
+        function registerPart(mesh, axisY, speed) {
+            mesh.userData.homeY = mesh.position.y;
+            mesh.userData.speed = speed;
+            robotGroup.add(mesh);
+            parts.push(mesh);
+        }
 
-        // Anillo de luz
-        const ringGeo = new THREE.TorusGeometry(1.62, 0.06, 16, 100);
-        const ring = new THREE.Mesh(ringGeo, matOrange);
-        ring.rotation.x = Math.PI/2;
-        ring.position.y = 2.8;
-        alexGroup.add(ring);
-        parts.push({ mesh: ring, factor: 0.5 });
+        const bodyRadius = 1.8;
 
-        // Sombrero (Cabeza)
+        // -- PIES --
+        const bootGeo = new RoundedBoxGeometry(1.5, 1.2, 2.0, 8, 0.5);
+        const bootL = new THREE.Mesh(bootGeo, matBlack);
+        bootL.position.set(-0.9, 0.6, 0); 
+        bootL.castShadow = true; bootL.receiveShadow = true;
+        registerPart(bootL, 0.6, -1.5); // Se mueve hacia abajo
+
+        const bootR = bootL.clone();
+        bootR.position.set(0.9, 0.6, 0);
+        registerPart(bootR, 0.6, -1.5);
+
+        // -- CUERPO CILINDRICO --
+        const bodyGeo = new THREE.CylinderGeometry(bodyRadius, bodyRadius, 3.2, 64);
+        const body = new THREE.Mesh(bodyGeo, matBody);
+        body.position.set(0, 2.8, 0);
+        body.castShadow = true; body.receiveShadow = true;
+        registerPart(body, 2.8, 0); // El cuerpo se queda quieto o se mueve poco
+
+        // -- LOGO DECAL --
+        // Plano curvo pegado al cuerpo
+        const logoGeo = new THREE.CylinderGeometry(bodyRadius + 0.01, bodyRadius + 0.01, 1.5, 64, 1, true, -Math.PI/3, 2*Math.PI/3);
+        const logoMesh = new THREE.Mesh(logoGeo, matLogo);
+        logoMesh.position.set(0, -0.6, 0); // Ajuste de altura del logo
+        logoMesh.scale.x = -1; // Corregir espejo de textura si es necesario
+        body.add(logoMesh);
+
+        // -- ANILLO LUZ --
+        const ringGeo = new THREE.TorusGeometry(bodyRadius + 0.05, 0.08, 16, 100);
+        const ring = new THREE.Mesh(ringGeo, matNeon);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.set(0, 4.35, 0); // Justo encima del cuerpo
+        registerPart(ring, 4.35, 0.8);
+
+        // -- SOMBRERO (BOWL HAT) --
         const headGroup = new THREE.Group();
-        const dome = new THREE.Mesh(new THREE.SphereGeometry(1.6, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matBlack);
-        const brim = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.6, 0.1, 64), matBlack);
-        headGroup.add(dome, brim);
-        headGroup.position.y = 4.4;
+        headGroup.position.set(0, 4.4, 0);
         
-        // Ojos (3 puntos)
-        [ -0.4, 0, 0.4 ].forEach(x => {
-            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), matOrange);
-            eye.position.set(x, 0.6, 1.4);
-            headGroup.add(eye);
-        });
+        // Ala del sombrero
+        const brimGeo = new THREE.CylinderGeometry(bodyRadius + 0.5, bodyRadius, 0.1, 64);
+        const brim = new THREE.Mesh(brimGeo, matBlack);
+        brim.position.y = 0.05;
+        brim.castShadow = true;
+        headGroup.add(brim);
+
+        // Cúpula del sombrero (Media esfera)
+        const domeGeo = new THREE.SphereGeometry(bodyRadius, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+        const dome = new THREE.Mesh(domeGeo, matBlack);
+        dome.position.y = 0.05;
+        dome.castShadow = true;
+        headGroup.add(dome);
+
+        // -- OJOS/LUCES (3 puntos) --
+        // En el video están en la cúpula negra, no en el cuerpo blanco
+        const eyeGeo = new THREE.SphereGeometry(0.12, 16, 16);
         
-        alexGroup.add(headGroup);
-        parts.push({ mesh: headGroup, factor: 1.5 });
+        const eyeC = new THREE.Mesh(eyeGeo, matLight); // Centro
+        eyeC.position.set(0, 0.8, bodyRadius - 0.1);
+        headGroup.add(eyeC);
 
-        // Pies (Botas)
-        const footGeo = new RoundedBoxGeometry(1.3, 1, 1.8, 6, 0.3);
-        const footL = new THREE.Mesh(footGeo, matBlack);
-        footL.position.set(-0.8, 0.5, 0.2);
-        const footR = footL.clone();
-        footR.position.x = 0.8;
-        alexGroup.add(footL, footR);
-        parts.push({ mesh: footL, factor: -1 }, { mesh: footR, factor: -1 });
+        const eyeL = eyeC.clone(); // Izquierda
+        eyeL.position.set(-0.5, 0.8, bodyRadius - 0.2);
+        headGroup.add(eyeL);
 
-        scene.add(alexGroup);
+        const eyeR = eyeC.clone(); // Derecha
+        eyeR.position.set(0.5, 0.8, bodyRadius - 0.2);
+        headGroup.add(eyeR);
 
-        // --- ILUMINACIÓN CINEMATOGRÁFICA ---
-        const mainLight = new THREE.SpotLight(0xffffff, 2);
-        mainLight.position.set(5, 10, 5);
-        mainLight.castShadow = true;
-        scene.add(mainLight);
+        registerPart(headGroup, 4.4, 2.5); // Sube mucho en el despiece
 
-        const rimLight = new THREE.PointLight(0xffffff, 1.5);
-        rimLight.position.set(-5, 5, -5);
+
+        // --- ILUMINACIÓN CINEMÁTICA ---
+        
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.05); // Muy tenue
+        scene.add(ambientLight);
+
+        // 1. Key Light (Principal) - Suave desde arriba a la derecha
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        keyLight.position.set(5, 8, 10);
+        keyLight.castShadow = true;
+        keyLight.shadow.bias = -0.0001;
+        keyLight.shadow.mapSize.width = 2048; // Sombras nítidas
+        keyLight.shadow.mapSize.height = 2048;
+        scene.add(keyLight);
+
+        // 2. Fill Light (Relleno) - Azulada para contraste frío/cálido
+        const fillLight = new THREE.PointLight(0x404060, 0.8);
+        fillLight.position.set(-10, 2, 5);
+        scene.add(fillLight);
+
+        // 3. RIM LIGHT (LUZ DE CONTRASTE) - CRÍTICA
+        // Esta luz va detrás para recortar la silueta negra del sombrero contra el fondo negro
+        const rimLight = new THREE.SpotLight(0xffffff, 5.0);
+        rimLight.position.set(0, 6, -10);
+        rimLight.lookAt(0, 0, 0);
+        rimLight.penumbra = 0.5;
         scene.add(rimLight);
 
-        const ambient = new THREE.AmbientLight(0xffffff, 0.2);
-        scene.add(ambient);
-
-        // --- POST-PROCESAMIENTO ---
+        // --- POST-PROCESSING (BLOOM) ---
         const composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
-        const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.4, 0.8);
-        composer.addPass(bloom);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
 
-        // --- LÓGICA DE INTERACCIÓN ---
-        let explodeVal = 0;
-        let targetExplode = 0;
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0.1;
+        bloomPass.strength = 0.6; // Intensidad del brillo
+        bloomPass.radius = 0.3;
+        composer.addPass(bloomPass);
+
+        // --- LOGICA DE TEMAS ---
+        const themes = {
+            ludovico: {
+                bg: 0x050505,
+                fog: 0.02,
+                rimInt: 5.0, // Luz trasera fuerte
+                accent: 0xff4400
+            },
+            ultra: {
+                bg: 0x2a0000, // Rojo sangre profundo
+                fog: 0.015,
+                rimInt: 2.0, // Luz trasera más suave
+                accent: 0xff2200
+            }
+        };
+
+        let currentTheme = 'ludovico';
+        
+        function applyTheme(key) {
+            const t = themes[key];
+            const body = document.body;
+            body.setAttribute('data-theme', key);
+            
+            // Background & Niebla
+            scene.background = new THREE.Color(t.bg);
+            scene.fog = new THREE.FogExp2(t.bg, t.fog);
+            
+            // Luces
+            rimLight.intensity = t.rimInt;
+            
+            // Actualizar botón
+            const btn = document.getElementById('theme-btn');
+            btn.innerText = `MODO: ${key.toUpperCase()}`;
+        }
+
+        document.getElementById('theme-btn').addEventListener('click', () => {
+            currentTheme = (currentTheme === 'ludovico') ? 'ultra' : 'ludovico';
+            applyTheme(currentTheme);
+        });
+        
+        // Iniciar tema por defecto
+        applyTheme('ludovico');
+        document.getElementById('loader').style.opacity = '0';
+
+
+        // --- LOGICA DE DESPIECE (EXPLOSION) ---
+        let explosionFactor = 0; // 0 = armado, 1 = desarmado
+        let targetExplosion = 0;
 
         window.addEventListener('wheel', (e) => {
-            if (e.ctrlKey) {
-                e.preventDefault();
-                targetExplode = Math.max(0, Math.min(2, targetExplode + e.deltaY * 0.001));
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault(); // Evitar zoom del navegador
+                controls.enableZoom = false; // Desactivar zoom de órbita temporalmente
+                
+                const delta = e.deltaY * 0.001;
+                targetExplosion += delta;
+                targetExplosion = Math.max(0, Math.min(1, targetExplosion));
+            } else {
+                controls.enableZoom = true;
             }
         }, { passive: false });
 
-        // Cambiar Temas
-        const btn = document.getElementById('theme-toggle');
-        btn.addEventListener('click', () => {
-            const isDark = document.body.getAttribute('data-theme') === 'ludovico';
-            const nextTheme = isDark ? 'ultra' : 'ludovico';
-            document.body.setAttribute('data-theme', nextTheme);
-            btn.innerText = `MODE: ${nextTheme.toUpperCase()}`;
-            
-            // Ajuste de luces por tema
-            if (nextTheme === 'ultra') {
-                matOrange.emissive.setHex(0xffffff);
-                bloom.strength = 0.8;
-            } else {
-                matOrange.emissive.setHex(0xff4400);
-                bloom.strength = 1.2;
-            }
+        // Recuperar zoom si se suelta tecla
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'Control' || e.key === 'Meta') controls.enableZoom = true;
         });
 
-        // --- ANIMACIÓN ---
+
+        // --- ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
-            controls.update();
 
-            // Suavizado de explosión
-            explodeVal += (targetExplode - explodeVal) * 0.1;
-            parts.forEach(p => {
-                p.mesh.position.y += (explodeVal * p.factor * 0.1);
+            // Smooth explosion
+            explosionFactor += (targetExplosion - explosionFactor) * 0.1;
+
+            // Mover piezas
+            parts.forEach(mesh => {
+                const home = mesh.userData.homeY;
+                const spd = mesh.userData.speed;
+                // Posición = inicio + (distancia * factor)
+                mesh.position.y = home + (spd * explosionFactor);
+                
+                // Rotación sutil al explotar para dinamismo
+                if(mesh !== body) { // El cuerpo no rota en eje local
+                    mesh.rotation.y = (explosionFactor * spd * 0.2); 
+                }
             });
-
-            // Flotación suave
-            alexGroup.position.y = Math.sin(Date.now() * 0.002) * 0.15;
             
+            // Rotación suave "Idle" de todo el grupo
+            robotGroup.rotation.y = Math.sin(Date.now() * 0.0002) * 0.1;
+
+            controls.update();
             composer.render();
         }
 
+        // Resize handler
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -265,6 +442,7 @@
         });
 
         animate();
+
     </script>
 </body>
 </html>
