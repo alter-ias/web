@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>ALEX V.1.9 REC</title>
+    <title>ALEX V.1.9.1 MASTER REC</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@500;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -243,7 +243,7 @@
              <div style="position: absolute; top: 40px; left: 50%; transform: translateX(-50%); width: 160px; height: 10px; background: #000;"></div>
         </div>
         <h1 style="font-size:90px; letter-spacing:-5px; color:#101010; margin: 0 0 10px 0; font-family: 'Montserrat'; font-weight: 900; line-height: 0.8;">ALEX</h1>
-        <h2 style="font-size: 16px; font-family: 'Rajdhani'; letter-spacing: 5px; color: #555; text-transform: uppercase; font-weight: 700; margin-bottom: 40px;">System V.1.9</h2>
+        <h2 style="font-size: 16px; font-family: 'Rajdhani'; letter-spacing: 5px; color: #555; text-transform: uppercase; font-weight: 700; margin-bottom: 40px;">System V.1.9.1</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:#101010; border:none; color:#E8E4D9; font-family:'Montserrat'; font-weight: 800; font-size:20px; letter-spacing: 1px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -251,6 +251,8 @@
             <span style="color: #FF3300; font-weight: bold;">KOROVA</span> VISUAL SYNTH
         </div>
     </div>
+
+    <canvas id="master-canvas" width="1280" height="720" style="display:none;"></canvas>
 
     <div id="main-wrapper">
         <div id="viewport">
@@ -541,20 +543,14 @@
                         if(uStyle==2) { col = vec3(step(0.9 - rHigh*0.5, rand(floor(uv*100.0)))); col*=lum; } 
                         if(uStyle==3) { col = vec3(floor(lum*4.0)/4.0); }
                         if(uStyle==4) { 
-                            // EFECTO 8MM / CINE ANTIGUO V.1.8
-                            float l = dot(col, vec3(0.299, 0.587, 0.114)); // Luma correcto
-                            vec3 sepia = vec3(l) * vec3(1.2, 1.0, 0.8); // Tinte sepia ajustado
-                            col = mix(col, sepia, 0.8); // Mezcla original con sepia
-                            
-                            // Viñeta suave
+                            // EFECTO 8MM
+                            float l = dot(col, vec3(0.299, 0.587, 0.114));
+                            vec3 sepia = vec3(l) * vec3(1.2, 1.0, 0.8);
+                            col = mix(col, sepia, 0.8);
                             float vignette = 1.0 - smoothstep(0.5, 1.5, length(uv - 0.5));
                             col *= vignette;
-
-                            // Grano de película dinámico
                             float noise = (rand(uv + t) - 0.5) * 0.15;
                             col += noise;
-                            
-                            // Parpadeo ligero (Flicker)
                             col *= (0.95 + 0.05 * sin(t * 20.0));
                         }
                         col = mix(col, col*uTint, uTintMix);
@@ -610,6 +606,10 @@
         let eqSettings = { low: 1.0, mid: 1.0, high: 1.0 };
         let sensitivity = 10.0; 
         let isSpaceDown = false; 
+
+        // --- MASTER CANVAS (PARA GRABACIÓN) ---
+        const masterCanvas = document.getElementById('master-canvas');
+        const masterCtx = masterCanvas.getContext('2d');
 
         // --- BANK SYSTEM POR MIX ---
         const videoBanks = { 1: {}, 2: {} }; 
@@ -814,11 +814,11 @@
             try {
                 audioCtx = new (window.AudioContext||window.webkitAudioContext)();
                 analyser = audioCtx.createAnalyser(); analyser.fftSize = 512; 
-                analyser.smoothingTimeConstant = 0.3; // SUAVIZADO REDUCIDO
+                analyser.smoothingTimeConstant = 0.3; 
                 
-                // Configurar destino de grabación
+                // Configurar destino de grabación para capturar todo el audio
                 recDest = audioCtx.createMediaStreamDestination();
-                analyser.connect(recDest); // Conectamos la salida del analizador (mezcla final) a la grabación
+                analyser.connect(recDest);
 
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
@@ -881,7 +881,7 @@
             notify(isMicOn ? "MIC ON" : "MIC OFF");
         }
 
-        // --- SISTEMA DE GRABACIÓN ---
+        // --- SISTEMA DE GRABACIÓN MASTER ---
         let mediaRecorder;
         let recordedChunks = [];
         let isRecording = false;
@@ -895,14 +895,25 @@
                 notify("GRABACIÓN FINALIZADA");
             } else {
                 if(!recDest) { notify("AUDIO NO INICIADO"); return; }
-                const canvasStream = activeMix.canvas.captureStream(30); // 30 FPS
+                
+                // Grabamos el Master Canvas, no el mix individual
+                const canvasStream = masterCanvas.captureStream(30); 
                 const audioStream = recDest.stream;
                 const combinedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioStream.getAudioTracks()]);
                 
+                // Intentar forzar MP4 (H.264) para compatibilidad, si no, WebM
+                let options = { mimeType: 'video/webm' };
+                if (MediaRecorder.isTypeSupported('video/mp4')) {
+                    options = { mimeType: 'video/mp4' };
+                } else if (MediaRecorder.isTypeSupported('video/webm;codecs=h264')) {
+                    options = { mimeType: 'video/webm;codecs=h264' };
+                }
+
                 try {
-                    mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm; codecs=vp9' });
+                    mediaRecorder = new MediaRecorder(combinedStream, options);
                 } catch (e) {
-                    mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm' });
+                    console.error("Error codec", e);
+                    mediaRecorder = new MediaRecorder(combinedStream);
                 }
 
                 recordedChunks = [];
@@ -910,12 +921,14 @@
                     if (e.data.size > 0) recordedChunks.push(e.data);
                 };
                 mediaRecorder.onstop = function() {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const blob = new Blob(recordedChunks, { type: options.mimeType });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.style.display = 'none';
                     a.href = url;
-                    a.download = `alex_session_${Date.now()}.webm`;
+                    // Extensión correcta
+                    const ext = options.mimeType.includes('mp4') ? 'mp4' : 'webm';
+                    a.download = `alex_session_${Date.now()}.${ext}`;
                     document.body.appendChild(a);
                     a.click();
                     setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
@@ -924,12 +937,31 @@
                 mediaRecorder.start();
                 btn.classList.add('rec-active');
                 isRecording = true;
-                notify("GRABANDO SESSION");
+                notify("GRABANDO MASTER");
             }
         };
 
         // --- EVENTS, KEY HANDLING & GLOBAL CONTROL ---
-        function animate() { requestAnimationFrame(animate); const t = performance.now()*0.001; mix1.render(t, audio, eqSettings); mix2.render(t, audio, eqSettings); }
+        function animate() { 
+            requestAnimationFrame(animate); 
+            const t = performance.now()*0.001; 
+            
+            // Renderizar los dos motores
+            mix1.render(t, audio, eqSettings); 
+            mix2.render(t, audio, eqSettings); 
+            
+            // --- ACTUALIZAR MASTER CANVAS ---
+            // Esto asegura que se grabe/proyecte la salida correcta
+            if (outputMode === '1') {
+                masterCtx.drawImage(mix1.canvas, 0, 0);
+            } else if (outputMode === '2') {
+                masterCtx.drawImage(mix2.canvas, 0, 0);
+            } else {
+                // Si el output está apagado, mandamos al Master lo que se está editando
+                // para poder grabar ensayos sin proyectar
+                masterCtx.drawImage(activeMix.canvas, 0, 0);
+            }
+        }
 
         document.getElementById('btn-start').onclick = async () => {
             await initAudio(); initNetwork();
@@ -990,7 +1022,7 @@
                 isSpaceDown = true;
             }
 
-            // --- TOGGLE MIX (Tecla junto a Ñ: { ó ' ó ´ ó +) ---
+            // --- TOGGLE MIX (Tecla junto a Ñ) ---
             if(e.key === '{' || e.key === '´' || e.key === '+' || e.code === 'Quote' || e.code === 'BracketRight') {
                 const nextId = activeId === 1 ? 2 : 1;
                 setActive(nextId);
@@ -1052,7 +1084,8 @@
              if(projWin && !projWin.closed) { 
                  const v = projWin.document.getElementById('v'); 
                  if(mode === 'OFF') v.style.opacity = 0; 
-                 else { v.style.opacity = 1; v.srcObject = (mode==='1'?mix1:mix2).renderer.domElement.captureStream(60); } 
+                 // AHORA PROYECTAMOS EL MASTER CANVAS, NO EL MIX DIRECTO
+                 else { v.style.opacity = 1; v.srcObject = masterCanvas.captureStream(60); } 
              }
             notify(`SALIDA: ${mode}`);
         }
