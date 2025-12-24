@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>ALEX V.1.6</title>
+    <title>ALEX V.1.7</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@500;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -240,7 +240,7 @@
              <div style="position: absolute; top: 40px; left: 50%; transform: translateX(-50%); width: 160px; height: 10px; background: #000;"></div>
         </div>
         <h1 style="font-size:90px; letter-spacing:-5px; color:#101010; margin: 0 0 10px 0; font-family: 'Montserrat'; font-weight: 900; line-height: 0.8;">ALEX</h1>
-        <h2 style="font-size: 16px; font-family: 'Rajdhani'; letter-spacing: 5px; color: #555; text-transform: uppercase; font-weight: 700; margin-bottom: 40px;">System V.1.6</h2>
+        <h2 style="font-size: 16px; font-family: 'Rajdhani'; letter-spacing: 5px; color: #555; text-transform: uppercase; font-weight: 700; margin-bottom: 40px;">System V.1.7</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:#101010; border:none; color:#E8E4D9; font-family:'Montserrat'; font-weight: 800; font-size:20px; letter-spacing: 1px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -535,7 +535,13 @@
                         } 
                         if(uStyle==2) { col = vec3(step(0.9 - rHigh*0.5, rand(floor(uv*100.0)))); col*=lum; } 
                         if(uStyle==3) { col = vec3(floor(lum*4.0)/4.0); }
-                        if(uStyle==4) { float g = step(0.5, sin(uv.y*100.0+t*10.0)); col *= g; }
+                        if(uStyle==4) { 
+                            // EFECTO 8MM / CINE ANTIGUO
+                            float l = dot(col, vec3(0.3));
+                            col = vec3(l) * vec3(1.1, 0.9, 0.7); // Tinte sepia/cálido
+                            col *= 1.0 - length(uv-0.5); // Viñeta
+                            col += (rand(uv+t)-0.5)*0.2; // Grano de película
+                        }
                         col = mix(col, col*uTint, uTintMix);
                         if(rHigh > 0.8) col += vec3(0.2, 0.2, 0.2);
 
@@ -590,8 +596,8 @@
         let sensitivity = 10.0; 
         let isSpaceDown = false; // TRACKEO DE TECLA SPACE
 
-        // --- BANK SYSTEM ---
-        const videoBank = {}; 
+        // --- BANK SYSTEM MODIFICADO ---
+        const videoBanks = { 1: {}, 2: {} }; // Bancos independientes por Mix
         let pendingBankSlot = null;
 
         // --- 3. RED P2P ---
@@ -921,12 +927,13 @@
             }
 
             if(bankKeys.includes(k)) {
-                if(e.shiftKey || !videoBank[k]) {
+                // MODIFICADO: Ahora usa videoBanks[activeId] para guardar/cargar independientemente
+                if(e.shiftKey || !videoBanks[activeId][k]) {
                     pendingBankSlot = k;
                     document.getElementById('file-input').click();
                 } else {
-                    activeMix.loadClip(videoBank[k]);
-                    notify(`BANCO ${k.toUpperCase()}`);
+                    activeMix.loadClip(videoBanks[activeId][k]);
+                    notify(`BANCO ${k.toUpperCase()} (MIX ${activeId})`);
                 }
                 return;
             }
@@ -952,8 +959,9 @@
             if(!e.target.files[0]) return; 
             const url = URL.createObjectURL(e.target.files[0]);
             if(pendingBankSlot) {
-                videoBank[pendingBankSlot] = url;
-                notify(`BANCO ${pendingBankSlot.toUpperCase()} GUARDADO`);
+                // MODIFICADO: Guarda en el banco del Mix activo
+                videoBanks[activeId][pendingBankSlot] = url;
+                notify(`BANCO ${pendingBankSlot.toUpperCase()} MIX ${activeId} GUARDADO`);
                 pendingBankSlot = null;
             }
             activeMix.loadClip(url);
