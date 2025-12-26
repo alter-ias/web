@@ -52,21 +52,31 @@
             background: transparent; border: 2px solid var(--accent); color: var(--accent);
             padding: 10px 20px; font-family: 'Rajdhani'; font-weight: 700; cursor: pointer;
             text-transform: uppercase; letter-spacing: 2px; font-size: 10px; transition: 0.3s;
-            display: flex; align-items: center; gap: 10px;
+            display: flex; align-items: center; gap: 10px; min-width: 140px; justify-content: center;
         }
-        #mic-toggle:hover, #mic-toggle.active { background: var(--accent); color: var(--bg-color); }
+        #mic-toggle:hover { background: rgba(255, 102, 0, 0.2); }
         
-        /* NUEVO INPUT DE TEXTO (FALLBACK) */
+        /* Estado Activo (Conversación fluida) */
+        #mic-toggle.active-mode { 
+            background: var(--accent); color: var(--bg-color); 
+            animation: pulse-border 2s infinite;
+        }
+
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(255, 102, 0, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 102, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 102, 0, 0); }
+        }
+        
         #cmd-input {
             background: rgba(0,0,0,0.3); border: 1px solid var(--text-sub); 
             color: var(--text-main); padding: 8px 15px;
             font-family: 'Rajdhani'; font-weight: 600; font-size: 14px;
             width: 200px; outline: none; transition: 0.3s;
-            display: none; /* Se activa si no hay voz o usuario prefiere */
+            display: none; 
             text-transform: uppercase;
         }
         #cmd-input:focus { border-color: var(--accent); background: rgba(0,0,0,0.6); }
-        #cmd-input::placeholder { color: var(--text-sub); opacity: 0.5; }
 
         #ai-status {
             position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
@@ -144,7 +154,7 @@
             h1 { font-size: 50px; }
             #theme-toggle { top: 10px; left: 10px; padding: 5px 10px; font-size: 9px; }
             .controls-container { top: 10px; right: 10px; }
-            #mic-toggle { padding: 5px 10px; font-size: 9px; }
+            #mic-toggle { padding: 5px 10px; font-size: 9px; min-width: auto; }
             #cmd-input { width: 120px; font-size: 12px; padding: 5px; }
         }
     </style>
@@ -163,7 +173,7 @@
     
     <div class="controls-container">
         <input type="text" id="cmd-input" placeholder="ESCRIBE AQUÍ..." autocomplete="off">
-        <button id="mic-toggle">● HABLAR</button>
+        <button id="mic-toggle">● INICIAR SESIÓN</button>
     </div>
     
     <div id="canvas-container"></div>
@@ -339,18 +349,19 @@
         });
 
         /* ========================================= */
-        /* === LOGICA IA (VOZ + TEXTO HÍBRIDO) === */
+        /* === LOGICA IA (CONVERSACIÓN FLUIDA) === */
         /* ========================================= */
         
         const micBtn = document.getElementById('mic-toggle');
         const cmdInput = document.getElementById('cmd-input');
         const statusText = document.getElementById('ai-text');
         
+        // Estados
+        let conversationActive = false; // Bucle principal
         let isListening = false;
         let isThinking = false;
         let isSpeaking = false;
 
-        // --- 1. DETECCIÓN DE NAVEGADOR ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition;
         let voiceSupported = false;
@@ -361,38 +372,85 @@
             recognition.lang = 'es-ES';
             recognition.interimResults = false;
             
-            recognition.onstart = () => { isListening = true; updateUI("Escuchando...", "active"); };
-            recognition.onend = () => { isListening = false; if(!isThinking && !isSpeaking) updateUI("En espera", ""); };
+            // Inicio de escucha
+            recognition.onstart = () => { 
+                isListening = true; 
+                updateUI("Escuchando...", "active"); 
+            };
+
+            // Fin de escucha (Técnico)
+            recognition.onend = () => { 
+                isListening = false; 
+                // Si no estamos pensando ni hablando, y el modo conversación sigue activo, podría significar silencio.
+                // En ese caso, la API se detiene. Podríamos reiniciarla, pero mejor esperar input o respuesta.
+                if(!isThinking && !isSpeaking && conversationActive) {
+                    updateUI("Esperando respuesta...", "active");
+                } else if (!conversationActive) {
+                    updateUI("En espera", "");
+                }
+            };
+
+            // Resultado obtenido
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 updateUI(`"${transcript}"`, "");
-                processWithPollinations(transcript);
+                
+                // Comandos de seguridad para salir del bucle
+                if (transcript.toLowerCase().includes("basta") || 
+                    transcript.toLowerCase().includes("adiós") || 
+                    transcript.toLowerCase().includes("silencio")) {
+                    stopConversation();
+                    speakResponse("Como desees, droog. Silencio.");
+                } else {
+                    processWithPollinations(transcript);
+                }
             };
 
+            // Botón Micrófono (Toggle On/Off)
             micBtn.addEventListener('click', () => {
-                if (isSpeaking) { window.speechSynthesis.cancel(); isSpeaking = false; updateUI("Silenciado", ""); return; }
-                try { recognition.start(); } catch(e) { console.log(e); }
+                if (conversationActive) {
+                    stopConversation();
+                } else {
+                    startConversation();
+                }
             });
-
-            // Si hay soporte de voz, el input está oculto pero se puede mostrar
-            // Opcional: mostrar siempre el input para hibrido
             cmdInput.style.display = 'block'; 
 
         } else {
-            // FIREFOX / NO SOPORTADO
-            micBtn.style.display = 'none'; // Ocultar botón micro
-            cmdInput.style.display = 'block'; // Mostrar input obligatoriamente
-            cmdInput.placeholder = "ESCRIBE AQUÍ (VOZ NO DISPONIBLE)";
+            // Sin soporte (Firefox)
+            micBtn.style.display = 'none';
+            cmdInput.style.display = 'block';
+            cmdInput.placeholder = "SOLO TEXTO (SIN VOZ)";
             updateUI("Modo Texto Activado", "");
         }
 
-        // --- 2. MANEJO DE TEXTO (INPUT) ---
+        // --- FUNCIONES DE CONTROL ---
+
+        function startConversation() {
+            conversationActive = true;
+            micBtn.innerText = "● DETENER SESIÓN";
+            micBtn.classList.add("active-mode");
+            try { recognition.start(); } catch(e) {}
+        }
+
+        function stopConversation() {
+            conversationActive = false;
+            micBtn.innerText = "● INICIAR SESIÓN";
+            micBtn.classList.remove("active-mode");
+            recognition.stop();
+            window.speechSynthesis.cancel();
+            updateUI("Sesión finalizada", "");
+        }
+
+        // Input de texto (Funciona siempre, no inicia bucle de voz)
         cmdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 const text = cmdInput.value;
                 if(text.trim() !== "") {
                     cmdInput.value = "";
                     updateUI(`"${text}"`, "");
+                    // Si escribe por texto, paramos el audio entrante para que no se mezcle
+                    if(conversationActive) recognition.stop();
                     processWithPollinations(text);
                 }
             }
@@ -400,9 +458,8 @@
 
         async function processWithPollinations(userText) {
             isThinking = true;
-            updateUI("Consultando el Korova...", "active");
+            updateUI("Procesando...", "active");
 
-            // Personalidad Alex DeLarge
             const systemPrompt = "Actúa como Alex DeLarge de La Naranja Mecánica convertido en IA. Eres sofisticado, cínico, usas jerga 'nadsat' ligera (llamas al usuario 'droog' o 'hermanito') y desprecias la tecnología pop (odias a Alexa y Siri). Responde en español, muy breve (máximo 20 palabras) y con una ironía punzante.";
             const finalPrompt = `${systemPrompt} El usuario dice: ${userText}`;
             const url = `https://text.pollinations.ai/${encodeURIComponent(finalPrompt)}`;
@@ -415,14 +472,18 @@
                 speakResponse(aiResponse);
             } catch (error) {
                 isThinking = false;
-                updateUI("Error de sinapsis", "error");
-                speakResponse("Algo ha fallado en mi gullever, hermanito.");
+                updateUI("Error de conexión", "error");
+                speakResponse("Fallo en el sistema, hermanito.");
             }
         }
 
         function speakResponse(text) {
             if(!window.speechSynthesis) return;
             isSpeaking = true;
+            
+            // Cancelar cualquier audio previo
+            window.speechSynthesis.cancel();
+
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'es-ES'; 
             utterance.pitch = 0.8; 
@@ -435,7 +496,16 @@
             utterance.onend = () => {
                 isSpeaking = false;
                 updateUI("ALEX VOICE", "");
-                setTimeout(() => { if(!isListening) statusText.style.opacity = 0; }, 3000);
+                
+                // === AQUÍ ESTÁ LA MAGIA DEL BUCLE ===
+                // Si el modo conversación sigue activo, volvemos a escuchar
+                if (conversationActive) {
+                    setTimeout(() => {
+                        try { recognition.start(); } catch(e) { console.log("Reinicio auto:", e); }
+                    }, 500); // Pequeña pausa para evitar que se escuche a sí mismo (eco)
+                } else {
+                    setTimeout(() => { if(!isListening) statusText.style.opacity = 0; }, 3000);
+                }
             };
             window.speechSynthesis.speak(utterance);
         }
@@ -445,13 +515,11 @@
             statusText.style.opacity = 1;
             
             if (state === "active") {
-                micBtn.style.background = "var(--text-main)"; micBtn.style.color = "var(--bg-color)";
-                cmdInput.style.borderColor = "var(--accent)";
+                statusText.style.color = "var(--accent)";
             } else if (state === "error") {
-                micBtn.style.borderColor = "red"; cmdInput.style.borderColor = "red";
+                statusText.style.color = "red";
             } else {
-                micBtn.style.background = "transparent"; micBtn.style.color = "var(--accent)";
-                cmdInput.style.borderColor = "var(--text-sub)";
+                statusText.style.color = "var(--text-main)";
             }
         }
 
