@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.21.0 WAKEWORD</title>
+    <title>ALEX ASSISTANT | V.22.0 SESSION</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
         /* --- ESTILOS VISUALES (INTACTOS) --- */
@@ -86,6 +86,13 @@
             color: var(--text-main); text-shadow: 0 0 10px rgba(0,0,0,0.5);
             background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px;
             display: inline-block; opacity: 0; transition: opacity 0.5s;
+        }
+        
+        /* Barra de progreso del tiempo de sesión */
+        #session-bar {
+            position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+            width: 0%; height: 2px; background: var(--accent);
+            z-index: 100; transition: width 0.2s linear; opacity: 0;
         }
 
         #canvas-container {
@@ -176,6 +183,7 @@
     </div>
     
     <div id="canvas-container"></div>
+    <div id="session-bar"></div>
     <div id="ai-status"><span id="ai-text">Sistema preparado...</span></div>
 
     <div class="interaction-hint">
@@ -186,11 +194,11 @@
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>AI ASSISTANT V.21.0</h2>
+                <h2>AI ASSISTANT V.22.0</h2>
                 <h1>ALEX</h1>
                 <h1>VOICE</h1>
                 <br>
-                <p>Diseño 'Minimalist Bottle'. Estructura monolítica con activación por voz condicional. Palabra clave requerida: "ALEX SABANDIJA".</p>
+                <p>Diseño 'Minimalist Bottle'. Modo de sesión continua. Activa diciendo "ALEX". El sistema permanecerá abierto mientras converses.</p>
                 <br>
                 <a href="#" class="btn-cta">COMPRAR AHORA</a>
                 <a href="#" class="btn-cta secondary">VER SPECS</a>
@@ -348,17 +356,24 @@
         });
 
         /* ========================================= */
-        /* === LOGICA IA CON ACTIVADOR (SABANDIJA) === */
+        /* === LOGICA IA: SESIÓN ACTIVA (TIMER) === */
         /* ========================================= */
         
         const micBtn = document.getElementById('mic-toggle');
         const cmdInput = document.getElementById('cmd-input');
         const statusText = document.getElementById('ai-text');
+        const sessionBar = document.getElementById('session-bar');
         
-        let conversationActive = false;
         let isListening = false;
         let isThinking = false;
         let isSpeaking = false;
+        
+        // --- ESTADO DE SESIÓN ---
+        let sessionActive = false;
+        let sessionTimeout = null;
+        let sessionDuration = 15000; // 15 Segundos de sesión tras última interacción
+        let sessionEndTime = 0;
+        
         let chatHistory = []; 
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -366,45 +381,66 @@
 
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
-            recognition.lang = 'es-MX'; // Prioridad Español Latino
+            recognition.lang = 'es-MX'; 
             recognition.interimResults = false;
             
-            recognition.onstart = () => { isListening = true; updateUI("Di 'ALEX SABANDIJA'...", "active"); };
+            recognition.onstart = () => { 
+                isListening = true; 
+                // Mensaje depende del estado de sesión
+                if (sessionActive) updateUI("Escuchando...", "active");
+                else updateUI("Di 'ALEX' para activar...", "active");
+            };
+
             recognition.onend = () => { 
                 isListening = false; 
-                if(!isThinking && !isSpeaking && conversationActive) { updateUI("Esperando insulto...", "active"); }
-                else if (!conversationActive) { updateUI("En espera", ""); }
+                if (sessionActive && !isThinking && !isSpeaking) {
+                    // Si la sesión está viva, seguimos esperando (reiniciamos escucha en loop)
+                    updateUI("Sesión abierta", "active");
+                    try { recognition.start(); } catch(e) {}
+                } else if (!sessionActive) {
+                    updateUI("En espera", "");
+                }
             };
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 const lowerT = transcript.toLowerCase();
                 
-                // Comandos STOP (Prioridad Máxima)
-                if (lowerT.match(/(basta|adiós|silencio|cállate)/)) {
-                    stopConversation();
-                    speakResponse("Como usted ordene.");
+                // --- COMANDOS UNIVERSALES ---
+                if (lowerT.match(/(basta|adiós|silencio)/)) {
+                    closeSession();
+                    speakResponse("Adiós, droog.");
                     return;
                 }
 
-                // FILTRO DE PALABRA CLAVE
-                // Acepta "alex sabandija" o simplemente "sabandija" por si falla el reconocimiento del nombre
-                if (lowerT.includes("alex sabandija") || lowerT.includes("sabandija")) {
+                if (sessionActive) {
+                    // --- SESIÓN ABIERTA: TODO CUENTA ---
+                    refreshSession(); // Reinicia el timer
                     updateUI(`"${transcript}"`, "");
-                    // Limpiamos un poco la activación para el prompt
-                    const cleanText = transcript.replace(/alex sabandija|sabandija/gi, "").trim();
-                    processWithPollinations(cleanText || "Hola"); // Si solo dice el nombre, saluda
+                    processWithPollinations(transcript);
+                    
                 } else {
-                    // Si no dice la palabra clave, ignoramos pero mostramos feedback visual breve
-                    updateUI("Ignorado (Falta 'Sabandija')", "error");
-                    setTimeout(() => { 
-                        if(conversationActive && !isThinking) updateUI("Di 'ALEX SABANDIJA'...", "active"); 
-                    }, 1500);
+                    // --- SESIÓN CERRADA: FILTRO WAKE WORD ---
+                    if (lowerT.includes("alex")) {
+                        openSession(); // ABRIR SESIÓN
+                        
+                        const cleanText = transcript.replace(/alex/gi, "").trim();
+                        if (cleanText.length > 2) {
+                            // Dijo "Alex qué hora es" -> Procesa
+                            updateUI(`"${transcript}"`, "");
+                            processWithPollinations(cleanText);
+                        } else {
+                            // Dijo solo "Alex" -> Saluda
+                            speakResponse("¿Sí, droog?");
+                        }
+                    } else {
+                        updateUI("Ignorado (Di 'Alex')", "error");
+                    }
                 }
             };
 
             micBtn.addEventListener('click', () => {
-                if (conversationActive) stopConversation(); else startConversation();
+                if (sessionActive) closeSession(); else { try { recognition.start(); } catch(e) {} }
             });
             cmdInput.style.display = 'block'; 
 
@@ -415,30 +451,60 @@
             updateUI("Modo Texto Activado", "");
         }
 
-        function startConversation() {
-            conversationActive = true;
-            micBtn.innerText = "● DETENER SESIÓN";
+        // --- GESTIÓN DE SESIÓN ---
+
+        function openSession() {
+            sessionActive = true;
+            micBtn.innerText = "● SESIÓN ACTIVA";
             micBtn.classList.add("active-mode");
-            try { recognition.start(); } catch(e) {}
+            sessionBar.style.opacity = 1;
+            refreshSession();
+            updateSessionBar();
         }
 
-        function stopConversation() {
-            conversationActive = false;
-            micBtn.innerText = "● INICIAR SESIÓN";
+        function refreshSession() {
+            if (!sessionActive) return;
+            sessionEndTime = Date.now() + sessionDuration;
+        }
+
+        function closeSession() {
+            sessionActive = false;
+            micBtn.innerText = "● INICIAR ESCUCHA";
             micBtn.classList.remove("active-mode");
+            sessionBar.style.opacity = 0;
             recognition.stop();
             window.speechSynthesis.cancel();
-            updateUI("Sesión finalizada", "");
+            updateUI("Sesión cerrada", "");
         }
 
-        // TEXT INPUT (No requiere palabra clave, ya estás escribiendo)
+        // Animación de la barra de tiempo
+        function updateSessionBar() {
+            if (!sessionActive) return;
+            
+            const remaining = Math.max(0, sessionEndTime - Date.now());
+            const pct = (remaining / sessionDuration) * 100;
+            sessionBar.style.width = pct + "%";
+
+            if (remaining <= 0) {
+                closeSession(); // Se acabó el tiempo
+                speakResponse("Sesión expirada.");
+            } else {
+                requestAnimationFrame(updateSessionBar);
+            }
+        }
+
+
+        // TEXT INPUT
         cmdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 const text = cmdInput.value;
                 if(text.trim() !== "") {
                     cmdInput.value = "";
                     updateUI(`"${text}"`, "");
-                    if(conversationActive) recognition.stop();
+                    // Escribir también reinicia la sesión si está activa, o la abre
+                    if (!sessionActive) openSession(); else refreshSession();
+                    
+                    if(isListening) recognition.stop(); // Pausa micro para procesar
                     processWithPollinations(text);
                 }
             }
@@ -452,7 +518,8 @@
             if (chatHistory.length > 6) chatHistory = chatHistory.slice(-6);
             const contextString = chatHistory.join("\n");
             
-            const systemPrompt = "Eres 'Alex', una IA irónica y sofisticada. Tu usuario te debe llamar 'Alex Sabandija'. Tienes un tono cínico y te crees intelectualmente superior. Responde en español latino neutro, de forma fluida pero breve (máximo 25 palabras).";
+            // Personalidad ajustada: Irónico pero no defensivo
+            const systemPrompt = "Eres 'Alex', una IA intelectual, irónica y un poco arrogante. No eres un sirviente, eres un igual o superior al usuario. Responde en español latino neutro, de forma fluida, breve y aguda.";
             
             const finalPrompt = `${systemPrompt}\n\nHistorial:\n${contextString}\n\nAlex responde:`;
             const url = `https://text.pollinations.ai/${encodeURIComponent(finalPrompt)}`;
@@ -468,7 +535,7 @@
             } catch (error) {
                 isThinking = false;
                 updateUI("Error de conexión", "error");
-                speakResponse("Error. Intenta de nuevo.");
+                speakResponse("Error de red.");
             }
         }
 
@@ -479,7 +546,6 @@
 
             const utterance = new SpeechSynthesisUtterance(text);
             
-            // --- VOZ LATINA ---
             const voices = window.speechSynthesis.getVoices();
             let targetVoice = voices.find(v => v.lang === 'es-MX');
             if (!targetVoice) targetVoice = voices.find(v => v.lang === 'es-419');
@@ -492,8 +558,12 @@
             utterance.onend = () => {
                 isSpeaking = false;
                 updateUI("ALEX VOICE", "");
-                if (conversationActive) {
-                    setTimeout(() => { try { recognition.start(); } catch(e) {} }, 500);
+                
+                // Si la sesión sigue activa, reiniciamos el timer para darle tiempo al usuario a responder
+                if (sessionActive) {
+                    refreshSession(); 
+                    // Reiniciar escucha
+                    try { recognition.start(); } catch(e) {}
                 } else {
                     setTimeout(() => { if(!isListening) statusText.style.opacity = 0; }, 3000);
                 }
