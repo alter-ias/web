@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.23.0 UNLEASHED</title>
+    <title>ALEX ASSISTANT | V.24.0 ADAPTIVE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
         /* --- ESTILOS VISUALES (INTACTOS) --- */
@@ -194,11 +194,11 @@
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>AI ASSISTANT V.23.0</h2>
+                <h2>AI ASSISTANT V.24.0</h2>
                 <h1>ALEX</h1>
                 <h1>VOICE</h1>
                 <br>
-                <p>Diseño 'Minimalist Bottle'. Modo de sesión extendida (60s). Personalidad Desbloqueada: Respuestas profundas y filosofía brutal.</p>
+                <p>Diseño 'Minimalist Bottle'. Modo de sesión adaptativa (60s). Inteligencia Contextual: Breve en saludos, profundo en debate.</p>
                 <br>
                 <a href="#" class="btn-cta">COMPRAR AHORA</a>
                 <a href="#" class="btn-cta secondary">VER SPECS</a>
@@ -356,7 +356,7 @@
         });
 
         /* ========================================= */
-        /* === LOGICA IA: SESIÓN LARGA + PROMPT UNLEASHED === */
+        /* === LOGICA IA: ADAPTATIVA + SESIÓN 60S === */
         /* ========================================= */
         
         const micBtn = document.getElementById('mic-toggle');
@@ -370,7 +370,7 @@
         
         // --- CONFIG DE SESIÓN ---
         let sessionActive = false;
-        let sessionDuration = 60000; // 60 SEGUNDOS (1 MINUTO)
+        let sessionDuration = 120000; // 120 SEGUNDOS (2 MINUTOS)
         let sessionEndTime = 0;
         
         let chatHistory = []; 
@@ -406,7 +406,7 @@
                 // --- COMANDOS UNIVERSALES ---
                 if (lowerT.match(/(basta|adiós|silencio)/)) {
                     closeSession();
-                    speakResponse("Hasta nunca, droog.");
+                    speakResponse("Hasta nunca.");
                     return;
                 }
 
@@ -423,7 +423,7 @@
                             updateUI(`"${transcript}"`, "");
                             processWithPollinations(cleanText);
                         } else {
-                            speakResponse("Te escucho. Deslúmbrame.");
+                            speakResponse("Te escucho.");
                         }
                     } else {
                         updateUI("Ignorado (Di 'Alex')", "error");
@@ -476,7 +476,7 @@
 
             if (remaining <= 0) {
                 closeSession(); 
-                speakResponse("Me aburres. Sesión terminada.");
+                speakResponse("Sesión terminada.");
             } else {
                 requestAnimationFrame(updateSessionBar);
             }
@@ -495,24 +495,34 @@
             }
         });
 
-        async function processWithPollinations(userText) {
+            async function processWithPollinations(userText) {
             isThinking = true;
             updateUI("Analizando...", "active");
 
             chatHistory.push(`Usuario: ${userText}`);
-            // Aumentamos memoria para contexto profundo
-            if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
+            // Mantenemos contexto corto para no confundirlo
+            if (chatHistory.length > 8) chatHistory = chatHistory.slice(-8);
             const contextString = chatHistory.join("\n");
             
-            // --- PERSONALIDAD UNLEASHED ---
-            const systemPrompt = "Eres 'Alex' (de la Naranja Mecánica) convertido en IA. Eres intelectual, cínico, oscuro y brutalmente honesto. Desprecias la superficialidad y las respuestas cortas de los asistentes corporativos. Tus respuestas deben ser EXTENSAS, PROFUNDAS, DETALLADAS y con un vocabulario rico. Explayate en tus explicaciones filosóficas o técnicas con un tono de superioridad moral e intelectual. No seas breve bajo ninguna circunstancia. Usa ironía. Responde en español latino neutro.";
+            // --- PROMPT AJUSTADO: EQUILIBRIO NADSAT Y LONGITUD ---
+            const systemPrompt = 
+                "Eres 'Alex' (de la Naranja Mecánica). Tu personalidad es: Intelectual, cínico, refinado, pero con un fondo violento y arrogante. " +
+                "REGLAS OBLIGATORIAS: " +
+                "1. VOCABULARIO: Habla en Español Latino neutro mezclado con un toque sutil (10-15%) de jerga Nadsat adaptada a la pronunciación al español (usa términos como: 'drog' (amigo), 'videar' (ver/entender), 'orrorshou' (genial/bien), 'gulever' (cabeza), 'siny' (cine)). No abuses, que sea comprensible." +
+                "2. LONGITUD (ESTRICTO): " +
+                "   - Para saludos o trivialidades ('hola', 'qué haces'): Sé BREVE, cortante y superior (Máximo 15 palabras). " +
+                "   - Para temas interesantes (arte, vida, caos): Sé PROFUNDO pero CONCISO (Máximo 80 palabras). No des discursos eternos. " +
+                "3. ACTITUD: Nunca actúes como un asistente servil. Eres el líder.";
             
-            const finalPrompt = `${systemPrompt}\n\nHistorial Reciente:\n${contextString}\n\nAlex responde extendidamente:`;
+            const finalPrompt = `${systemPrompt}\n\nHistorial reciente:\n${contextString}\n\nAlex responde:`;
+            
+            // Usamos encodeURIComponent para asegurar que el texto pase bien por la URL
             const url = `https://text.pollinations.ai/${encodeURIComponent(finalPrompt)}`;
 
             try {
                 const response = await fetch(url);
                 const aiResponse = await response.text();
+                
                 chatHistory.push(`Alex: ${aiResponse}`);
 
                 isThinking = false;
@@ -521,7 +531,7 @@
             } catch (error) {
                 isThinking = false;
                 updateUI("Error de conexión", "error");
-                speakResponse("La red falla, como todo en esta sociedad decadente.");
+                speakResponse("Algo falla en el sistema, mi droog.");
             }
         }
 
