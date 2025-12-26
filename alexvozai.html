@@ -42,7 +42,7 @@
         }
         #theme-toggle:hover { background: var(--text-main); color: var(--bg-color); }
 
-        /* --- NUEVO: BOTÓN DE MICRÓFONO Y ESTADO --- */
+        /* --- UI DE MICRÓFONO Y ESTADO --- */
         #mic-toggle {
             position: fixed; top: 30px; right: 10%; z-index: 100;
             background: transparent; border: 2px solid var(--accent); color: var(--accent);
@@ -142,11 +142,10 @@
 <body data-theme="ludovico">
 
     <button id="theme-toggle">MODELO: LUDOVICO</button>
-    <button id="mic-toggle">● ACTIVAR ALEX</button>
+    <button id="mic-toggle">● HABLAR CON ALEX</button>
     
     <div id="canvas-container"></div>
-
-    <div id="ai-status"><span id="ai-text">Sistema en espera...</span></div>
+    <div id="ai-status"><span id="ai-text">Listo para la ultraviolencia...</span></div>
 
     <div class="interaction-hint">
         SCROLL : DESPIECE<br>
@@ -243,28 +242,23 @@
         controls.enablePan = true;
         controls.target.set(0, initialTargetY, 0);
 
-        // --- MATERIALES (BASE DEL TEMA) ---
-        // matArmor = Negro (Sombrero y Base)
+        // --- MATERIALES ---
         const matArmor = new THREE.MeshStandardMaterial({ 
             color: 0x111111, roughness: 0.6, metalness: 0.1 
         });
 
-        // matBody = Blanco (Cuerpo central)
         const matBody = new THREE.MeshStandardMaterial({ 
             color: 0xeeeeee, roughness: 0.7, metalness: 0.0
         });
 
-        // matAccent = Naranja (Tirantes)
         const matAccent = new THREE.MeshStandardMaterial({
             color: 0x000000, emissive: 0xFF4400, emissiveIntensity: 2.0, roughness: 0.2
         });
 
-        // matTech = Estructura interna
         const matTech = new THREE.MeshStandardMaterial({ 
             color: 0x222222, roughness: 0.3, metalness: 0.8 
         });
         
-        // matCore = Núcleo brillante
         const matCore = new THREE.MeshStandardMaterial({ 
             color: 0xFFFFFF, emissive: 0xFF4400, emissiveIntensity: 3.0, wireframe: true 
         });
@@ -301,124 +295,98 @@
         }
 
         // ==========================================
-        // === NUEVO MODELO 3D (V.18.0 BOTTLE) ===
+        // === MODELO 3D (V.18.0 BOTTLE) ===
         // ==========================================
-
         const RADIUS = 1.7;
 
-        // 1. ESTRUCTURA INTERNA
+        // 1. SPINE
         const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 4.0, 16), matTech);
         spine.position.y = 2.5; 
-        addPart(spine, 0.0); // Fijo
+        addPart(spine, 0.0);
 
-        // 2. BASE SUAVIZADA (Botella/Bowl) - NEGRA
-        // Usamos una esfera cortada + un cilindro pequeño
+        // 2. BASE
         const baseGroup = new THREE.Group();
         const bowlGeo = new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2); 
         const bowl = new THREE.Mesh(bowlGeo, matArmor);
-        bowl.rotation.z = Math.PI; // Invertir para que sea el fondo
-        bowl.scale.y = 0.7; // Aplanar un poco
-        bowl.position.y = 0.5; // Ajuste altura
-        
+        bowl.rotation.z = Math.PI; 
+        bowl.scale.y = 0.7; 
+        bowl.position.y = 0.5; 
         const bowlRim = new THREE.Mesh(new THREE.CylinderGeometry(RADIUS, RADIUS, 1.0, 64), matArmor);
         bowlRim.position.y = 1.0; 
-
         baseGroup.add(bowl, bowlRim);
         baseGroup.position.y = 0.0;
-        
-        addPart(baseGroup, -0.5); // La base baja al explotar
+        addPart(baseGroup, -0.5);
 
-        // 3. CUERPO CILÍNDRICO - BLANCO
+        // 3. CUERPO
         const bodyGeo = new THREE.CylinderGeometry(RADIUS, RADIUS, 3.0, 64);
         const bodyMesh = new THREE.Mesh(bodyGeo, matBody);
-        bodyMesh.position.set(0, 3.0, 0); // Encima de la base (1.5 base + 1.5 mitad cuerpo)
+        bodyMesh.position.set(0, 3.0, 0); 
         bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
-        
         const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), matLogo);
         logoPlane.position.set(0, 0, RADIUS + 0.01);
         bodyMesh.add(logoPlane);
+        addPart(bodyMesh, 0.0);
 
-        addPart(bodyMesh, 0.0); // El cuerpo se queda quieto (o sube poco)
-
-        // 4. NÚCLEO IA (Interior)
+        // 4. NÚCLEO IA
         const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 0), matCore);
-        core.position.y = 3.0; // Centro del cuerpo
+        core.position.y = 3.0; 
         const aiCore = core;
         addPart(core, 0.0); 
 
-        // 5. ARAÑA SUPERIOR (SOMBRERO + TIRANTES) - NEGRO Y NARANJA
+        // 5. ARAÑA
         const spiderGroup = new THREE.Group();
-        spiderGroup.position.y = 4.5; // Justo encima del cuerpo (3.0 + 1.5)
-
-        // A. Sombrero (Negro)
+        spiderGroup.position.y = 4.5; 
         const hatGroup = new THREE.Group();
         const dome = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor);
         const brim = new THREE.Mesh(new THREE.TorusGeometry(RADIUS, 0.4, 16, 64), matArmor);
         brim.rotation.x = Math.PI/2;
         hatGroup.add(dome, brim);
-
-        // Agujeros Acústicos (Simulados con cilindros negros pequeños)
         for(let r=1; r<=3; r++){
             const ringRad = 0.4 * r;
             const count = 8 * r;
             for(let i=0; i<count; i++){
                 const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8), matArmor);
-                // Matematicas esfericas simples para posicionar en el domo
                 const angle = (i / count) * Math.PI * 2;
                 hole.position.set(Math.cos(angle)*ringRad, 1.5 - (r*0.2), Math.sin(angle)*ringRad);
-                hole.lookAt(0, 0, 0); // Apuntar al centro
+                hole.lookAt(0, 0, 0);
                 hatGroup.add(hole);
             }
         }
         spiderGroup.add(hatGroup);
 
-        // B. Tirantes (Naranjas) - Bajando desde el sombrero
-        // 4 Tirantes que conectan sombrero con base
-        const suspenderGeo = new RoundedBoxGeometry(0.3, 4.5, 0.15, 4, 0.05); // Largos
-        const angles = [25, 155, 205, 335]; // Angulos de separación
-
+        const suspenderGeo = new RoundedBoxGeometry(0.3, 4.5, 0.15, 4, 0.05);
+        const angles = [25, 155, 205, 335];
         angles.forEach(deg => {
             const rad = deg * (Math.PI/180);
             const suspender = new THREE.Mesh(suspenderGeo, matAccent);
-            // Posicion: Radio del cuerpo, bajando en Y
-            // Y = -2.25 (mitad del largo aprox) para que cuelguen desde el sombrero
             suspender.position.set(Math.sin(rad) * RADIUS, -2.0, Math.cos(rad) * RADIUS);
             suspender.rotation.y = rad;
             spiderGroup.add(suspender);
         });
-
-        // La araña sube MUCHO para mostrar el mecanismo
         addPart(spiderGroup, 2.0); 
 
-
-        // --- LÓGICA DE TEMA ACTUALIZADA ---
+        // --- LÓGICA DE TEMA ---
         function applyTheme3D(key) {
             const t = themes[key];
             bodyEl.setAttribute('data-theme', key);
             toggleBtn.innerText = "MODELO: " + t.label;
-            
             scene.background = new THREE.Color(t.bg);
             scene.fog = new THREE.FogExp2(t.bg, t.fogDensity);
             rimLight.intensity = t.rimIntensity;
 
             if (key === 'ultra') {
-                // TEMA ULTRA: Inversión
                 matBody.color.setHex(0x111111);
-                matArmor.color.setHex(0xFF6600); // Base y Sombrero Naranjas en modo Ultra
-                matAccent.emissive.setHex(0xFFFFFF); // Tirantes Blancos
+                matArmor.color.setHex(0xFF6600); 
+                matAccent.emissive.setHex(0xFFFFFF); 
                 matCore.emissive.setHex(0xFFFFFF);
-                
                 logoTexture.image.getContext('2d').fillStyle = '#EEEEEE';
                 logoTexture.image.getContext('2d').fillText('ALEX', 256, 64);
                 logoTexture.needsUpdate = true;
-
             } else {
-                // TEMA LUDOVICO: Clásico (Negro/Blanco/Naranja)
-                matBody.color.setHex(0xEEEEEE); // Cuerpo Blanco
-                matArmor.color.setHex(0x111111); // Base y Sombrero Negros
-                matAccent.emissive.setHex(0xFF4400); // Tirantes Naranjas
+                matBody.color.setHex(0xEEEEEE); 
+                matArmor.color.setHex(0x111111); 
+                matAccent.emissive.setHex(0xFF4400); 
                 matCore.emissive.setHex(0xFF4400); 
-                
                 logoTexture.image.getContext('2d').fillStyle = '#111111';
                 logoTexture.image.getContext('2d').fillText('ALEX', 256, 64);
                 logoTexture.needsUpdate = true;
@@ -441,18 +409,15 @@
         // --- ANIMACIÓN ---
         let explodeTarget = 0;
         let explodeCurrent = 0;
-
         window.addEventListener('wheel', (e) => {
             if(e.ctrlKey || e.metaKey) {
                 controls.enableZoom = false; e.preventDefault(); e.stopPropagation();
                 explodeTarget += e.deltaY * 0.002; 
-                // Rango aumentado para ver salir los tirantes largos
                 explodeTarget = Math.max(0, Math.min(3.0, explodeTarget));
             } else {
                 controls.enableZoom = true;
             }
         }, { passive: false });
-
         window.addEventListener('keyup', (e) => {
             if (e.key === 'Control' || e.key === 'Meta') controls.enableZoom = true;
         });
@@ -467,29 +432,27 @@
         });
 
         /* ========================================= */
-        /* === LÓGICA DE IA Y VOZ (NUEVO CÓDIGO) === */
+        /* === IA ALEX - PERSONALIDAD SARCÁSTICA === */
         /* ========================================= */
         
         const micBtn = document.getElementById('mic-toggle');
         const statusText = document.getElementById('ai-text');
         
-        // Variables de estado
         let isListening = false;
         let isThinking = false;
         let isSpeaking = false;
 
-        // Configuración Speech Recognition (Navegador)
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition;
 
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
-            recognition.lang = 'es-ES'; // Idioma Español
+            recognition.lang = 'es-ES'; // Español general
             recognition.interimResults = false;
             
             recognition.onstart = () => {
                 isListening = true;
-                updateUI("Escuchando...", "active");
+                updateUI("Oídos abiertos, droog...", "active");
             };
 
             recognition.onend = () => {
@@ -503,11 +466,10 @@
                 processWithPollinations(transcript);
             };
         } else {
-            updateUI("Navegador no soporta voz", "error");
+            updateUI("Navegador sordo", "error");
             micBtn.style.display = 'none';
         }
 
-        // 1. Activar Micrófono
         micBtn.addEventListener('click', () => {
             if (!recognition) return;
             if (isSpeaking) {
@@ -519,17 +481,15 @@
             try { recognition.start(); } catch(e) { console.log(e); }
         });
 
-        // 2. Procesar con Pollinations AI (Endpoint de Texto)
         async function processWithPollinations(userText) {
             isThinking = true;
-            updateUI("Procesando...", "active");
+            updateUI("Consultando el Korova...", "active");
 
-            // Prompt del sistema para definir la personalidad
-            const systemPrompt = "Eres ALEX, una IA minimalista y eficiente. Responde en español de forma muy breve, técnica y un poco futurista. Máximo 2 frases.";
-            const finalPrompt = `${systemPrompt} Usuario dice: ${userText}`;
+            // --- PERSONALIDAD DE ALEX DELARGE ---
+            // Nadsat ligero, tono irónico, culto, amenazante pero sutil.
+            const systemPrompt = "Actúa como Alex DeLarge de La Naranja Mecánica convertido en IA. Eres sofisticado, cínico, usas jerga 'nadsat' ligera (llamas al usuario 'droog' o 'hermanito') y desprecias la tecnología pop (odias a Alexa y Siri). Eres un amante de la música clásica y la 'ultraviolencia' verbal. Responde en español, muy breve (máximo 20 palabras) y con una ironía punzante.";
             
-            // Usamos el endpoint de texto de Pollinations
-            // Codificamos la URL para evitar errores con espacios
+            const finalPrompt = `${systemPrompt} El usuario dice: ${userText}`;
             const url = `https://text.pollinations.ai/${encodeURIComponent(finalPrompt)}`;
 
             try {
@@ -537,35 +497,38 @@
                 const aiResponse = await response.text();
                 
                 isThinking = false;
-                updateUI(aiResponse, "speaking"); // Mostrar texto respuesta
+                updateUI(aiResponse, "speaking"); 
                 speakResponse(aiResponse);
             } catch (error) {
                 isThinking = false;
-                updateUI("Error de conexión IA", "error");
-                speakResponse("Lo siento, mis sistemas neuronales no responden.");
+                updateUI("Error de sinapsis", "error");
+                speakResponse("Algo ha fallado en mi gullever, hermanito.");
             }
         }
 
-        // 3. Sintesis de Voz (TTS)
         function speakResponse(text) {
             if(!window.speechSynthesis) return;
             
             isSpeaking = true;
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'es-ES';
-            utterance.pitch = 0.9; // Un poco más grave
-            utterance.rate = 1.1;  // Un poco más rápido
+            utterance.lang = 'es-ES'; // Forzamos Español de España para intentar tono más "Europeo"
             
-            // Intentar buscar una voz en español
+            // Ajustes para sonar más "Alex" (Pausado y grave)
+            utterance.pitch = 0.8; 
+            utterance.rate = 0.9;  
+            
+            // Intentar buscar una voz de España (Microsoft o Google Español)
             const voices = window.speechSynthesis.getVoices();
-            const esVoice = voices.find(v => v.lang.includes('es'));
-            if(esVoice) utterance.voice = esVoice;
+            // Prioridad: Voz de hombre es-ES, luego cualquiera es-ES
+            const targetVoice = voices.find(v => v.lang === 'es-ES' && v.name.includes('Google')) || 
+                                voices.find(v => v.lang === 'es-ES');
+            
+            if(targetVoice) utterance.voice = targetVoice;
 
             utterance.onend = () => {
                 isSpeaking = false;
                 updateUI("ALEX VOICE", "");
-                // Ocultar texto después de un momento
-                setTimeout(() => { if(!isListening) statusText.style.opacity = 0; }, 2000);
+                setTimeout(() => { if(!isListening) statusText.style.opacity = 0; }, 3000);
             };
 
             window.speechSynthesis.speak(utterance);
@@ -587,7 +550,6 @@
         }
 
         /* ========================================= */
-        /* ========================================= */
 
         function animate() {
             requestAnimationFrame(animate);
@@ -595,46 +557,35 @@
             explodeCurrent += (explodeTarget - explodeCurrent) * 0.05;
             const time = Date.now() * 0.001;
             
-            // Flotación Base
             robotGroup.position.y = (Math.sin(time) * 0.1) + 1.0; 
 
             parts.forEach(p => {
                 p.mesh.position.y = p.originalY + (p.direction * explodeCurrent);
             });
 
-            // Rotación del Núcleo IA
             if(aiCore) {
                 aiCore.rotation.x = time * 0.5;
                 aiCore.rotation.y = time * 0.8;
 
-                // --- FEEDBACK VISUAL IA ---
-                // Modificar la intensidad del núcleo según el estado
                 if (isListening) {
-                    // Pulso suave lento (Escuchando)
                     matCore.emissiveIntensity = 2.0 + Math.sin(time * 5) * 1.5;
                 } else if (isThinking) {
-                    // Pulso muy rápido (Pensando)
                     matCore.emissiveIntensity = 2.0 + Math.sin(time * 20) * 2.0;
-                    aiCore.rotation.y += 0.2; // Girar más rápido
+                    aiCore.rotation.y += 0.2; 
                 } else if (isSpeaking) {
-                    // Caótico / Voz (Hablando)
                     matCore.emissiveIntensity = 3.0 + (Math.random() * 3.0);
                 } else {
-                    // Idle (Reposo)
                     matCore.emissiveIntensity = 3.0;
                 }
             }
-
             composer.render();
         }
-
         window.addEventListener('resize', () => {
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(container.clientWidth, container.clientHeight);
             composer.setSize(container.clientWidth, container.clientHeight);
         });
-
         animate();
     </script>
 </body>
