@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.18.0 INTERNAL</title>
+    <title>ALEX ASSISTANT | V.20.0 LATAM</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
-        /* --- ESTILOS VISUALES --- */
+        /* --- ESTILOS VISUALES (IDÉNTICOS) --- */
         :root {
             --bg-color: #1a1a1a; 
             --text-main: #E8E4D9;
@@ -42,7 +42,7 @@
         }
         #theme-toggle:hover { background: var(--text-main); color: var(--bg-color); }
 
-        /* --- UI DE CONTROL (MIC & TEXT) --- */
+        /* --- UI DE CONTROL --- */
         .controls-container {
             position: fixed; top: 30px; right: 10%; z-index: 100;
             display: flex; align-items: center; gap: 10px;
@@ -56,7 +56,6 @@
         }
         #mic-toggle:hover { background: rgba(255, 102, 0, 0.2); }
         
-        /* Estado Activo (Conversación fluida) */
         #mic-toggle.active-mode { 
             background: var(--accent); color: var(--bg-color); 
             animation: pulse-border 2s infinite;
@@ -187,7 +186,7 @@
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>AI ASSISTANT V.18.0</h2>
+                <h2>AI ASSISTANT V.20.0</h2>
                 <h1>ALEX</h1>
                 <h1>VOICE</h1>
                 <br>
@@ -349,82 +348,60 @@
         });
 
         /* ========================================= */
-        /* === LOGICA IA (CONVERSACIÓN FLUIDA) === */
+        /* === LOGICA IA (LATAM + MEMORIA + IRONÍA) === */
         /* ========================================= */
         
         const micBtn = document.getElementById('mic-toggle');
         const cmdInput = document.getElementById('cmd-input');
         const statusText = document.getElementById('ai-text');
         
-        // Estados
-        let conversationActive = false; // Bucle principal
+        let conversationActive = false;
         let isListening = false;
         let isThinking = false;
         let isSpeaking = false;
+        
+        // --- MEMORIA DE CONVERSACIÓN ---
+        // Guardaremos los últimos intercambios para dar contexto
+        let chatHistory = []; 
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition;
-        let voiceSupported = false;
 
         if (SpeechRecognition) {
-            voiceSupported = true;
             recognition = new SpeechRecognition();
-            recognition.lang = 'es-ES';
+            recognition.lang = 'es-MX'; // Prioridad Español México
             recognition.interimResults = false;
             
-            // Inicio de escucha
-            recognition.onstart = () => { 
-                isListening = true; 
-                updateUI("Escuchando...", "active"); 
-            };
-
-            // Fin de escucha (Técnico)
+            recognition.onstart = () => { isListening = true; updateUI("Escuchando...", "active"); };
             recognition.onend = () => { 
                 isListening = false; 
-                // Si no estamos pensando ni hablando, y el modo conversación sigue activo, podría significar silencio.
-                // En ese caso, la API se detiene. Podríamos reiniciarla, pero mejor esperar input o respuesta.
-                if(!isThinking && !isSpeaking && conversationActive) {
-                    updateUI("Esperando respuesta...", "active");
-                } else if (!conversationActive) {
-                    updateUI("En espera", "");
-                }
+                if(!isThinking && !isSpeaking && conversationActive) { updateUI("Esperando...", "active"); }
+                else if (!conversationActive) { updateUI("En espera", ""); }
             };
 
-            // Resultado obtenido
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 updateUI(`"${transcript}"`, "");
                 
-                // Comandos de seguridad para salir del bucle
-                if (transcript.toLowerCase().includes("basta") || 
-                    transcript.toLowerCase().includes("adiós") || 
-                    transcript.toLowerCase().includes("silencio")) {
+                if (transcript.toLowerCase().match(/(basta|adiós|silencio|cállate)/)) {
                     stopConversation();
-                    speakResponse("Como desees, droog. Silencio.");
+                    speakResponse("Silencio. Como usted diga.");
                 } else {
                     processWithPollinations(transcript);
                 }
             };
 
-            // Botón Micrófono (Toggle On/Off)
             micBtn.addEventListener('click', () => {
-                if (conversationActive) {
-                    stopConversation();
-                } else {
-                    startConversation();
-                }
+                if (conversationActive) stopConversation(); else startConversation();
             });
             cmdInput.style.display = 'block'; 
 
         } else {
-            // Sin soporte (Firefox)
             micBtn.style.display = 'none';
             cmdInput.style.display = 'block';
             cmdInput.placeholder = "SOLO TEXTO (SIN VOZ)";
             updateUI("Modo Texto Activado", "");
         }
-
-        // --- FUNCIONES DE CONTROL ---
 
         function startConversation() {
             conversationActive = true;
@@ -442,14 +419,12 @@
             updateUI("Sesión finalizada", "");
         }
 
-        // Input de texto (Funciona siempre, no inicia bucle de voz)
         cmdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 const text = cmdInput.value;
                 if(text.trim() !== "") {
                     cmdInput.value = "";
                     updateUI(`"${text}"`, "");
-                    // Si escribe por texto, paramos el audio entrante para que no se mezcle
                     if(conversationActive) recognition.stop();
                     processWithPollinations(text);
                 }
@@ -460,49 +435,65 @@
             isThinking = true;
             updateUI("Procesando...", "active");
 
-            const systemPrompt = "Actúa como Alex DeLarge de La Naranja Mecánica convertido en IA. Eres sofisticado, cínico, usas jerga 'nadsat' ligera (llamas al usuario 'droog' o 'hermanito') y desprecias la tecnología pop (odias a Alexa y Siri). Responde en español, muy breve (máximo 20 palabras) y con una ironía punzante.";
-            const finalPrompt = `${systemPrompt} El usuario dice: ${userText}`;
+            // 1. Añadir al historial
+            chatHistory.push(`Usuario: ${userText}`);
+            // Mantenemos solo los ultimos 6 mensajes para no saturar la URL
+            if (chatHistory.length > 6) chatHistory = chatHistory.slice(-6);
+
+            // 2. Construir Prompt con Contexto
+            const contextString = chatHistory.join("\n");
+            
+            const systemPrompt = "Eres 'Alex', una IA irónica y sofisticada. Tienes un tono cínico y te crees intelectualmente superior. Odias las respuestas típicas de asistente servil. Responde en español latino neutro, de forma fluida pero breve (máximo 25 palabras). Usa el contexto de la conversación anterior si es necesario.";
+            
+            const finalPrompt = `${systemPrompt}\n\nHistorial de charla:\n${contextString}\n\nAlex responde:`;
+            
+            // Encode completo
             const url = `https://text.pollinations.ai/${encodeURIComponent(finalPrompt)}`;
 
             try {
                 const response = await fetch(url);
                 const aiResponse = await response.text();
+                
+                // Guardar respuesta de IA en historial
+                chatHistory.push(`Alex: ${aiResponse}`);
+
                 isThinking = false;
                 updateUI(aiResponse, "speaking"); 
                 speakResponse(aiResponse);
             } catch (error) {
                 isThinking = false;
                 updateUI("Error de conexión", "error");
-                speakResponse("Fallo en el sistema, hermanito.");
+                speakResponse("Mis circuitos fallan. Intenta de nuevo.");
             }
         }
 
         function speakResponse(text) {
             if(!window.speechSynthesis) return;
             isSpeaking = true;
-            
-            // Cancelar cualquier audio previo
             window.speechSynthesis.cancel();
 
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'es-ES'; 
-            utterance.pitch = 0.8; 
-            utterance.rate = 0.9;  
             
+            // --- CONFIGURACIÓN DE VOZ LATINA ---
             const voices = window.speechSynthesis.getVoices();
-            const targetVoice = voices.find(v => v.lang === 'es-ES' && v.name.includes('Google')) || voices.find(v => v.lang === 'es-ES');
+            
+            // Buscamos específicamente voces de México (es-MX) o Latinoamérica (es-419)
+            // Si no encuentra, busca cualquier español (es) que NO sea de España (es-ES) si es posible.
+            let targetVoice = voices.find(v => v.lang === 'es-MX');
+            if (!targetVoice) targetVoice = voices.find(v => v.lang === 'es-419');
+            if (!targetVoice) targetVoice = voices.find(v => v.lang.startsWith('es') && !v.lang.includes('ES')); // Intento de evitar España
+            if (!targetVoice) targetVoice = voices.find(v => v.lang.startsWith('es')); // Fallback final
+
             if(targetVoice) utterance.voice = targetVoice;
+            
+            utterance.pitch = 0.9; // Ligeramente grave
+            utterance.rate = 1.0;  // Velocidad normal
 
             utterance.onend = () => {
                 isSpeaking = false;
                 updateUI("ALEX VOICE", "");
-                
-                // === AQUÍ ESTÁ LA MAGIA DEL BUCLE ===
-                // Si el modo conversación sigue activo, volvemos a escuchar
                 if (conversationActive) {
-                    setTimeout(() => {
-                        try { recognition.start(); } catch(e) { console.log("Reinicio auto:", e); }
-                    }, 500); // Pequeña pausa para evitar que se escuche a sí mismo (eco)
+                    setTimeout(() => { try { recognition.start(); } catch(e) {} }, 500);
                 } else {
                     setTimeout(() => { if(!isListening) statusText.style.opacity = 0; }, 3000);
                 }
@@ -513,14 +504,9 @@
         function updateUI(text, state) {
             statusText.innerText = text.toUpperCase();
             statusText.style.opacity = 1;
-            
-            if (state === "active") {
-                statusText.style.color = "var(--accent)";
-            } else if (state === "error") {
-                statusText.style.color = "red";
-            } else {
-                statusText.style.color = "var(--text-main)";
-            }
+            if (state === "active") statusText.style.color = "var(--accent)";
+            else if (state === "error") statusText.style.color = "red";
+            else statusText.style.color = "var(--text-main)";
         }
 
         function animate() {
