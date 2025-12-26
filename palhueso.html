@@ -112,9 +112,7 @@
             </div>
 
             <div id="analysis-output" class="hidden space-y-6">
-                <!-- REPRODUCTOR AVANZADO -->
                 <div class="glass-card rounded-xl overflow-hidden animate-fade-in">
-                    <!-- Cabecera del reproductor -->
                     <div class="glass-card-header p-4 flex justify-between items-center bg-black/40">
                         <div class="flex items-center gap-4">
                             <h2 class="text-lg font-bold text-white tracking-widest uppercase"><i class="bi bi-cpu-fill mr-2"></i>Reproductor & Análisis</h2>
@@ -122,9 +120,7 @@
                         <span id="instrument-display" class="text-xs font-mono bg-alter-cyan text-black px-2 py-1 rounded font-bold shadow-[0_0_10px_#00E5FF]">CONCERT</span>
                     </div>
 
-                    <!-- Controles del reproductor -->
                     <div class="p-6 bg-gradient-to-b from-black/20 to-transparent">
-                        <!-- Barra de progreso -->
                         <div class="flex items-center gap-3 mb-4">
                             <span id="current-time" class="text-xs font-mono text-alter-cyan w-10 text-right">0:00</span>
                             <input type="range" id="seek-bar" value="0" step="0.1" class="w-full h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
@@ -132,7 +128,6 @@
                         </div>
 
                         <div class="flex flex-col md:flex-row justify-between items-center gap-4 md:gap-8">
-                            <!-- Controles Principales (Play/Skip) -->
                             <div class="flex items-center gap-4">
                                 <button onclick="skipTime(-5)" class="text-gray-400 hover:text-white transition-colors" title="-5s"><i class="bi bi-rewind-fill text-xl"></i></button>
                                 
@@ -143,7 +138,6 @@
                                 <button onclick="skipTime(5)" class="text-gray-400 hover:text-white transition-colors" title="+5s"><i class="bi bi-fast-forward-fill text-xl"></i></button>
                             </div>
 
-                            <!-- Sección Loop -->
                             <div class="flex items-center gap-2 bg-gray-900/50 p-2 rounded-lg border border-gray-700">
                                 <span class="text-[10px] text-gray-400 uppercase tracking-wider mr-1">Loop</span>
                                 <button id="loop-a-btn" onclick="setLoopA()" class="px-3 py-1 text-xs font-bold rounded border border-gray-600 text-gray-300 hover:border-alter-cyan hover:text-alter-cyan transition-all">A</button>
@@ -151,7 +145,6 @@
                                 <button onclick="clearLoop()" class="text-red-400 hover:text-red-300 px-2" title="Borrar Loop"><i class="bi bi-x-lg"></i></button>
                             </div>
 
-                            <!-- Control de Velocidad -->
                             <div class="flex items-center gap-3 bg-gray-900/50 p-2 rounded-lg border border-gray-700 w-full md:w-auto">
                                 <i class="bi bi-speedometer2 text-gray-400"></i>
                                 <div class="flex flex-col w-32">
@@ -166,7 +159,6 @@
                         <div id="loop-status-msg" class="text-center mt-2 h-4 text-xs font-mono text-alter-cyan opacity-0 transition-opacity">Loop Activo: <span id="loop-times">0:00 - 0:00</span></div>
                     </div>
 
-                    <!-- Datos del Análisis -->
                     <div class="p-6 md:p-8 border-t border-gray-800">
                         <div class="mb-8 text-center">
                             <p class="text-xs text-gray-400 uppercase tracking-[0.3em] mb-2">Tonalidad Transpuesta</p>
@@ -450,6 +442,23 @@
 
         seekBar.addEventListener('input', () => {
             audioPlayer.currentTime = seekBar.value;
+        });
+
+        // NUEVO: Evento para reproducir la siguiente canción automáticamente
+        audioPlayer.addEventListener('ended', () => {
+            const selector = document.getElementById('song-selector');
+            const keys = Object.keys(SONGS_DATA).sort();
+            const currentIndex = keys.indexOf(selector.value);
+
+            // Si existe la canción actual y no es la última de la lista
+            if (currentIndex !== -1 && currentIndex < keys.length - 1) {
+                const nextKey = keys[currentIndex + 1];
+                selector.value = nextKey;
+                updateAnalysis(); // Carga la nueva canción
+                
+                // Pequeño delay para asegurar que el src cargó y forzar play
+                setTimeout(() => toggleAudio(), 100);
+            }
         });
 
         /* --- FIN LOGICA REPRODUCTOR --- */
