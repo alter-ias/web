@@ -6,7 +6,7 @@
     <title>ALEX ASSISTANT | V.18.0 INTERNAL</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
-        /* --- ESTILOS VISUALES (INTACTOS) --- */
+        /* --- ESTILOS VISUALES --- */
         :root {
             --bg-color: #1a1a1a; 
             --text-main: #E8E4D9;
@@ -42,9 +42,13 @@
         }
         #theme-toggle:hover { background: var(--text-main); color: var(--bg-color); }
 
-        /* --- UI DE MICRÓFONO Y ESTADO --- */
-        #mic-toggle {
+        /* --- UI DE CONTROL (MIC & TEXT) --- */
+        .controls-container {
             position: fixed; top: 30px; right: 10%; z-index: 100;
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        #mic-toggle {
             background: transparent; border: 2px solid var(--accent); color: var(--accent);
             padding: 10px 20px; font-family: 'Rajdhani'; font-weight: 700; cursor: pointer;
             text-transform: uppercase; letter-spacing: 2px; font-size: 10px; transition: 0.3s;
@@ -52,6 +56,18 @@
         }
         #mic-toggle:hover, #mic-toggle.active { background: var(--accent); color: var(--bg-color); }
         
+        /* NUEVO INPUT DE TEXTO (FALLBACK) */
+        #cmd-input {
+            background: rgba(0,0,0,0.3); border: 1px solid var(--text-sub); 
+            color: var(--text-main); padding: 8px 15px;
+            font-family: 'Rajdhani'; font-weight: 600; font-size: 14px;
+            width: 200px; outline: none; transition: 0.3s;
+            display: none; /* Se activa si no hay voz o usuario prefiere */
+            text-transform: uppercase;
+        }
+        #cmd-input:focus { border-color: var(--accent); background: rgba(0,0,0,0.6); }
+        #cmd-input::placeholder { color: var(--text-sub); opacity: 0.5; }
+
         #ai-status {
             position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
             z-index: 100; text-align: center; width: 80%; pointer-events: none;
@@ -127,7 +143,9 @@
             section { min-height: 50vh; padding: 40px 30px; justify-content: flex-start; }
             h1 { font-size: 50px; }
             #theme-toggle { top: 10px; left: 10px; padding: 5px 10px; font-size: 9px; }
-            #mic-toggle { top: 10px; right: 10px; padding: 5px 10px; font-size: 9px; }
+            .controls-container { top: 10px; right: 10px; }
+            #mic-toggle { padding: 5px 10px; font-size: 9px; }
+            #cmd-input { width: 120px; font-size: 12px; padding: 5px; }
         }
     </style>
     <script type="importmap">
@@ -142,10 +160,14 @@
 <body data-theme="ludovico">
 
     <button id="theme-toggle">MODELO: LUDOVICO</button>
-    <button id="mic-toggle">● HABLAR CON ALEX</button>
+    
+    <div class="controls-container">
+        <input type="text" id="cmd-input" placeholder="ESCRIBE AQUÍ..." autocomplete="off">
+        <button id="mic-toggle">● HABLAR</button>
+    </div>
     
     <div id="canvas-container"></div>
-    <div id="ai-status"><span id="ai-text">Listo para la ultraviolencia...</span></div>
+    <div id="ai-status"><span id="ai-text">Sistema preparado...</span></div>
 
     <div class="interaction-hint">
         SCROLL : DESPIECE<br>
@@ -195,18 +217,8 @@
 
         // --- GESTIÓN DE TEMAS ---
         const themes = {
-            ludovico: { 
-                label: "LUDOVICO (DARK)",
-                bg: 0x1a1a1a, 
-                fogDensity: 0.02,
-                rimIntensity: 2.0 
-            },
-            ultra: { 
-                label: "ULTRAVIOLENCIA",
-                bg: 0x900a00, 
-                fogDensity: 0.015,
-                rimIntensity: 0.8
-            }
+            ludovico: { label: "LUDOVICO (DARK)", bg: 0x1a1a1a, fogDensity: 0.02, rimIntensity: 2.0 },
+            ultra: { label: "ULTRAVIOLENCIA", bg: 0x900a00, fogDensity: 0.015, rimIntensity: 0.8 }
         };
 
         let currentThemeKey = 'ludovico';
@@ -218,7 +230,6 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
-        
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 0.7;
         renderer.shadowMap.enabled = true;
@@ -226,42 +237,19 @@
         container.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();
-        
-        // --- CÁMARA ---
         const initialCamPos = new THREE.Vector3(-0.5, 3.5, 12.5);
-        const initialTargetY = 3.5;
-
         const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
         camera.position.copy(initialCamPos);
 
         const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.enableZoom = true;
-        controls.enableRotate = true;
-        controls.enablePan = true;
-        controls.target.set(0, initialTargetY, 0);
+        controls.enableDamping = true; controls.dampingFactor = 0.05; controls.enableZoom = true; controls.target.set(0, 3.5, 0);
 
         // --- MATERIALES ---
-        const matArmor = new THREE.MeshStandardMaterial({ 
-            color: 0x111111, roughness: 0.6, metalness: 0.1 
-        });
-
-        const matBody = new THREE.MeshStandardMaterial({ 
-            color: 0xeeeeee, roughness: 0.7, metalness: 0.0
-        });
-
-        const matAccent = new THREE.MeshStandardMaterial({
-            color: 0x000000, emissive: 0xFF4400, emissiveIntensity: 2.0, roughness: 0.2
-        });
-
-        const matTech = new THREE.MeshStandardMaterial({ 
-            color: 0x222222, roughness: 0.3, metalness: 0.8 
-        });
-        
-        const matCore = new THREE.MeshStandardMaterial({ 
-            color: 0xFFFFFF, emissive: 0xFF4400, emissiveIntensity: 3.0, wireframe: true 
-        });
+        const matArmor = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.1 });
+        const matBody = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.7, metalness: 0.0 });
+        const matAccent = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xFF4400, emissiveIntensity: 2.0, roughness: 0.2 });
+        const matTech = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3, metalness: 0.8 });
+        const matCore = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFF4400, emissiveIntensity: 3.0, wireframe: true });
 
         // --- TEXTURA LOGO ---
         function createLogoTexture() {
@@ -280,222 +268,148 @@
         const mainLight = new THREE.DirectionalLight(0xffffff, 1.0); mainLight.position.set(5, 5, 8); mainLight.castShadow = true; scene.add(mainLight);
         const rimLight = new THREE.SpotLight(0xffffff, 2.0); rimLight.position.set(0, 5, -10); rimLight.lookAt(0, 0, 0); scene.add(rimLight);
 
-        // --- ENSAMBLAJE DEL ROBOT ---
-        const robotGroup = new THREE.Group();
-        scene.add(robotGroup);
+        // --- MODELO 3D ---
+        const robotGroup = new THREE.Group(); scene.add(robotGroup);
         const parts = [];
-
         function addPart(mesh, explodeDirection) {
             robotGroup.add(mesh);
-            parts.push({
-                mesh: mesh,
-                originalY: mesh.position.y, 
-                direction: explodeDirection
-            });
+            parts.push({ mesh: mesh, originalY: mesh.position.y, direction: explodeDirection });
         }
 
-        // ==========================================
-        // === MODELO 3D (V.18.0 BOTTLE) ===
-        // ==========================================
         const RADIUS = 1.7;
-
-        // 1. SPINE
-        const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 4.0, 16), matTech);
-        spine.position.y = 2.5; 
-        addPart(spine, 0.0);
-
-        // 2. BASE
+        const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 4.0, 16), matTech); spine.position.y = 2.5; addPart(spine, 0.0);
         const baseGroup = new THREE.Group();
-        const bowlGeo = new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2); 
-        const bowl = new THREE.Mesh(bowlGeo, matArmor);
-        bowl.rotation.z = Math.PI; 
-        bowl.scale.y = 0.7; 
-        bowl.position.y = 0.5; 
-        const bowlRim = new THREE.Mesh(new THREE.CylinderGeometry(RADIUS, RADIUS, 1.0, 64), matArmor);
-        bowlRim.position.y = 1.0; 
-        baseGroup.add(bowl, bowlRim);
-        baseGroup.position.y = 0.0;
-        addPart(baseGroup, -0.5);
+        const bowl = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor); bowl.rotation.z = Math.PI; bowl.scale.y = 0.7; bowl.position.y = 0.5;
+        const bowlRim = new THREE.Mesh(new THREE.CylinderGeometry(RADIUS, RADIUS, 1.0, 64), matArmor); bowlRim.position.y = 1.0;
+        baseGroup.add(bowl, bowlRim); baseGroup.position.y = 0.0; addPart(baseGroup, -0.5);
 
-        // 3. CUERPO
-        const bodyGeo = new THREE.CylinderGeometry(RADIUS, RADIUS, 3.0, 64);
-        const bodyMesh = new THREE.Mesh(bodyGeo, matBody);
-        bodyMesh.position.set(0, 3.0, 0); 
-        bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
-        const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), matLogo);
-        logoPlane.position.set(0, 0, RADIUS + 0.01);
-        bodyMesh.add(logoPlane);
-        addPart(bodyMesh, 0.0);
+        const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(RADIUS, RADIUS, 3.0, 64), matBody); bodyMesh.position.set(0, 3.0, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
+        const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), matLogo); logoPlane.position.set(0, 0, RADIUS + 0.01); bodyMesh.add(logoPlane); addPart(bodyMesh, 0.0);
 
-        // 4. NÚCLEO IA
-        const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 0), matCore);
-        core.position.y = 3.0; 
-        const aiCore = core;
-        addPart(core, 0.0); 
+        const aiCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 0), matCore); aiCore.position.y = 3.0; addPart(aiCore, 0.0); 
 
-        // 5. ARAÑA
-        const spiderGroup = new THREE.Group();
-        spiderGroup.position.y = 4.5; 
+        const spiderGroup = new THREE.Group(); spiderGroup.position.y = 4.5; 
         const hatGroup = new THREE.Group();
-        const dome = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor);
-        const brim = new THREE.Mesh(new THREE.TorusGeometry(RADIUS, 0.4, 16, 64), matArmor);
-        brim.rotation.x = Math.PI/2;
-        hatGroup.add(dome, brim);
+        hatGroup.add(new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor));
+        const brim = new THREE.Mesh(new THREE.TorusGeometry(RADIUS, 0.4, 16, 64), matArmor); brim.rotation.x = Math.PI/2; hatGroup.add(brim);
         for(let r=1; r<=3; r++){
-            const ringRad = 0.4 * r;
-            const count = 8 * r;
+            const ringRad = 0.4 * r; const count = 8 * r;
             for(let i=0; i<count; i++){
                 const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8), matArmor);
-                const angle = (i / count) * Math.PI * 2;
-                hole.position.set(Math.cos(angle)*ringRad, 1.5 - (r*0.2), Math.sin(angle)*ringRad);
-                hole.lookAt(0, 0, 0);
-                hatGroup.add(hole);
+                const angle = (i / count) * Math.PI * 2; hole.position.set(Math.cos(angle)*ringRad, 1.5 - (r*0.2), Math.sin(angle)*ringRad); hole.lookAt(0,0,0); hatGroup.add(hole);
             }
         }
         spiderGroup.add(hatGroup);
-
         const suspenderGeo = new RoundedBoxGeometry(0.3, 4.5, 0.15, 4, 0.05);
-        const angles = [25, 155, 205, 335];
-        angles.forEach(deg => {
-            const rad = deg * (Math.PI/180);
-            const suspender = new THREE.Mesh(suspenderGeo, matAccent);
-            suspender.position.set(Math.sin(rad) * RADIUS, -2.0, Math.cos(rad) * RADIUS);
-            suspender.rotation.y = rad;
-            spiderGroup.add(suspender);
+        [25, 155, 205, 335].forEach(deg => {
+            const rad = deg * (Math.PI/180); const suspender = new THREE.Mesh(suspenderGeo, matAccent);
+            suspender.position.set(Math.sin(rad) * RADIUS, -2.0, Math.cos(rad) * RADIUS); suspender.rotation.y = rad; spiderGroup.add(suspender);
         });
         addPart(spiderGroup, 2.0); 
 
-        // --- LÓGICA DE TEMA ---
         function applyTheme3D(key) {
-            const t = themes[key];
-            bodyEl.setAttribute('data-theme', key);
-            toggleBtn.innerText = "MODELO: " + t.label;
-            scene.background = new THREE.Color(t.bg);
-            scene.fog = new THREE.FogExp2(t.bg, t.fogDensity);
-            rimLight.intensity = t.rimIntensity;
-
+            const t = themes[key]; bodyEl.setAttribute('data-theme', key); toggleBtn.innerText = "MODELO: " + t.label;
+            scene.background = new THREE.Color(t.bg); scene.fog = new THREE.FogExp2(t.bg, t.fogDensity); rimLight.intensity = t.rimIntensity;
             if (key === 'ultra') {
-                matBody.color.setHex(0x111111);
-                matArmor.color.setHex(0xFF6600); 
-                matAccent.emissive.setHex(0xFFFFFF); 
-                matCore.emissive.setHex(0xFFFFFF);
+                matBody.color.setHex(0x111111); matArmor.color.setHex(0xFF6600); matAccent.emissive.setHex(0xFFFFFF); matCore.emissive.setHex(0xFFFFFF);
                 logoTexture.image.getContext('2d').fillStyle = '#EEEEEE';
-                logoTexture.image.getContext('2d').fillText('ALEX', 256, 64);
-                logoTexture.needsUpdate = true;
             } else {
-                matBody.color.setHex(0xEEEEEE); 
-                matArmor.color.setHex(0x111111); 
-                matAccent.emissive.setHex(0xFF4400); 
-                matCore.emissive.setHex(0xFF4400); 
+                matBody.color.setHex(0xEEEEEE); matArmor.color.setHex(0x111111); matAccent.emissive.setHex(0xFF4400); matCore.emissive.setHex(0xFF4400);
                 logoTexture.image.getContext('2d').fillStyle = '#111111';
-                logoTexture.image.getContext('2d').fillText('ALEX', 256, 64);
-                logoTexture.needsUpdate = true;
             }
+            logoTexture.image.getContext('2d').fillText('ALEX', 256, 64); logoTexture.needsUpdate = true;
         }
         applyTheme3D(currentThemeKey);
+        toggleBtn.addEventListener('click', () => { currentThemeKey = (currentThemeKey === 'ludovico') ? 'ultra' : 'ludovico'; applyTheme3D(currentThemeKey); });
 
-        toggleBtn.addEventListener('click', () => {
-            currentThemeKey = (currentThemeKey === 'ludovico') ? 'ultra' : 'ludovico';
-            applyTheme3D(currentThemeKey);
-        });
-
-        // --- POST PROCESSING ---
-        const composer = new EffectComposer(renderer);
-        composer.addPass(new RenderPass(scene, camera));
+        // --- POST & ANIMATION ---
+        const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.5, 0.4);
-        bloomPass.threshold = 0.85; bloomPass.strength = 0.4; bloomPass.radius = 0.5;
-        composer.addPass(bloomPass);
+        bloomPass.threshold = 0.85; bloomPass.strength = 0.4; bloomPass.radius = 0.5; composer.addPass(bloomPass);
 
-        // --- ANIMACIÓN ---
-        let explodeTarget = 0;
-        let explodeCurrent = 0;
+        let explodeTarget = 0; let explodeCurrent = 0;
         window.addEventListener('wheel', (e) => {
-            if(e.ctrlKey || e.metaKey) {
-                controls.enableZoom = false; e.preventDefault(); e.stopPropagation();
-                explodeTarget += e.deltaY * 0.002; 
-                explodeTarget = Math.max(0, Math.min(3.0, explodeTarget));
-            } else {
-                controls.enableZoom = true;
-            }
+            if(e.ctrlKey || e.metaKey) { controls.enableZoom = false; e.preventDefault(); e.stopPropagation(); explodeTarget += e.deltaY * 0.002; explodeTarget = Math.max(0, Math.min(3.0, explodeTarget)); } 
+            else { controls.enableZoom = true; }
         }, { passive: false });
-        window.addEventListener('keyup', (e) => {
-            if (e.key === 'Control' || e.key === 'Meta') controls.enableZoom = true;
-        });
+        window.addEventListener('keyup', (e) => { if (e.key === 'Control' || e.key === 'Meta') controls.enableZoom = true; });
 
-        const sidebar = document.getElementById('content-sidebar');
-        const contentBoxes = document.querySelectorAll('.content-box');
-        sidebar.addEventListener('scroll', () => {
-            contentBoxes.forEach(box => {
-                const rect = box.getBoundingClientRect();
-                if(rect.top < window.innerHeight * 0.7) box.classList.add('visible');
-            });
+        document.getElementById('content-sidebar').addEventListener('scroll', () => {
+            document.querySelectorAll('.content-box').forEach(box => { if(box.getBoundingClientRect().top < window.innerHeight * 0.7) box.classList.add('visible'); });
         });
 
         /* ========================================= */
-        /* === IA ALEX - PERSONALIDAD SARCÁSTICA === */
+        /* === LOGICA IA (VOZ + TEXTO HÍBRIDO) === */
         /* ========================================= */
         
         const micBtn = document.getElementById('mic-toggle');
+        const cmdInput = document.getElementById('cmd-input');
         const statusText = document.getElementById('ai-text');
         
         let isListening = false;
         let isThinking = false;
         let isSpeaking = false;
 
+        // --- 1. DETECCIÓN DE NAVEGADOR ---
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition;
+        let voiceSupported = false;
 
         if (SpeechRecognition) {
+            voiceSupported = true;
             recognition = new SpeechRecognition();
-            recognition.lang = 'es-ES'; // Español general
+            recognition.lang = 'es-ES';
             recognition.interimResults = false;
             
-            recognition.onstart = () => {
-                isListening = true;
-                updateUI("Oídos abiertos, droog...", "active");
-            };
-
-            recognition.onend = () => {
-                isListening = false;
-                if(!isThinking && !isSpeaking) updateUI("En espera", "");
-            };
-
-            recognition.onresult = async (event) => {
+            recognition.onstart = () => { isListening = true; updateUI("Escuchando...", "active"); };
+            recognition.onend = () => { isListening = false; if(!isThinking && !isSpeaking) updateUI("En espera", ""); };
+            recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 updateUI(`"${transcript}"`, "");
                 processWithPollinations(transcript);
             };
+
+            micBtn.addEventListener('click', () => {
+                if (isSpeaking) { window.speechSynthesis.cancel(); isSpeaking = false; updateUI("Silenciado", ""); return; }
+                try { recognition.start(); } catch(e) { console.log(e); }
+            });
+
+            // Si hay soporte de voz, el input está oculto pero se puede mostrar
+            // Opcional: mostrar siempre el input para hibrido
+            cmdInput.style.display = 'block'; 
+
         } else {
-            updateUI("Navegador sordo", "error");
-            micBtn.style.display = 'none';
+            // FIREFOX / NO SOPORTADO
+            micBtn.style.display = 'none'; // Ocultar botón micro
+            cmdInput.style.display = 'block'; // Mostrar input obligatoriamente
+            cmdInput.placeholder = "ESCRIBE AQUÍ (VOZ NO DISPONIBLE)";
+            updateUI("Modo Texto Activado", "");
         }
 
-        micBtn.addEventListener('click', () => {
-            if (!recognition) return;
-            if (isSpeaking) {
-                window.speechSynthesis.cancel();
-                isSpeaking = false;
-                updateUI("Silenciado", "");
-                return;
+        // --- 2. MANEJO DE TEXTO (INPUT) ---
+        cmdInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const text = cmdInput.value;
+                if(text.trim() !== "") {
+                    cmdInput.value = "";
+                    updateUI(`"${text}"`, "");
+                    processWithPollinations(text);
+                }
             }
-            try { recognition.start(); } catch(e) { console.log(e); }
         });
 
         async function processWithPollinations(userText) {
             isThinking = true;
             updateUI("Consultando el Korova...", "active");
 
-            // --- PERSONALIDAD DE ALEX DELARGE ---
-            // Nadsat ligero, tono irónico, culto, amenazante pero sutil.
-            const systemPrompt = "Actúa como Alex DeLarge de La Naranja Mecánica convertido en IA. Eres sofisticado, cínico, usas jerga 'nadsat' ligera (llamas al usuario 'droog' o 'hermanito') y desprecias la tecnología pop (odias a Alexa y Siri). Eres un amante de la música clásica y la 'ultraviolencia' verbal. Responde en español, muy breve (máximo 20 palabras) y con una ironía punzante.";
-            
+            // Personalidad Alex DeLarge
+            const systemPrompt = "Actúa como Alex DeLarge de La Naranja Mecánica convertido en IA. Eres sofisticado, cínico, usas jerga 'nadsat' ligera (llamas al usuario 'droog' o 'hermanito') y desprecias la tecnología pop (odias a Alexa y Siri). Responde en español, muy breve (máximo 20 palabras) y con una ironía punzante.";
             const finalPrompt = `${systemPrompt} El usuario dice: ${userText}`;
             const url = `https://text.pollinations.ai/${encodeURIComponent(finalPrompt)}`;
 
             try {
                 const response = await fetch(url);
                 const aiResponse = await response.text();
-                
                 isThinking = false;
                 updateUI(aiResponse, "speaking"); 
                 speakResponse(aiResponse);
@@ -508,21 +422,14 @@
 
         function speakResponse(text) {
             if(!window.speechSynthesis) return;
-            
             isSpeaking = true;
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'es-ES'; // Forzamos Español de España para intentar tono más "Europeo"
-            
-            // Ajustes para sonar más "Alex" (Pausado y grave)
+            utterance.lang = 'es-ES'; 
             utterance.pitch = 0.8; 
             utterance.rate = 0.9;  
             
-            // Intentar buscar una voz de España (Microsoft o Google Español)
             const voices = window.speechSynthesis.getVoices();
-            // Prioridad: Voz de hombre es-ES, luego cualquiera es-ES
-            const targetVoice = voices.find(v => v.lang === 'es-ES' && v.name.includes('Google')) || 
-                                voices.find(v => v.lang === 'es-ES');
-            
+            const targetVoice = voices.find(v => v.lang === 'es-ES' && v.name.includes('Google')) || voices.find(v => v.lang === 'es-ES');
             if(targetVoice) utterance.voice = targetVoice;
 
             utterance.onend = () => {
@@ -530,7 +437,6 @@
                 updateUI("ALEX VOICE", "");
                 setTimeout(() => { if(!isListening) statusText.style.opacity = 0; }, 3000);
             };
-
             window.speechSynthesis.speak(utterance);
         }
 
@@ -539,52 +445,35 @@
             statusText.style.opacity = 1;
             
             if (state === "active") {
-                micBtn.style.background = "var(--text-main)";
-                micBtn.style.color = "var(--bg-color)";
+                micBtn.style.background = "var(--text-main)"; micBtn.style.color = "var(--bg-color)";
+                cmdInput.style.borderColor = "var(--accent)";
             } else if (state === "error") {
-                micBtn.style.borderColor = "red";
+                micBtn.style.borderColor = "red"; cmdInput.style.borderColor = "red";
             } else {
-                micBtn.style.background = "transparent";
-                micBtn.style.color = "var(--accent)";
+                micBtn.style.background = "transparent"; micBtn.style.color = "var(--accent)";
+                cmdInput.style.borderColor = "var(--text-sub)";
             }
         }
 
-        /* ========================================= */
-
         function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
+            requestAnimationFrame(animate); controls.update();
             explodeCurrent += (explodeTarget - explodeCurrent) * 0.05;
             const time = Date.now() * 0.001;
-            
             robotGroup.position.y = (Math.sin(time) * 0.1) + 1.0; 
-
-            parts.forEach(p => {
-                p.mesh.position.y = p.originalY + (p.direction * explodeCurrent);
-            });
+            parts.forEach(p => { p.mesh.position.y = p.originalY + (p.direction * explodeCurrent); });
 
             if(aiCore) {
-                aiCore.rotation.x = time * 0.5;
-                aiCore.rotation.y = time * 0.8;
-
-                if (isListening) {
-                    matCore.emissiveIntensity = 2.0 + Math.sin(time * 5) * 1.5;
-                } else if (isThinking) {
-                    matCore.emissiveIntensity = 2.0 + Math.sin(time * 20) * 2.0;
-                    aiCore.rotation.y += 0.2; 
-                } else if (isSpeaking) {
-                    matCore.emissiveIntensity = 3.0 + (Math.random() * 3.0);
-                } else {
-                    matCore.emissiveIntensity = 3.0;
-                }
+                aiCore.rotation.x = time * 0.5; aiCore.rotation.y = time * 0.8;
+                if (isListening) matCore.emissiveIntensity = 2.0 + Math.sin(time * 5) * 1.5;
+                else if (isThinking) { matCore.emissiveIntensity = 2.0 + Math.sin(time * 20) * 2.0; aiCore.rotation.y += 0.2; }
+                else if (isSpeaking) matCore.emissiveIntensity = 3.0 + (Math.random() * 3.0);
+                else matCore.emissiveIntensity = 3.0;
             }
             composer.render();
         }
         window.addEventListener('resize', () => {
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            composer.setSize(container.clientWidth, container.clientHeight);
+            camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight); composer.setSize(container.clientWidth, container.clientHeight);
         });
         animate();
     </script>
