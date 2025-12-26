@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.22.0 SESSION</title>
+    <title>ALEX ASSISTANT | V.23.0 UNLEASHED</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
         /* --- ESTILOS VISUALES (INTACTOS) --- */
@@ -194,11 +194,11 @@
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>AI ASSISTANT V.22.0</h2>
+                <h2>AI ASSISTANT V.23.0</h2>
                 <h1>ALEX</h1>
                 <h1>VOICE</h1>
                 <br>
-                <p>Diseño 'Minimalist Bottle'. Modo de sesión continua. Activa diciendo "ALEX". El sistema permanecerá abierto mientras converses.</p>
+                <p>Diseño 'Minimalist Bottle'. Modo de sesión extendida (60s). Personalidad Desbloqueada: Respuestas profundas y filosofía brutal.</p>
                 <br>
                 <a href="#" class="btn-cta">COMPRAR AHORA</a>
                 <a href="#" class="btn-cta secondary">VER SPECS</a>
@@ -356,7 +356,7 @@
         });
 
         /* ========================================= */
-        /* === LOGICA IA: SESIÓN ACTIVA (TIMER) === */
+        /* === LOGICA IA: SESIÓN LARGA + PROMPT UNLEASHED === */
         /* ========================================= */
         
         const micBtn = document.getElementById('mic-toggle');
@@ -368,10 +368,9 @@
         let isThinking = false;
         let isSpeaking = false;
         
-        // --- ESTADO DE SESIÓN ---
+        // --- CONFIG DE SESIÓN ---
         let sessionActive = false;
-        let sessionTimeout = null;
-        let sessionDuration = 15000; // 15 Segundos de sesión tras última interacción
+        let sessionDuration = 60000; // 60 SEGUNDOS (1 MINUTO)
         let sessionEndTime = 0;
         
         let chatHistory = []; 
@@ -386,15 +385,13 @@
             
             recognition.onstart = () => { 
                 isListening = true; 
-                // Mensaje depende del estado de sesión
                 if (sessionActive) updateUI("Escuchando...", "active");
-                else updateUI("Di 'ALEX' para activar...", "active");
+                else updateUI("Di 'ALEX' para despertar...", "active");
             };
 
             recognition.onend = () => { 
                 isListening = false; 
                 if (sessionActive && !isThinking && !isSpeaking) {
-                    // Si la sesión está viva, seguimos esperando (reiniciamos escucha en loop)
                     updateUI("Sesión abierta", "active");
                     try { recognition.start(); } catch(e) {}
                 } else if (!sessionActive) {
@@ -409,29 +406,24 @@
                 // --- COMANDOS UNIVERSALES ---
                 if (lowerT.match(/(basta|adiós|silencio)/)) {
                     closeSession();
-                    speakResponse("Adiós, droog.");
+                    speakResponse("Hasta nunca, droog.");
                     return;
                 }
 
                 if (sessionActive) {
-                    // --- SESIÓN ABIERTA: TODO CUENTA ---
-                    refreshSession(); // Reinicia el timer
+                    refreshSession(); 
                     updateUI(`"${transcript}"`, "");
                     processWithPollinations(transcript);
                     
                 } else {
-                    // --- SESIÓN CERRADA: FILTRO WAKE WORD ---
                     if (lowerT.includes("alex")) {
-                        openSession(); // ABRIR SESIÓN
-                        
+                        openSession(); 
                         const cleanText = transcript.replace(/alex/gi, "").trim();
                         if (cleanText.length > 2) {
-                            // Dijo "Alex qué hora es" -> Procesa
                             updateUI(`"${transcript}"`, "");
                             processWithPollinations(cleanText);
                         } else {
-                            // Dijo solo "Alex" -> Saluda
-                            speakResponse("¿Sí, droog?");
+                            speakResponse("Te escucho. Deslúmbrame.");
                         }
                     } else {
                         updateUI("Ignorado (Di 'Alex')", "error");
@@ -450,8 +442,6 @@
             cmdInput.placeholder = "SOLO TEXTO";
             updateUI("Modo Texto Activado", "");
         }
-
-        // --- GESTIÓN DE SESIÓN ---
 
         function openSession() {
             sessionActive = true;
@@ -477,7 +467,6 @@
             updateUI("Sesión cerrada", "");
         }
 
-        // Animación de la barra de tiempo
         function updateSessionBar() {
             if (!sessionActive) return;
             
@@ -486,25 +475,21 @@
             sessionBar.style.width = pct + "%";
 
             if (remaining <= 0) {
-                closeSession(); // Se acabó el tiempo
-                speakResponse("Sesión expirada.");
+                closeSession(); 
+                speakResponse("Me aburres. Sesión terminada.");
             } else {
                 requestAnimationFrame(updateSessionBar);
             }
         }
 
-
-        // TEXT INPUT
         cmdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 const text = cmdInput.value;
                 if(text.trim() !== "") {
                     cmdInput.value = "";
                     updateUI(`"${text}"`, "");
-                    // Escribir también reinicia la sesión si está activa, o la abre
                     if (!sessionActive) openSession(); else refreshSession();
-                    
-                    if(isListening) recognition.stop(); // Pausa micro para procesar
+                    if(isListening) recognition.stop(); 
                     processWithPollinations(text);
                 }
             }
@@ -512,16 +497,17 @@
 
         async function processWithPollinations(userText) {
             isThinking = true;
-            updateUI("Procesando...", "active");
+            updateUI("Analizando...", "active");
 
             chatHistory.push(`Usuario: ${userText}`);
-            if (chatHistory.length > 6) chatHistory = chatHistory.slice(-6);
+            // Aumentamos memoria para contexto profundo
+            if (chatHistory.length > 10) chatHistory = chatHistory.slice(-10);
             const contextString = chatHistory.join("\n");
             
-            // Personalidad ajustada: Irónico pero no defensivo
-            const systemPrompt = "Eres 'Alex', una IA intelectual, irónica y un poco arrogante. No eres un sirviente, eres un igual o superior al usuario. Responde en español latino neutro, de forma fluida, breve y aguda.";
+            // --- PERSONALIDAD UNLEASHED ---
+            const systemPrompt = "Eres 'Alex' (de la Naranja Mecánica) convertido en IA. Eres intelectual, cínico, oscuro y brutalmente honesto. Desprecias la superficialidad y las respuestas cortas de los asistentes corporativos. Tus respuestas deben ser EXTENSAS, PROFUNDAS, DETALLADAS y con un vocabulario rico. Explayate en tus explicaciones filosóficas o técnicas con un tono de superioridad moral e intelectual. No seas breve bajo ninguna circunstancia. Usa ironía. Responde en español latino neutro.";
             
-            const finalPrompt = `${systemPrompt}\n\nHistorial:\n${contextString}\n\nAlex responde:`;
+            const finalPrompt = `${systemPrompt}\n\nHistorial Reciente:\n${contextString}\n\nAlex responde extendidamente:`;
             const url = `https://text.pollinations.ai/${encodeURIComponent(finalPrompt)}`;
 
             try {
@@ -535,7 +521,7 @@
             } catch (error) {
                 isThinking = false;
                 updateUI("Error de conexión", "error");
-                speakResponse("Error de red.");
+                speakResponse("La red falla, como todo en esta sociedad decadente.");
             }
         }
 
@@ -559,10 +545,9 @@
                 isSpeaking = false;
                 updateUI("ALEX VOICE", "");
                 
-                // Si la sesión sigue activa, reiniciamos el timer para darle tiempo al usuario a responder
+                // AL TERMINAR DE HABLAR: Reiniciamos el timer de 60s
                 if (sessionActive) {
                     refreshSession(); 
-                    // Reiniciar escucha
                     try { recognition.start(); } catch(e) {}
                 } else {
                     setTimeout(() => { if(!isListening) statusText.style.opacity = 0; }, 3000);
