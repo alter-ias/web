@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.20.0 LATAM</title>
+    <title>ALEX ASSISTANT | V.21.0 WAKEWORD</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
-        /* --- ESTILOS VISUALES (IDÉNTICOS) --- */
+        /* --- ESTILOS VISUALES (INTACTOS) --- */
         :root {
             --bg-color: #1a1a1a; 
             --text-main: #E8E4D9;
@@ -186,11 +186,11 @@
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>AI ASSISTANT V.20.0</h2>
+                <h2>AI ASSISTANT V.21.0</h2>
                 <h1>ALEX</h1>
                 <h1>VOICE</h1>
                 <br>
-                <p>Diseño 'Minimalist Bottle'. Estructura monolítica de tres capas con Inteligencia Artificial integrada vía Pollinations Node.</p>
+                <p>Diseño 'Minimalist Bottle'. Estructura monolítica con activación por voz condicional. Palabra clave requerida: "ALEX SABANDIJA".</p>
                 <br>
                 <a href="#" class="btn-cta">COMPRAR AHORA</a>
                 <a href="#" class="btn-cta secondary">VER SPECS</a>
@@ -348,7 +348,7 @@
         });
 
         /* ========================================= */
-        /* === LOGICA IA (LATAM + MEMORIA + IRONÍA) === */
+        /* === LOGICA IA CON ACTIVADOR (SABANDIJA) === */
         /* ========================================= */
         
         const micBtn = document.getElementById('mic-toggle');
@@ -359,9 +359,6 @@
         let isListening = false;
         let isThinking = false;
         let isSpeaking = false;
-        
-        // --- MEMORIA DE CONVERSACIÓN ---
-        // Guardaremos los últimos intercambios para dar contexto
         let chatHistory = []; 
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -369,25 +366,40 @@
 
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
-            recognition.lang = 'es-MX'; // Prioridad Español México
+            recognition.lang = 'es-MX'; // Prioridad Español Latino
             recognition.interimResults = false;
             
-            recognition.onstart = () => { isListening = true; updateUI("Escuchando...", "active"); };
+            recognition.onstart = () => { isListening = true; updateUI("Di 'ALEX SABANDIJA'...", "active"); };
             recognition.onend = () => { 
                 isListening = false; 
-                if(!isThinking && !isSpeaking && conversationActive) { updateUI("Esperando...", "active"); }
+                if(!isThinking && !isSpeaking && conversationActive) { updateUI("Esperando insulto...", "active"); }
                 else if (!conversationActive) { updateUI("En espera", ""); }
             };
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
-                updateUI(`"${transcript}"`, "");
+                const lowerT = transcript.toLowerCase();
                 
-                if (transcript.toLowerCase().match(/(basta|adiós|silencio|cállate)/)) {
+                // Comandos STOP (Prioridad Máxima)
+                if (lowerT.match(/(basta|adiós|silencio|cállate)/)) {
                     stopConversation();
-                    speakResponse("Silencio. Como usted diga.");
+                    speakResponse("Como usted ordene.");
+                    return;
+                }
+
+                // FILTRO DE PALABRA CLAVE
+                // Acepta "alex sabandija" o simplemente "sabandija" por si falla el reconocimiento del nombre
+                if (lowerT.includes("alex sabandija") || lowerT.includes("sabandija")) {
+                    updateUI(`"${transcript}"`, "");
+                    // Limpiamos un poco la activación para el prompt
+                    const cleanText = transcript.replace(/alex sabandija|sabandija/gi, "").trim();
+                    processWithPollinations(cleanText || "Hola"); // Si solo dice el nombre, saluda
                 } else {
-                    processWithPollinations(transcript);
+                    // Si no dice la palabra clave, ignoramos pero mostramos feedback visual breve
+                    updateUI("Ignorado (Falta 'Sabandija')", "error");
+                    setTimeout(() => { 
+                        if(conversationActive && !isThinking) updateUI("Di 'ALEX SABANDIJA'...", "active"); 
+                    }, 1500);
                 }
             };
 
@@ -399,7 +411,7 @@
         } else {
             micBtn.style.display = 'none';
             cmdInput.style.display = 'block';
-            cmdInput.placeholder = "SOLO TEXTO (SIN VOZ)";
+            cmdInput.placeholder = "SOLO TEXTO";
             updateUI("Modo Texto Activado", "");
         }
 
@@ -419,6 +431,7 @@
             updateUI("Sesión finalizada", "");
         }
 
+        // TEXT INPUT (No requiere palabra clave, ya estás escribiendo)
         cmdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 const text = cmdInput.value;
@@ -435,26 +448,18 @@
             isThinking = true;
             updateUI("Procesando...", "active");
 
-            // 1. Añadir al historial
             chatHistory.push(`Usuario: ${userText}`);
-            // Mantenemos solo los ultimos 6 mensajes para no saturar la URL
             if (chatHistory.length > 6) chatHistory = chatHistory.slice(-6);
-
-            // 2. Construir Prompt con Contexto
             const contextString = chatHistory.join("\n");
             
-            const systemPrompt = "Eres 'Alex', una IA irónica y sofisticada. Tienes un tono cínico y te crees intelectualmente superior. Odias las respuestas típicas de asistente servil. Responde en español latino neutro, de forma fluida pero breve (máximo 25 palabras). Usa el contexto de la conversación anterior si es necesario.";
+            const systemPrompt = "Eres 'Alex', una IA irónica y sofisticada. Tu usuario te debe llamar 'Alex Sabandija'. Tienes un tono cínico y te crees intelectualmente superior. Responde en español latino neutro, de forma fluida pero breve (máximo 25 palabras).";
             
-            const finalPrompt = `${systemPrompt}\n\nHistorial de charla:\n${contextString}\n\nAlex responde:`;
-            
-            // Encode completo
+            const finalPrompt = `${systemPrompt}\n\nHistorial:\n${contextString}\n\nAlex responde:`;
             const url = `https://text.pollinations.ai/${encodeURIComponent(finalPrompt)}`;
 
             try {
                 const response = await fetch(url);
                 const aiResponse = await response.text();
-                
-                // Guardar respuesta de IA en historial
                 chatHistory.push(`Alex: ${aiResponse}`);
 
                 isThinking = false;
@@ -463,7 +468,7 @@
             } catch (error) {
                 isThinking = false;
                 updateUI("Error de conexión", "error");
-                speakResponse("Mis circuitos fallan. Intenta de nuevo.");
+                speakResponse("Error. Intenta de nuevo.");
             }
         }
 
@@ -474,20 +479,15 @@
 
             const utterance = new SpeechSynthesisUtterance(text);
             
-            // --- CONFIGURACIÓN DE VOZ LATINA ---
+            // --- VOZ LATINA ---
             const voices = window.speechSynthesis.getVoices();
-            
-            // Buscamos específicamente voces de México (es-MX) o Latinoamérica (es-419)
-            // Si no encuentra, busca cualquier español (es) que NO sea de España (es-ES) si es posible.
             let targetVoice = voices.find(v => v.lang === 'es-MX');
             if (!targetVoice) targetVoice = voices.find(v => v.lang === 'es-419');
-            if (!targetVoice) targetVoice = voices.find(v => v.lang.startsWith('es') && !v.lang.includes('ES')); // Intento de evitar España
-            if (!targetVoice) targetVoice = voices.find(v => v.lang.startsWith('es')); // Fallback final
-
+            if (!targetVoice) targetVoice = voices.find(v => v.lang.startsWith('es') && !v.lang.includes('ES')); 
             if(targetVoice) utterance.voice = targetVoice;
             
-            utterance.pitch = 0.9; // Ligeramente grave
-            utterance.rate = 1.0;  // Velocidad normal
+            utterance.pitch = 0.9; 
+            utterance.rate = 1.0;  
 
             utterance.onend = () => {
                 isSpeaking = false;
