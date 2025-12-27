@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sax Tenor Setlist Pro v2</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --highlight: #bb86fc;
+            --secondary: #03dac6;
+            --accent: #cf6679;
+            --youtube: #ff0000;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            padding-bottom: 80px; /* Espacio para el player */
+        }
+
+        h1 { text-align: center; font-size: 1.5rem; margin-bottom: 20px; color: var(--highlight); }
+
+        /* BUSCADOR */
+        .search-container {
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-color);
+            padding-bottom: 10px;
+            z-index: 100;
+            border-bottom: 1px solid #333;
+        }
+
+        input#search {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border-radius: 8px;
+            border: none;
+            background-color: #333;
+            color: #fff;
+            box-sizing: border-box;
+            outline: none;
+            border: 2px solid transparent;
+        }
+        input#search:focus { border-color: var(--highlight); }
+
+        /* LISTA */
+        .song-list { display: grid; gap: 15px; margin-top: 15px; }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 6px solid var(--secondary);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+
+        .song-title { font-size: 1.3rem; font-weight: bold; margin-bottom: 4px; color: #fff; }
+        .artist { font-size: 0.9rem; color: #888; margin-bottom: 10px; font-style: italic; }
+
+        .tonal-center {
+            display: inline-block;
+            background-color: #333;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--highlight);
+            margin-bottom: 10px;
+        }
+
+        /* PENTATÓNICAS */
+        .penta-box { background-color: #2c2c2c; padding: 10px; border-radius: 6px; margin-bottom: 10px; }
+        .penta-title { font-size: 0.75rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .scales { display: flex; flex-wrap: wrap; gap: 8px; }
+        .scale { padding: 6px 12px; border-radius: 4px; font-size: 0.9rem; background-color: #444; display: inline-block; }
+        .scale.primary { background-color: var(--secondary); color: #121212; font-weight: 800; }
+
+        /* BOTONES YOUTUBE */
+        .yt-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+        }
+
+        .btn-yt {
+            background-color: #333;
+            color: #fff;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .btn-yt:hover { background-color: #444; }
+        .btn-yt.original { color: #fff; }
+        .btn-yt.backing { color: var(--secondary); }
+
+        /* REPRODUCTOR FLOTANTE */
+        #floater {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #1a1a1a;
+            border-top: 2px solid var(--highlight);
+            padding: 10px;
+            box-sizing: border-box;
+            display: none; /* Oculto por defecto */
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.5);
+            z-index: 200;
+        }
+        
+        #floater.active { display: block; }
+
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            height: 0;
+            overflow: hidden;
+            background: #000;
+            border-radius: 8px;
+        }
+
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .close-player {
+            position: absolute;
+            top: -15px;
+            right: 10px;
+            background: var(--highlight);
+            color: #000;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 201;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="search-container">
+        <h1>🎷 Tenor Sax Setlist</h1>
+        <input type="text" id="search" placeholder="🔍 Buscar canción...">
+    </div>
+
+    <div id="list" class="song-list"></div>
+
+    <div id="floater">
+        <button class="close-player" onclick="closePlayer()">×</button>
+        <div class="video-wrapper">
+            <iframe id="yt-player" width="100%" height="100%" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <div style="text-align: center; font-size: 0.8rem; margin-top: 5px; color: #888;">
+            Para ver un video específico, usa los botones de búsqueda y copia el ID si lo deseas incrustar.
+        </div>
+    </div>
+
+<script>
+    const songs = [
+        // --- CENTRO: SOL MAYOR (G) ---
+        { t: "Smooth Operator", a: "Sade", center: "SOL (G)", pentas: ["Mi m (Em)", "La m (Am)", "Si m (Bm)"] },
+        { t: "Black Magic Woman", a: "Santana", center: "SOL (G)", pentas: ["Mi m (Em)", "La m (Am)", "Si m (Bm)"] },
+        { t: "Killing in the Name", a: "Rage Against the Machine", center: "SOL (G)", pentas: ["Mi m (Em)", "La m (Am)", "Si m (Bm)"] },
+
+        // --- CENTRO: RE MAYOR (D) ---
+        { t: "Golden Slumbers Medley", a: "The Beatles", center: "RE (D)", pentas: ["Si m (Bm)", "Mi m (Em)", "Fa# m (F#m)"] },
+        { t: "Ain't No Sunshine", a: "Bill Withers", center: "RE (D)", pentas: ["Si m (Bm)", "Mi m (Em)", "Fa# m (F#m)"] },
+        { t: "Bailando Solo", a: "Los Bunkers", center: "RE (D)", pentas: ["Si m (Bm)", "Mi m (Em)", "Fa# m (F#m)"] },
+        { t: "No Me Hables de Sufrir", a: "Los Bunkers", center: "RE (D)", pentas: ["Si m (Bm)", "Mi m (Em)", "Fa# m (F#m)"] },
+        { t: "Dreams", a: "Fleetwood Mac", center: "RE (D)", pentas: ["Si m (Bm)", "Mi m (Em)", "Fa# m (F#m)"] },
+        { t: "Band on the Run", a: "Wings", center: "RE (D)", pentas: ["Si m (Bm)", "Mi m (Em)", "Fa# m (F#m)"] },
+
+        // --- CENTRO: LA MAYOR (A) ---
+        { t: "Kumbala", a: "Maldita Vecindad", center: "LA (A)", pentas: ["Fa# m (F#m)", "Si m (Bm)", "Do# m (C#m)"] },
+        { t: "Lamento Boliviano", a: "Enanitos Verdes", center: "LA (A)", pentas: ["Fa# m (F#m)", "Si m (Bm)", "Do# m (C#m)"] },
+        { t: "Vampi", a: "Babasonicos", center: "LA (A)", pentas: ["Fa# m (F#m)", "Si m (Bm)", "Do# m (C#m)"] },
+        { t: "El Colmo", a: "Babasonicos", center: "LA (A)", pentas: ["Fa# m (F#m)", "Si m (Bm)", "Do# m (C#m)"] },
+        { t: "Tin Man", a: "America", center: "LA (A)", pentas: ["Fa# m (F#m)", "Si m (Bm)", "Do# m (C#m)"] },
+        { t: "Desde Que", a: "Liquits", center: "LA (A)", pentas: ["Fa# m (F#m)", "Si m (Bm)", "Do# m (C#m)"] },
+        { t: "Fortunate Son / Born on the Bayou", a: "CCR", center: "LA (A)", pentas: ["Fa# m (F#m)", "Si m (Bm)", "Do# m (C#m)"] },
+        { t: "Love Me Two Times", a: "The Doors", center: "LA (A)", pentas: ["Fa# m (F#m)", "Si m (Bm)", "Do# m (C#m)"] },
+
+        // --- CENTRO: SI MAYOR (B) ---
+        { t: "Trátame Suavemente", a: "Soda Stereo", center: "SI (B)", pentas: ["Sol# m (G#m)", "Do# m (C#m)", "Re# m (D#m)"] },
+        { t: "Every Breath You Take", a: "The Police", center: "SI (B)", pentas: ["Sol# m (G#m)", "Do# m (C#m)", "Re# m (D#m)"] },
+        { t: "Get Back", a: "The Beatles", center: "SI (B)", pentas: ["Sol# m (G#m)", "Do# m (C#m)", "Re# m (D#m)"] },
+        { t: "Si Estás Pensando Mal", a: "Los Bunkers", center: "SI (B)", pentas: ["Sol# m (G#m)", "Do# m (C#m)", "Re# m (D#m)"] },
+        { t: "Hold the Line", a: "Toto", center: "SI (B)", pentas: ["Sol# m (G#m)", "Do# m (C#m)", "Re# m (D#m)"] },
+        { t: "As It Was", a: "Harry Styles", center: "SI (B)", pentas: ["Sol# m (G#m)", "Do# m (C#m)", "Re# m (D#m)"] },
+        { t: "R U Mine", a: "Arctic Monkeys", center: "SI (B)", pentas: ["Sol# m (G#m)", "Do# m (C#m)", "Re# m (D#m)"] },
+
+        // --- CENTRO: FA# MAYOR (F#) ---
+        { t: "Sex on Fire", a: "Kings of Leon", center: "FA# (F#)", pentas: ["Re# m (D#m)", "Sol# m (G#m)", "La# m (A#m)"] },
+        { t: "Velocidad de la Luz", a: "Los Bunkers", center: "FA# (F#)", pentas: ["Re# m (D#m)", "Sol# m (G#m)", "La# m (A#m)"] },
+        { t: "Dancing With Myself", a: "Billy Idol", center: "FA# (F#)", pentas: ["Re# m (D#m)", "Sol# m (G#m)", "La# m (A#m)"] },
+        { t: "Don't Let Me Down", a: "The Beatles", center: "FA# (F#)", pentas: ["Re# m (D#m)", "Sol# m (G#m)", "La# m (A#m)"] },
+        // Aquí corregimos DREAMS de Cranberries a FA#
+        { t: "Dreams", a: "The Cranberries", center: "FA# (F#)", pentas: ["Re# m (D#m)", "Sol# m (G#m)", "La# m (A#m)"] },
+        { t: "Quien Fuera", a: "Los Bunkers", center: "FA# (F#)", pentas: ["Re# m (D#m)", "Sol# m (G#m)", "La# m (A#m)"] },
+
+        // --- CENTRO: MI MAYOR (E) ---
+        { t: "Azul", a: "Zoé", center: "MI (E)", pentas: ["Do# m (C#m)", "Fa# m (F#m)", "Sol# m (G#m)"] },
+        { t: "Overkill", a: "Men at Work", center: "MI (E)", pentas: ["Do# m (C#m)", "Fa# m (F#m)", "Sol# m (G#m)"] },
+        { t: "Everybody Wants To...", a: "Tears for Fears", center: "MI (E)", pentas: ["Do# m (C#m)", "Fa# m (F#m)", "Sol# m (G#m)"] },
+        { t: "Bad Moon Rising", a: "CCR", center: "MI (E)", pentas: ["Do# m (C#m)", "Fa# m (F#m)", "Sol# m (G#m)"] },
+        { t: "Up Around the Bend", a: "CCR", center: "MI (E)", pentas: ["Do# m (C#m)", "Fa# m (F#m)", "Sol# m (G#m)"] },
+
+        // --- OTROS CENTROS ---
+        { t: "Just The Two of Us", a: "Grover Washington Jr.", center: "Sib (Bb)", pentas: ["Sol m (Gm)", "Do m (Cm)", "Re m (Dm)"] },
+        { t: "Do I Wanna Know", a: "Arctic Monkeys", center: "DO (C)", pentas: ["La m (Am)", "Re m (Dm)", "Mi m (Em)"] },
+        { t: "All These Things...", a: "The Killers", center: "Lab (Ab)", pentas: ["Fa m (Fm)", "Sib m (Bbm)", "Do m (Cm)"] },
+        { t: "La Magia", a: "Little Jesus", center: "Reb (Db)", pentas: ["Sib m (Bbm)", "Mib m (Ebm)", "Fa m (Fm)"] } 
+    ];
+
+    const listContainer = document.getElementById('list');
+    const searchInput = document.getElementById('search');
+
+    function renderList(filter = '') {
+        listContainer.innerHTML = '';
+        const f = filter.toLowerCase();
+
+        songs.forEach((song, index) => {
+            if (song.t.toLowerCase().includes(f) || song.a.toLowerCase().includes(f) || song.center.toLowerCase().includes(f)) {
+                
+                // Generar links de búsqueda inteligentes
+                const qOriginal = encodeURIComponent(`${song.t} ${song.a} live`);
+                const qBacking = encodeURIComponent(`${song.t} ${song.a} backing track`);
+                
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="song-title">${song.t}</div>
+                    <div class="artist">${song.a}</div>
+                    <div class="tonal-center">Centro Tonal: <strong>${song.center}</strong></div>
+                    <div class="penta-box">
+                        <div class="penta-title">Tus 3 Pentatónicas:</div>
+                        <div class="scales">
+                            <span class="scale primary">★ ${song.pentas[0]}</span>
+                            <span class="scale">${song.pentas[1]}</span>
+                            <span class="scale">${song.pentas[2]}</span>
+                        </div>
+                    </div>
+                    <div class="yt-actions">
+                        <a href="https://www.youtube.com/results?search_query=${qOriginal}" target="_blank" class="btn-yt original">
+                            🎵 Original
+                        </a>
+                        <a href="https://www.youtube.com/results?search_query=${qBacking}" target="_blank" class="btn-yt backing">
+                            🎸 Backing
+                        </a>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            }
+        });
+    }
+
+    function closePlayer() {
+        document.getElementById('floater').classList.remove('active');
+        document.getElementById('yt-player').src = "";
+    }
+
+    renderList();
+
+    searchInput.addEventListener('input', (e) => {
+        renderList(e.target.value);
+    });
+
+</script>
+</body>
+</html>
