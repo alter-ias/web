@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hacked Bass // Interactive Model</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Courier New', Courier, monospace; color: #00ffcc; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none; /* Let clicks pass through to 3D model */
+            z-index: 10;
+        }
+        
+        h1 { margin: 0; font-size: 1.5rem; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px #00ffcc; }
+        p { font-size: 0.8rem; opacity: 0.8; max-width: 300px; background: rgba(0,0,0,0.5); padding: 10px; border-left: 2px solid #00ffcc; }
+
+        /* Controls */
+        #controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            text-align: center;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 4px;
+        }
+        
+        label { display: block; margin-bottom: 10px; font-size: 0.8rem; letter-spacing: 1px; }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ff0055;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px #ff0055;
+        }
+        
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #333;
+            border-radius: 2px;
+        }
+
+        #start-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 99;
+            flex-direction: column;
+            cursor: pointer;
+        }
+        
+        .blink { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay">
+        <h1 style="font-size: 3rem; color: #ff0055;">SYSTEM: OFFLINE</h1>
+        <p class="blink" style="text-align: center; border: none; font-size: 1.2rem;">[ CLICK ANYWHERE TO INITIALIZE SYSTEM ]</p>
+    </div>
+
+    <div id="ui-layer">
+        <h1>PROJECT: HACK_BASS_V1</h1>
+        <p>
+            > STATUS: ONLINE<br>
+            > AUDIO ENGINE: SYNTHESIS<br>
+            > INSTRUCTION: Hover over strings to trigger sound. Use slider to inspect internal components.
+        </p>
+    </div>
+
+    <div id="controls">
+        <label for="explodeSlider">EXPLODED VIEW DIAGNOSTICS</label>
+        <input type="range" id="explodeSlider" min="0" max="1" step="0.01" value="0">
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+
+        // --- 1. CONFIGURACIÓN DE ESCENA ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050505, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(5, 5, 10);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ReinhardToneMapping;
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // --- 2. ILUMINACIÓN & POST-PROCESADO (GLOW) ---
+        const ambientLight = new THREE.AmbientLight(0x404040, 2);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+        dirLight.position.set(-5, 10, 5);
+        scene.add(dirLight);
+
+        // Bloom Effect para el estilo Cyberpunk
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0.2;
+        bloomPass.strength = 1.2; // Intensidad del brillo
+        bloomPass.radius = 0.5;
+
+        const composer = new THREE.EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+
+        // --- 3. MOTOR DE AUDIO (WEB AUDIO API) ---
+        let audioCtx;
+        const startOverlay = document.getElementById('start-overlay');
+        let audioEnabled = false;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                audioEnabled = true;
+                startOverlay.style.display = 'none';
+                
+                // Efecto de sonido de encendido
+                playTone(200, 'square', 0.1, 0.5);
+            }
+        }
+
+        // Función para tocar nota
+        function playTone(freq, type = 'sawtooth', duration = 1, volume = 0.3) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+            // Filtro Lowpass para sonar más como un bajo
+            filter.type = "lowpass";
+            filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+
+            // Envolvente (Envelope)
+            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + 0.05); // Attack
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration); // Decay
+
+            osc.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        startOverlay.addEventListener('click', initAudio);
+
+        // --- 4. CONSTRUCCIÓN DEL BAJO (MODELO PROCEDIMENTAL) ---
+        // Usamos geometrías básicas para que no dependa de archivos externos
+        
+        const bassGroup = new THREE.Group();
+        scene.add(bassGroup);
+
+        // Materiales
+        const bodyMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.2, metalness: 0.8 });
+        const accentMat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.5 });
+        const circuitMat = new THREE.MeshStandardMaterial({ color: 0x111111, wireframe: true });
+        const stringMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+
+        // Array para guardar las partes que se van a mover (explotar)
+        const explodeParts = [];
+
+        // Función auxiliar para crear partes
+        function createPart(geometry, material, pos, explodeDir, name) {
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(pos.x, pos.y, pos.z);
+            mesh.userData = { 
+                originalPos: pos, 
+                explodeDir: explodeDir, // Vector hacia donde se mueve
+                name: name 
+            };
+            bassGroup.add(mesh);
+            explodeParts.push(mesh);
+            return mesh;
+        }
+
+        // A. CUERPO (Body) - Dividido en capas para efecto "hacked"
+        const bodyGeoMain = new THREE.BoxGeometry(3, 4, 0.5);
+        createPart(bodyGeoMain, bodyMat, {x:0, y:-1, z:0}, {x:0, y:0, z:0}, "body_main");
+
+        const bodyGeoTop = new THREE.BoxGeometry(2.8, 3.8, 0.1);
+        createPart(bodyGeoTop, circuitMat, {x:0, y:-1, z:0.26}, {x:0, y:0, z:1.5}, "body_plate");
+
+        // B. CUELLO (Neck)
+        const neckGeo = new THREE.BoxGeometry(0.6, 6, 0.3);
+        createPart(neckGeo, bodyMat, {x:0, y:3.5, z:0.1}, {x:0, y:2, z:0}, "neck");
+
+        // C. CABEZA (Headstock)
+        const headGeo = new THREE.BoxGeometry(1.2, 1.5, 0.3);
+        createPart(headGeo, bodyMat, {x:0, y:7, z:0.1}, {x:0, y:3, z:0}, "headstock");
+
+        // D. PASTILLAS (Pickups)
+        const pickupGeo = new THREE.BoxGeometry(2, 0.5, 0.2);
+        createPart(pickupGeo, accentMat, {x:0, y:-1.5, z:0.3}, {x:0, y:0, z:2}, "pickup_neck");
+        createPart(pickupGeo, accentMat, {x:0, y:-2.5, z:0.3}, {x:0, y:0, z:2.5}, "pickup_bridge");
+
+        // E. CUERDAS (Strings) - Interactuables
+        const strings = [];
+        const stringNotes = [41.20, 55.00, 73.42, 97.99]; // E, A, D, G (Frecuencias base)
+        
+        for(let i=0; i<4; i++) {
+            // Usamos cilindros muy finos
+            const stringGeo = new THREE.CylinderGeometry(0.015, 0.015, 9, 8); 
+            const xPos = -0.3 + (i * 0.2); // Espaciado
+            const stringMesh = new THREE.Mesh(stringGeo, stringMat);
+            
+            stringMesh.position.set(xPos, 2.5, 0.4);
+            stringMesh.userData = {
+                originalPos: {x:xPos, y:2.5, z:0.4},
+                explodeDir: {x: xPos * 2, y: 0.5, z: 4}, // Explotan hacia afuera
+                isString: true,
+                note: stringNotes[i],
+                id: i
+            };
+            
+            bassGroup.add(stringMesh);
+            explodeParts.push(stringMesh);
+            strings.push(stringMesh);
+        }
+
+        // --- 5. LÓGICA DE INTERACCIÓN (RAYCASTER) ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        
+        // Variable para controlar que no se dispare el sonido 60 veces por segundo
+        let hoveredString = null; 
+
+        window.addEventListener('mousemove', (event) => {
+            // Normalizar coordenadas del mouse (-1 a +1)
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+
+            // Detectar intersección SOLO con cuerdas
+            const intersects = raycaster.intersectObjects(strings);
+
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                
+                // Si tocamos una cuerda nueva
+                if (hoveredString !== object) {
+                    hoveredString = object;
+                    
+                    // Efecto visual
+                    object.material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                    object.scale.set(3, 1, 3); // Engrosar cuerda momentáneamente
+
+                    // Sonido
+                    if (audioEnabled) {
+                        playTone(object.userData.note, 'sawtooth', 1.5, 0.2);
+                        playTone(object.userData.note * 2, 'sine', 0.5, 0.1); // Armónico
+                    }
+                }
+            } else {
+                // Resetear estado si salimos de la cuerda
+                if (hoveredString) {
+                    hoveredString.scale.set(1, 1, 1);
+                    hoveredString.material = stringMat; // Volver al color original
+                    hoveredString = null;
+                }
+            }
+        });
+
+        // --- 6. ANIMACIÓN Y "EXPLOSIÓN" ---
+        const slider = document.getElementById('explodeSlider');
+        
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 1. Lógica de Explosión
+            const explodeVal = parseFloat(slider.value);
+            
+            explodeParts.forEach(part => {
+                const targetX = part.userData.originalPos.x + (part.userData.explodeDir.x * explodeVal);
+                const targetY = part.userData.originalPos.y + (part.userData.explodeDir.y * explodeVal);
+                const targetZ = part.userData.originalPos.z + (part.userData.explodeDir.z * explodeVal);
+
+                // Lerp (interpolación lineal) para suavizar movimiento
+                part.position.x += (targetX - part.position.x) * 0.1;
+                part.position.y += (targetY - part.position.y) * 0.1;
+                part.position.z += (targetZ - part.position.z) * 0.1;
+            });
+
+            // 2. Vibración de cuerdas activa
+            if(hoveredString) {
+                hoveredString.position.x += (Math.random() - 0.5) * 0.05;
+            }
+
+            // 3. Rotación sutil del modelo completo
+            bassGroup.rotation.y += 0.002;
+
+            controls.update();
+            // Usamos composer en lugar de renderer normal para el efecto Glow
+            composer.render();
+        }
+
+        // Manejo de resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>
