@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Bajo Electroacústico Hackeado</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #e0e0e0; font-family: sans-serif; }
+        
+        /* UI Simple y limpia */
+        #ui-container {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 400px;
+            background: rgba(255, 255, 255, 0.9); 
+            padding: 15px; border-radius: 12px;
+            text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Pantalla de inicio */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 100;
+            color: white; cursor: pointer; text-align: center;
+        }
+
+        h1 { margin: 0 0 10px 0; font-size: 1.5rem; color: #333; }
+        p { margin: 0; color: #666; font-size: 0.9rem; }
+        label { display: block; margin-bottom: 5px; color: #333; font-weight: bold; }
+        
+        input[type=range] { width: 100%; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h2 style="color: #ffaa00; font-size: 2rem;">TAP PARA INICIAR</h2>
+        <p style="color: #ddd;">Toca la pantalla para activar el audio</p>
+    </div>
+
+    <div id="ui-container">
+        <h1>Bajo Hackeado</h1>
+        <label>Modo Despiece (Exploded View)</label>
+        <input type="range" id="explodeSlider" min="0" max="1" step="0.01" value="0">
+        <p style="margin-top:10px; font-size: 0.8rem;">Toca las cuerdas para sonar</p>
+    </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        // --- 1. ESCENA ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf0f0f0); // Fondo claro (como pared de galería)
+        
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        
+        // AJUSTE PARA MÓVIL: Si la pantalla es vertical, aleja la cámara
+        function adjustCamera() {
+            const aspect = window.innerWidth / window.innerHeight;
+            if (aspect < 1) {
+                // Modo retrato (celular)
+                camera.position.set(0, 0, 25); 
+            } else {
+                // Modo paisaje (PC)
+                camera.position.set(0, 0, 14);
+            }
+            camera.aspect = aspect;
+            camera.updateProjectionMatrix();
+        }
+        adjustCamera(); // Ejecutar al inicio
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // --- 2. LUCES ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight.position.set(5, 10, 10);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // --- 3. MODELO 3D (Basado en tu foto real) ---
+        const bassGroup = new THREE.Group();
+        scene.add(bassGroup);
+
+        // MATERIALES
+        // Madera clara amarillenta (como en la foto)
+        const woodMat = new THREE.MeshStandardMaterial({ color: 0xeebb77, roughness: 0.3, metalness: 0.1 });
+        // Madera oscura (diapasón)
+        const darkWoodMat = new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.6 });
+        // Negro (bocina)
+        const blackMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 });
+        // Metal (brazos flexibles)
+        const silverMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6, roughness: 0.2 });
+        // Cuerdas
+        const stringMat = new THREE.MeshBasicMaterial({ color: 0x888888 });
+
+        // A. CUERPO (Caja Acústica)
+        const shape = new THREE.Shape();
+        // Silueta clásica de guitarra acústica pequeña
+        shape.moveTo(0, -3.2);
+        shape.bezierCurveTo(2.2, -3.2, 2.8, -1.5, 2.0, -0.5); 
+        shape.bezierCurveTo(1.8, 0, 1.8, 1, 2.0, 1.5); 
+        shape.bezierCurveTo(2.3, 2.5, 1.4, 3.5, 0.7, 3.5); 
+        shape.lineTo(-0.7, 3.5); 
+        shape.bezierCurveTo(-1.4, 3.5, -2.3, 2.5, -2.0, 1.5); 
+        shape.bezierCurveTo(-1.8, 1, -1.8, 0, -2.0, -0.5); 
+        shape.bezierCurveTo(-2.8, -1.5, -2.2, -3.2, 0, -3.2); 
+
+        const extrudeSettings = { depth: 0.8, bevelEnabled: true, bevelSegments: 3, steps: 2, bevelSize: 0.1, bevelThickness: 0.1 };
+        const bodyGeo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        bodyGeo.center();
+        const body = new THREE.Mesh(bodyGeo, woodMat);
+        
+        const bodyPart = new THREE.Group();
+        bodyPart.add(body);
+        bassGroup.add(bodyPart);
+
+        // B. EL AGUJERO / BOCINA (Elemento central de tu foto)
+        const speakerGroup = new THREE.Group();
+        
+        // Aro negro grande
+        const rimGeo = new THREE.TorusGeometry(1.5, 0.15, 16, 60);
+        const rim = new THREE.Mesh(rimGeo, blackMat);
+        rim.position.z = 0.4;
+        speakerGroup.add(rim);
+
+        // Cono del parlante
+        const coneGeo = new THREE.ConeGeometry(1.5, 0.4, 32, 1, true);
+        const cone = new THREE.Mesh(coneGeo, blackMat);
+        cone.rotation.x = Math.PI / 2;
+        cone.position.z = 0.4;
+        speakerGroup.add(cone);
+
+        // Domo central brillante
+        const domeGeo = new THREE.SphereGeometry(0.35, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const dome = new THREE.Mesh(domeGeo, new THREE.MeshStandardMaterial({color: 0xdddddd, metalness: 0.8, roughness: 0.2}));
+        dome.rotation.x = Math.PI / 2;
+        dome.position.z = 0.5;
+        speakerGroup.add(dome);
+
+        bassGroup.add(speakerGroup);
+
+        // C. LOS BRAZOS FLEXIBLES (Goosenecks)
+        const armsGroup = new THREE.Group();
+        
+        function createFlexArm(xSide) {
+            // Tubo que sale del cuerpo y sube curvo
+            const path = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(xSide * 1.5, 1.5, 0.4), // Base en el cuerpo
+                new THREE.Vector3(xSide * 2.5, 3.0, 1.0), // Curva hacia afuera
+                new THREE.Vector3(xSide * 0.8, 2.5, 2.0)  // Punta hacia adentro
+            ]);
+            const tubeGeo = new THREE.TubeGeometry(path, 24, 0.06, 8, false);
+            const tube = new THREE.Mesh(tubeGeo, silverMat);
+            
+            // Clip/Micrófono en la punta
+            const micGeo = new THREE.BoxGeometry(0.2, 0.4, 0.2);
+            const mic = new THREE.Mesh(micGeo, blackMat);
+            mic.position.copy(path.getPoint(1));
+            mic.lookAt(0,2,0);
+
+            const arm = new THREE.Group();
+            arm.add(tube);
+            arm.add(mic);
+            return arm;
+        }
+
+        armsGroup.add(createFlexArm(1));  // Brazo derecho
+        armsGroup.add(createFlexArm(-1)); // Brazo izquierdo
+        bassGroup.add(armsGroup);
+
+        // D. MÁSTIL (NECK)
+        const neckGroup = new THREE.Group();
+        
+        // Diapasón
+        const neckGeo = new THREE.BoxGeometry(0.65, 6, 0.15);
+        const neck = new THREE.Mesh(neckGeo, darkWoodMat);
+        neck.position.set(0, 4.0, 0.45); // Sobre el cuerpo
+        neckGroup.add(neck);
+        
+        // Cabeza (Headstock) - Madera clara
+        const headGeo = new THREE.BoxGeometry(1.0, 1.5, 0.2);
+        const head = new THREE.Mesh(headGeo, woodMat);
+        head.position.set(0, 7.5, 0.4);
+        neckGroup.add(head);
+
+        // Clavijas
+        const pegGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.6);
+        const pegMat = new THREE.MeshStandardMaterial({color: 0xcccccc});
+        for(let i=0; i<4; i++) {
+            const peg = new THREE.Mesh(pegGeo, pegMat);
+            const side = i % 2 === 0 ? -1 : 1;
+            const yOffset = i < 2 ? 7.2 : 7.8;
+            peg.rotation.z = Math.PI / 2;
+            peg.position.set(side * 0.6, yOffset, 0.4);
+            neckGroup.add(peg);
+        }
+
+        bassGroup.add(neckGroup);
+
+        // E. CUERDAS (Interactuables)
+        const strings = [];
+        const freqs = [97.99, 73.41, 55.00, 41.20]; // G, D, A, E
+        
+        for(let i=0; i<4; i++) {
+            const strGeo = new THREE.CylinderGeometry(0.01, 0.01, 10.5);
+            const str = new THREE.Mesh(strGeo, stringMat);
+            // Espaciado de cuerdas
+            const x = -0.22 + (i * 0.15);
+            str.position.set(x, 2.5, 0.65); // Flotando sobre el parlante
+            str.userData = { note: freqs[i] };
+            strings.push(str);
+            bassGroup.add(str);
+        }
+
+        // --- 4. AUDIO ---
+        let audioCtx;
+        function initAudio() {
+            if(!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                document.getElementById('start-screen').style.display = 'none';
+            }
+        }
+        document.getElementById('start-screen').addEventListener('click', initAudio);
+        document.getElementById('start-screen').addEventListener('touchstart', initAudio); // Soporte táctil explícito
+
+        function playTone(freq) {
+            if(!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'triangle'; 
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.2);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1.2);
+        }
+
+        // --- 5. INTERACCIÓN ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        let lastObj = null;
+
+        function checkIntersection(x, y) {
+            mouse.x = (x / window.innerWidth) * 2 - 1;
+            mouse.y = -(y / window.innerHeight) * 2 + 1;
+            
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(strings);
+            
+            if(intersects.length > 0) {
+                const obj = intersects[0].object;
+                if(obj !== lastObj) {
+                    playTone(obj.userData.note);
+                    
+                    // Animación visual
+                    obj.material = new THREE.MeshBasicMaterial({color: 0xffaa00});
+                    setTimeout(() => obj.material = stringMat, 150);
+                    
+                    // Golpe de bocina
+                    if(speakerGroup.scale.x === 1) speakerGroup.scale.set(1.15, 1.15, 1.15);
+                    
+                    lastObj = obj;
+                }
+            } else {
+                lastObj = null;
+            }
+        }
+
+        window.addEventListener('mousemove', (e) => checkIntersection(e.clientX, e.clientY));
+        window.addEventListener('touchmove', (e) => {
+            // Prevenir scroll mientras tocas el bajo
+            // e.preventDefault(); 
+            checkIntersection(e.touches[0].clientX, e.touches[0].clientY);
+        }, {passive: false});
+
+        // --- 6. ANIMACIÓN (Loop) ---
+        const slider = document.getElementById('explodeSlider');
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const val = parseFloat(slider.value);
+            
+            // Efecto Explode (Despiece)
+            // 1. Cuerpo quieto (base)
+            // 2. Bocina sale disparada al frente
+            speakerGroup.position.z = THREE.MathUtils.lerp(0, 2.5, val);
+            // 3. Brazos se abren lateralmente
+            armsGroup.position.z = THREE.MathUtils.lerp(0, 1.0, val);
+            armsGroup.scale.x = THREE.MathUtils.lerp(1, 1.5, val); // Se ensancha
+            // 4. Mástil sube
+            neckGroup.position.y = THREE.MathUtils.lerp(0, 2.0, val);
+            
+            // Animación de retorno de golpe de bocina
+            if(speakerGroup.scale.x > 1) {
+                speakerGroup.scale.lerp(new THREE.Vector3(1,1,1), 0.1);
+            }
+
+            // Rotación suave automática si no estás interactuando
+            // bassGroup.rotation.y = Math.sin(Date.now() * 0.0005) * 0.1;
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Resize inteligente
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            adjustCamera();
+        });
+
+    </script>
+</body>
+</html>
