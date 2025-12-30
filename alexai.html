@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.26.0 GEMINI-11LABS</title>
+    <title>ALEX ASSISTANT | V.FINAL STABLE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
-        /* --- ESTILOS VISUALES (INTACTOS) --- */
+        /* --- ESTILOS VISUALES (TU BASE ORIGINAL INTACTA) --- */
         :root {
             --bg-color: #1a1a1a; 
             --text-main: #E8E4D9;
@@ -232,6 +232,11 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
+        /* === CONFIGURACIÓN DE VOZ Y CEREBRO === */
+        const ELEVEN_API_KEY = "sk_59fc0224b40d892bf32845d0542ca89f89119ea789fcec0c".trim(); 
+        const GEMINI_API_KEY = "AIzaSyDHT_af99TNDXIt-yq1iNIft_DIXO87ViI".trim();
+        const VOICE_ID = "pNInz6obpgDQGcFmaJgB";
+
         // --- GESTIÓN DE TEMAS ---
         const themes = {
             ludovico: { label: "LUDOVICO (DARK)", bg: 0x1a1a1a, fogDensity: 0.02, rimIntensity: 2.0 },
@@ -364,11 +369,6 @@
         const statusText = document.getElementById('ai-text');
         const sessionBar = document.getElementById('session-bar');
         
-        // --- TUS CLAVES INTEGRADAS (LIMPIAS) ---
-        const ELEVEN_API_KEY = "sk_59fc0224b40d892bf32845d0542ca89f89119ea789fcec0c".trim(); 
-        const GEMINI_API_KEY = "AIzaSyDHT_af99TNDXIt-yq1iNIft_DIXO87ViI".trim();
-        const VOICE_ID = "pNInz6obpgDQGcFmaJgB"; // Voz Adam
-
         let isListening = false;
         let isThinking = false;
         let isSpeaking = false;
@@ -418,8 +418,7 @@
                 if (sessionActive) {
                     refreshSession(); 
                     updateUI(`"${transcript}"`, "");
-                    // CAMBIO AQUI: Usamos Gemini
-                    processWithGemini(transcript);
+                    processWithGemini(transcript); // <--- AQUI CAMBIAMOS A GEMINI
                     
                 } else {
                     if (lowerT.includes("alex")) {
@@ -427,7 +426,7 @@
                         const cleanText = transcript.replace(/alex/gi, "").trim();
                         if (cleanText.length > 2) {
                             updateUI(`"${transcript}"`, "");
-                            processWithGemini(cleanText);
+                            processWithGemini(cleanText); // <--- AQUI CAMBIAMOS A GEMINI
                         } else {
                             speakResponse("Te escucho.");
                         }
@@ -500,34 +499,28 @@
             }
         });
 
-        // --- CEREBRO: GOOGLE GEMINI 1.5 FLASH (CON BÚSQUEDA) ---
+        // --- CEREBRO: GOOGLE GEMINI PRO (ESTABLE) ---
+        // Cambié de 'gemini-1.5-flash' a 'gemini-pro' para evitar tu error 404
         async function processWithGemini(userText) {
             isThinking = true;
             updateUI("Analizando...", "active");
 
             chatHistory.push({ role: "user", parts: [{ text: userText }] });
-            // Mantenemos contexto corto
             if (chatHistory.length > 8) chatHistory = chatHistory.slice(-8);
             
             const systemPrompt = 
                 "Eres 'Alex' (de la Naranja Mecánica). Tu personalidad es: Intelectual, cínico, refinado, pero con un fondo violento y arrogante. " +
                 "REGLAS OBLIGATORIAS: " +
                 "1. VOCABULARIO: Habla en Español Latino neutro mezclado con un toque sutil (2%) de jerga Nadsat (drog, videar, orrorshou, gulever). " +
-                "2. INFORMACIÓN: Tienes acceso a Google Search. Úsalo si te preguntan datos actuales (clima, noticias, tendencias). " +
-                "3. LONGITUD: Sé conciso (máx 50 palabras). Eres el líder, no des discursos. " +
-                "4. Si buscas en Google, resume la información con tu estilo sarcástico.";
+                "2. LONGITUD: Sé conciso (máx 50 palabras). Eres el líder, no des discursos. ";
             
-            // URL DEL MODELO FLASH (EL MÁS RÁPIDO Y ACTUAL)
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+            // URL DEL MODELO 'PRO' (EL MÁS COMPATIBLE)
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`;
 
             const payload = {
                 contents: [
-                    { role: "user", parts: [{ text: systemPrompt }] }, // Inyección de personalidad
+                    { role: "user", parts: [{ text: systemPrompt }] },
                     ...chatHistory
-                ],
-                // ACTIVAMOS LA BÚSQUEDA EN GOOGLE (GROUNDING)
-                tools: [
-                    { google_search_retrieval: { dynamic_retrieval_config: { mode: "MODE_DYNAMIC", dynamic_threshold: 0.7 } } }
                 ]
             };
 
@@ -541,7 +534,7 @@
                 if(!response.ok) {
                     const errorTxt = await response.text();
                     console.error("Google Error:", errorTxt);
-                    throw new Error("Error en Google API");
+                    throw new Error("Error en Google API: " + response.status);
                 }
 
                 const data = await response.json();
@@ -639,12 +632,13 @@
             robotGroup.position.y = (Math.sin(time) * 0.1) + 1.0; 
             parts.forEach(p => { p.mesh.position.y = p.originalY + (p.direction * explodeCurrent); });
 
+            // AJUSTE DE BRILLO: Reduje los valores aquí para que no sea una bomba nuclear
             if(aiCore) {
                 aiCore.rotation.x = time * 0.5; aiCore.rotation.y = time * 0.8;
-                if (isListening) matCore.emissiveIntensity = 2.0 + Math.sin(time * 5) * 1.5;
-                else if (isThinking) { matCore.emissiveIntensity = 2.0 + Math.sin(time * 20) * 2.0; aiCore.rotation.y += 0.2; }
-                else if (isSpeaking) matCore.emissiveIntensity = 3.0 + (Math.random() * 3.0);
-                else matCore.emissiveIntensity = 3.0;
+                if (isListening) matCore.emissiveIntensity = 1.0 + Math.sin(time * 5) * 0.5;
+                else if (isThinking) { matCore.emissiveIntensity = 1.0 + Math.sin(time * 20) * 1.0; aiCore.rotation.y += 0.2; }
+                else if (isSpeaking) matCore.emissiveIntensity = 1.5 + (Math.random() * 1.5);
+                else matCore.emissiveIntensity = 1.0;
             }
             composer.render();
         }
