@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.25.0 ELEVENLABS</title>
+    <title>ALEX ASSISTANT | V.25.0 NEURAL</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
-        /* --- ESTILOS VISUALES --- */
+        /* --- ESTILOS VISUALES (INTACTOS) --- */
         :root {
             --bg-color: #1a1a1a; 
             --text-main: #E8E4D9;
@@ -42,6 +42,7 @@
         }
         #theme-toggle:hover { background: var(--text-main); color: var(--bg-color); }
 
+        /* --- UI DE CONTROL --- */
         .controls-container {
             position: fixed; top: 30px; right: 10%; z-index: 100;
             display: flex; align-items: center; gap: 10px;
@@ -87,6 +88,7 @@
             display: inline-block; opacity: 0; transition: opacity 0.5s;
         }
         
+        /* Barra de progreso del tiempo de sesión */
         #session-bar {
             position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
             width: 0%; height: 2px; background: var(--accent);
@@ -192,22 +194,30 @@
     <div id="content-sidebar">
         <section id="sec-intro">
             <div class="content-box visible">
-                <h2>AI ASSISTANT V.2.0</h2>
+                <h2>AI ASSISTANT V.1.6</h2>
                 <h1>ALEX</h1>
                 <h1>NEURAL</h1>
                 <br>
-                <p>Integración con ElevenLabs Neural Engine. Síntesis de voz hiper-realista. Personalidad adaptativa tipo 'Nadsat Leader'.</p>
+                <p>Diseño 'Minimalist Bottle'. Modo de sesión adaptativa (60s). Inteligencia Contextual: Breve en saludos, profundo en debate.</p>
                 <br>
-                <a href="#" class="btn-cta">ACTIVAR</a>
-                <a href="#" class="btn-cta secondary">CONFIG</a>
+                <a href="#" class="btn-cta">COMPRAR AHORA</a>
+                <a href="#" class="btn-cta secondary">VER SPECS</a>
             </div>
         </section>
 
         <section id="sec-design">
             <div class="content-box">
-                <h2>ARQUITECTURA</h2>
-                <h3>INTELIGENCIA DE ENJAMBRE</h3>
-                <p>El núcleo procesa las respuestas utilizando modelos de lenguaje distribuidos, mientras la síntesis vocal ocurre en la nube.</p>
+                <h2>INGENIERÍA ACÚSTICA</h2>
+                <h3>PROYECCIÓN SUPERIOR</h3>
+                <p>El bombín perforado permite una dispersión de sonido de 360 grados, mientras que la base sólida ancla los graves.</p>
+            </div>
+        </section>
+
+        <section id="sec-tech">
+            <div class="content-box">
+                <h2>ESTRUCTURA DE ARAÑA</h2>
+                <h3>ANCLAJE SIN TORNILLOS</h3>
+                <p>Los cuatro tirantes naranjas son parte integral del cabezal, deslizándose a través del cuerpo para asegurar la base por tensión mecánica.</p>
             </div>
         </section>
 
@@ -221,6 +231,10 @@
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        /* === CONFIGURACIÓN DE VOZ (ELEVENLABS) === */
+        const ELEVEN_API_KEY = "PEGAR_TU_KEY_AQUI"; // <--- ¡IMPORTANTE! PEGA TU KEY AQUÍ
+        const VOICE_ID = "pNInz6obpgDQGcFmaJgB"; // Voz 'Adam' (Profunda y autoritaria)
 
         // --- GESTIÓN DE TEMAS ---
         const themes = {
@@ -346,12 +360,8 @@
         });
 
         /* ========================================= */
-        /* === LOGICA IA + ELEVENLABS API === */
+        /* === LOGICA IA: ADAPTATIVA + SESIÓN 60S === */
         /* ========================================= */
-        
-        // --- CONFIGURACIÓN ELEVENLABS ---
-        const ELEVEN_API_KEY = "sk_363e373255e91e4257d48a9c0c08d901afd8eb8ebb6f8db5"; // <--- PEGA AQUÍ TU KEY
-        const VOICE_ID = "pNInz6obpgDQGcFmaJgB"; // Voz: "Adam" (Masculina, Profunda, Narrador)
         
         const micBtn = document.getElementById('mic-toggle');
         const cmdInput = document.getElementById('cmd-input');
@@ -361,9 +371,12 @@
         let isListening = false;
         let isThinking = false;
         let isSpeaking = false;
+        
+        // --- CONFIG DE SESIÓN ---
         let sessionActive = false;
-        let sessionDuration = 120000;
+        let sessionDuration = 120000; // 120 SEGUNDOS (2 MINUTOS)
         let sessionEndTime = 0;
+        
         let chatHistory = []; 
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -382,7 +395,6 @@
 
             recognition.onend = () => { 
                 isListening = false; 
-                // Si la sesión está activa y NO estamos pensando ni hablando, reinicia el micro
                 if (sessionActive && !isThinking && !isSpeaking) {
                     updateUI("Sesión abierta", "active");
                     try { recognition.start(); } catch(e) {}
@@ -395,11 +407,10 @@
                 const transcript = event.results[0][0].transcript;
                 const lowerT = transcript.toLowerCase();
                 
+                // --- COMANDOS UNIVERSALES ---
                 if (lowerT.match(/(basta|adiós|silencio)/)) {
                     closeSession();
-                    // Respuesta corta final sin gastar API de ElevenLabs si quieres, 
-                    // o usando una pregrabada, pero usaremos la función normal.
-                    processWithPollinations("Despídete cortamente.");
+                    speakResponse("Hasta nunca.");
                     return;
                 }
 
@@ -407,6 +418,7 @@
                     refreshSession(); 
                     updateUI(`"${transcript}"`, "");
                     processWithPollinations(transcript);
+                    
                 } else {
                     if (lowerT.includes("alex")) {
                         openSession(); 
@@ -415,7 +427,7 @@
                             updateUI(`"${transcript}"`, "");
                             processWithPollinations(cleanText);
                         } else {
-                            speakResponse("Estoy aquí."); // Respuesta corta
+                            speakResponse("Te escucho.");
                         }
                     } else {
                         updateUI("Ignorado (Di 'Alex')", "error");
@@ -427,6 +439,7 @@
                 if (sessionActive) closeSession(); else { try { recognition.start(); } catch(e) {} }
             });
             cmdInput.style.display = 'block'; 
+
         } else {
             micBtn.style.display = 'none';
             cmdInput.style.display = 'block';
@@ -454,8 +467,7 @@
             micBtn.classList.remove("active-mode");
             sessionBar.style.opacity = 0;
             recognition.stop();
-            // Detener cualquier audio que esté sonando
-            if(window.currentAudio) { window.currentAudio.pause(); }
+            if(window.currentAudio) window.currentAudio.pause();
             updateUI("Sesión cerrada", "");
         }
 
@@ -464,8 +476,10 @@
             const remaining = Math.max(0, sessionEndTime - Date.now());
             const pct = (remaining / sessionDuration) * 100;
             sessionBar.style.width = pct + "%";
+
             if (remaining <= 0) {
                 closeSession(); 
+                speakResponse("Sesión terminada.");
             } else {
                 requestAnimationFrame(updateSessionBar);
             }
@@ -489,46 +503,56 @@
             updateUI("Analizando...", "active");
 
             chatHistory.push(`Usuario: ${userText}`);
-            if (chatHistory.length > 6) chatHistory = chatHistory.slice(-6);
+            // Mantenemos contexto corto para no confundirlo
+            if (chatHistory.length > 8) chatHistory = chatHistory.slice(-8);
             const contextString = chatHistory.join("\n");
             
+            // --- PROMPT AJUSTADO: EQUILIBRIO NADSAT Y LONGITUD ---
             const systemPrompt = 
-                "Eres 'Alex' (Naranja Mecánica). Personalidad: Intelectual, líder, voz grave y tranquila pero dominante. " +
-                "REGLAS: " +
-                "1. Sé MUY BREVE (Max 30 palabras). " +
-                "2. No saludes siempre. Ve al grano. " +
-                "3. Usa español neutro.";
+                "Eres 'Alex' (de la Naranja Mecánica). Tu personalidad es: Intelectual, cínico, refinado, pero con un fondo violento y arrogante. " +
+                "REGLAS OBLIGATORIAS: " +
+                "1. VOCABULARIO: Habla en Español Latino neutro mezclado con un toque sutil (2%) de jerga Nadsat adaptada a la pronunciación al español (usa términos como: 'drog' (amigo), 'videar' (ver/entender), 'orrorshou' (genial/bien), 'gulever' (cabeza), 'siny' (cine)). No abuses, que sea comprensible." +
+                "2. LONGITUD (ESTRICTO): " +
+                "   - Para saludos o trivialidades ('hola', 'qué haces'): Sé BREVE, cortante y superior (Máximo 15 palabras). " +
+                "   - Para temas interesantes (arte, vida, caos): Sé PROFUNDO pero CONCISO (Máximo 80 palabras). No des discursos eternos. " +
+                "3. ACTITUD: Nunca actúes como un asistente servil. Eres el líder." +
+                "4. Las palabras en otros idiomas adátalas a la pronunciación al español. Por ejemplo frame debes escribirla y leerla como freim, o roomie debes escribirlo y leerlo como rumi." ;
             
-            const finalPrompt = `${systemPrompt}\n\nHistorial:\n${contextString}\n\nAlex responde:`;
+            const finalPrompt = `${systemPrompt}\n\nHistorial reciente:\n${contextString}\n\nAlex responde:`;
+            
+            // Usamos encodeURIComponent para asegurar que el texto pase bien por la URL
             const url = `https://text.pollinations.ai/${encodeURIComponent(finalPrompt)}`;
 
             try {
                 const response = await fetch(url);
                 const aiResponse = await response.text();
+                
                 chatHistory.push(`Alex: ${aiResponse}`);
+
                 isThinking = false;
                 updateUI(aiResponse, "speaking"); 
                 speakResponse(aiResponse);
             } catch (error) {
                 isThinking = false;
-                updateUI("Error IA", "error");
+                updateUI("Error de conexión", "error");
+                speakResponse("Algo falla en el sistema, mi droog.");
             }
         }
 
-        // --- FUNCIÓN ELEVENLABS ---
+        // --- NUEVA FUNCIÓN CON ELEVENLABS (MANTENIENDO LÓGICA DE SESIÓN) ---
         async function speakResponse(text) {
-            if (!text) return;
-            if (window.speechSynthesis) window.speechSynthesis.cancel(); // Matar voz del navegador si suena
+            if(!text) return;
+            // Detener voz anterior si existe
+            if(window.currentAudio) window.currentAudio.pause();
+            if(window.speechSynthesis) window.speechSynthesis.cancel();
+            
             isSpeaking = true;
 
-            if (ELEVEN_API_KEY === "PEGAR_TU_API_KEY_AQUI") {
-                alert("¡Falta la API Key! Edita el código y pon tu clave de ElevenLabs.");
-                isSpeaking = false;
-                return;
-            }
-
             try {
-                // Llamada a la API de ElevenLabs
+                if (ELEVEN_API_KEY === "sk_363e373255e91e4257d48a9c0c08d901afd8eb8ebb6f8db5") {
+                    throw new Error("NO_API_KEY");
+                }
+
                 const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
                     method: 'POST',
                     headers: {
@@ -538,38 +562,45 @@
                     },
                     body: JSON.stringify({
                         text: text,
-                        model_id: "eleven_multilingual_v2", // El mejor para español
-                        voice_settings: {
-                            stability: 0.5,       // 0.5 es un buen balance para emociones
-                            similarity_boost: 0.75 
-                        }
+                        model_id: "eleven_multilingual_v2",
+                        voice_settings: { stability: 0.5, similarity_boost: 0.75 }
                     })
                 });
 
-                if (!response.ok) throw new Error("Error en ElevenLabs (Checkea créditos o API Key)");
+                if (!response.ok) throw new Error("API_ERROR");
 
                 const blob = await response.blob();
                 const url = URL.createObjectURL(blob);
                 const audio = new Audio(url);
-                window.currentAudio = audio; // Guardar referencia para poder pausarlo
+                window.currentAudio = audio; // Guardar referencia global
 
                 audio.onended = () => {
                     isSpeaking = false;
-                    updateUI("ALEX NEURAL", "");
-                    // Reactivar micrófono si la sesión sigue activa
+                    updateUI("ALEX VOICE", "");
+                    
+                    // LÓGICA ORIGINAL DE CONTINUIDAD DE SESIÓN
                     if (sessionActive) {
-                        refreshSession();
+                        refreshSession(); 
                         try { recognition.start(); } catch(e) {}
+                    } else {
+                        setTimeout(() => { if(!isListening) statusText.style.opacity = 0; }, 3000);
                     }
                 };
-                
+
                 audio.play();
 
-            } catch (err) {
-                console.error(err);
+            } catch (error) {
+                console.warn("ElevenLabs falló, usando fallback local...", error);
                 isSpeaking = false;
-                updateUI("Error de Voz", "error");
-                // Fallback silencioso o alert
+                // Fallback (por si se acaba tu saldo o no pones la key)
+                if(window.speechSynthesis) {
+                    const u = new SpeechSynthesisUtterance(text);
+                    u.lang = 'es-MX'; u.pitch = 0.9;
+                    u.onend = () => {
+                        if (sessionActive) { refreshSession(); try { recognition.start(); } catch(e) {} }
+                    };
+                    window.speechSynthesis.speak(u);
+                }
             }
         }
 
@@ -592,7 +623,7 @@
                 aiCore.rotation.x = time * 0.5; aiCore.rotation.y = time * 0.8;
                 if (isListening) matCore.emissiveIntensity = 2.0 + Math.sin(time * 5) * 1.5;
                 else if (isThinking) { matCore.emissiveIntensity = 2.0 + Math.sin(time * 20) * 2.0; aiCore.rotation.y += 0.2; }
-                else if (isSpeaking) matCore.emissiveIntensity = 4.0 + (Math.random() * 4.0); // Más intensidad al hablar
+                else if (isSpeaking) matCore.emissiveIntensity = 3.0 + (Math.random() * 3.0);
                 else matCore.emissiveIntensity = 3.0;
             }
             composer.render();
