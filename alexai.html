@@ -6,7 +6,7 @@
     <title>ALEX | SYSTEM ONLINE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
-        /* --- ESTILOS VISUALES --- */
+        /* --- ESTILOS VISUALES ORIGINALES --- */
         :root {
             --bg-color: #1a1a1a; 
             --text-main: #E8E4D9;
@@ -27,7 +27,6 @@
             transition: background 0.5s ease;
         }
 
-        /* --- BOTONES Y UI --- */
         .controls-container {
             position: fixed; top: 30px; right: 10%; z-index: 100;
             display: flex; gap: 10px;
@@ -62,14 +61,12 @@
             background: rgba(0,0,0,0.8); padding: 8px 20px; border-radius: 4px;
         }
 
-        /* --- 3D CANVAS --- */
         #canvas-container {
             position: fixed; top: 0; right: 0; width: 65%; height: 100vh; z-index: 10;
             mask-image: linear-gradient(to right, transparent 0%, black 20%);
             -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%);
         }
 
-        /* --- CONTENIDO LATERAL --- */
         #content-sidebar {
             position: relative; width: 45%; height: 100vh; overflow-y: auto; z-index: 20;
             scrollbar-width: none;
@@ -108,7 +105,7 @@
             <h2>ASISTENTE REAL</h2>
             <h1>ALEX</h1>
             <h1>LIVE</h1>
-            <p>Conectado a Google Gemini (1.5 Flash) y ElevenLabs. Pulsa 'HABLAR' y pide lo que quieras.</p>
+            <p>Conectado a Google Gemini y ElevenLabs. Diseño completo restaurado. Pulsa 'HABLAR'.</p>
         </section>
         <div style="height: 20vh;"></div>
     </div>
@@ -116,81 +113,167 @@
     <script type="module">
         import * as THREE from 'three';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
         /* ======================================================== */
-        /* === 1. TUS LLAVES DE ACCESO (YA INTEGRADAS) === */
+        /* === 1. VARIABLES GLOBALES (ESTADO) === */
         /* ======================================================== */
-        
-        // Usamos .trim() para limpiar espacios invisibles que causan errores
+        // Definimos esto PRIMERO para evitar el ReferenceError
+        let isListening = false;
+        let isThinking = false;
+        let isSpeaking = false;
+        let chatHistory = [];
+        let recognition;
+        let explodeTarget = 0; 
+        let explodeCurrent = 0;
+
+        // --- TUS CLAVES ---
         const ELEVEN_API_KEY = "sk_59fc0224b40d892bf32845d0542ca89f89119ea789fcec0c".trim(); 
         const GEMINI_API_KEY = "AIzaSyDHT_af99TNDXIt-yq1iNIft_DIXO87ViI".trim();
-        
-        const VOICE_ID = "pNInz6obpgDQGcFmaJgB"; // Voz: Adam
-
-        // --- VALIDACIÓN EN CONSOLA ---
-        console.log("Comprobando llaves...");
-        if(ELEVEN_API_KEY.startsWith("sk_")) console.log("✅ ElevenLabs Key parece correcta.");
-        else console.warn("❌ ElevenLabs Key tiene formato extraño.");
-        
-        if(GEMINI_API_KEY.startsWith("AIza")) console.log("✅ Google Key parece correcta.");
-        else console.warn("❌ Google Key tiene formato extraño.");
-
+        const VOICE_ID = "pNInz6obpgDQGcFmaJgB";
 
         /* ======================================================== */
-        /* === 2. ESCENA 3D (LIGERA) === */
+        /* === 2. ESCENA 3D COMPLETA (DISEÑO ORIGINAL) === */
         /* ======================================================== */
         const container = document.getElementById('canvas-container');
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth * 0.65, window.innerHeight);
-        if(window.innerWidth < 768) renderer.setSize(window.innerWidth, window.innerHeight * 0.5);
+        renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
         
         const scene = new THREE.Scene(); 
         const camera = new THREE.PerspectiveCamera(35, container.clientWidth/container.clientHeight, 0.1, 100);
         camera.position.set(-0.5, 3.5, 18.0);
         
-        const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
+        const controls = new OrbitControls(camera, renderer.domElement); 
+        controls.enableDamping = true; 
+        controls.target.set(0, 3.5, 0);
         
-        // Materiales
+        // --- MATERIALES ORIGINALES ---
         const matArmor = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6 });
-        const matCore = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFF4400, emissiveIntensity: 2, wireframe: true });
-        
+        const matBody = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.7 });
+        const matAccent = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xFF4400, emissiveIntensity: 2 });
+        const matTech = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3 });
+        const matCore = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFF4400, emissiveIntensity: 3, wireframe: true });
+
+        // Textura Logo
+        const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
+        const ctx = canvas.getContext('2d'); 
+        ctx.font = '900 100px "Montserrat"'; ctx.fillStyle = '#111111'; 
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ALEX', 256, 64);
+        const logoTex = new THREE.CanvasTexture(canvas);
+        const matLogo = new THREE.MeshBasicMaterial({ map: logoTex, transparent: true });
+
         // Luces
         scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1); dirLight.position.set(5,5,8); scene.add(dirLight);
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1); mainLight.position.set(5,5,8); mainLight.castShadow = true; scene.add(mainLight);
+        const rimLight = new THREE.SpotLight(0xffffff, 2); rimLight.position.set(0,5,-10); scene.add(rimLight);
 
-        // Robot
+        // --- CONSTRUCCIÓN DEL ROBOT (PIEZA POR PIEZA) ---
         const robotGroup = new THREE.Group(); scene.add(robotGroup);
-        const head = new THREE.Mesh(new THREE.SphereGeometry(1.7, 32, 32), matArmor); head.position.y = 0.5; robotGroup.add(head);
-        const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 0), matCore); core.position.y = 3.0; robotGroup.add(core);
+        const parts = []; // Para la animación de "explosión"
 
-        // Render Loop
+        function addPart(mesh, yBase, dir) {
+            mesh.position.y = yBase;
+            robotGroup.add(mesh);
+            parts.push({ mesh: mesh, originalY: yBase, direction: dir });
+        }
+
+        const RADIUS = 1.7;
+
+        // 1. Columna vertebral
+        addPart(new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 4.0, 16), matTech), 2.5, 0.0);
+
+        // 2. Base (Bowl)
+        const baseGroup = new THREE.Group();
+        const bowl = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor);
+        bowl.rotation.z = Math.PI; bowl.scale.y = 0.7; bowl.position.y = 0.5;
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(RADIUS, RADIUS, 1.0, 64), matArmor); rim.position.y = 1.0;
+        baseGroup.add(bowl, rim);
+        addPart(baseGroup, 0.0, -0.5);
+
+        // 3. Cuerpo blanco + Logo
+        const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(RADIUS, RADIUS, 3.0, 64), matBody);
+        const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), matLogo);
+        logoPlane.position.set(0, 0, RADIUS + 0.01);
+        bodyMesh.add(logoPlane);
+        addPart(bodyMesh, 3.0, 0.0);
+
+        // 4. Núcleo IA
+        const aiCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 0), matCore);
+        addPart(aiCore, 3.0, 0.0);
+
+        // 5. Sombrero y Tirantes
+        const hatGroup = new THREE.Group();
+        hatGroup.add(new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor));
+        const brim = new THREE.Mesh(new THREE.TorusGeometry(RADIUS, 0.4, 16, 64), matArmor);
+        brim.rotation.x = Math.PI/2; hatGroup.add(brim);
+        
+        // Ojos del sombrero
+        for(let r=1; r<=3; r++){
+            for(let i=0; i<8*r; i++){
+                const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8), matArmor);
+                const angle = (i/(8*r))*Math.PI*2; const rad = 0.4*r;
+                hole.position.set(Math.cos(angle)*rad, 1.5-(r*0.2), Math.sin(angle)*rad); hole.lookAt(0,0,0); hatGroup.add(hole);
+            }
+        }
+        
+        // Tirantes naranjas
+        const suspenderGeo = new RoundedBoxGeometry(0.3, 4.5, 0.15, 4, 0.05);
+        [25, 155, 205, 335].forEach(deg => {
+            const s = new THREE.Mesh(suspenderGeo, matAccent);
+            const rad = deg * (Math.PI/180);
+            s.position.set(Math.sin(rad)*RADIUS, -2.0, Math.cos(rad)*RADIUS); s.rotation.y = rad; hatGroup.add(s);
+        });
+        addPart(hatGroup, 4.5, 2.0);
+
+
+        // --- LOOP DE ANIMACIÓN ---
         const composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera));
         composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.5, 0.4));
 
         function animate() {
             requestAnimationFrame(animate); controls.update();
             const time = Date.now() * 0.001;
-            robotGroup.position.y = (Math.sin(time) * 0.1) + 1.0;
-            core.rotation.y += 0.02;
             
+            // Animación flotante
+            robotGroup.position.y = (Math.sin(time) * 0.1) + 1.0;
+            aiCore.rotation.y += 0.02;
+
+            // Lógica de despiece (Scroll)
+            explodeCurrent += (explodeTarget - explodeCurrent) * 0.05;
+            parts.forEach(p => {
+                p.mesh.position.y = p.originalY + (p.direction * explodeCurrent);
+            });
+            
+            // Reacción visual IA
             if(isSpeaking) matCore.emissiveIntensity = 3 + Math.random()*3;
             else if(isThinking) matCore.emissiveIntensity = 2 + Math.sin(time*10)*2;
             else matCore.emissiveIntensity = 2;
             
             composer.render();
         }
-        animate();
-        window.onresize = () => { 
-            const w = window.innerWidth < 768 ? window.innerWidth : window.innerWidth * 0.65;
-            const h = window.innerWidth < 768 ? window.innerHeight * 0.5 : window.innerHeight;
-            renderer.setSize(w, h); composer.setSize(w, h);
-            camera.aspect = w/h; camera.updateProjectionMatrix(); 
-        };
+        animate(); // ¡Ahora sí funcionará porque las variables ya existen!
+
+        // Eventos visuales extra
+        window.addEventListener('resize', () => { 
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            composer.setSize(container.clientWidth, container.clientHeight);
+            camera.aspect = container.clientWidth/container.clientHeight; 
+            camera.updateProjectionMatrix(); 
+        });
+        window.addEventListener('wheel', (e) => {
+            if(e.ctrlKey) { 
+                e.preventDefault(); 
+                explodeTarget += e.deltaY * 0.002; 
+                explodeTarget = Math.max(0, Math.min(3.0, explodeTarget)); 
+            }
+        }, { passive: false });
 
 
         /* ======================================================== */
@@ -199,19 +282,13 @@
 
         const btn = document.getElementById('mic-toggle');
         const status = document.getElementById('ai-text');
-        
-        let isListening = false;
-        let isThinking = false;
-        let isSpeaking = false;
-        let chatHistory = [];
-        let recognition;
 
         // --- RECONOCIMIENTO DE VOZ ---
         if (window.SpeechRecognition || window.webkitSpeechRecognition) {
             const SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechAPI();
             recognition.lang = 'es-MX';
-            recognition.continuous = false; // Parar al detectar silencio
+            recognition.continuous = false; 
             recognition.interimResults = false;
 
             recognition.onstart = () => {
@@ -230,7 +307,12 @@
         }
 
         btn.addEventListener('click', () => {
-            if(isSpeaking) { window.currentAudio.pause(); isSpeaking = false; return; }
+            if(isSpeaking && window.currentAudio) { 
+                window.currentAudio.pause(); 
+                isSpeaking = false; 
+                status.innerText = "Interrumpido";
+                return; 
+            }
             if(isListening) recognition.stop();
             else recognition.start();
         });
@@ -241,7 +323,6 @@
             status.innerText = "Alex está pensando...";
 
             chatHistory.push({ role: "user", parts: [{ text: text }] });
-            // Mantener historial corto para ahorrar tokens
             if(chatHistory.length > 8) chatHistory = chatHistory.slice(-8);
 
             const systemPrompt = `Eres Alex (de La Naranja Mecánica). 
@@ -282,7 +363,6 @@
                 const data = await response.json();
                 let aiReply = "";
 
-                // Extraer respuesta (puede variar si usó búsqueda o no)
                 if (data.candidates && data.candidates[0].content) {
                     aiReply = data.candidates[0].content.parts[0].text;
                 } else {
@@ -298,7 +378,7 @@
             } catch (e) {
                 console.error(e);
                 isThinking = false;
-                status.innerText = "Error de conexión (Ver consola)";
+                status.innerText = "Error: " + e.message;
                 speakElevenLabs("Algo falla en mis circuitos, revisa la consola.");
             }
         }
@@ -344,11 +424,41 @@
             } catch (e) {
                 console.warn("Fallo ElevenLabs, usando voz navegador");
                 isSpeaking = false;
-                // Fallback
                 const u = new SpeechSynthesisUtterance(text);
                 window.speechSynthesis.speak(u);
             }
         }
+
+        // Cambio de tema
+        const toggleBtn = document.getElementById('theme-toggle');
+        let currentTheme = 'ludovico';
+        toggleBtn.addEventListener('click', () => {
+            currentTheme = currentTheme === 'ludovico' ? 'ultra' : 'ludovico';
+            document.body.setAttribute('data-theme', currentTheme);
+            toggleBtn.innerText = "MODELO: " + currentTheme.toUpperCase();
+            
+            const color = currentTheme === 'ultra' ? 0x900a00 : 0x1a1a1a;
+            scene.background = new THREE.Color(color);
+            
+            // Actualizar materiales
+            if(currentTheme === 'ultra') {
+                matBody.color.setHex(0x111111);
+                matArmor.color.setHex(0xFF6600);
+                matAccent.emissive.setHex(0xFFFFFF);
+                matCore.emissive.setHex(0xFFFFFF);
+                ctx.fillStyle = '#EEEEEE';
+            } else {
+                matBody.color.setHex(0xEEEEEE);
+                matArmor.color.setHex(0x111111);
+                matAccent.emissive.setHex(0xFF4400);
+                matCore.emissive.setHex(0xFF4400);
+                ctx.fillStyle = '#111111';
+            }
+            ctx.clearRect(0, 0, 512, 128);
+            ctx.fillText('ALEX', 256, 64);
+            logoTex.needsUpdate = true;
+        });
+
     </script>
 </body>
 </html>
