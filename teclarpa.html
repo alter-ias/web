@@ -2,41 +2,40 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Máquina de Escribir Sonora Experimental</title>
+    <title>CYLINDER-SYNTH: Mechanical Sequencer</title>
     <style>
-        /* Estilo Cyberpunk / Industrial */
-        body { margin: 0; overflow: hidden; background-color: #0a0a0f; font-family: 'Courier New', monospace; }
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Courier New', monospace; }
         
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle at center, rgba(20,30,40,0.9), rgba(0,0,0,0.98));
+            background: rgba(0,0,0,0.9);
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            color: #ff3366; z-index: 100; transition: opacity 0.8s ease-out;
-            border-image: linear-gradient(to right, #ff3366, #33ccff) 1;
-            border-width: 5px; border-style: solid;
+            z-index: 100; transition: opacity 0.5s;
         }
         
-        h1 { font-size: 4rem; margin: 0; text-transform: uppercase; letter-spacing: 15px; 
-             text-shadow: 0 0 20px #ff3366, 5px 5px 0px rgba(0,255,255,0.3); transform: rotate(-2deg); }
-        h3 { font-weight: 300; opacity: 0.8; margin-bottom: 40px; color: #33ccff; letter-spacing: 5px; }
+        h1 { color: #ff9900; text-shadow: 0 0 20px #ff3300; font-size: 3rem; letter-spacing: 10px; margin: 0; }
+        p { color: #aaa; margin-top: 10px; }
         
-        .start-btn {
-            padding: 20px 50px; font-size: 1.5rem; font-family: 'Courier New', monospace;
-            background: transparent; color: #ff3366; border: 3px solid #ff3366;
-            cursor: pointer; text-transform: uppercase; letter-spacing: 3px;
-            transition: all 0.2s; box-shadow: 0 0 20px rgba(255, 51, 102, 0.4);
+        button {
+            margin-top: 30px; padding: 15px 40px; border: 2px solid #ff9900; background: transparent;
+            color: #ff9900; font-size: 1.2rem; cursor: pointer; text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(255, 153, 0, 0.2); transition: 0.3s;
         }
-        .start-btn:hover { background: #ff3366; color: #0a0a0f; box-shadow: 0 0 50px #ff3366; transform: scale(1.05); }
-        
+        button:hover { background: #ff9900; color: #000; box-shadow: 0 0 30px #ff9900; }
+
         #hud {
-            position: absolute; bottom: 30px; left: 30px; color: #33ccff;
-            font-size: 1.2rem; pointer-events: none; opacity: 0.8;
-            text-shadow: 0 0 10px #33ccff;
+            position: absolute; top: 20px; left: 20px; color: #00ffcc;
+            pointer-events: none; text-shadow: 0 0 5px #00ffcc;
         }
-        .hidden { opacity: 0 !important; pointer-events: none; }
+        .track-indicator { margin-bottom: 5px; opacity: 0.5; transition: 0.2s; }
+        .active-track { opacity: 1; font-weight: bold; color: #ff0055; text-shadow: 0 0 10px #ff0055; }
+
+        #scope {
+            position: absolute; bottom: 20px; right: 20px;
+            width: 300px; height: 100px; border: 1px solid #333;
+            background: #001100; opacity: 0.8;
+        }
     </style>
-    
     <script type="importmap">
         { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
     </script>
@@ -44,411 +43,440 @@
 <body>
 
     <div id="overlay">
-        <h1>TYPE-0-MATIC</h1>
-        <h3>[Máquina Sonora Experimental v3.1]</h3>
-        <p style="color: #aaa; margin-bottom: 30px;">Olvida la música. Escribe texturas.</p>
-        <button class="start-btn" id="startBtn">CONECTAR REACTOR</button>
+        <h1>MECANISMO DE SECUENCIA</h1>
+        <p>[ SISTEMA DE RODILLO PROGRAMABLE V.4.0 ]</p>
+        <p>1-4: Cambiar Pista | Q-P: Insertar Púas (Notas) | ESPACIO: Limpiar</p>
+        <button id="startBtn">INICIAR ROTACIÓN</button>
     </div>
 
-    <div id="hud">// SISTEMA EN ESPERA... // Z-M: Graves | A-Ñ: Atmósferas | Q-P: Chispas</div>
+    <div id="hud">
+        <div id="t1" class="track-indicator active-track">>> TRACK 1: SUB-BASS (MECÁNICO)</div>
+        <div id="t2" class="track-indicator">>> TRACK 2: ATMOS-COILS</div>
+        <div id="t3" class="track-indicator">>> TRACK 3: ACID LEAD</div>
+        <div id="t4" class="track-indicator">>> TRACK 4: NOISE PERCUSSION</div>
+        <br>
+        <div id="bpm">RPM: 30.0 (120 BPM)</div>
+    </div>
+
+    <canvas id="scope"></canvas>
 
     <script type="module">
         import * as THREE from 'three';
 
         // ==========================================
-        // 1. MOTOR DE AUDIO (ATMOSFÉRICO NO-MUSICAL)
+        // CONFIGURACIÓN GLOBAL
+        // ==========================================
+        const CONFIG = {
+            steps: 32, // Pasos en el cilindro (resolución)
+            tracks: 4,
+            bpm: 120,
+            cylinderRadius: 6,
+            cylinderWidth: 10
+        };
+
+        // Estado del secuenciador
+        let currentStep = 0;
+        let activeTrack = 0; // 0 a 3
+        let isPlaying = false;
+        
+        // Matriz de datos: [Track][Step] = null o {freq, mesh}
+        const sequenceData = Array(CONFIG.tracks).fill().map(() => Array(CONFIG.steps).fill(null));
+
+        // ==========================================
+        // 1. MOTOR DE AUDIO (SYNTH)
         // ==========================================
         const AudioEngine = {
             ctx: null,
-            masterComp: null,
-            reverbNode: null,
-            activeSources: {},
+            masterGain: null,
+            analyser: null,
+            reverb: null,
 
             init: function() {
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.5;
                 
-                // Compresor Master
-                this.masterComp = this.ctx.createDynamicsCompressor();
-                this.masterComp.threshold.value = -20;
-                this.masterComp.knee.value = 30;
-                this.masterComp.ratio.value = 12;
-                this.masterComp.attack.value = 0.003;
-                this.masterComp.release.value = 0.25;
+                // Analizador para el osciloscopio visual
+                this.analyser = this.ctx.createAnalyser();
+                this.analyser.fftSize = 2048;
 
-                // Delay / Reverb simulado
-                const simpleReverb = this.ctx.createDelay();
-                simpleReverb.delayTime.value = 0.05;
-                const reverbGain = this.ctx.createGain();
-                reverbGain.gain.value = 0.4;
-
-                this.masterComp.connect(this.ctx.destination);
-                this.masterComp.connect(simpleReverb);
-                simpleReverb.connect(reverbGain);
-                reverbGain.connect(this.masterComp); 
-            },
-
-            // Generador de Graves Profundos (Fila Z)
-            playDrone: function(keyId, intensity) {
-                if(!this.ctx) return;
-                const osc1 = this.ctx.createOscillator();
-                const osc2 = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
+                // Efecto Delay/Reverb simple
+                const delay = this.ctx.createDelay();
+                delay.delayTime.value = 0.3; // Syncopated feel
+                const feedback = this.ctx.createGain();
+                feedback.gain.value = 0.4;
                 const filter = this.ctx.createBiquadFilter();
+                filter.frequency.value = 1000;
 
-                const baseFreq = 40 + (intensity * 30); 
-                osc1.frequency.value = baseFreq;
-                osc2.frequency.value = baseFreq + 2; 
-                osc1.type = 'sine';
-                osc2.type = 'triangle';
-
-                filter.type = 'lowpass';
-                filter.frequency.value = 200;
-
-                const now = this.ctx.currentTime;
-                gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.4, now + 1.5);
-
-                osc1.connect(filter); osc2.connect(filter);
-                filter.connect(gain); gain.connect(this.masterComp);
-
-                osc1.start(); osc2.start();
-                this.activeSources[keyId] = { stop: (now) => {
-                    gain.gain.cancelScheduledValues(now);
-                    gain.gain.setValueAtTime(gain.gain.value, now);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 3); 
-                    osc1.stop(now + 3.1); osc2.stop(now + 3.1);
-                }};
+                this.masterGain.connect(this.analyser);
+                this.analyser.connect(this.ctx.destination);
+                
+                // Ruta de efectos
+                this.masterGain.connect(delay);
+                delay.connect(filter);
+                filter.connect(feedback);
+                feedback.connect(delay);
+                feedback.connect(this.ctx.destination);
             },
 
-            // Generador de Pads Atmosféricos (Fila A)
-            playPad: function(keyId, index) {
+            // Sintetizador polifónico simple según el track
+            playNote: function(trackIndex, noteIndex) {
                 if(!this.ctx) return;
-                const frequencies = [110, 130.8, 146.8, 164.8, 196, 220, 261.6, 293.7, 329.6, 392];
-                const baseFreq = frequencies[index % frequencies.length] * (index > 5 ? 2 : 1);
-
+                const now = this.ctx.currentTime;
+                
                 const osc = this.ctx.createOscillator();
                 const gain = this.ctx.createGain();
-                const pan = this.ctx.createStereoPanner();
-                
-                const real = new Float32Array([0,0.4,0.4,1,0.4,1,0.3]);
-                const imag = new Float32Array(real.length);
-                const customWave = this.ctx.createPeriodicWave(real, imag);
-                osc.setPeriodicWave(customWave);
-                osc.frequency.value = baseFreq;
+                const mod = this.ctx.createOscillator();
+                const modGain = this.ctx.createGain();
 
-                pan.pan.value = (Math.random() * 2) - 1;
+                // Definición de escalas y timbres por pista
+                if(trackIndex === 0) { // BASS
+                    osc.type = 'sawtooth';
+                    osc.frequency.value = 55 + (noteIndex * 11); // Escala grave
+                    gain.gain.setValueAtTime(0.8, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    
+                    // Filtro para bajos
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(200, now);
+                    filter.frequency.exponentialRampToValueAtTime(50, now + 0.3);
+                    osc.connect(filter); filter.connect(gain);
+                } 
+                else if (trackIndex === 1) { // ATMOS
+                    osc.type = 'sine';
+                    osc.frequency.value = 220 + (noteIndex * 55); 
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.3, now + 0.1);
+                    gain.gain.linearRampToValueAtTime(0, now + 1.5);
+                    osc.connect(gain);
+                }
+                else if (trackIndex === 2) { // ACID LEAD
+                    osc.type = 'square';
+                    const freqs = [440, 523, 587, 659, 783];
+                    osc.frequency.value = freqs[noteIndex % freqs.length] * (noteIndex > 4 ? 2 : 1);
+                    
+                    // Filtro resonante (Acid style)
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.Q.value = 15;
+                    filter.frequency.setValueAtTime(400, now);
+                    filter.frequency.linearRampToValueAtTime(3000, now + 0.1);
+                    filter.frequency.exponentialRampToValueAtTime(400, now + 0.3);
+                    
+                    osc.connect(filter); filter.connect(gain);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                }
+                else { // NOISE PERC
+                    const bufferSize = this.ctx.sampleRate * 0.1;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                    
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = noteIndex % 2 === 0 ? 'lowpass' : 'highpass';
+                    filter.frequency.value = noteIndex * 500 + 200;
+                    
+                    noise.connect(filter); filter.connect(gain);
+                    noise.start();
+                    gain.gain.setValueAtTime(0.5, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    
+                    gain.connect(this.masterGain);
+                    return; // Salida temprana para el ruido
+                }
 
-                const now = this.ctx.currentTime;
-                gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.2, now + 0.5);
-
-                osc.connect(pan); pan.connect(gain); gain.connect(this.masterComp);
+                gain.connect(this.masterGain);
                 osc.start();
-                this.activeSources[keyId] = { stop: (now) => {
-                    gain.gain.cancelScheduledValues(now);
-                    gain.gain.setValueAtTime(gain.gain.value, now);
-                    gain.gain.linearRampToValueAtTime(0, now + 1); 
-                    osc.stop(now + 1.1);
-                }};
-            },
-
-             // Generador de Chispas/Arpegios (Fila Q)
-             playSpark: function(keyId, index) {
-                if(!this.ctx) return;
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                const filter = this.ctx.createBiquadFilter();
-
-                const baseFreq = 800 + (index * 150) + (Math.random()*50);
-                osc.type = 'sawtooth';
-                osc.frequency.value = baseFreq;
-
-                filter.type = 'bandpass';
-                filter.Q.value = 10;
-                filter.frequency.value = baseFreq + 500; 
-
-                const now = this.ctx.currentTime;
-                gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.15, now + 0.01); 
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3); 
-
-                osc.connect(filter); filter.connect(gain); gain.connect(this.masterComp);
-                osc.start(); osc.stop(now + 0.4);
-            },
-
-            // Ruido Mecánico (Números) - AQUÍ ESTABA EL ERROR
-            playNoise: function() {
-                if(!this.ctx) return;
-                const bufferSize = this.ctx.sampleRate * 0.2; // CORREGIDO: variable bufferSize unida
-                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) {
-                    data[i] = Math.random() * 2 - 1; 
-                }
-                const noiseSource = this.ctx.createBufferSource();
-                noiseSource.buffer = buffer;
-                const filter = this.ctx.createBiquadFilter();
-                filter.type = Math.random() > 0.5 ? 'highpass' : 'lowpass';
-                filter.frequency.value = Math.random() * 3000 + 500;
-                const gain = this.ctx.createGain();
-                gain.gain.value = 0.1;
-
-                noiseSource.connect(filter); filter.connect(gain); gain.connect(this.masterComp);
-                noiseSource.start();
-            },
-
-            stop: function(keyId) {
-                if(this.activeSources[keyId]) {
-                    this.activeSources[keyId].stop(this.ctx.currentTime);
-                    delete this.activeSources[keyId];
-                }
+                osc.stop(now + 2);
             }
         };
 
-
         // ==========================================
-        // 2. ESCENA 3D: LA MÁQUINA FRANKENSTEIN
+        // 2. ESCENA 3D (VISUALIZADOR MECÁNICO)
         // ==========================================
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x0a0a0f, 0.04);
-
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 15, 12); 
-        camera.lookAt(0, 0, 2);
+        scene.fog = new THREE.FogExp2(0x000000, 0.03);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 100);
+        camera.position.set(0, 10, 18);
+        camera.lookAt(0, 0, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true; 
+        renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
         // --- MATERIALES ---
-        const m_metalDark = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7, metalness: 0.9 });
-        const m_metalRust = new THREE.MeshStandardMaterial({ color: 0x3d261a, roughness: 0.9, metalness: 0.5 });
-        const m_chrome = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.2, metalness: 1.0 });
-        const m_neonPink = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xff0066, emissiveIntensity: 2 });
-        const m_neonBlue = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x00ccff, emissiveIntensity: 2 });
-        const m_glassTube = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 0.3, transparent: true, roughness: 0, metalness: 0 });
-        
-        const machineGroup = new THREE.Group();
-        scene.add(machineGroup);
-
-        // --- CONSTRUCCIÓN DEL CHASIS ---
-        const baseGeo = new THREE.BoxGeometry(14, 2, 10);
-        const base = new THREE.Mesh(baseGeo, m_metalDark);
-        base.position.y = -1;
-        base.castShadow = true; 
-        base.receiveShadow = true; // CORREGIDO: Sintaxis correcta de sombra
-        machineGroup.add(base);
-
-        // Laterales
-        const sideGeo = new THREE.BoxGeometry(1, 4, 8);
-        const sideL = new THREE.Mesh(sideGeo, m_metalRust); sideL.position.set(-7.5, 1, -1);
-        const sideR = new THREE.Mesh(sideGeo, m_metalRust); sideR.position.set(7.5, 1, -1);
-        machineGroup.add(sideL); machineGroup.add(sideR);
-
-        // El "Rodillo" (Reactor Central)
-        const rollerGeo = new THREE.CylinderGeometry(2, 2, 12, 32);
-        const roller = new THREE.Mesh(rollerGeo, m_metalDark);
-        roller.rotation.z = Math.PI / 2;
-        roller.position.set(0, 3, -4);
-        machineGroup.add(roller);
-        
-        const coreGeo = new THREE.CylinderGeometry(1.5, 1.5, 10, 16);
-        const reactorCore = new THREE.Mesh(coreGeo, m_neonBlue);
-        reactorCore.rotation.z = Math.PI / 2;
-        reactorCore.position.set(0, 3, -4);
-        machineGroup.add(reactorCore);
-
-        // Válvulas de Vacío
-        const tubesGroup = new THREE.Group();
-        for(let i=0; i<10; i++) {
-            const tubeBase = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.5), m_chrome);
-            const tubeGlass = new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 0.8, 8, 16), m_glassTube);
-            tubeGlass.position.y = 0.7;
-            const filament = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6), m_neonPink);
-            filament.position.y = 0.7;
-            
-            const singleTube = new THREE.Group();
-            singleTube.add(tubeBase, tubeGlass, filament);
-            const angle = (i / 9) * Math.PI * 0.8 - (Math.PI*0.4);
-            singleTube.position.set(Math.sin(angle)*5, 2, Math.cos(angle)*3 - 5);
-            singleTube.lookAt(0, 4, -6);
-            tubesGroup.add(singleTube);
-        }
-        machineGroup.add(tubesGroup);
-
-        // Cables
-        const cableGeo = new THREE.TorusKnotGeometry(3, 0.1, 64, 8, 3, 7);
-        const cableMesh1 = new THREE.Mesh(cableGeo, m_neonPink);
-        cableMesh1.position.set(-4, 1, -3); cableMesh1.scale.set(0.5, 0.5, 0.5);
-        const cableMesh2 = new THREE.Mesh(cableGeo, m_neonBlue);
-        cableMesh2.position.set(4, 1, -3); cableMesh2.scale.set(0.6, 0.4, 0.6); cableMesh2.rotation.y = Math.PI;
-        machineGroup.add(cableMesh1, cableMesh2);
-
-
-        // --- CONSTRUCCIÓN DEL TECLADO ---
-        const keyStemGeo = new THREE.CylinderGeometry(0.15, 0.15, 1.5);
-        const keyCapGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.3, 16);
-        const keyRingGeo = new THREE.TorusGeometry(0.65, 0.05, 8, 16);
-        
-        const keyMap3D = {};
-
-        const rows = [
-            { chars: "1234567890", z: -2, y: 1.5 },
-            { chars: "qwertyuiop", z: 0, y: 1.0 },
-            { chars: "asdfghjklñ", z: 2, y: 0.5 },
-            { chars: "zxcvbnm,.-", z: 4, y: 0.0 }
-        ];
-
-        rows.forEach((row, rowIndex) => {
-            const rowWidth = row.chars.length * 1.5;
-            row.chars.split('').forEach((char, i) => {
-                const keyGroup = new THREE.Group();
-                
-                const stem = new THREE.Mesh(keyStemGeo, m_chrome);
-                stem.position.y = -0.5;
-
-                const cap = new THREE.Mesh(keyCapGeo, new THREE.MeshStandardMaterial({color: 0x111111, roughness: 0.5}));
-                cap.position.y = 0.2;
-
-                let neonMat;
-                if (rowIndex === 3) neonMat = m_neonBlue; 
-                else if (rowIndex === 2) neonMat = m_neonPink; 
-                else neonMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffcc00, emissiveIntensity: 2 });
-
-                const ring = new THREE.Mesh(keyRingGeo, neonMat);
-                ring.rotation.x = Math.PI / 2;
-                ring.position.y = 0.25;
-
-                keyGroup.add(stem, cap, ring);
-
-                const x = (i * 1.5) - rowWidth / 2 + 0.75 + (rowIndex*0.4); 
-                keyGroup.position.set(x, row.y + 1, row.z);
-                keyGroup.rotation.x = 0.2 - (rowIndex * 0.05);
-
-                keyGroup.userData = { basePos: keyGroup.position.clone(), char: char, row: rowIndex, index: i };
-                
-                machineGroup.add(keyGroup);
-                keyMap3D[char] = keyGroup;
-            });
+        const matCylinder = new THREE.MeshStandardMaterial({ 
+            color: 0x111111, roughness: 0.4, metalness: 0.8,
+            map: null // Podríamos añadir textura de "suciedad" aquí
         });
+        const matGold = new THREE.MeshStandardMaterial({ color: 0xccaa00, roughness: 0.2, metalness: 1.0 });
+        const matGlowing = new THREE.MeshBasicMaterial({ color: 0x00ffcc });
+        const matReader = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.7 });
 
+        // --- EL CILINDRO MAESTRO (Imágenes 1 y 3) ---
+        const drumGroup = new THREE.Group();
+        const drumGeo = new THREE.CylinderGeometry(CONFIG.cylinderRadius, CONFIG.cylinderRadius, CONFIG.cylinderWidth, 64);
+        // Rotar geometría para que gire sobre eje X horizontal
+        drumGeo.rotateZ(Math.PI / 2); 
+        const drumMesh = new THREE.Mesh(drumGeo, matCylinder);
+        drumGroup.add(drumMesh);
+
+        // Líneas divisorias de pistas
+        for(let i=0; i<CONFIG.tracks; i++) {
+            const ringGeo = new THREE.TorusGeometry(CONFIG.cylinderRadius + 0.05, 0.05, 16, 100);
+            const ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color: 0x333333}));
+            ring.rotateY(Math.PI / 2);
+            // Posicionar anillos equitativamente a lo largo del cilindro
+            const zPos = ((i / (CONFIG.tracks - 1)) * 6) - 3; 
+            ring.position.x = zPos;
+            drumGroup.add(ring);
+        }
+
+        scene.add(drumGroup);
+
+        // --- BRAZOS LECTORES (Inspiración mecánica) ---
+        const armsGroup = new THREE.Group();
+        const armGeo = new THREE.BoxGeometry(0.5, 4, 0.5);
+        
+        const indicators = []; // Para iluminar cuando suene
+
+        for(let i=0; i<CONFIG.tracks; i++) {
+            const arm = new THREE.Mesh(armGeo, matReader);
+            const xPos = ((i / (CONFIG.tracks - 1)) * 6) - 3; 
+            arm.position.set(xPos, CONFIG.cylinderRadius + 2, 0);
+            
+            // Punta lectora
+            const tip = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1, 16), matGold);
+            tip.position.y = -2.5;
+            tip.rotation.x = Math.PI;
+            arm.add(tip);
+
+            // Luz indicadora en el brazo
+            const lightGeo = new THREE.SphereGeometry(0.3);
+            const lightMat = new THREE.MeshBasicMaterial({ color: 0x220000 });
+            const light = new THREE.Mesh(lightGeo, lightMat);
+            light.position.set(0, 1, 0.5);
+            arm.add(light);
+            indicators.push(lightMat);
+
+            armsGroup.add(arm);
+        }
+        scene.add(armsGroup);
 
         // --- ILUMINACIÓN ---
-        const ambientLight = new THREE.AmbientLight(0x111111);
+        const ambientLight = new THREE.AmbientLight(0x222222);
         scene.add(ambientLight);
-
-        const underLight = new THREE.PointLight(0xff3366, 3, 20);
-        underLight.position.set(0, -5, 2);
-        scene.add(underLight);
-
-        const reactorLight = new THREE.PointLight(0x33ccff, 2, 15);
-        reactorLight.position.set(0, 4, -4);
-        scene.add(reactorLight);
         
-        const spotLight = new THREE.SpotLight(0xffffff, 1);
-        spotLight.position.set(10, 20, 10);
+        const spotLight = new THREE.SpotLight(0xffaa00, 50);
+        spotLight.position.set(10, 15, 5);
+        spotLight.angle = 0.5;
+        spotLight.penumbra = 0.5;
         spotLight.castShadow = true;
         scene.add(spotLight);
 
+        const blueLight = new THREE.PointLight(0x00ccff, 2, 20);
+        blueLight.position.set(-5, -5, 5);
+        scene.add(blueLight);
+
         // ==========================================
-        // 3. INTERACCIÓN
+        // 3. LÓGICA DEL SECUENCIADOR
         // ==========================================
         
-        const keysPressed = {};
+        // Función para añadir una "Púa" visual al cilindro
+        function addPinToDrum(trackIdx, stepIdx, noteVal) {
+            const pinGeo = new THREE.BoxGeometry(0.4, 0.8, 0.4);
+            const color = [0xff0055, 0x00ffcc, 0xffff00, 0xffffff][trackIdx];
+            const pinMat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 0.5 });
+            const pin = new THREE.Mesh(pinGeo, pinMat);
 
-        document.addEventListener('keydown', (e) => {
-            if(e.repeat || keysPressed[e.key]) return;
-            const char = e.key.toLowerCase();
+            // Calcular posición en el cilindro
+            const angle = (stepIdx / CONFIG.steps) * Math.PI * 2;
+            const radius = CONFIG.cylinderRadius;
+            const xPos = ((trackIdx / (CONFIG.tracks - 1)) * 6) - 3;
             
-            if(keyMap3D[char]) {
-                keysPressed[char] = true;
-                const keyObj = keyMap3D[char];
-                
-                // Visual
-                keyObj.position.y = keyObj.userData.basePos.y - 0.6; 
-                reactorCore.material.emissiveIntensity = 5;
-                reactorLight.intensity = 5;
-                cableMesh1.material.emissiveIntensity = 3;
-
-                // Audio
-                const row = keyObj.userData.row;
-                const idx = keyObj.userData.index;
-
-                if (row === 3) { // Z-M
-                    AudioEngine.playDrone(char, idx/10);
-                    updateHud(`>> ACTIVANDO SUB-MOTOR ${char.toUpperCase()}`);
-                } 
-                else if (row === 2) { // A-Ñ
-                    AudioEngine.playPad(char, idx);
-                     updateHud(`>> GENERANDO ATMÓSFERA ${char.toUpperCase()}`);
-                }
-                else if (row === 1) { // Q-P
-                    AudioEngine.playSpark(char, idx);
-                     updateHud(`>> DISPARANDO CHISPA ${char.toUpperCase()}`);
-                }
-                else if (row === 0) { // Numeros
-                    AudioEngine.playNoise();
-                     updateHud(`>> ERROR MECÁNICO ${char}`);
-                }
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            const char = e.key.toLowerCase();
-            if(keyMap3D[char]) {
-                delete keysPressed[char];
-                const keyObj = keyMap3D[char];
-                keyObj.position.y = keyObj.userData.basePos.y;
-                AudioEngine.stop(char);
-            }
-        });
-
-        // UI & Arranque
-        const startBtn = document.getElementById('startBtn');
-        startBtn.addEventListener('click', () => {
-            AudioEngine.init();
-            document.getElementById('overlay').classList.add('hidden');
-            camera.position.z = 25;
-        });
-
-        function updateHud(text) {
-            const hud = document.getElementById('hud');
-            hud.innerText = text; hud.style.opacity = 1;
-            setTimeout(() => { hud.style.opacity = 0.8 }, 500);
+            // Posicionamiento polar a cartesiano
+            pin.position.set(xPos, Math.sin(angle) * radius, Math.cos(angle) * radius);
+            pin.lookAt(xPos, 0, 0); // Que apunte hacia afuera
+            
+            drumGroup.add(pin);
+            
+            return pin;
         }
 
+        // Bucle principal de tiempo
+        let lastTime = 0;
+        let accumulator = 0;
+        const stepTime = (60 / CONFIG.bpm) / 4; // 16th notes
+
+        function sequencerLoop(time) {
+            if(!isPlaying) return;
+
+            const delta = time - lastTime;
+            lastTime = time;
+            accumulator += delta;
+
+            // Rotación visual suave continua
+            // 1 vuelta completa = CONFIG.steps * stepTime
+            const fullRotationTime = CONFIG.steps * stepTime; 
+            const rotationPerFrame = (delta / fullRotationTime) * Math.PI * 2;
+            drumGroup.rotation.x += rotationPerFrame;
+
+            // Lógica discreta de pasos (Trigger audio)
+            // Calculamos qué paso está bajo el "brazo lector" (ángulo 0 o PI/2 según setup)
+            // En ThreeJS, posición 0,0,radius es angulo 0.
+            
+            // Ajustar rotación para calcular índice
+            let rotation = drumGroup.rotation.x % (Math.PI * 2);
+            if(rotation < 0) rotation += Math.PI * 2;
+            
+            // Invertir para mapear al array (porque gira hacia "atras" visualmente)
+            const virtualStepIndex = Math.floor( (rotation / (Math.PI*2)) * CONFIG.steps );
+
+            if(virtualStepIndex !== currentStep) {
+                currentStep = virtualStepIndex;
+                triggerStep(currentStep);
+            }
+        }
+
+        function triggerStep(stepIndex) {
+            // Revisar las 4 pistas
+            for(let t=0; t<CONFIG.tracks; t++) {
+                const data = sequenceData[t][stepIndex];
+                
+                // Apagar luz indicadora
+                indicators[t].color.setHex(0x220000);
+
+                if(data !== null) {
+                    // REPRODUCIR SONIDO
+                    AudioEngine.playNote(t, data.noteVal);
+                    
+                    // Efecto visual en el brazo lector
+                    indicators[t].color.setHex(0xff0000); // Rojo brillante cuando lee
+                    
+                    // Pequeño "salto" visual del brazo
+                    const arm = armsGroup.children[t];
+                    arm.position.y += 0.2;
+                    setTimeout(() => { arm.position.y -= 0.2 }, 100);
+                }
+            }
+        }
 
         // ==========================================
-        // 4. ANIMACIÓN
+        // 4. INTERACCIÓN Y CANVAS SCOPE
         // ==========================================
-        let time = 0;
-        function animate() {
-            requestAnimationFrame(animate);
-            time += 0.01;
+        
+        // Dibujar osciloscopio (como en el video)
+        const canvas = document.getElementById('scope');
+        const canvasCtx = canvas.getContext('2d');
+        
+        function drawScope() {
+            requestAnimationFrame(drawScope);
+            if(!AudioEngine.analyser) return;
 
-            machineGroup.rotation.z = Math.sin(time * 0.5) * 0.02;
-            machineGroup.position.y = Math.sin(time) * 0.1;
+            const bufferLength = AudioEngine.analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            AudioEngine.analyser.getByteTimeDomainData(dataArray);
 
-            reactorCore.material.emissiveIntensity = 2 + Math.sin(time*5)*0.5;
-            if(reactorLight.intensity > 2) reactorLight.intensity -= 0.1; 
-            cableMesh1.material.emissiveIntensity = 1 + Math.sin(time*3)*0.5;
-            cableMesh2.material.emissiveIntensity = 1 + Math.cos(time*4)*0.5;
+            canvasCtx.fillStyle = 'rgba(0, 20, 0, 0.2)';
+            canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = '#00ff00';
+            canvasCtx.beginPath();
 
-            if(camera.position.z > 12 && document.getElementById('overlay').classList.contains('hidden')) {
-                camera.position.z -= 0.1;
+            const sliceWidth = canvas.width * 1.0 / bufferLength;
+            let x = 0;
+
+            for(let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * canvas.height / 2;
+                if(i === 0) canvasCtx.moveTo(x, y);
+                else canvasCtx.lineTo(x, y);
+                x += sliceWidth;
+            }
+            canvasCtx.stroke();
+        }
+
+        // Inputs de teclado
+        document.addEventListener('keydown', (e) => {
+            if(!isPlaying) return;
+            
+            const key = e.key.toLowerCase();
+            
+            // Selector de Pista
+            if(['1','2','3','4'].includes(key)) {
+                activeTrack = parseInt(key) - 1;
+                document.querySelectorAll('.track-indicator').forEach((el, i) => {
+                    el.classList.toggle('active-track', i === activeTrack);
+                });
+                return;
+            }
+            
+            // Inserción de notas (Q-P)
+            const noteKeys = "qwertyuiop";
+            const noteIndex = noteKeys.indexOf(key);
+            
+            if(noteIndex !== -1) {
+                // GRABACIÓN EN VIVO (QUANTIZED)
+                // Calculamos el step actual aproximado + un pequeño offset para latencia humana
+                // Grabamos en el paso actual para que suene INMEDIATAMENTE la próxima vuelta
+                
+                if(sequenceData[activeTrack][currentStep] === null) {
+                    // Guardar datos
+                    sequenceData[activeTrack][currentStep] = { noteVal: noteIndex };
+                    // Crear representación visual
+                    const mesh = addPinToDrum(activeTrack, currentStep, noteIndex);
+                    sequenceData[activeTrack][currentStep].mesh = mesh;
+                    
+                    // Feedback instantáneo de audio
+                    AudioEngine.playNote(activeTrack, noteIndex);
+                } else {
+                    // BORRAR si ya existe (Toggle)
+                    const existing = sequenceData[activeTrack][currentStep];
+                    drumGroup.remove(existing.mesh);
+                    sequenceData[activeTrack][currentStep] = null;
+                }
             }
 
+            if(e.code === 'Space') {
+                // Limpiar pista actual
+                for(let i=0; i<CONFIG.steps; i++) {
+                    if(sequenceData[activeTrack][i]) {
+                        drumGroup.remove(sequenceData[activeTrack][i].mesh);
+                        sequenceData[activeTrack][i] = null;
+                    }
+                }
+            }
+        });
+
+        // Loop principal de animación
+        function animate(time) {
+            requestAnimationFrame(animate);
+            sequencerLoop(time / 1000);
             renderer.render(scene, camera);
         }
 
+        // Arranque
+        document.getElementById('startBtn').addEventListener('click', () => {
+            AudioEngine.init();
+            isPlaying = true;
+            document.getElementById('overlay').style.opacity = 0;
+            setTimeout(() => document.getElementById('overlay').style.display = 'none', 500);
+            lastTime = performance.now() / 1000;
+            animate();
+            drawScope();
+        });
+
+        // Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
-
-        animate();
 
     </script>
 </body>
