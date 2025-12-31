@@ -45,7 +45,7 @@
 
     <div id="overlay">
         <h1>TYPE-0-MATIC</h1>
-        <h3>[Máquina Sonora Experimental v3.0]</h3>
+        <h3>[Máquina Sonora Experimental v3.1]</h3>
         <p style="color: #aaa; margin-bottom: 30px;">Olvida la música. Escribe texturas.</p>
         <button class="start-btn" id="startBtn">CONECTAR REACTOR</button>
     </div>
@@ -67,7 +67,7 @@
             init: function() {
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // Compresor Master para "pegar" todos los sonidos y evitar saturación
+                // Compresor Master
                 this.masterComp = this.ctx.createDynamicsCompressor();
                 this.masterComp.threshold.value = -20;
                 this.masterComp.knee.value = 30;
@@ -75,10 +75,7 @@
                 this.masterComp.attack.value = 0.003;
                 this.masterComp.release.value = 0.25;
 
-                // Reverberación Convolutiva (Simulada para un solo archivo)
-                // Usamos un delay muy corto y difuso para simular un espacio metálico
-                this.reverbNode = this.ctx.createConvolver();
-                // (En un entorno real cargaríamos un impulso, aquí usaremos un truco de delay)
+                // Delay / Reverb simulado
                 const simpleReverb = this.ctx.createDelay();
                 simpleReverb.delayTime.value = 0.05;
                 const reverbGain = this.ctx.createGain();
@@ -87,7 +84,7 @@
                 this.masterComp.connect(this.ctx.destination);
                 this.masterComp.connect(simpleReverb);
                 simpleReverb.connect(reverbGain);
-                reverbGain.connect(this.masterComp); // Feedback loop corto
+                reverbGain.connect(this.masterComp); 
             },
 
             // Generador de Graves Profundos (Fila Z)
@@ -98,17 +95,15 @@
                 const gain = this.ctx.createGain();
                 const filter = this.ctx.createBiquadFilter();
 
-                // Frecuencias muy bajas, casi infrasonidos, desafinadas
-                const baseFreq = 40 + (intensity * 30); // Entre 40Hz y 70Hz
+                const baseFreq = 40 + (intensity * 30); 
                 osc1.frequency.value = baseFreq;
-                osc2.frequency.value = baseFreq + 2; // Desafinación para efecto "chorus" natural
+                osc2.frequency.value = baseFreq + 2; 
                 osc1.type = 'sine';
                 osc2.type = 'triangle';
 
                 filter.type = 'lowpass';
-                filter.frequency.value = 200; // Solo deja pasar lo muy grave
+                filter.frequency.value = 200;
 
-                // Ataque muy lento
                 const now = this.ctx.currentTime;
                 gain.gain.setValueAtTime(0, now);
                 gain.gain.linearRampToValueAtTime(0.4, now + 1.5);
@@ -120,7 +115,7 @@
                 this.activeSources[keyId] = { stop: (now) => {
                     gain.gain.cancelScheduledValues(now);
                     gain.gain.setValueAtTime(gain.gain.value, now);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 3); // Release muy largo (3s)
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 3); 
                     osc1.stop(now + 3.1); osc2.stop(now + 3.1);
                 }};
             },
@@ -128,9 +123,6 @@
             // Generador de Pads Atmosféricos (Fila A)
             playPad: function(keyId, index) {
                 if(!this.ctx) return;
-                // Usamos un índice para variar el tono, pero no basado en una escala cromática,
-                // sino en una escala pentatónica menor extendida y difusa para que siempre suene bien.
-                // Frecuencias base arbitrarias que suenan bien juntas:
                 const frequencies = [110, 130.8, 146.8, 164.8, 196, 220, 261.6, 293.7, 329.6, 392];
                 const baseFreq = frequencies[index % frequencies.length] * (index > 5 ? 2 : 1);
 
@@ -138,26 +130,24 @@
                 const gain = this.ctx.createGain();
                 const pan = this.ctx.createStereoPanner();
                 
-                // Tipo de onda complejo
                 const real = new Float32Array([0,0.4,0.4,1,0.4,1,0.3]);
                 const imag = new Float32Array(real.length);
                 const customWave = this.ctx.createPeriodicWave(real, imag);
                 osc.setPeriodicWave(customWave);
                 osc.frequency.value = baseFreq;
 
-                // Paneo aleatorio para amplitud estéreo
                 pan.pan.value = (Math.random() * 2) - 1;
 
                 const now = this.ctx.currentTime;
                 gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.2, now + 0.5); // Ataque medio
+                gain.gain.linearRampToValueAtTime(0.2, now + 0.5);
 
                 osc.connect(pan); pan.connect(gain); gain.connect(this.masterComp);
                 osc.start();
                 this.activeSources[keyId] = { stop: (now) => {
                     gain.gain.cancelScheduledValues(now);
                     gain.gain.setValueAtTime(gain.gain.value, now);
-                    gain.gain.linearRampToValueAtTime(0, now + 1); // Release medio
+                    gain.gain.linearRampToValueAtTime(0, now + 1); 
                     osc.stop(now + 1.1);
                 }};
             },
@@ -169,33 +159,31 @@
                 const gain = this.ctx.createGain();
                 const filter = this.ctx.createBiquadFilter();
 
-                // Frecuencias altas y brillantes
                 const baseFreq = 800 + (index * 150) + (Math.random()*50);
                 osc.type = 'sawtooth';
                 osc.frequency.value = baseFreq;
 
                 filter.type = 'bandpass';
                 filter.Q.value = 10;
-                filter.frequency.value = baseFreq + 500; // Filtro resonante
+                filter.frequency.value = baseFreq + 500; 
 
                 const now = this.ctx.currentTime;
                 gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(0.15, now + 0.01); // Ataque inmediato
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3); // Release corto
+                gain.gain.linearRampToValueAtTime(0.15, now + 0.01); 
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3); 
 
                 osc.connect(filter); filter.connect(gain); gain.connect(this.masterComp);
                 osc.start(); osc.stop(now + 0.4);
-                // No necesita stop manual porque es un sonido corto
             },
 
-            // Ruido Mecánico (Números)
+            // Ruido Mecánico (Números) - AQUÍ ESTABA EL ERROR
             playNoise: function() {
                 if(!this.ctx) return;
-                const buffer Size = this.ctx.sampleRate * 0.2; // 200ms de ruido
+                const bufferSize = this.ctx.sampleRate * 0.2; // CORREGIDO: variable bufferSize unida
                 const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
                 const data = buffer.getChannelData(0);
                 for (let i = 0; i < bufferSize; i++) {
-                    data[i] = Math.random() * 2 - 1; // Ruido blanco
+                    data[i] = Math.random() * 2 - 1; 
                 }
                 const noiseSource = this.ctx.createBufferSource();
                 noiseSource.buffer = buffer;
@@ -225,20 +213,18 @@
         scene.fog = new THREE.FogExp2(0x0a0a0f, 0.04);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-        // Ángulo picado para ver la máquina desde arriba como un operario
         camera.position.set(0, 15, 12); 
         camera.lookAt(0, 0, 2);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true; // Sombras para realismo
+        renderer.shadowMap.enabled = true; 
         document.body.appendChild(renderer.domElement);
 
         // --- MATERIALES ---
         const m_metalDark = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7, metalness: 0.9 });
         const m_metalRust = new THREE.MeshStandardMaterial({ color: 0x3d261a, roughness: 0.9, metalness: 0.5 });
         const m_chrome = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.2, metalness: 1.0 });
-        // Materiales emisivos (NEON)
         const m_neonPink = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xff0066, emissiveIntensity: 2 });
         const m_neonBlue = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x00ccff, emissiveIntensity: 2 });
         const m_glassTube = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 0.3, transparent: true, roughness: 0, metalness: 0 });
@@ -247,14 +233,14 @@
         scene.add(machineGroup);
 
         // --- CONSTRUCCIÓN DEL CHASIS ---
-        // Base pesada
         const baseGeo = new THREE.BoxGeometry(14, 2, 10);
         const base = new THREE.Mesh(baseGeo, m_metalDark);
         base.position.y = -1;
-        base.castShadow = true; receiverShadow = true;
+        base.castShadow = true; 
+        base.receiveShadow = true; // CORREGIDO: Sintaxis correcta de sombra
         machineGroup.add(base);
 
-        // Laterales industriales
+        // Laterales
         const sideGeo = new THREE.BoxGeometry(1, 4, 8);
         const sideL = new THREE.Mesh(sideGeo, m_metalRust); sideL.position.set(-7.5, 1, -1);
         const sideR = new THREE.Mesh(sideGeo, m_metalRust); sideR.position.set(7.5, 1, -1);
@@ -266,26 +252,24 @@
         roller.rotation.z = Math.PI / 2;
         roller.position.set(0, 3, -4);
         machineGroup.add(roller);
-        // Núcleo brillante del reactor
+        
         const coreGeo = new THREE.CylinderGeometry(1.5, 1.5, 10, 16);
         const reactorCore = new THREE.Mesh(coreGeo, m_neonBlue);
         reactorCore.rotation.z = Math.PI / 2;
         reactorCore.position.set(0, 3, -4);
         machineGroup.add(reactorCore);
 
-        // Válvulas de Vacío (Tubes) - Reemplazan los martillos
+        // Válvulas de Vacío
         const tubesGroup = new THREE.Group();
         for(let i=0; i<10; i++) {
             const tubeBase = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 0.5), m_chrome);
             const tubeGlass = new THREE.Mesh(new THREE.CapsuleGeometry(0.25, 0.8, 8, 16), m_glassTube);
             tubeGlass.position.y = 0.7;
-            // Filamento brillante dentro
             const filament = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6), m_neonPink);
             filament.position.y = 0.7;
             
             const singleTube = new THREE.Group();
             singleTube.add(tubeBase, tubeGlass, filament);
-            // Posicionarlas en arco
             const angle = (i / 9) * Math.PI * 0.8 - (Math.PI*0.4);
             singleTube.position.set(Math.sin(angle)*5, 2, Math.cos(angle)*3 - 5);
             singleTube.lookAt(0, 4, -6);
@@ -293,7 +277,7 @@
         }
         machineGroup.add(tubesGroup);
 
-        // Cables desordenados (Usando TorusKnot deformados)
+        // Cables
         const cableGeo = new THREE.TorusKnotGeometry(3, 0.1, 64, 8, 3, 7);
         const cableMesh1 = new THREE.Mesh(cableGeo, m_neonPink);
         cableMesh1.position.set(-4, 1, -3); cableMesh1.scale.set(0.5, 0.5, 0.5);
@@ -302,15 +286,13 @@
         machineGroup.add(cableMesh1, cableMesh2);
 
 
-        // --- CONSTRUCCIÓN DEL TECLADO MECÁNICO ---
+        // --- CONSTRUCCIÓN DEL TECLADO ---
         const keyStemGeo = new THREE.CylinderGeometry(0.15, 0.15, 1.5);
         const keyCapGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.3, 16);
-        // Aro de neón alrededor de cada tecla
         const keyRingGeo = new THREE.TorusGeometry(0.65, 0.05, 8, 16);
         
         const keyMap3D = {};
 
-        // Layout escalonado de máquina de escribir
         const rows = [
             { chars: "1234567890", z: -2, y: 1.5 },
             { chars: "qwertyuiop", z: 0, y: 1.0 },
@@ -323,19 +305,16 @@
             row.chars.split('').forEach((char, i) => {
                 const keyGroup = new THREE.Group();
                 
-                // El vástago metálico
                 const stem = new THREE.Mesh(keyStemGeo, m_chrome);
                 stem.position.y = -0.5;
 
-                // La tapa de la tecla (negra, estilo antiguo)
                 const cap = new THREE.Mesh(keyCapGeo, new THREE.MeshStandardMaterial({color: 0x111111, roughness: 0.5}));
                 cap.position.y = 0.2;
 
-                // El anillo de neón (color según fila)
                 let neonMat;
-                if (rowIndex === 3) neonMat = m_neonBlue; // Graves
-                else if (rowIndex === 2) neonMat = m_neonPink; // Cuerpo
-                else neonMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffcc00, emissiveIntensity: 2 }); // Agudos/Números
+                if (rowIndex === 3) neonMat = m_neonBlue; 
+                else if (rowIndex === 2) neonMat = m_neonPink; 
+                else neonMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xffcc00, emissiveIntensity: 2 });
 
                 const ring = new THREE.Mesh(keyRingGeo, neonMat);
                 ring.rotation.x = Math.PI / 2;
@@ -343,10 +322,8 @@
 
                 keyGroup.add(stem, cap, ring);
 
-                // Posicionamiento escalonado
-                const x = (i * 1.5) - rowWidth / 2 + 0.75 + (rowIndex*0.4); // Desplazamiento lateral por fila
+                const x = (i * 1.5) - rowWidth / 2 + 0.75 + (rowIndex*0.4); 
                 keyGroup.position.set(x, row.y + 1, row.z);
-                // Inclinación hacia el usuario
                 keyGroup.rotation.x = 0.2 - (rowIndex * 0.05);
 
                 keyGroup.userData = { basePos: keyGroup.position.clone(), char: char, row: rowIndex, index: i };
@@ -361,24 +338,21 @@
         const ambientLight = new THREE.AmbientLight(0x111111);
         scene.add(ambientLight);
 
-        // Luz dramática desde abajo (como si la mesa brillara)
         const underLight = new THREE.PointLight(0xff3366, 3, 20);
         underLight.position.set(0, -5, 2);
         scene.add(underLight);
 
-        // Luz azul desde el reactor
         const reactorLight = new THREE.PointLight(0x33ccff, 2, 15);
         reactorLight.position.set(0, 4, -4);
         scene.add(reactorLight);
         
-        // Spot para generar sombras duras
         const spotLight = new THREE.SpotLight(0xffffff, 1);
         spotLight.position.set(10, 20, 10);
         spotLight.castShadow = true;
         scene.add(spotLight);
 
         // ==========================================
-        // 3. INTERACCIÓN (EL CEREBRO)
+        // 3. INTERACCIÓN
         // ==========================================
         
         const keysPressed = {};
@@ -391,32 +365,29 @@
                 keysPressed[char] = true;
                 const keyObj = keyMap3D[char];
                 
-                // --- RESPUESTA VISUAL ---
-                // Hundir tecla físicamente
+                // Visual
                 keyObj.position.y = keyObj.userData.basePos.y - 0.6; 
-                // Flash del reactor
                 reactorCore.material.emissiveIntensity = 5;
                 reactorLight.intensity = 5;
-                // Flash de los cables
                 cableMesh1.material.emissiveIntensity = 3;
 
-                // --- RESPUESTA SONORA (Lógica de texturas) ---
+                // Audio
                 const row = keyObj.userData.row;
                 const idx = keyObj.userData.index;
 
-                if (row === 3) { // Z-M (Graves)
+                if (row === 3) { // Z-M
                     AudioEngine.playDrone(char, idx/10);
                     updateHud(`>> ACTIVANDO SUB-MOTOR ${char.toUpperCase()}`);
                 } 
-                else if (row === 2) { // A-Ñ (Atmósferas)
+                else if (row === 2) { // A-Ñ
                     AudioEngine.playPad(char, idx);
                      updateHud(`>> GENERANDO ATMÓSFERA ${char.toUpperCase()}`);
                 }
-                else if (row === 1) { // Q-P (Chispas)
+                else if (row === 1) { // Q-P
                     AudioEngine.playSpark(char, idx);
                      updateHud(`>> DISPARANDO CHISPA ${char.toUpperCase()}`);
                 }
-                else if (row === 0) { // Números (Ruido)
+                else if (row === 0) { // Numeros
                     AudioEngine.playNoise();
                      updateHud(`>> ERROR MECÁNICO ${char}`);
                 }
@@ -428,9 +399,7 @@
             if(keyMap3D[char]) {
                 delete keysPressed[char];
                 const keyObj = keyMap3D[char];
-                // Restaurar tecla
                 keyObj.position.y = keyObj.userData.basePos.y;
-                // Parar sonido (si es sostenido)
                 AudioEngine.stop(char);
             }
         });
@@ -440,7 +409,6 @@
         startBtn.addEventListener('click', () => {
             AudioEngine.init();
             document.getElementById('overlay').classList.add('hidden');
-            // Animación inicial de la cámara
             camera.position.z = 25;
         });
 
@@ -452,24 +420,21 @@
 
 
         // ==========================================
-        // 4. LOOP DE ANIMACIÓN
+        // 4. ANIMACIÓN
         // ==========================================
         let time = 0;
         function animate() {
             requestAnimationFrame(animate);
             time += 0.01;
 
-            // Movimiento sutil de "respiración" de la máquina
             machineGroup.rotation.z = Math.sin(time * 0.5) * 0.02;
             machineGroup.position.y = Math.sin(time) * 0.1;
 
-            // Animación constante del reactor y cables
             reactorCore.material.emissiveIntensity = 2 + Math.sin(time*5)*0.5;
-            if(reactorLight.intensity > 2) reactorLight.intensity -= 0.1; // Decaimiento del flash
+            if(reactorLight.intensity > 2) reactorLight.intensity -= 0.1; 
             cableMesh1.material.emissiveIntensity = 1 + Math.sin(time*3)*0.5;
             cableMesh2.material.emissiveIntensity = 1 + Math.cos(time*4)*0.5;
 
-            // Acercamiento suave de cámara al inicio
             if(camera.position.z > 12 && document.getElementById('overlay').classList.contains('hidden')) {
                 camera.position.z -= 0.1;
             }
