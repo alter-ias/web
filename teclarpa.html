@@ -3,24 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teclado Armónico 3D</title>
+    <title>Sintetizador Espectral 3D</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #111; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        
+        /* UI Overlay */
         #overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; color: #00d2ff; z-index: 10;
-            cursor: pointer; transition: opacity 0.5s;
+            background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(10,20,30,0.95));
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #00ffcc; z-index: 100; transition: opacity 0.5s ease;
         }
-        h1 { font-weight: 300; letter-spacing: 4px; text-transform: uppercase; border-bottom: 1px solid #00d2ff; padding-bottom: 10px;}
-        .instruction { color: #888; margin-top: 10px; font-size: 0.9em; }
-        .hidden { opacity: 0; pointer-events: none; }
+        
+        h1 { font-size: 3rem; margin: 0; text-transform: uppercase; letter-spacing: 10px; text-shadow: 0 0 20px #00ffcc; }
+        h3 { font-weight: 300; opacity: 0.8; margin-bottom: 30px; }
+        
+        .controls-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; text-align: left; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; border: 1px solid #00ffcc; }
+        .controls-grid div { margin: 5px 0; }
+        .key { color: #fff; font-weight: bold; background: #00ffcc; color: #000; padding: 2px 6px; border-radius: 4px; margin-right: 10px; }
+        
+        .start-btn {
+            margin-top: 40px; padding: 15px 40px; font-size: 1.2rem;
+            background: transparent; color: #00ffcc; border: 2px solid #00ffcc;
+            cursor: pointer; text-transform: uppercase; letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+        .start-btn:hover { background: #00ffcc; color: #000; box-shadow: 0 0 30px #00ffcc; }
+        
         #hud {
-            position: absolute; bottom: 20px; left: 20px; color: #00d2ff;
-            font-family: monospace; font-size: 1.2rem; pointer-events: none;
-            text-shadow: 0 0 5px #00d2ff;
+            position: absolute; bottom: 20px; left: 20px; color: #00ffcc;
+            font-family: monospace; pointer-events: none; opacity: 0.7;
         }
+        
+        .hidden { opacity: 0; pointer-events: none; }
     </style>
+    
     <script type="importmap">
         { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
     </script>
@@ -28,252 +45,395 @@
 <body>
 
     <div id="overlay">
-        <h1>Sintetizador Tipográfico</h1>
-        <p>Click para activar el sistema de audio</p>
-        <div class="instruction">
-            Fila A-Ñ: Escala Central (DO-RE-MI...)<br>
-            Fila Q-P: Agudos | Fila Z-M: Graves
+        <h1>Spectral Synth</h1>
+        <h3>Instrumento Polifónico Web</h3>
+        
+        <div class="controls-grid">
+            <div><span class="key">A...Ñ</span> Teclas Blancas (Notas)</div>
+            <div><span class="key">W,E,T...</span> Teclas Negras (Sostenidos)</div>
+            <div><span class="key">Z...M</span> Octava Grave (Bajos)</div>
+            <div><span class="key">Espacio</span> Sustain / Hold</div>
+            <div><span class="key">1 - 3</span> Cambiar Onda (Saw/Sqr/Tri)</div>
+            <div><span class="key">5 - 9</span> Filtro LowPass (Brillo)</div>
+            <div><span class="key">Mouse X</span> Panning (Estéreo)</div>
+            <div><span class="key">Mouse Y</span> Modulación</div>
         </div>
+
+        <button class="start-btn" id="startBtn">INICIAR SISTEMA</button>
     </div>
-    
-    <div id="hud">Esperando input...</div>
+
+    <div id="hud">SYSTEM READY...</div>
 
     <script type="module">
         import * as THREE from 'three';
-        import { TextGeometry } from 'https://unpkg.com/three@0.160.0/examples/jsm/geometries/TextGeometry.js';
-        import { FontLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/FontLoader.js';
 
-        // --- CONFIGURACIÓN DE LA ESCENA ---
+        // ==========================================
+        // 1. MOTOR DE AUDIO (PROFESIONAL)
+        // ==========================================
+        const AudioEngine = {
+            ctx: null,
+            masterGain: null,
+            filter: null,
+            delay: null,
+            waveType: 'sawtooth',
+            activeOscillators: {}, // Rastreo de notas activas
+            
+            init: function() {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Master Limiter (para no saturar)
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.4;
+                
+                // Filtro Global (Lowpass) - Controlado por números
+                this.filter = this.ctx.createBiquadFilter();
+                this.filter.type = 'lowpass';
+                this.filter.frequency.value = 5000; // Abierto por defecto
+                this.filter.Q.value = 1;
+
+                // Efecto Delay (Eco)
+                this.delay = this.ctx.createDelay();
+                this.delay.delayTime.value = 0.3; // 300ms
+                const delayFeedback = this.ctx.createGain();
+                delayFeedback.gain.value = 0.4; // 40% feedback
+
+                // Ruteo de efectos: Filter -> Master -> (Delay Loop)
+                this.filter.connect(this.masterGain);
+                this.filter.connect(this.delay);
+                this.delay.connect(delayFeedback);
+                delayFeedback.connect(this.delay);
+                this.delay.connect(this.masterGain);
+                this.masterGain.connect(this.ctx.destination);
+            },
+
+            setWave: function(type) {
+                this.waveType = type;
+                return type;
+            },
+
+            setFilter: function(val) {
+                // Mapear valor 0-1 a frecuencia 100Hz - 10000Hz
+                const freq = 100 + (val * 10000);
+                if(this.ctx) this.filter.frequency.rampToValueAtTime(freq, this.ctx.currentTime + 0.1);
+            },
+
+            triggerAttack: function(freq, keyId) {
+                if (!this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                // Evitar superposición fea si se presiona repetido
+                if (this.activeOscillators[keyId]) {
+                    this.triggerRelease(keyId);
+                }
+
+                const osc = this.ctx.createOscillator();
+                const gainEnv = this.ctx.createGain();
+                
+                osc.type = this.waveType;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                
+                // Detune random para sonido analógico gordo
+                osc.detune.value = (Math.random() * 10) - 5; 
+
+                // Envolvente (ADSR simulado)
+                const now = this.ctx.currentTime;
+                gainEnv.gain.setValueAtTime(0, now);
+                gainEnv.gain.linearRampToValueAtTime(0.5, now + 0.05); // Attack rápido
+                gainEnv.gain.exponentialRampToValueAtTime(0.3, now + 0.5); // Decay
+
+                osc.connect(gainEnv);
+                gainEnv.connect(this.filter);
+
+                osc.start();
+
+                this.activeOscillators[keyId] = { osc, gainEnv };
+            },
+
+            triggerRelease: function(keyId) {
+                if (!this.ctx || !this.activeOscillators[keyId]) return;
+
+                const { osc, gainEnv } = this.activeOscillators[keyId];
+                const now = this.ctx.currentTime;
+
+                // Release suave
+                gainEnv.gain.cancelScheduledValues(now);
+                gainEnv.gain.setValueAtTime(gainEnv.gain.value, now);
+                gainEnv.gain.exponentialRampToValueAtTime(0.001, now + 0.5); // 0.5s release
+
+                osc.stop(now + 0.51);
+                delete this.activeOscillators[keyId];
+            }
+        };
+
+        // ==========================================
+        // 2. MAPEO MUSICAL (TECLADO LATAM)
+        // ==========================================
+        
+        // Frecuencias exactas para notas musicales
+        const NOTE_FREQS = {
+            'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.00, 'A#3': 233.08, 'B3': 246.94,
+            'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00, 'A#4': 466.16, 'B4': 493.88,
+            'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25, 'F5': 698.46
+        };
+
+        // Mapa de Teclas -> Notas (Estilo Chromatic Piano)
+        const KEY_MAP = {
+            // Fila Inferior (Graves/Bajos)
+            'z': { note: 'C3', color: 0xffffff },
+            's': { note: 'C#3', color: 0x222222, isBlack: true }, // Mapeo cruzado para simular piano real
+            'x': { note: 'D3', color: 0xffffff },
+            'd': { note: 'D#3', color: 0x222222, isBlack: true },
+            'c': { note: 'E3', color: 0xffffff },
+            'v': { note: 'F3', color: 0xffffff },
+            'g': { note: 'F#3', color: 0x222222, isBlack: true },
+            'b': { note: 'G3', color: 0xffffff },
+            'h': { note: 'G#3', color: 0x222222, isBlack: true },
+            'n': { note: 'A3', color: 0xffffff },
+            'j': { note: 'A#3', color: 0x222222, isBlack: true },
+            'm': { note: 'B3', color: 0xffffff },
+            
+            // Fila Superior (Melodía Principal)
+            'q': { note: 'C4', color: 0xffffff },
+            '2': { note: 'C#4', color: 0x111111, isBlack: true }, // A veces se usa números, pero usaremos el layout "Piano" abajo
+            
+            // REHACIENDO MAPEO PARA QUE SEA "QWERTY PIANO" ESTÁNDAR (Más intuitivo)
+            // Blancas
+            'a': { note: 'C4', color: 0x00ffcc }, 
+            's': { note: 'D4', color: 0x00ffcc },
+            'd': { note: 'E4', color: 0x00ffcc },
+            'f': { note: 'F4', color: 0x00ffcc },
+            'g': { note: 'G4', color: 0x00ffcc },
+            'h': { note: 'A4', color: 0x00ffcc },
+            'j': { note: 'B4', color: 0x00ffcc },
+            'k': { note: 'C5', color: 0x00ffcc },
+            'l': { note: 'D5', color: 0x00ffcc },
+            'ñ': { note: 'E5', color: 0x00ffcc },
+            
+            // Negras (Sostenidos) - Justo arriba
+            'w': { note: 'C#4', color: 0xff0055, isBlack: true },
+            'e': { note: 'D#4', color: 0xff0055, isBlack: true },
+            't': { note: 'F#4', color: 0xff0055, isBlack: true },
+            'y': { note: 'G#4', color: 0xff0055, isBlack: true },
+            'u': { note: 'A#4', color: 0xff0055, isBlack: true },
+            'o': { note: 'C#5', color: 0xff0055, isBlack: true },
+            'p': { note: 'D#5', color: 0xff0055, isBlack: true },
+            
+            // Fila Z (Bajos Octava 3)
+            'z': { note: 'C3', color: 0x0088ff },
+            'x': { note: 'D3', color: 0x0088ff },
+            'c': { note: 'E3', color: 0x0088ff },
+            'v': { note: 'F3', color: 0x0088ff },
+            'b': { note: 'G3', color: 0x0088ff },
+            'n': { note: 'A3', color: 0x0088ff },
+            'm': { note: 'B3', color: 0x0088ff }
+        };
+
+        // ==========================================
+        // 3. ESCENA 3D (VISUALIZACIÓN)
+        // ==========================================
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x111111);
-        scene.fog = new THREE.Fog(0x111111, 10, 50);
+        scene.fog = new THREE.FogExp2(0x050505, 0.03);
 
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 12, 18);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.set(0, -5, 12);
         camera.lookAt(0, 0, 0);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // --- ILUMINACIÓN ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add(ambientLight);
-        
-        const spotLight = new THREE.SpotLight(0x00d2ff, 50);
-        spotLight.position.set(0, 20, 10);
-        spotLight.angle = Math.PI / 4;
-        spotLight.penumbra = 0.5;
-        scene.add(spotLight);
+        // Grupo principal del instrumento
+        const instrumentGroup = new THREE.Group();
+        scene.add(instrumentGroup);
 
-        // --- DEFINICIÓN MUSICAL (ESTRUCTURA) ---
-        // Aquí definimos qué nota es cada tecla
-        const notesMap = {
-            // FILA CENTRAL (Octava 4 - C Major)
-            'a': { note: 'C4', freq: 261.63, label: 'DO' },
-            's': { note: 'D4', freq: 293.66, label: 'RE' },
-            'd': { note: 'E4', freq: 329.63, label: 'MI' },
-            'f': { note: 'F4', freq: 349.23, label: 'FA' },
-            'g': { note: 'G4', freq: 392.00, label: 'SOL' },
-            'h': { note: 'A4', freq: 440.00, label: 'LA' },
-            'j': { note: 'B4', freq: 493.88, label: 'SI' },
-            'k': { note: 'C5', freq: 523.25, label: 'DO+' },
-            'l': { note: 'D5', freq: 587.33, label: 'RE+' },
-            'ñ': { note: 'E5', freq: 659.25, label: 'MI+' },
-            ';': { note: 'F5', freq: 698.46, label: 'FA+' },
+        // Mapa de objetos 3D para animarlos
+        const keyMeshes = {};
 
-            // FILA SUPERIOR (Octava 5 - Agudos)
-            'q': { note: 'G5', freq: 783.99, label: 'SOL' },
-            'w': { note: 'A5', freq: 880.00, label: 'LA' },
-            'e': { note: 'B5', freq: 987.77, label: 'SI' },
-            'r': { note: 'C6', freq: 1046.50, label: 'DO' },
-            't': { note: 'D6', freq: 1174.66, label: 'RE' },
-            'y': { note: 'E6', freq: 1318.51, label: 'MI' },
-            'u': { note: 'F6', freq: 1396.91, label: 'FA' },
-            'i': { note: 'G6', freq: 1567.98, label: 'SOL' },
-            'o': { note: 'A6', freq: 1760.00, label: 'LA' },
-            'p': { note: 'B6', freq: 1975.53, label: 'SI' },
+        // Geometrías reusables
+        const geoHex = new THREE.CylinderGeometry(0.8, 0.8, 0.5, 6); // Teclas hexagonales
+        const geoBox = new THREE.BoxGeometry(0.8, 0.5, 2); // Teclas rectangulares
 
-            // FILA INFERIOR (Octava 3 - Graves)
-            'z': { note: 'C3', freq: 130.81, label: 'DO-' },
-            'x': { note: 'D3', freq: 146.83, label: 'RE-' },
-            'c': { note: 'E3', freq: 164.81, label: 'MI-' },
-            'v': { note: 'F3', freq: 174.61, label: 'FA-' },
-            'b': { note: 'G3', freq: 196.00, label: 'SOL-' },
-            'n': { note: 'A3', freq: 220.00, label: 'LA-' },
-            'm': { note: 'B3', freq: 246.94, label: 'SI-' },
-            ',': { note: 'C4', freq: 261.63, label: 'DO' },
-        };
-
-        const keysGroup = new THREE.Group();
-        scene.add(keysGroup);
-        const activeMeshes = {}; // Diccionario para acceso rápido
-
-        // --- GENERACIÓN DEL MODELO 3D ---
-        
-        // Función auxiliar para crear texturas con texto
-        function createLabelTexture(mainText, subText) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            
-            // Fondo
-            ctx.fillStyle = '#222';
-            ctx.fillRect(0,0, 256, 256);
-            ctx.strokeStyle = '#00d2ff';
-            ctx.lineWidth = 10;
-            ctx.strokeRect(0,0,256,256);
-
-            // Letra Teclado (Grande)
-            ctx.fillStyle = '#fff';
-            ctx.font = 'bold 100px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(mainText.toUpperCase(), 128, 100);
-
-            // Nota Musical (Pequeña abajo)
-            ctx.fillStyle = '#00d2ff';
-            ctx.font = 'bold 50px Arial';
-            ctx.fillText(subText, 128, 190);
-
-            const tex = new THREE.CanvasTexture(canvas);
-            return tex;
-        }
-
-        const geometry = new THREE.BoxGeometry(1.8, 0.5, 3);
-        
-        // Crear las filas visuales
-        const rows = [
-            ['q','w','e','r','t','y','u','i','o','p'],
-            ['a','s','d','f','g','h','j','k','l','ñ'],
-            ['z','x','c','v','b','n','m',',']
-        ];
-
-        rows.forEach((rowChars, rowIndex) => {
-            const rowOffsetZ = rowIndex * 3.2; // Separación entre filas
-            const rowOffsetX = (rowChars.length * 2) / 2; // Centrado
-
-            rowChars.forEach((char, i) => {
-                if(!notesMap[char]) return; // Si no está en el mapa, saltar
-
-                const material = new THREE.MeshStandardMaterial({
-                    map: createLabelTexture(char, notesMap[char].label),
-                    color: 0xffffff,
-                    roughness: 0.3,
-                    metalness: 0.6
-                });
-
-                const mesh = new THREE.Mesh(geometry, material);
-                
-                // Posicionamiento
-                mesh.position.x = (i * 2.1) - rowOffsetX * 2.1 + 1;
-                mesh.position.z = rowOffsetZ - 3;
-                
-                // Efecto visual: Curvatura de teclado ergonómico
-                mesh.position.y = Math.sin((i / rowChars.length) * Math.PI) * 1; 
-                mesh.rotation.x = 0.2; // Inclinación hacia el usuario
-
-                mesh.userData = { 
-                    originalY: mesh.position.y,
-                    freq: notesMap[char].freq,
-                    noteName: notesMap[char].note 
-                };
-
-                activeMeshes[char] = mesh;
-                keysGroup.add(mesh);
+        // Crear teclado visual
+        Object.keys(KEY_MAP).forEach((keyChar) => {
+            const data = KEY_MAP[keyChar];
+            const mat = new THREE.MeshStandardMaterial({ 
+                color: 0x222222, 
+                emissive: data.color,
+                emissiveIntensity: 0.1,
+                roughness: 0.2,
+                metalness: 0.8
             });
-        });
 
-        // --- MOTOR DE AUDIO ---
-        let audioCtx;
-        const activeOscillators = {}; // Para manejar polifonía y evitar glitches
+            // Posicionamiento basado en un layout físico imaginario
+            const mesh = new THREE.Mesh(data.isBlack ? geoHex : geoBox, mat);
+            
+            // Calcular posición X según orden en teclado
+            let xPos = 0;
+            let zPos = 0;
+            const keyOrder = "zxcvbnm,.-asdfghjklñqwertyuiop";
+            const index = keyOrder.indexOf(keyChar);
+            
+            // Organizar en 3 filas espaciales
+            if ("zxcvbnm,.-".includes(keyChar)) { zPos = 4; xPos = (index) * 1.5 - 6; }
+            else if ("asdfghjklñ".includes(keyChar)) { zPos = 0; xPos = (index - 10) * 1.5 - 6; }
+            else if ("qwertyuiop".includes(keyChar)) { zPos = -4; xPos = (index - 21) * 1.5 - 6; }
 
-        function initAudio() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-        }
-
-        function playTone(freq, char) {
-            if(!audioCtx) return;
-
-            // Si ya suena esa tecla, la paramos suavemente para reiniciar
-            if (activeOscillators[char]) {
-                try { activeOscillators[char].stop(); } catch(e){}
+            // Ajuste especial para teclas negras (arriba y entre medias)
+            if (data.isBlack) {
+                mesh.position.y = 0.5; // Más altas
+                mesh.rotation.y = Math.PI / 6; // Rotar hexágono
             }
 
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            const filter = audioCtx.createBiquadFilter();
+            mesh.position.x = xPos;
+            mesh.position.z = zPos;
+            
+            mesh.userData = { ...data, baseY: mesh.position.y };
+            
+            // Añadir texto flotante (Simplificado con canvas sprite para no cargar fuentes pesadas)
+            const label = createTextSprite(keyChar.toUpperCase() + "\n" + data.note);
+            label.position.set(0, 1.5, 0);
+            mesh.add(label);
 
-            // Configuración de sonido (Sinte tipo "Sawtooth" suavizado)
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            instrumentGroup.add(mesh);
+            keyMeshes[keyChar] = mesh;
+        });
 
-            // Filtro Lowpass para quitar lo "chillón"
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(2000, audioCtx.currentTime);
+        // Suelo Grid "Retro"
+        const gridHelper = new THREE.GridHelper(100, 50, 0x00ffcc, 0x111111);
+        gridHelper.position.y = -2;
+        scene.add(gridHelper);
 
-            // Envolvente (ADSR)
-            const now = audioCtx.currentTime;
-            gainNode.gain.setValueAtTime(0, now);
-            gainNode.gain.linearRampToValueAtTime(0.2, now + 0.02); // Ataque rápido
-            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 1); // Release
+        // Luces
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0x00ffcc, 2, 50);
+        pointLight.position.set(0, 5, 5);
+        scene.add(pointLight);
 
-            osc.connect(filter);
-            filter.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-
-            osc.start();
-            osc.stop(now + 1);
-
-            activeOscillators[char] = osc;
+        // Función auxiliar para texto
+        function createTextSprite(message) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 128; canvas.height = 64;
+            ctx.fillStyle = "rgba(0,0,0,0)";
+            ctx.fillRect(0,0,128,64);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 24px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(message.split('\n')[0], 64, 24);
+            ctx.fillStyle = "#00ffcc";
+            ctx.font = "18px Arial";
+            ctx.fillText(message.split('\n')[1], 64, 48);
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.SpriteMaterial({ map: tex });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(2, 1, 1);
+            return sprite;
         }
 
-        // --- INTERACCIÓN ---
+        // ==========================================
+        // 4. LÓGICA DE INTERACCIÓN
+        // ==========================================
         
+        // Manejo del estado visual y sonoro
         document.addEventListener('keydown', (e) => {
-            const char = e.key.toLowerCase();
+            if (e.repeat) return; // Evitar disparo continuo
             
-            if (activeMeshes[char]) {
-                const mesh = activeMeshes[char];
-                
-                // Visual
-                mesh.position.y = mesh.userData.originalY - 0.5; // Hundir tecla
-                mesh.material.emissive.setHex(0x00d2ff);
-                
-                // Audio
-                initAudio(); // Asegurar contexto
-                playTone(mesh.userData.freq, char);
+            const key = e.key.toLowerCase();
+            
+            // 1. Controles de Sistema (Números)
+            if (key === '1') { AudioEngine.setWave('sine'); updateHud("WAVE: SINE"); }
+            if (key === '2') { AudioEngine.setWave('square'); updateHud("WAVE: SQUARE"); }
+            if (key === '3') { AudioEngine.setWave('sawtooth'); updateHud("WAVE: SAW"); }
+            if (['5','6','7','8','9'].includes(key)) {
+                const val = (parseInt(key) - 5) / 4; // 0.0 a 1.0
+                AudioEngine.setFilter(val);
+                updateHud(`FILTER CUTOFF: ${Math.floor(val*100)}%`);
+            }
 
-                // HUD
-                document.getElementById('hud').innerText = `NOTA: ${mesh.userData.noteName} | TECLA: ${char.toUpperCase()}`;
+            // 2. Notas Musicales
+            if (KEY_MAP[key] && keyMeshes[key]) {
+                const data = KEY_MAP[key];
+                const mesh = keyMeshes[key];
+
+                // Audio
+                AudioEngine.triggerAttack(NOTE_FREQS[data.note], key);
+
+                // Visual
+                mesh.position.y -= 0.3; // Hundir tecla
+                mesh.material.emissive.setHex(0xffffff); // Flash blanco
+                mesh.material.emissiveIntensity = 2;
+                
+                // Efecto de partículas o luz dinámica
+                pointLight.position.x = mesh.position.x;
+                pointLight.position.z = mesh.position.z;
+                pointLight.intensity = 5;
+
+                updateHud(`NOTE: ${data.note} (${key.toUpperCase()})`);
             }
         });
 
         document.addEventListener('keyup', (e) => {
-            const char = e.key.toLowerCase();
-            if (activeMeshes[char]) {
-                const mesh = activeMeshes[char];
-                // Restaurar Visual
-                mesh.position.y = mesh.userData.originalY;
-                mesh.material.emissive.setHex(0x000000);
+            const key = e.key.toLowerCase();
+            
+            if (KEY_MAP[key] && keyMeshes[key]) {
+                const mesh = keyMeshes[key];
+                
+                // Audio Release
+                AudioEngine.triggerRelease(key);
+
+                // Visual Reset
+                mesh.position.y = mesh.userData.baseY;
+                mesh.material.emissive.setHex(mesh.userData.color); // Volver a color original
+                mesh.material.emissiveIntensity = 0.1;
+                pointLight.intensity = 2;
             }
         });
 
-        document.getElementById('overlay').addEventListener('click', function() {
-            initAudio();
-            this.classList.add('hidden');
+        function updateHud(text) {
+            const hud = document.getElementById('hud');
+            hud.innerText = text;
+            hud.style.opacity = 1;
+            setTimeout(() => { hud.style.opacity = 0.7 }, 1000);
+        }
+
+        // ==========================================
+        // 5. ANIMACIÓN Y ARRANQUE
+        // ==========================================
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            AudioEngine.init();
+            document.getElementById('overlay').classList.add('hidden');
         });
 
-        // --- LOOP DE ANIMACIÓN ---
+        // Mouse interaction for Pitch/Mod
+        let mouseX = 0;
+        let mouseY = 0;
+        document.addEventListener('mousemove', (e) => {
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+            
+            // Rotar cámara sutilmente
+            instrumentGroup.rotation.y = mouseX * 0.1;
+            instrumentGroup.rotation.x = mouseY * 0.1;
+        });
+
         function animate() {
             requestAnimationFrame(animate);
+
+            // Animación de reposo (respiración)
+            const time = Date.now() * 0.001;
+            instrumentGroup.position.y = Math.sin(time) * 0.2;
+            
+            // Animación del grid
+            gridHelper.position.z = (time * 2) % 10; 
+
             renderer.render(scene, camera);
         }
-        
-        // Resize
+
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth/window.innerHeight;
+            camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
