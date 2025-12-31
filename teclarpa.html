@@ -3,315 +3,283 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instrumento de Texto Orbital</title>
+    <title>Teclado Armónico 3D</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Courier New', Courier, monospace; }
-        canvas { display: block; }
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: 'Segoe UI', sans-serif; }
         #overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            background: rgba(0,0,0,0.85);
-            color: #00ff88;
-            z-index: 10;
-            transition: opacity 0.5s;
-            cursor: pointer;
-            text-align: center;
-            padding: 20px;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: #00d2ff; z-index: 10;
+            cursor: pointer; transition: opacity 0.5s;
         }
-        h1 { margin-bottom: 10px; text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 0 10px #00ff88; }
-        p { font-size: 1.2rem; color: #fff; max-width: 600px; line-height: 1.5; }
+        h1 { font-weight: 300; letter-spacing: 4px; text-transform: uppercase; border-bottom: 1px solid #00d2ff; padding-bottom: 10px;}
+        .instruction { color: #888; margin-top: 10px; font-size: 0.9em; }
         .hidden { opacity: 0; pointer-events: none; }
         #hud {
-            position: absolute;
-            bottom: 20px; left: 20px;
-            color: rgba(255, 255, 255, 0.5);
-            pointer-events: none;
+            position: absolute; bottom: 20px; left: 20px; color: #00d2ff;
+            font-family: monospace; font-size: 1.2rem; pointer-events: none;
+            text-shadow: 0 0 5px #00d2ff;
         }
     </style>
     <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-            }
-        }
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
     </script>
 </head>
 <body>
 
     <div id="overlay">
-        <h1>Sinte-Mecánico Orbital</h1>
-        <p>Haz clic para iniciar el sistema de audio.</p>
-        <p style="font-size: 0.9rem; margin-top: 20px;">
-            <br>
-            [A-Z]: Melodía Sintetizada<br>
-            [0-9]: Percusión y FX<br>
-            Escribe palabras para crear música.
-        </p>
+        <h1>Sintetizador Tipográfico</h1>
+        <p>Click para activar el sistema de audio</p>
+        <div class="instruction">
+            Fila A-Ñ: Escala Central (DO-RE-MI...)<br>
+            Fila Q-P: Agudos | Fila Z-M: Graves
+        </div>
     </div>
-
-    <div id="hud">Escribe para tocar...</div>
+    
+    <div id="hud">Esperando input...</div>
 
     <script type="module">
         import * as THREE from 'three';
+        import { TextGeometry } from 'https://unpkg.com/three@0.160.0/examples/jsm/geometries/TextGeometry.js';
+        import { FontLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/FontLoader.js';
 
-        // --- 1. CONFIGURACIÓN BÁSICA ---
+        // --- CONFIGURACIÓN DE LA ESCENA ---
         const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x050505, 0.02);
+        scene.background = new THREE.Color(0x111111);
+        scene.fog = new THREE.Fog(0x111111, 10, 50);
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 12);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 12, 18);
+        camera.lookAt(0, 0, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        // --- 2. ILUMINACIÓN ---
-        const ambientLight = new THREE.AmbientLight(0x404040, 2); // Luz suave
+        // --- ILUMINACIÓN ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
+        
+        const spotLight = new THREE.SpotLight(0x00d2ff, 50);
+        spotLight.position.set(0, 20, 10);
+        spotLight.angle = Math.PI / 4;
+        spotLight.penumbra = 0.5;
+        scene.add(spotLight);
 
-        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
-        pointLight.position.set(0, 10, 10);
-        scene.add(pointLight);
+        // --- DEFINICIÓN MUSICAL (ESTRUCTURA) ---
+        // Aquí definimos qué nota es cada tecla
+        const notesMap = {
+            // FILA CENTRAL (Octava 4 - C Major)
+            'a': { note: 'C4', freq: 261.63, label: 'DO' },
+            's': { note: 'D4', freq: 293.66, label: 'RE' },
+            'd': { note: 'E4', freq: 329.63, label: 'MI' },
+            'f': { note: 'F4', freq: 349.23, label: 'FA' },
+            'g': { note: 'G4', freq: 392.00, label: 'SOL' },
+            'h': { note: 'A4', freq: 440.00, label: 'LA' },
+            'j': { note: 'B4', freq: 493.88, label: 'SI' },
+            'k': { note: 'C5', freq: 523.25, label: 'DO+' },
+            'l': { note: 'D5', freq: 587.33, label: 'RE+' },
+            'ñ': { note: 'E5', freq: 659.25, label: 'MI+' },
+            ';': { note: 'F5', freq: 698.46, label: 'FA+' },
 
-        // Luces dinámicas que reaccionan
-        const stageLight = new THREE.PointLight(0x00ff88, 0, 50);
-        stageLight.position.set(0, 0, 5);
-        scene.add(stageLight);
+            // FILA SUPERIOR (Octava 5 - Agudos)
+            'q': { note: 'G5', freq: 783.99, label: 'SOL' },
+            'w': { note: 'A5', freq: 880.00, label: 'LA' },
+            'e': { note: 'B5', freq: 987.77, label: 'SI' },
+            'r': { note: 'C6', freq: 1046.50, label: 'DO' },
+            't': { note: 'D6', freq: 1174.66, label: 'RE' },
+            'y': { note: 'E6', freq: 1318.51, label: 'MI' },
+            'u': { note: 'F6', freq: 1396.91, label: 'FA' },
+            'i': { note: 'G6', freq: 1567.98, label: 'SOL' },
+            'o': { note: 'A6', freq: 1760.00, label: 'LA' },
+            'p': { note: 'B6', freq: 1975.53, label: 'SI' },
 
-        // --- 3. CREACIÓN DEL INSTRUMENTO (MODELO 3D) ---
+            // FILA INFERIOR (Octava 3 - Graves)
+            'z': { note: 'C3', freq: 130.81, label: 'DO-' },
+            'x': { note: 'D3', freq: 146.83, label: 'RE-' },
+            'c': { note: 'E3', freq: 164.81, label: 'MI-' },
+            'v': { note: 'F3', freq: 174.61, label: 'FA-' },
+            'b': { note: 'G3', freq: 196.00, label: 'SOL-' },
+            'n': { note: 'A3', freq: 220.00, label: 'LA-' },
+            'm': { note: 'B3', freq: 246.94, label: 'SI-' },
+            ',': { note: 'C4', freq: 261.63, label: 'DO' },
+        };
+
         const keysGroup = new THREE.Group();
         scene.add(keysGroup);
+        const activeMeshes = {}; // Diccionario para acceso rápido
 
-        const keyMap = {}; // Diccionario para guardar referencias a los objetos 3D
+        // --- GENERACIÓN DEL MODELO 3D ---
         
-        // Layout del teclado
-        const keyboardLayout = [
-            "1234567890",
-            "QWERTYUIOP",
-            "ASDFGHJKL",
-            "ZXCVBNM"
+        // Función auxiliar para crear texturas con texto
+        function createLabelTexture(mainText, subText) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            // Fondo
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0,0, 256, 256);
+            ctx.strokeStyle = '#00d2ff';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(0,0,256,256);
+
+            // Letra Teclado (Grande)
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 100px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(mainText.toUpperCase(), 128, 100);
+
+            // Nota Musical (Pequeña abajo)
+            ctx.fillStyle = '#00d2ff';
+            ctx.font = 'bold 50px Arial';
+            ctx.fillText(subText, 128, 190);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            return tex;
+        }
+
+        const geometry = new THREE.BoxGeometry(1.8, 0.5, 3);
+        
+        // Crear las filas visuales
+        const rows = [
+            ['q','w','e','r','t','y','u','i','o','p'],
+            ['a','s','d','f','g','h','j','k','l','ñ'],
+            ['z','x','c','v','b','n','m',',']
         ];
 
-        const boxGeometry = new THREE.BoxGeometry(0.8, 0.8, 2);
-        const baseMaterial = new THREE.MeshStandardMaterial({ 
-            color: 0x333333, 
-            roughness: 0.4,
-            metalness: 0.8
-        });
+        rows.forEach((rowChars, rowIndex) => {
+            const rowOffsetZ = rowIndex * 3.2; // Separación entre filas
+            const rowOffsetX = (rowChars.length * 2) / 2; // Centrado
 
-        // Crear las teclas en una formación curva
-        keyboardLayout.forEach((row, rowIndex) => {
-            const rowWidth = row.length;
-            const radius = 10; // Radio del arco
-            
-            for (let i = 0; i < row.length; i++) {
-                const char = row[i];
+            rowChars.forEach((char, i) => {
+                if(!notesMap[char]) return; // Si no está en el mapa, saltar
+
+                const material = new THREE.MeshStandardMaterial({
+                    map: createLabelTexture(char, notesMap[char].label),
+                    color: 0xffffff,
+                    roughness: 0.3,
+                    metalness: 0.6
+                });
+
+                const mesh = new THREE.Mesh(geometry, material);
                 
-                // Material único para cada tecla para poder cambiar su color individualmente
-                const material = baseMaterial.clone();
-                const mesh = new THREE.Mesh(boxGeometry, material);
-
-                // Cálculos para la posición curva
-                const angle = (i - rowWidth / 2) * 0.25; // Distribución angular
-                const yPos = (1.5 - rowIndex) * 1.2;     // Altura de la fila
+                // Posicionamiento
+                mesh.position.x = (i * 2.1) - rowOffsetX * 2.1 + 1;
+                mesh.position.z = rowOffsetZ - 3;
                 
-                mesh.position.x = Math.sin(angle) * radius;
-                mesh.position.z = Math.cos(angle) * radius - radius; // Empujarlo hacia atrás
-                mesh.position.y = yPos;
+                // Efecto visual: Curvatura de teclado ergonómico
+                mesh.position.y = Math.sin((i / rowChars.length) * Math.PI) * 1; 
+                mesh.rotation.x = 0.2; // Inclinación hacia el usuario
 
-                mesh.lookAt(0, yPos, 15); // Que miren hacia la cámara/usuario
-
-                // Guardamos datos originales para animaciones
-                mesh.userData = {
-                    originalZ: mesh.position.z,
-                    originalColor: 0x333333,
-                    activeColor: rowIndex === 0 ? 0xff0055 : (rowIndex === 1 ? 0x00ccff : 0x00ff88), // Colores por fila
-                    char: char.toLowerCase()
+                mesh.userData = { 
+                    originalY: mesh.position.y,
+                    freq: notesMap[char].freq,
+                    noteName: notesMap[char].note 
                 };
 
+                activeMeshes[char] = mesh;
                 keysGroup.add(mesh);
-                keyMap[char.toLowerCase()] = mesh;
-            }
+            });
         });
 
-        // Partículas de fondo
-        const starsGeometry = new THREE.BufferGeometry();
-        const starsCount = 2000;
-        const posArray = new Float32Array(starsCount * 3);
-        for(let i=0; i < starsCount * 3; i++) {
-            posArray[i] = (Math.random() - 0.5) * 100;
-        }
-        starsGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-        const starsMaterial = new THREE.PointsMaterial({size: 0.05, color: 0xffffff});
-        const starsMesh = new THREE.Points(starsGeometry, starsMaterial);
-        scene.add(starsMesh);
-
-
-        // --- 4. MOTOR DE AUDIO (Web Audio API) ---
+        // --- MOTOR DE AUDIO ---
         let audioCtx;
-        
+        const activeOscillators = {}; // Para manejar polifonía y evitar glitches
+
         function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        // Sintetizador para Letras (Ondas armónicas)
-        function playSynthNote(char) {
-            if (!audioCtx) return;
+        function playTone(freq, char) {
+            if(!audioCtx) return;
+
+            // Si ya suena esa tecla, la paramos suavemente para reiniciar
+            if (activeOscillators[char]) {
+                try { activeOscillators[char].stop(); } catch(e){}
+            }
 
             const osc = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
             const filter = audioCtx.createBiquadFilter();
 
-            // Mapeo simple de caracteres a frecuencias (Escala Pentatónica Menor extendida)
-            // Usamos códigos ASCII para generar frecuencias base
-            const code = char.charCodeAt(0);
-            // Fórmula pentatónica improvisada para que suene bien casi siempre
-            const baseFreq = 110 * Math.pow(1.05946, (code % 25)); 
+            // Configuración de sonido (Sinte tipo "Sawtooth" suavizado)
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-            osc.type = ['sine', 'triangle', 'sawtooth'][Math.floor(Math.random()*3)]; // Tipo de onda aleatoria
-            osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+            // Filtro Lowpass para quitar lo "chillón"
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(2000, audioCtx.currentTime);
 
-            filter.type = "lowpass";
-            filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
-
-            // Envolvente (ADSR simulado)
-            gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.05); // Attack
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5); // Release largo
+            // Envolvente (ADSR)
+            const now = audioCtx.currentTime;
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.2, now + 0.02); // Ataque rápido
+            gainNode.gain.exponentialRampToValueAtTime(0.001, now + 1); // Release
 
             osc.connect(filter);
             filter.connect(gainNode);
             gainNode.connect(audioCtx.destination);
 
             osc.start();
-            osc.stop(audioCtx.currentTime + 1.5);
+            osc.stop(now + 1);
+
+            activeOscillators[char] = osc;
         }
 
-        // Sintetizador para Números (Percusión/Ruido)
-        function playDrum(num) {
-            if (!audioCtx) return;
-            
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-
-            if (num % 2 === 0) {
-                // Simulación de Bombo (Kick)
-                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                gainNode.gain.setValueAtTime(1, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                osc.connect(gainNode);
-            } else {
-                // Simulación de Hi-hat/Ruido (simplificado con onda cuadrada alta)
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(800 + (Math.random() * 500), audioCtx.currentTime);
-                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                
-                // Filtro paso alto
-                const filter = audioCtx.createBiquadFilter();
-                filter.type = "highpass";
-                filter.frequency.value = 1000;
-                osc.connect(filter);
-                filter.connect(gainNode);
-            }
-
-            gainNode.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.5);
-        }
-
-
-        // --- 5. INTERACCIÓN Y LÓGICA ---
+        // --- INTERACCIÓN ---
         
-        // Animación de tecla presionada
-        function triggerKeyVisual(mesh) {
-            // Resetear posición
-            mesh.scale.set(1, 1, 1);
+        document.addEventListener('keydown', (e) => {
+            const char = e.key.toLowerCase();
             
-            // Animación "golpe" visual
-            mesh.scale.set(1.1, 1.1, 1.5); // Se hace más larga
-            mesh.material.color.setHex(mesh.userData.activeColor);
-            mesh.material.emissive.setHex(mesh.userData.activeColor);
-            mesh.material.emissiveIntensity = 2;
+            if (activeMeshes[char]) {
+                const mesh = activeMeshes[char];
+                
+                // Visual
+                mesh.position.y = mesh.userData.originalY - 0.5; // Hundir tecla
+                mesh.material.emissive.setHex(0x00d2ff);
+                
+                // Audio
+                initAudio(); // Asegurar contexto
+                playTone(mesh.userData.freq, char);
 
-            // Flash de luz global
-            stageLight.color.setHex(mesh.userData.activeColor);
-            stageLight.intensity = 2;
+                // HUD
+                document.getElementById('hud').innerText = `NOTA: ${mesh.userData.noteName} | TECLA: ${char.toUpperCase()}`;
+            }
+        });
 
-            // Timer para regresar al estado normal
-            setTimeout(() => {
-                mesh.scale.set(1, 1, 1);
-                mesh.material.color.setHex(mesh.userData.originalColor);
+        document.addEventListener('keyup', (e) => {
+            const char = e.key.toLowerCase();
+            if (activeMeshes[char]) {
+                const mesh = activeMeshes[char];
+                // Restaurar Visual
+                mesh.position.y = mesh.userData.originalY;
                 mesh.material.emissive.setHex(0x000000);
-                mesh.material.emissiveIntensity = 0;
-            }, 150);
-        }
-
-        document.addEventListener('keydown', (event) => {
-            const key = event.key.toLowerCase();
-            
-            if (keyMap[key]) {
-                const mesh = keyMap[key];
-                
-                // Lógica Visual
-                triggerKeyVisual(mesh);
-
-                // Lógica de Audio
-                if (!isNaN(key)) {
-                    // Es número
-                    playDrum(parseInt(key));
-                } else {
-                    // Es letra
-                    playSynthNote(key);
-                }
             }
         });
 
-        // Manejo del overlay de inicio
-        const overlay = document.getElementById('overlay');
-        overlay.addEventListener('click', () => {
+        document.getElementById('overlay').addEventListener('click', function() {
             initAudio();
-            overlay.classList.add('hidden');
+            this.classList.add('hidden');
         });
 
-        // --- 6. BUCLE DE RENDERIZADO ---
-        
-        // Variables para animación suave de retorno de la luz
+        // --- LOOP DE ANIMACIÓN ---
         function animate() {
             requestAnimationFrame(animate);
-
-            // Rotación sutil de todo el instrumento
-            keysGroup.rotation.y = Math.sin(Date.now() * 0.0005) * 0.1;
-            keysGroup.rotation.z = Math.cos(Date.now() * 0.0005) * 0.05;
-
-            // Movimiento de estrellas
-            starsMesh.rotation.y += 0.0005;
-
-            // Decaimiento de la luz de escenario
-            if (stageLight.intensity > 0) {
-                stageLight.intensity -= 0.1;
-            }
-
             renderer.render(scene, camera);
         }
-
-        // Resize handler
+        
+        // Resize
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.aspect = window.innerWidth/window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
         animate();
+
     </script>
 </body>
 </html>
