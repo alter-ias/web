@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HYDRO-SYNTH: Liquid Logic</title>
+    <style>
+        /* ESTÉTICA DE LABORATORIO SUBMARINO */
+        body { margin: 0; overflow: hidden; background-color: #000510; font-family: 'Segoe UI', sans-serif; }
+        
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, #00111f, #000000);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 100; transition: opacity 0.8s;
+        }
+        
+        h1 { 
+            color: #00ffff; text-shadow: 0 0 30px #0088ff; 
+            font-size: 3.5rem; margin: 0; letter-spacing: 8px; font-weight: 300;
+        }
+        p { color: #55aaff; font-size: 1.1rem; margin-bottom: 40px; letter-spacing: 2px; }
+        
+        button {
+            padding: 18px 60px; border: 1px solid #00ffff; background: rgba(0, 255, 255, 0.1);
+            color: #00ffff; font-size: 1.2rem; cursor: pointer; text-transform: uppercase;
+            border-radius: 30px; backdrop-filter: blur(10px); transition: 0.4s;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+        button:hover { background: #00ffff; color: #000; box-shadow: 0 0 60px #00ffff; }
+
+        #hud {
+            position: absolute; top: 30px; left: 30px; color: #00ffff;
+            pointer-events: none; padding: 20px; 
+            background: rgba(0, 10, 20, 0.6); border-radius: 15px;
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+        }
+        .tube-status { margin-bottom: 8px; opacity: 0.5; transition: 0.3s; display: flex; align-items: center; }
+        .active { opacity: 1; text-shadow: 0 0 10px #00ffff; font-weight: bold; }
+        .dot { width: 10px; height: 10px; background: currentColor; border-radius: 50%; margin-right: 10px; box-shadow: 0 0 5px currentColor;}
+
+        canvas { display: block; }
+    </style>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="overlay">
+        <h1>HYDRO-SYNTH</h1>
+        <p>SISTEMA DE SECUENCIA DE FLUIDOS</p>
+        <button id="startBtn">PRESURIZAR TANQUE</button>
+    </div>
+
+    <div id="hud">
+        <div id="t0" class="tube-status active" style="color:#00ffff"><div class="dot"></div> TUBE 1: DEEP PULSE</div>
+        <div id="t1" class="tube-status" style="color:#ff00aa"><div class="dot"></div> TUBE 2: BUBBLES</div>
+        <div id="t2" class="tube-status" style="color:#00ff00"><div class="dot"></div> TUBE 3: TOXIC DRIP</div>
+        <div id="t3" class="tube-status" style="color:#ffffff"><div class="dot"></div> TUBE 4: STEAM HISS</div>
+        <div style="margin-top: 20px; font-size: 0.8rem; color: #4477aa;">
+            CONTROLES:<br>1-4: Seleccionar Tubo<br>Q-P: Inyectar Burbuja<br>ESPACIO: Drenar Tubo
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURACIÓN
+        // ==========================================
+        const CONFIG = {
+            steps: 32,
+            tracks: 4,
+            bpm: 110, // Un poco más lento para sensación "flotante"
+            radius: 5
+        };
+
+        let activeTrack = 0;
+        let isPlaying = false;
+        let currentStep = 0;
+        
+        // Memoria del secuenciador
+        const sequenceData = [];
+        for(let i=0; i<CONFIG.tracks; i++) {
+            sequenceData.push(new Array(CONFIG.steps).fill(null));
+        }
+
+        // ==========================================
+        // 1. MOTOR DE AUDIO "LÍQUIDO" (FM Synthesis)
+        // ==========================================
+        const AudioEngine = {
+            ctx: null,
+            masterGain: null,
+            
+            init: function() {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AC();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.5;
+
+                // Efecto "Tanque de Agua" (Reverb/Delay denso)
+                const delay = this.ctx.createDelay();
+                delay.delayTime.value = 0.35;
+                
+                const feedback = this.ctx.createGain();
+                feedback.gain.value = 0.6; // Mucho feedback para sonar sumergido
+                
+                // Filtro para opacar el eco (como bajo el agua)
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 600;
+
+                this.masterGain.connect(this.ctx.destination);
+                this.masterGain.connect(delay);
+                delay.connect(filter);
+                filter.connect(feedback);
+                feedback.connect(delay);
+                feedback.connect(this.ctx.destination); // El eco va al output
+                
+                if(this.ctx.state === 'suspended') this.ctx.resume();
+            },
+
+            // Generador de sonidos procedimentales
+            playLiquid: function(track, noteIdx) {
+                if(!this.ctx) return;
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                // Configuración por Tubo
+                
+                // TUBO 1: DEEP PULSE (Sonar/Submarino)
+                if(track === 0) { 
+                    osc.type = 'sine';
+                    osc.frequency.value = 60 + (noteIdx * 5); 
+                    
+                    gain.gain.setValueAtTime(0, t);
+                    gain.gain.linearRampToValueAtTime(0.8, t + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + 1.5); // Decay largo
+                } 
+                
+                // TUBO 2: BUBBLES (FM Synthesis - "Bloop" sounds)
+                else if(track === 1) { 
+                    // Oscilador portador
+                    osc.type = 'sine';
+                    osc.frequency.value = 300 + (noteIdx * 100);
+                    
+                    // Modulador (para hacer el "glu-glu")
+                    const mod = this.ctx.createOscillator();
+                    mod.frequency.value = 20; // Velocidad del vibrato
+                    const modGain = this.ctx.createGain();
+                    modGain.gain.value = 200; // Intensidad del pitch shift
+                    
+                    mod.connect(modGain);
+                    modGain.connect(osc.frequency);
+                    mod.start();
+                    mod.stop(t+0.5);
+
+                    gain.gain.setValueAtTime(0.5, t);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+                }
+                
+                // TUBO 3: TOXIC DRIP (High ping)
+                else if(track === 2) { 
+                    osc.type = 'triangle';
+                    osc.frequency.value = 800 + (noteIdx * 200);
+                    
+                    // Pitch envelope rápido (gota cayendo)
+                    osc.frequency.exponentialRampToValueAtTime(200, t + 0.1);
+
+                    gain.gain.setValueAtTime(0.3, t);
+                    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+                } 
+                
+                // TUBO 4: STEAM/HISSS (White Noise)
+                else { 
+                    // Hack para ruido blanco sin buffer externo
+                    osc.type = 'sawtooth'; 
+                    osc.frequency.value = 50 + Math.random()*100;
+                    
+                    // Tremolo extremo para simular ruido
+                    const mod = this.ctx.createOscillator();
+                    mod.type = 'square';
+                    mod.frequency.value = 800;
+                    const modG = this.ctx.createGain();
+                    modG.gain.value = 1000;
+                    mod.connect(modG);
+                    modG.connect(osc.frequency);
+                    mod.start(); mod.stop(t+0.5);
+
+                    const f = this.ctx.createBiquadFilter();
+                    f.type = 'highpass';
+                    f.frequency.value = 2000;
+                    osc.connect(f);
+                    f.connect(gain);
+                    
+                    gain.gain.setValueAtTime(0.2, t);
+                    gain.gain.linearRampToValueAtTime(0, t + 0.15);
+                    
+                    gain.connect(this.masterGain);
+                    osc.start(); osc.stop(t+0.5);
+                    return;
+                }
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(t + 2);
+            }
+        };
+
+        // ==========================================
+        // 2. MOTOR GRÁFICO (THREE.JS) - Look de Vidrio
+        // ==========================================
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x000510, 0.04);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 100);
+        camera.position.set(0, 8, 16);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        // Habilitar brillos (bloom simulado con blending)
+        document.body.appendChild(renderer.domElement);
+
+        const centerGroup = new THREE.Group();
+        scene.add(centerGroup);
+
+        // --- NÚCLEO LÍQUIDO CENTRAL ---
+        const coreGeo = new THREE.CylinderGeometry(1, 1, 12, 32);
+        const coreMat = new THREE.MeshBasicMaterial({ 
+            color: 0x00aaff, 
+            transparent: true, 
+            opacity: 0.3,
+            blending: THREE.AdditiveBlending 
+        });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        centerGroup.add(core);
+
+        // Luz interna del núcleo
+        const coreLight = new THREE.PointLight(0x00ffff, 2, 20);
+        centerGroup.add(coreLight);
+
+        // --- LOS 4 TUBOS DE VIDRIO ---
+        const tracks = [];
+        
+        // Colores de neón para los tubos
+        const trackColors = [0x00ffff, 0xff00aa, 0x00ff00, 0xffffff];
+
+        for(let i=0; i<CONFIG.tracks; i++) {
+            const tubeGroup = new THREE.Group();
+            
+            // Geometría del tubo (Transparente)
+            const tubeGeo = new THREE.CylinderGeometry(0.8, 0.8, 10, 16);
+            const tubeMat = new THREE.MeshPhongMaterial({ 
+                color: trackColors[i], 
+                transparent: true, 
+                opacity: 0.1, 
+                shininess: 100,
+                side: THREE.DoubleSide,
+                blending: THREE.AdditiveBlending
+            });
+            const tube = new THREE.Mesh(tubeGeo, tubeMat);
+            tubeGroup.add(tube);
+
+            // Anillos decorativos en el tubo
+            const ringGeo = new THREE.TorusGeometry(0.8, 0.05, 8, 16);
+            const ringMat = new THREE.MeshBasicMaterial({ color: trackColors[i], transparent: true, opacity: 0.3 });
+            for(let r=-4; r<=4; r+=2) {
+                const ring = new THREE.Mesh(ringGeo, ringMat);
+                ring.rotation.x = Math.PI/2;
+                ring.position.y = r;
+                tubeGroup.add(ring);
+            }
+
+            // Posicionar los tubos en círculo alrededor del núcleo
+            const angle = (i / CONFIG.tracks) * Math.PI * 2;
+            const radius = 4;
+            tubeGroup.position.set(Math.cos(angle)*radius, 0, Math.sin(angle)*radius);
+            
+            // Inclinarlos ligeramente hacia adentro (estética centrífuga)
+            tubeGroup.lookAt(0, 0, 0); 
+            // Corregir rotación para que queden verticales pero orientados
+            tubeGroup.rotation.x = 0; 
+            tubeGroup.rotation.z = 0;
+            // Rotar el grupo entero según su posición
+            
+            centerGroup.add(tubeGroup);
+            tracks.push({ group: tubeGroup, color: trackColors[i], basePos: tubeGroup.position.clone() });
+        }
+
+        // --- SCANNER LASER (El lector) ---
+        // Un anillo láser que corta todos los tubos
+        const laserGeo = new THREE.TorusGeometry(4, 0.05, 16, 100);
+        const laserMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const laser = new THREE.Mesh(laserGeo, laserMat);
+        laser.rotation.x = Math.PI/2;
+        centerGroup.add(laser);
+
+
+        // ==========================================
+        // 3. LÓGICA DE SECUENCIA (CENTRÍFUGA)
+        // ==========================================
+
+        function createBubble(trackIdx, stepIdx) {
+            // Borrar burbuja vieja si existe
+            if(sequenceData[trackIdx][stepIdx] && sequenceData[trackIdx][stepIdx].mesh) {
+                tracks[trackIdx].group.remove(sequenceData[trackIdx][stepIdx].mesh);
+            }
+
+            // Crear Esfera Brillante (Burbuja)
+            const geo = new THREE.SphereGeometry(0.3, 16, 16);
+            const mat = new THREE.MeshBasicMaterial({ 
+                color: trackColors[trackIdx] 
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+
+            // La posición Y depende del "paso" (Step)
+            // Mapeamos 32 pasos a lo largo del tubo (de -4 a +4 en Y)
+            const totalHeight = 8;
+            const yPos = -4 + ((stepIdx / CONFIG.steps) * totalHeight);
+            
+            mesh.position.set(0, yPos, 0); // Dentro del tubo local
+            
+            tracks[trackIdx].group.add(mesh);
+            return mesh;
+        }
+
+        let lastTime = 0;
+        const loopDuration = (60 / CONFIG.bpm) * 4; // 4 beats completos
+
+        function loop(time) {
+            requestAnimationFrame(loop);
+            
+            const dt = (time - lastTime) / 1000;
+            lastTime = time;
+
+            if(isPlaying) {
+                // Mover el SCANNER hacia arriba en lugar de girar el cilindro
+                // Simulación: El láser sube escaneando las burbujas
+                
+                // Calculamos el progreso del loop (0.0 a 1.0)
+                const loopProgress = (time / 1000 / loopDuration) % 1;
+                
+                // Mover el láser visualmente de abajo (-4) a arriba (4)
+                laser.position.y = -4 + (loopProgress * 8);
+
+                // Calcular paso actual (0 a 31)
+                const step = Math.floor(loopProgress * CONFIG.steps);
+                
+                if(step !== currentStep) {
+                    currentStep = step;
+                    triggerStep(currentStep);
+                }
+
+                // Rotar todo el sistema lentamente para efecto cool
+                centerGroup.rotation.y += 0.005;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function triggerStep(step) {
+            for(let t=0; t<CONFIG.tracks; t++) {
+                const data = sequenceData[t][step];
+                
+                if(data && data.note !== undefined) {
+                    // SONIDO
+                    AudioEngine.playLiquid(t, data.note);
+                    
+                    // EFECTO VISUAL
+                    // La burbuja brilla intensamente
+                    if(data.mesh) {
+                        const originalScale = data.mesh.scale.x;
+                        data.mesh.scale.set(2,2,2);
+                        setTimeout(() => { 
+                            if(data.mesh) data.mesh.scale.set(1,1,1); 
+                        }, 150);
+                    }
+
+                    // El tubo se ilumina
+                    const tubeMesh = tracks[t].group.children[0];
+                    tubeMesh.material.opacity = 0.6;
+                    setTimeout(() => { tubeMesh.material.opacity = 0.1; }, 100);
+                }
+            }
+        }
+
+        // ==========================================
+        // 4. INTERACCIÓN
+        // ==========================================
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            AudioEngine.init();
+            isPlaying = true;
+            document.getElementById('overlay').style.opacity = 0;
+            setTimeout(() => document.getElementById('overlay').style.display = 'none', 800);
+            loop(0);
+        });
+
+        window.addEventListener('keydown', (e) => {
+            const k = e.key.toLowerCase();
+            
+            // Selección de tubo
+            if(['1','2','3','4'].includes(k)) {
+                activeTrack = parseInt(k) - 1;
+                document.querySelectorAll('.tube-status').forEach((el, i) => {
+                    if(i === activeTrack) el.classList.add('active');
+                    else el.classList.remove('active');
+                });
+            }
+
+            // Inyectar Burbuja (Notas)
+            const map = "qwertyuiop";
+            const idx = map.indexOf(k);
+            if(idx > -1) {
+                // Crear burbuja en el paso actual aproximado (donde esté el láser)
+                const mesh = createBubble(activeTrack, currentStep);
+                sequenceData[activeTrack][currentStep] = { note: idx, mesh: mesh };
+                
+                // Feedback sonido
+                AudioEngine.playLiquid(activeTrack, idx);
+            }
+
+            // Drenar (Borrar)
+            if(e.code === 'Space') {
+                for(let s=0; s<CONFIG.steps; s++) {
+                    if(sequenceData[activeTrack][s]) {
+                        tracks[activeTrack].group.remove(sequenceData[activeTrack][s].mesh);
+                        sequenceData[activeTrack][s] = null;
+                    }
+                }
+            }
+        });
+
+        // Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth/window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
