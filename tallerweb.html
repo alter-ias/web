@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALTERLAB | Laboratorio de Arte Generativo</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap');
+
+        :root {
+            --primary: #00f3ff;
+            --secondary: #bc13fe;
+            --bg: #050505;
+            --text: #ffffff;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-card: rgba(0, 0, 0, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Rajdhani', sans-serif;
+            overflow-x: hidden;
+            width: 100vw;
+            min-height: 100vh;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.6;
+        }
+
+        main {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4rem 2rem;
+        }
+
+        /* HERO SECTION */
+        .glass-panel {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 3rem;
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.1);
+            animation: fadeIn 1.5s ease-out;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 4rem;
+        }
+
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+            animation: shine 8s infinite;
+        }
+
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #bfbfbf);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            line-height: 1;
+        }
+
+        h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.2rem, 3vw, 2rem);
+            color: var(--primary);
+            letter-spacing: 3px;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            margin-bottom: 3rem;
+            color: #ccc;
+            border-top: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1rem 0;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .cta-section {
+            margin: 3rem 0;
+            padding: 2rem;
+            border: 1px solid var(--secondary);
+            border-radius: 10px;
+            background: rgba(188, 19, 254, 0.05);
+            position: relative;
+        }
+
+        .cta-section h3 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--secondary);
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+
+        .cta-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .highlight-tags {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+
+        .tag {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 15px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            border: 1px solid var(--glass-border);
+            transition: all 0.3s ease;
+        }
+
+        .tag:hover {
+            background: var(--primary);
+            color: #000;
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .info-card {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1.5rem;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .info-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .info-label {
+            color: var(--primary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        /* PORTFOLIO SECTION */
+        .section-header {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            color: var(--secondary);
+            margin: 4rem 0 2rem;
+            text-shadow: 0 0 15px rgba(188, 19, 254, 0.4);
+            text-align: center;
+            position: relative;
+            display: inline-block;
+        }
+
+        .section-header::after {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 2px;
+            background: var(--secondary);
+            margin-top: 10px;
+            box-shadow: 0 0 10px var(--secondary);
+        }
+
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            width: 100%;
+            max-width: 1200px;
+            padding: 0 1rem;
+        }
+
+        .project-card {
+            background: var(--glass-card);
+            border: 1px solid var(--glass-border);
+            padding: 2rem;
+            border-radius: 15px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            ;
+            text-decoration: none;
+            color: var(--text);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            min-height: 280px;
+            backdrop-filter: blur(5px);
+        }
+
+        .project-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px rgba(0, 243, 255, 0.15);
+        }
+
+        .project-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3px;
+            height: 0;
+            background: var(--primary);
+            transition: height 0.4s ease;
+        }
+
+        .project-card:hover::before {
+            height: 100%;
+        }
+
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .project-icon {
+            font-size: 1.5rem;
+            color: var(--secondary);
+        }
+
+        .project-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.2rem;
+        }
+
+        .project-version {
+            font-family: 'Rajdhani', monospace;
+            color: var(--primary);
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            opacity: 0.8;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .project-desc {
+            font-size: 1rem;
+            color: #d0d0d0;
+            line-height: 1.5;
+            margin-bottom: 2rem;
+            flex-grow: 1;
+        }
+
+        .project-tech {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 1rem;
+        }
+
+        .tech-tag {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .project-card:hover .tech-tag {
+            border-color: var(--secondary);
+            color: var(--secondary);
+        }
+
+        /* ANIMATIONS */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes shine {
+            0% {
+                left: -100%;
+            }
+
+            20% {
+                left: 100%;
+            }
+
+            100% {
+                left: 100%;
+            }
+        }
+
+        /* Glitch effect for title */
+        .glitch {
+            position: relative;
+        }
+
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg);
+        }
+
+        .glitch::before {
+            left: 2px;
+            text-shadow: -1px 0 #ff00c1;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim 5s infinite linear alternate-reverse;
+        }
+
+        .glitch::after {
+            left: -2px;
+            text-shadow: -1px 0 #00fff9;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim2 5s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim {
+            0% {
+                clip: rect(30px, 9999px, 10px, 0);
+            }
+
+            5% {
+                clip: rect(65px, 9999px, 80px, 0);
+            }
+
+            10% {
+                clip: rect(42px, 9999px, 50px, 0);
+            }
+
+            15% {
+                clip: rect(2px, 9999px, 20px, 0);
+            }
+
+            20% {
+                clip: rect(70px, 9999px, 60px, 0);
+            }
+
+            100% {
+                clip: rect(10px, 9999px, 90px, 0);
+            }
+        }
+
+        @keyframes glitch-anim2 {
+            0% {
+                clip: rect(20px, 9999px, 60px, 0);
+            }
+
+            5% {
+                clip: rect(42px, 9999px, 10px, 0);
+            }
+
+            10% {
+                clip: rect(2px, 9999px, 90px, 0);
+            }
+
+            15% {
+                clip: rect(30px, 9999px, 10px, 0);
+            }
+
+            20% {
+                clip: rect(85px, 9999px, 30px, 0);
+            }
+
+            100% {
+                clip: rect(50px, 9999px, 70px, 0);
+            }
+        }
+
+        footer {
+            margin-top: 5rem;
+            color: #555;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="canvas-container"></div>
+
+    <main>
+        <div class="glass-panel">
+            <h2 class="subtitle">DESARROLLO DE APLICACIONES Y PÁGINAS WEB</h2>
+
+            <h1 class="glitch" data-text="ALTERLAB">ALTERLAB</h1>
+            <h2>LABORATORIO DE ARTE GENERATIVO</h2>
+
+            <div class="cta-section">
+                <h3>CONVOCATORIA ABIERTA</h3>
+                <p class="cta-text">
+                    Buscamos mentes creativas para desarrollar el futuro de la web.
+                    Únete a nosotros para crear experiencias digitales inmersivas.
+                </p>
+                <div class="highlight-tags">
+                    <span class="tag">Páginas Web</span>
+                    <span class="tag">Tiendas en Línea</span>
+                    <span class="tag">Arte Generativo</span>
+                    <span class="tag">Video y Música</span>
+                    <span class="tag">Proyectos Artísticos</span>
+                    <span class="tag">Negocios</span>
+                </div>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-card">
+                    <div class="info-label">Costo</div>
+                    <div class="info-value">2000 PESOS</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Duración</div>
+                    <div class="info-value">4 SESIONES</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Inicio</div>
+                    <div class="info-value">FEBRERO 2026</div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="section-header">PROYECTOS DESTACADOS</h2>
+
+        <div class="portfolio-grid">
+
+            <!-- EXAMPLES START -->
+            <a href="https://www.alterlabgen.lat/alexvideo.html" class="project-card" target="_blank">
+                <div>
+                    <h3 class="project-title">ALEX VIDEO</h3>
+                    <span class="project-version">V.1.9.1 MASTER REC</span>
+                    <p class="project-desc">Sistema de mapeo MIDI y Red P2P (Party Mode). Control total sobre la
+                        experiencia visual.</p>
+                </div>
+                <div class="project-tech">
+                    <span class="tech-tag">Video Mapping</span>
+                    <span class="tech-tag">MIDI</span>
+                    <span class="tech-tag">P2P</span>
+                </div>
+            </a>
+
+            <a href="https://www.alterlabgen.lat/alexai.html" class="project-card" target="_blank">
+                <div>
+                    <h3 class="project-title">ALEX AI</h3>
+                    <span class="project-version">V.1.6 NEURAL</span>
+                    <p class="project-desc">Diseño 'Minimalist Bottle'. Asistente con inteligencia contextual y modo de
+                        sesión adaptativa.</p>
+                </div>
+                <div class="project-tech">
+                    <span class="tech-tag">AI</span>
+                    <span class="tech-tag">Ingeniería Acústica</span>
+                </div>
+            </a>
+
+            <a href="https://www.alterlabgen.lat/alexcontrol.html" class="project-card" target="_blank">
+                <div>
+                    <h3 class="project-title">ALEX CONTROL</h3>
+                    <span class="project-version">HARDWARE V.2.2</span>
+                    <p class="project-desc">Interfaz física de alta densidad. Grid magnético de 9 puntos y modo nocturno
+                        nativo.</p>
+                </div>
+                <div class="project-tech">
+                    <span class="tech-tag">Hardware</span>
+                    <span class="tech-tag">Modular</span>
+                    <span class="tech-tag">Tactile</span>
+                </div>
+            </a>
+
+            <a href="https://www.alterlabgen.lat/kaylum.html" class="project-card" target="_blank">
+                <div>
+                    <h3 class="project-title">KAYLUM</h3>
+                    <span class="project-version">ESCUCHA A LA TIERRA</span>
+                    <p class="project-desc">Plataforma de streaming libre y automatizada. Alternativa ética sin fin de
+                        lucro.</p>
+                </div>
+                <div class="project-tech">
+                    <span class="tech-tag">Streaming</span>
+                    <span class="tech-tag">Open Source</span>
+                    <span class="tech-tag">Activismo</span>
+                </div>
+            </a>
+
+            <a href="https://www.alterlabgen.lat/teclarpa.html" class="project-card" target="_blank">
+                <div>
+                    <h3 class="project-title">CYLINDER SYNTH</h3>
+                    <span class="project-version">MECHANICAL SYNTH</span>
+                    <p class="project-desc">Sintetizador mecánico experimental. Edición GitHub. Interfaz de teclado
+                        única.</p>
+                </div>
+                <div class="project-tech">
+                    <span class="tech-tag">Synth</span>
+                    <span class="tech-tag">Audio</span>
+                    <span class="tech-tag">Experimental</span>
+                </div>
+            </a>
+
+            <a href="https://www.alterlabgen.lat/alterdrez.html" class="project-card" target="_blank">
+                <div>
+                    <h3 class="project-title">ALTERDREZ</h3>
+                    <span class="project-version">V.7.5 HÍBRIDO</span>
+                    <p class="project-desc">El Entrenador Libre de Ajedrez. Gestión de datos masiva y filosofía Código
+                        Abierto.</p>
+                </div>
+                <div class="project-tech">
+                    <span class="tech-tag">Game Logic</span>
+                    <span class="tech-tag">Data</span>
+                    <span class="tech-tag">Chess</span>
+                </div>
+            </a>
+            <!-- EXAMPLES END -->
+
+        </div>
+
+        <footer>
+            &copy; 2026 ALTERLAB. CODED FOR THE FUTURE.
+        </footer>
+    </main>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // VISUAL EFFECTS LOGIC
+        const container = document.getElementById('canvas-container');
+        let scene, camera, renderer;
+        let geometry, material, mesh;
+        let mouseX = 0, mouseY = 0;
+
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        init();
+        animate();
+
+        function init() {
+            scene = new THREE.Scene();
+            // Deep fog for depth
+            scene.fog = new THREE.FogExp2(0x050505, 0.002);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 400;
+            camera.position.y = 100;
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // Create a complex fluid-like terrain
+            geometry = new THREE.PlaneGeometry(2000, 2000, 128, 128);
+
+            // Custom shader material for liquid aesthetic
+            const vertexShader = `
+                varying vec2 vUv;
+                varying float vElevation;
+                uniform float uTime;
+                uniform vec2 uMouse;
+
+                void main() {
+                    vUv = uv;
+                    
+                    vec3 pos = position;
+                    
+                    // Complex wave layering
+                    float wave1 = sin(pos.x * 0.005 + uTime * 0.5) * 30.0;
+                    float wave2 = cos(pos.y * 0.005 + uTime * 0.3) * 30.0;
+                    float wave3 = sin((pos.x + pos.y) * 0.002 + uTime * 0.2) * 20.0;
+                    
+                    // Mouse interaction ripple
+                    float d = distance(uv, uMouse);
+                    // Invert mouse Y for UV space if needed, but often fine as is depending on mapping
+                    float interaction = smoothstep(0.3, 0.0, d) * 60.0 * sin(uTime * 3.0);
+                    
+                    pos.z += wave1 + wave2 + wave3 + interaction;
+                    vElevation = pos.z;
+
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                }
+            `;
+
+            const fragmentShader = `
+                varying vec2 vUv;
+                varying float vElevation;
+                uniform float uTime;
+
+                void main() {
+                    // Dynamic color based on elevation
+                    float intensity = (vElevation + 50.0) / 100.0;
+                    
+                    vec3 color1 = vec3(0.0, 0.95, 1.0); // Cyan
+                    vec3 color2 = vec3(0.74, 0.07, 1.0); // Purple
+                    vec3 color3 = vec3(0.01, 0.01, 0.05); // Deep Blue/Black
+
+                    // Color mix
+                    vec3 finalColor = mix(color3, mix(color1, color2, sin(uTime + vUv.x * 3.0) * 0.5 + 0.5), intensity);
+                    
+                    // Wireframe grid lines
+                    float gridX = step(0.98, mod(vUv.x * 60.0, 1.0));
+                    float gridY = step(0.98, mod(vUv.y * 60.0, 1.0));
+                    float grid = max(gridX, gridY);
+
+                    // Add glow to grid
+                    finalColor += vec3(grid * 0.8);
+                    
+                    // Fade out edges
+                    float alpha = 0.6 * (1.0 - distance(vUv, vec2(0.5)));
+
+                    gl_FragColor = vec4(finalColor, alpha + grid * 0.4); 
+                }
+            `;
+
+            material = new THREE.ShaderMaterial({
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader,
+                uniforms: {
+                    uTime: { value: 0 },
+                    uMouse: { value: new THREE.Vector2(0.5, 0.5) }
+                },
+                wireframe: false, // Using shader-based grid instead for smoother look
+                transparent: true,
+                side: THREE.DoubleSide,
+                // blending: THREE.AdditiveBlending // Optional: makes it very glowy
+            });
+
+            mesh = new THREE.Mesh(geometry, material);
+            mesh.rotation.x = -Math.PI / 2.2;
+            scene.add(mesh);
+
+            document.addEventListener('mousemove', onDocumentMouseMove);
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onDocumentMouseMove(event) {
+            // Updated mapping for UV space (0 to 1)
+            const normX = event.clientX / window.innerWidth;
+            const normY = 1.0 - (event.clientY / window.innerHeight);
+
+            if (material.uniforms) {
+                // Smooth interpolation could be added here
+                material.uniforms.uMouse.value.set(normX, normY);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        function render() {
+            const time = performance.now() * 0.001;
+
+            if (material.uniforms) {
+                material.uniforms.uTime.value = time;
+            }
+
+            // Gentle rotation
+            mesh.rotation.z += 0.0005;
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+
+</html>
