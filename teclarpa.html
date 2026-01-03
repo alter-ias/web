@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYLINDER SYNTH - GitHub Edition</title>
+    <title>CYLINDER SYNTH - GitHub Edition (Fixed)</title>
     <style>
         /* ESTILO VISUAL: OSCURO E INDUSTRIAL */
         body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Courier New', monospace; }
@@ -238,6 +238,7 @@
         for(let i=0; i<CONFIG.tracks; i++) {
             const armGroup = new THREE.Group();
             const xPos = ((i / 3) * 6) - 3;
+            // Los brazos están en la parte superior (Y+)
             armGroup.position.set(xPos, CONFIG.radius + 1.5, 0);
             
             // Estructura del brazo
@@ -286,8 +287,13 @@
             const mat = new THREE.MeshBasicMaterial({ color: colors[track] });
             const mesh = new THREE.Mesh(geo, mat);
 
-            // Calcular posición en el círculo
-            const angle = (step / CONFIG.steps) * Math.PI * 2;
+            // ---------------------------------------------------------
+            // CORRECCIÓN DE ÁNGULO AQUÍ:
+            // Sumamos (Math.PI / 2) para que el ángulo 0 empiece arriba (Y+) 
+            // en lugar de al frente (Z+).
+            // ---------------------------------------------------------
+            const angle = ((step / CONFIG.steps) * Math.PI * 2) + (Math.PI / 2);
+            
             const r = CONFIG.radius; // En la superficie del cilindro
             const x = ((track / 3) * 6) - 3;
 
@@ -314,11 +320,13 @@
                 const fullRotation = CONFIG.steps * stepDuration;
                 drumGroup.rotation.x += (Math.PI * 2 * dt) / fullRotation;
 
-                // --- MATEMÁTICA SEGURA (Evita el error rojo) ---
+                // --- MATEMÁTICA SEGURA ---
                 let rot = drumGroup.rotation.x % (Math.PI * 2);
                 if(rot < 0) rot += Math.PI * 2;
                 
                 // Calcular en qué paso estamos (0 al 31)
+                // Esto funciona porque si rot=0, step=0. 
+                // Y como rot=0 implica visualmente "Arriba" gracias al ajuste en createPin, todo coincide.
                 let step = Math.floor((rot / (Math.PI * 2)) * CONFIG.steps);
                 
                 // Asegurar que el índice esté dentro del rango
@@ -392,6 +400,7 @@
             const idx = notes.indexOf(k);
             if(idx > -1) {
                 // Guardar
+                // Usamos el paso actual para que la nota aparezca justo bajo el brazo
                 const mesh = createPin(activeTrack, currentStep);
                 sequenceData[activeTrack][currentStep] = { note: idx, mesh: mesh };
                 // Feedback auditivo inmediato
