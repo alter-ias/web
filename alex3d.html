@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>ALEX V.2.1 VIDEO-SKIN</title>
+    <title>ALEX 3D</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@500;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -243,7 +243,7 @@
              <div style="position: absolute; top: 40px; left: 50%; transform: translateX(-50%); width: 160px; height: 10px; background: #000;"></div>
         </div>
         <h1 style="font-size:90px; letter-spacing:-5px; color:#101010; margin: 0 0 10px 0; font-family: 'Montserrat'; font-weight: 900; line-height: 0.8;">ALEX</h1>
-        <h2 style="font-size: 16px; font-family: 'Rajdhani'; letter-spacing: 5px; color: #555; text-transform: uppercase; font-weight: 700; margin-bottom: 40px;">System V.2.1 SKIN</h2>
+        <h2 style="font-size: 16px; font-family: 'Rajdhani'; letter-spacing: 5px; color: #555; text-transform: uppercase; font-weight: 700; margin-bottom: 40px;">System V.2.2 PURE-3D</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:#101010; border:none; color:#E8E4D9; font-family:'Montserrat'; font-weight: 800; font-size:20px; letter-spacing: 1px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -282,14 +282,11 @@
 
                 <div class="panel">
                     <h3>COMANDOS</h3>
-                    <div class="shortcut-row"><span>Cargar Banco</span> <span class="key-badge">SHIFT + A-L</span></div>
-                    <div class="shortcut-row"><span>Disparar Banco</span> <span class="key-badge">A-L</span></div>
-                    <div class="shortcut-row"><span>Efectos 2D</span> <span class="key-badge">1-0</span></div>
-                    <div class="shortcut-row"><span>Estilo Malla</span> <span class="key-badge">Z</span></div>
-                    <div class="shortcut-row"><span>Def. Plano</span> <span class="key-badge">Q-T</span></div>
-                    <div class="shortcut-row"><span style="color:#FF3300">NEURO ORB 3D</span> <span class="key-badge" style="background:#FF3300; color:#000;">Y-P</span></div>
+                    <div class="shortcut-row"><span>Disparar / Cargar</span> <span class="key-badge">A-L</span></div>
+                    <div class="shortcut-row"><span>FX 3D</span> <span class="key-badge">Q-P</span></div>
                     <div class="shortcut-row"><span>Webcam</span> <span class="key-badge">N</span></div>
                     <div class="shortcut-row"><span>Cambiar Mix</span> <span class="key-badge">{</span></div>
+                    <div class="shortcut-row"><span>Salida / Win</span> <span class="key-badge">Ñ</span></div>
                     <div class="shortcut-row"><span>Reset</span> <span class="key-badge">M</span></div>
                 </div>
 
@@ -426,12 +423,11 @@
     <script type="module">
         import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
 
-        // --- NOTIFICACIÓN SILENCIOSA ---
         window.notify = function(msg) {
-            // Silenciado por diseño
+            // Silenciado
         }
         
-        // --- 1. MOTOR DE MEZCLA HD ---
+        // --- 1. MOTOR DE MEZCLA 3D PURO ---
         class MixerEngine {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
@@ -448,133 +444,34 @@
                 this.state = {
                     nameA: "VACÍO", nameB: "VACÍO",
                     crossfade: 0.0, speed: 1.0, glitch: 0.0, geo: 4.0, rgb: 0.0,
-                    mode: 1, style: 0, distType: 0,
+                    mode: 1, // Ahora 'mode' se usa para el tipo de distorsión (Q-P -> 1-10)
                     tint: new THREE.Color(1,1,1), tintMix: 0.0, camMix: 0.0
                 };
 
-                // UNIFORMS PARA EL PLANO DE VIDEO
                 this.uniforms = {
                     uTexA: { value: this.deckA.tex }, uTexB: { value: this.deckB.tex },
                     uCrossfade: { value: 0.0 }, uTexCam: { value: this.webcam.tex }, uMix: { value: 0.0 },
                     uTime: { value: 0 }, 
                     uBass: { value: 0 }, uMid: { value: 0 }, uHigh: { value: 0 },
                     uEqLow: { value: 1.0 }, uEqMid: { value: 1.0 }, uEqHigh: { value: 1.0 },
-                    uMode: { value: 1 }, uStyle: { value: 0 }, uDistType: { value: 0 },
+                    uDistType: { value: 1 }, // Control principal de efectos (Q-P)
                     uSpeed: { value: 1.0 }, uGeoStrength: { value: 4.0 },
                     uRGBShift: { value: 0.0 },
                     uTint: { value: new THREE.Color(1,1,1) }, uTintMix: { value: 0.0 }
                 };
 
-                // --- SHADERS DE VIDEO (Plano) ---
-                const vert = `
-                    uniform float uTime; uniform float uSpeed; uniform float uGeoStrength; uniform int uDistType;
-                    uniform float uBass; uniform float uMid; uniform float uHigh;
-                    uniform float uEqLow; uniform float uEqMid; uniform float uEqHigh;
-                    uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade; uniform sampler2D uTexCam; uniform float uMix; uniform int uStyle;
-                    varying vec2 vUv;
-                    void main() {
-                        vUv = uv; vec3 pos = position; 
-                        float rBass = uBass * uEqLow; float rMid = uMid * uEqMid; float rHigh = uHigh * uEqHigh;
-                        float t = uTime * (uSpeed + rMid * 2.0);
-                        float deformation = 0.0;
-                        float str = uGeoStrength * rBass * 4.0; 
-
-                        // DEFORMACIONES PLANAS (Teclas Q, W, E, R, T)
-                        if(uDistType==1) deformation = sin(pos.x*2.+t)*cos(pos.y*1.5+t);
-                        if(uDistType==2) deformation = sin(pos.y*10.+t)*0.5 * sin(pos.x*10.);
-                        if(uDistType==3) { vec2 b=floor(uv*10.); deformation=(fract(sin(dot(b,vec2(12.9,78.2)))*43758.5)>0.5)?1.0:0.0; deformation*=sin(t*5.); }
-                        if(uDistType==4) deformation = sin(length(pos.xy)*5.0 - t*3.0);
-                        if(uDistType==5) deformation = cos(pos.x*5.0 + t) + sin(pos.y*5.0 + t);
-                        
-                        // Si estamos en modo ORBE (6-10), aplanamos el video de fondo
-                        if(uDistType >= 6) deformation = 0.0;
-
-                        pos.z += deformation * str; 
-                        pos.x += sin(t*20.0) * rMid * 0.1;
-
-                        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-                    }
-                `;
-
-                const frag = `
-                    uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
-                    uniform sampler2D uTexCam; uniform float uMix;
-                    uniform float uTime; uniform float uSpeed; 
-                    uniform float uBass; uniform float uMid; uniform float uHigh;
-                    uniform float uEqLow; uniform float uEqMid; uniform float uEqHigh;
-                    uniform float uRGBShift;
-                    uniform int uMode; uniform int uStyle; uniform vec3 uTint; uniform float uTintMix; uniform int uDistType;
-                    varying vec2 vUv;
-                    float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
-                    vec3 rgbSplit(sampler2D t, vec2 uv, float a) {
-                        return vec3(texture2D(t, uv-vec2(a,0)).r, texture2D(t, uv).g, texture2D(t, uv+vec2(a,0)).b);
-                    }
-                    void main() {
-                        vec2 uv = vUv; 
-                        float rBass = uBass * uEqLow; float rMid = uMid * uEqMid; float rHigh = uHigh * uEqHigh;
-                        float t = uTime * (uSpeed + rMid);
-                        
-                        // EFECTOS DE COORDENADAS (Teclas 1-0)
-                        if(uMode==2) uv.x = abs(uv.x-0.5)+0.5;
-                        if(uMode==3) { vec2 c=uv-0.5; float r=length(c); float a=atan(c.y,c.x); a=mod(a,0.52); uv=0.5+r*vec2(cos(a),sin(a)); }
-                        if(uMode==4) uv += vec2(sin(uv.y*10.+t)*0.05*rBass, 0.0);
-                        if(uMode==5) { float d=length(uv-0.5); float a=atan(uv.y-0.5,uv.x-0.5)+(rBass*5.0)*(1.0-d); uv=0.5+d*vec2(cos(a),sin(a)); }
-                        if(uMode==6) { float pixels = 50.0 + rHigh*100.0; uv = floor(uv * pixels) / pixels; } 
-                        if(uMode==7) { uv.x += sin(uv.y * 20.0 + t) * (0.02 * rBass); } 
-                        if(uMode==8) { vec2 p = uv - 0.5; uv = 0.5 + vec2(abs(p.x), abs(p.y)); }
-                        if(uMode==9) { uv = fract(uv * 2.0); }
-                        if(uMode==10) { float angle = t + rBass; mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle)); uv = (uv-0.5)*rot + 0.5; }
-                        
-                        float shift = uRGBShift + (rHigh * 0.05); 
-                        vec3 cA = rgbSplit(uTexA, uv, shift); vec3 cB = rgbSplit(uTexB, uv, shift);
-                        vec3 col = mix(cA, cB, uCrossfade);
-                        vec3 cam = rgbSplit(uTexCam, uv, shift); col = mix(col, cam, uMix);
-                        float lum = dot(col, vec3(0.333));
-                        
-                        if(uStyle==1) { 
-                            vec2 grid = fract(vUv * vec2(160.0, 90.0));
-                            float mask = step(0.15, grid.x) * step(0.15, grid.y) * step(grid.x, 0.85) * step(grid.y, 0.85);
-                            col *= mask; if(lum < 0.1) col *= 0.1;
-                        } 
-                        if(uStyle==2) { col = vec3(step(0.9 - rHigh*0.5, rand(floor(uv*100.0)))); col*=lum; } 
-                        if(uStyle==3) { col = vec3(floor(lum*4.0)/4.0); }
-                        if(uStyle==4) { 
-                            float l = dot(col, vec3(0.299, 0.587, 0.114));
-                            vec3 sepia = vec3(l) * vec3(1.2, 1.0, 0.8);
-                            col = mix(col, sepia, 0.8);
-                            float vignette = 1.0 - smoothstep(0.5, 1.5, length(uv - 0.5));
-                            col *= vignette;
-                            float noise = (rand(uv + t) - 0.5) * 0.15;
-                            col += noise;
-                            col *= (0.95 + 0.05 * sin(t * 20.0));
-                        }
-                        col = mix(col, col*uTint, uTintMix);
-                        if(rHigh > 0.8) col += vec3(0.2, 0.2, 0.2);
-
-                        // Si el ORBE está activo (DistType >= 6), oscurecemos el video de fondo para que resalte
-                        if(uDistType >= 6) col *= 0.3;
-
-                        gl_FragColor = vec4(col, 1.0);
-                    }
-                `;
-
-                this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 9, 160, 90), new THREE.ShaderMaterial({
-                    uniforms: this.uniforms, vertexShader: vert, fragmentShader: frag, side: THREE.DoubleSide
-                }));
-                this.scene.add(this.mesh);
-
-                // --- INTEGRACIÓN: NEURO-ORB (GENERATIVE 3D) ---
-                // Este objeto aparecerá cuando las teclas Y-P sean presionadas
+                // --- SHADERS UNIFICADOS (SOLO ESFERA 3D) ---
                 const orbVert = `
                     uniform float uTime;
-                    uniform float uBass;
-                    uniform float uMid;
-                    uniform float uHigh;
-                    uniform int uDistType; // Usamos esto para variar el ruido
+                    uniform float uBass; uniform float uMid; uniform float uHigh;
+                    uniform float uEqLow; uniform float uEqMid; uniform float uEqHigh;
+                    uniform float uSpeed; uniform float uGeoStrength;
+                    uniform int uDistType; // 1-10 (Q-P)
                     varying vec2 vUv;
                     varying float vDisplacement;
                     varying vec3 vNormal;
 
+                    // Simplex Noise
                     vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
                     vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
                     vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
@@ -629,93 +526,102 @@
                         vUv = uv;
                         vNormal = normal;
                         
-                        // VARIACIONES DE RUIDO SEGÚN TECLA (6,7,8,9,10)
-                        float noise = 0.0;
-                        float intensity = uBass * 2.0; // El bajo controla la explosión
+                        float rBass = uBass * uEqLow;
+                        float rHigh = uHigh * uEqHigh;
+                        float rMid = uMid * uEqMid;
                         
-                        if(uDistType == 6) { // Y: Liquid Orb (Suave)
-                            noise = snoise(position * (1.0 + intensity) + uTime * 0.5);
-                        }
-                        if(uDistType == 7) { // U: High Freq Spike (Puntiagudo)
-                            noise = snoise(position * 5.0 + uTime);
-                            intensity = uHigh * 3.0; // Reacciona a agudos
-                        }
-                        if(uDistType == 8) { // I: Slow Magma
-                             noise = snoise(position * 0.5 + uTime * 0.2);
-                             intensity = uMid * 1.5;
-                        }
-                        if(uDistType == 9) { // O: Chaos Field
-                             noise = snoise(position * 10.0 + uTime * 2.0);
-                             intensity = uBass + uHigh; 
-                        }
-                        if(uDistType == 10) { // P: Breathing Core
-                             noise = abs(sin(position.x * 2.0 + uTime));
-                             intensity = uBass;
+                        float time = uTime * uSpeed;
+                        float noise = 0.0;
+                        float str = uGeoStrength * 0.5;
+
+                        // --- MAPEO DE EFECTOS (Q-P) ---
+                        if(uDistType == 1) { // Q: Pulso Suave
+                            noise = sin(position.y * 2.0 + time) * 0.1 * rBass;
+                        } else if(uDistType == 2) { // W: Twist
+                            noise = snoise(position + time * 0.5) * 0.2 * rMid;
+                        } else if(uDistType == 3) { // E: Picos Agudos
+                            noise = abs(snoise(position * 3.0)) * 0.5 * rHigh;
+                        } else if(uDistType == 4) { // R: Olas
+                            noise = sin(length(position)*5.0 - time*2.0) * 0.1;
+                        } else if(uDistType == 5) { // T: Glitch Geo
+                            noise = (fract(sin(dot(uv, vec2(12.9,78.2)))*43758.5) > 0.5 ? 0.2 : 0.0) * rBass;
+                        } else if(uDistType == 6) { // Y: Magma
+                            noise = snoise(position * 2.0 + time);
+                        } else if(uDistType == 7) { // U: High Freq
+                            noise = snoise(position * 10.0 + time) * 0.5 * rHigh;
+                        } else if(uDistType == 8) { // I: Blobs
+                            noise = snoise(position * 0.5 + time * 0.2) * 1.5;
+                        } else if(uDistType == 9) { // O: Chaos
+                            noise = snoise(position * 5.0 + time * 2.0) * rBass;
+                        } else if(uDistType == 10) { // P: Respiración
+                            noise = abs(sin(time)) * 0.3 * rBass;
                         }
 
                         vDisplacement = noise;
-                        vec3 newPosition = position + normal * (noise * (0.3 + intensity * 0.5));
+                        vec3 newPosition = position + normal * (noise * str);
                         gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
                     }
                 `;
 
-                // --- ORB FRAGMENT SHADER (VIDEO SKIN) ---
                 const orbFrag = `
                     uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
                     uniform sampler2D uTexCam; uniform float uMix;
-                    uniform float uTime; uniform float uBass; uniform int uDistType;
                     uniform vec3 uTint; uniform float uTintMix;
-                    varying float vDisplacement; varying vec3 vNormal; varying vec2 vUv;
+                    uniform float uRGBShift;
+                    varying vec2 vUv;
+                    varying float vDisplacement;
+                    varying vec3 vNormal;
+
+                    vec3 rgbSplit(sampler2D t, vec2 uv, float a) {
+                        return vec3(texture2D(t, uv-vec2(a,0)).r, texture2D(t, uv).g, texture2D(t, uv+vec2(a,0)).b);
+                    }
 
                     void main() {
-                        // 1. MUESTREO DE VIDEO (SKIN)
+                        // 1. MUESTREO DE VIDEO LIMPIO
+                        // Usamos coordenadas UV estándar de la esfera para mapear el video
                         vec2 uv = vUv;
-                        vec3 cA = texture2D(uTexA, uv).rgb;
-                        vec3 cB = texture2D(uTexB, uv).rgb;
+                        
+                        // RGB Split simple en la textura
+                        vec3 cA = rgbSplit(uTexA, uv, uRGBShift);
+                        vec3 cB = rgbSplit(uTexB, uv, uRGBShift);
                         vec3 videoCol = mix(cA, cB, uCrossfade);
                         
-                        // Mezcla Webcam
-                        vec3 cam = texture2D(uTexCam, uv).rgb;
+                        // Webcam Mix
+                        vec3 cam = rgbSplit(uTexCam, uv, uRGBShift);
                         videoCol = mix(videoCol, cam, uMix);
                         
-                        // Aplicar Tinte Global
+                        // Tinte
                         videoCol = mix(videoCol, videoCol * uTint, uTintMix);
 
-                        // 2. ILUMINACIÓN Y REACTIVIDAD 3D
-                        float fresnel = pow(1.0 + dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0);
-                        float highlight = smoothstep(0.2, 0.8, vDisplacement);
+                        // 2. ILUMINACIÓN (SUTIL, NO BLANCA)
+                        // Calculamos la luz basándonos en la normal para dar volumen 3D
+                        float light = dot(vNormal, vec3(0.0, 1.0, 1.0)) * 0.5 + 0.5;
                         
-                        // Base: Color del video modificado por la luz
-                        vec3 finalCol = videoCol * (0.8 + 0.4 * uBass); 
+                        // Fresnel suave para los bordes
+                        float fresnel = pow(1.0 + dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0) * 0.3;
 
-                        // Efectos adicionales según deformación
-                        if(uDistType == 6) { // Y: Neon Edge
-                             finalCol += vec3(0.2, 0.0, 0.5) * highlight * uBass;
-                        }
-                        else if(uDistType == 7) { // U: Gold Highlights
-                             finalCol += vec3(1.0, 0.8, 0.0) * highlight * 0.5;
-                        }
+                        // Mezclamos el video con la iluminación, pero sin quemar
+                        vec3 finalCol = videoCol * light;
                         
-                        // Sumar Fresnel para volumen
-                        finalCol += vec3(fresnel * 0.4);
+                        // Añadimos fresnel
+                        finalCol += vec3(fresnel);
 
                         gl_FragColor = vec4(finalCol, 1.0);
                     }
                 `;
 
-                // Usamos SphereGeometry para mayor estabilidad y densidad controlada (CRASH FIX)
-                this.orbGeometry = new THREE.SphereGeometry(2.5, 128, 128); 
-                this.orbMaterial = new THREE.ShaderMaterial({
-                    uniforms: this.uniforms, // Compartimos uniforms para audio/tiempo
+                // Usamos SphereGeometry estable (128 segs)
+                this.geometry = new THREE.SphereGeometry(2.5, 128, 128); 
+                this.material = new THREE.ShaderMaterial({
+                    uniforms: this.uniforms, 
                     vertexShader: orbVert,
                     fragmentShader: orbFrag,
                     wireframe: false,
-                    transparent: true
+                    side: THREE.DoubleSide
                 });
 
-                this.orbMesh = new THREE.Mesh(this.orbGeometry, this.orbMaterial);
-                this.orbMesh.visible = false; // Invisible por defecto
-                this.scene.add(this.orbMesh);
+                this.mesh = new THREE.Mesh(this.geometry, this.material);
+                this.scene.add(this.mesh);
             }
 
             createVideoTexture() {
@@ -736,25 +642,18 @@
             }
 
             render(t, audio, eq) {
-                // Actualizar Uniforms Compartidos
                 this.uniforms.uTime.value = t; 
                 this.uniforms.uBass.value = audio.bass; this.uniforms.uMid.value = audio.mid; this.uniforms.uHigh.value = audio.high; 
                 this.uniforms.uEqLow.value = eq.low; this.uniforms.uEqMid.value = eq.mid; this.uniforms.uEqHigh.value = eq.high;
                 this.uniforms.uSpeed.value = this.state.speed; this.uniforms.uGeoStrength.value = this.state.geo;
-                this.uniforms.uCrossfade.value = this.state.crossfade; this.uniforms.uMode.value = this.state.mode;
-                this.uniforms.uStyle.value = this.state.style; this.uniforms.uDistType.value = this.state.distType;
+                this.uniforms.uCrossfade.value = this.state.crossfade;
+                this.uniforms.uDistType.value = this.state.mode; // 'mode' ahora controla el tipo de distorsión
                 this.uniforms.uRGBShift.value = this.state.rgb; this.uniforms.uTint.value = this.state.tint;
                 this.uniforms.uTintMix.value = this.state.tintMix; this.uniforms.uMix.value = this.state.camMix;
                 
-                // LÓGICA DE VISIBILIDAD: ORB vs PLANO
-                if (this.state.distType >= 6) {
-                    // Teclas Y-P activas: Mostrar Orbe, Atenuar plano (fondo)
-                    this.orbMesh.visible = true;
-                    this.orbMesh.rotation.y += 0.01 * this.state.speed; // Rotar orbe
-                    this.orbMesh.rotation.z += 0.005;
-                } else {
-                    this.orbMesh.visible = false;
-                }
+                // Rotación constante suave
+                this.mesh.rotation.y += 0.005 * this.state.speed;
+                this.mesh.rotation.z += 0.002;
 
                 this.renderer.render(this.scene, this.camera);
             }
@@ -819,8 +718,6 @@
             else if (data.type === 'setActive') setActive(p.id, true);
             else if (data.type === 'crossfader') { activeMix.state.crossfade = p.val; updateFader(true); }
             else if (data.type === 'mode') { activeMix.state.mode = p.val; notify("REMOTO FX " + p.val); }
-            else if (data.type === 'style') { activeMix.state.style = p.val; notify("REMOTO STYLE"); }
-            else if (data.type === 'dist') { activeMix.state.distType = p.val; notify("REMOTO DEFORM"); }
             else if (data.type === 'preset_load') applyPresetObj(p.obj, true);
             else if (data.type === 'audio_xf') { updateAudioXF(p.val, true); }
             else if (data.type === 'eq') { updateEq(p.band, p.val, true); }
@@ -1180,6 +1077,7 @@
         function handleKeyInput(e) {
             const k = e.key.toLowerCase();
             const bankKeys = ['a','s','d','f','g','h','j','k','l'];
+            const deformKeys = {'q':1, 'w':2, 'e':3, 'r':4, 't':5, 'y':6, 'u':7, 'i':8, 'o':9, 'p':10};
             
             if(e.code === 'Space') {
                 if(e.target.tagName !== 'INPUT') e.preventDefault(); 
@@ -1193,21 +1091,28 @@
             }
 
             if(bankKeys.includes(k)) {
-                if(e.shiftKey || !videoBanks[activeId][k]) {
+                // LÓGICA SIMPLIFICADA DE CARGA (Sin Shift)
+                if(!videoBanks[activeId][k]) {
+                    // Si está vacío, cargar
                     pendingBankSlot = k;
                     document.getElementById('file-input').click();
                 } else {
+                    // Si tiene clip, disparar
                     activeMix.loadClip(videoBanks[activeId][k]);
                     notify(`BANCO ${k.toUpperCase()} (MIX ${activeId})`);
                 }
                 return;
             }
 
-            const num = parseInt(k);
-            if(!isNaN(num)) { const mode = num === 0 ? 10 : num; activeMix.state.mode = mode; notify(`FX ${mode}`); broadcastData('mode', {val: mode}); }
-            const styles = {'z':1, 'x':2, 'c':3, 'v':4, 'b':0}; if(styles[k]!==undefined) { activeMix.state.style=styles[k]; notify(k==='z'?"ESTILO MALLA":"ESTILO CAMBIA"); broadcastData('style', {val: styles[k]}); }
-            const deforms = {'q':1, 'w':2, 'e':3, 'r':4, 't':5, 'y':6, 'u':7, 'i':8, 'o':9, 'p':10}; if(deforms[k]) { activeMix.state.distType=deforms[k]; notify(`DEFORM #${deforms[k]}`); broadcastData('dist', {val: deforms[k]}); }
-            if(k==='m') { activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; document.getElementById('sl-rgb').value=0; window.uiUpdate('color', 0); notify("RESET"); }
+            // AHORA TODAS LAS TECLAS DE EFECTO (Q-P) SON MODOS 3D
+            if(deformKeys[k]) {
+                const mode = deformKeys[k];
+                activeMix.state.mode = mode; // Actualiza el modo de deformación
+                notify(`FX 3D: ${mode}`);
+                broadcastData('mode', {val: mode});
+            }
+
+            if(k==='m') { activeMix.state.mode=1; activeMix.state.rgb=0; activeMix.state.tintMix=0; document.getElementById('sl-rgb').value=0; window.uiUpdate('color', 0); notify("RESET"); }
             if(k==='n') { cycleWebcam(activeMix); }
             if(k==='ñ') { if(outputMode === 'OFF') setOutput('1'); else if(outputMode === '1') setOutput('2'); else setOutput('OFF'); }
         }
@@ -1270,7 +1175,7 @@
         const midiMapDef = {
             'work_a':{l:'Mix 1', f:()=>setActive(1)}, 'work_b':{l:'Mix 2', f:()=>setActive(2)},
             'crossfader':{l:'X-Fader', f:(v)=>{activeMix.state.crossfade=v; updateFader();}},
-            'reset':{l:'Reset FX', f:()=>{activeMix.state.mode=1; activeMix.state.style=0; activeMix.state.distType=0; activeMix.state.rgb=0; activeMix.state.tintMix=0; document.getElementById('sl-rgb').value=0;}},
+            'reset':{l:'Reset FX', f:()=>{activeMix.state.mode=1; activeMix.state.rgb=0; activeMix.state.tintMix=0; document.getElementById('sl-rgb').value=0;}},
             'load_clip':{l:'Load Vid', f:()=>document.getElementById('file-input').click()},
             'out_cycle':{l:'Out (Ñ)', f:(v)=>{ if(v>0.5){ if(outputMode==='OFF') setOutput('1'); else if(outputMode==='1') setOutput('2'); else setOutput('OFF'); }}},
             'speed':{l:'Knob Speed', f:(v)=>window.uiUpdate('speed', v*5)}, 'glitch':{l:'Knob Glitch', f:(v)=>window.uiUpdate('glitch', v*5)}, 
@@ -1282,16 +1187,14 @@
             'play_2':{l:'D2 Play', f:(v)=>{ if(v>0.5) tracks[1].play(); }}, 'stop_2':{l:'D2 Stop', f:(v)=>{ if(v>0.5) tracks[1].stop(); }}, 'vol_2':{l:'D2 Vol', f:(v)=>{ tracks[1].setBaseVolume(v); document.getElementById('vol-2').value=v; }},
             'audio_xf':{l:'Audio XF', f:(v)=>updateAudioXF(v)}
         };
-        for(let i=1;i<=10;i++) midiMapDef[`fx_${i}`] = {l:`FX ${i}`, f:()=>activeMix.state.mode=i};
-        for(let i=1;i<=10;i++) midiMapDef[`def_${i}`] = {l:`Def ${i}`, f:()=>activeMix.state.distType=i};
-        const styles = ['Malla','Pixel','Liquid','Quad','Tile'];
-        for(let i=0;i<styles.length;i++) midiMapDef[`style_${i+1}`] = {l:`Sty ${styles[i]}`, f:()=>activeMix.state.style=i+1};
+        // Simplificado: Solo mapeamos FX 1-10 (que ahora son Q-P en lógica)
+        for(let i=1;i<=10;i++) midiMapDef[`fx_${i}`] = {l:`FX 3D ${i}`, f:()=>activeMix.state.mode=i};
 
         let midiBinding = null; const midiConfig = {}; 
         
         function renderMidi() { 
             const list = document.getElementById('midi-list'); list.innerHTML=''; 
-            const groups = { 'AUDIO': ['mic_toggle','audio_xf','play_1','stop_1','vol_1','play_2','stop_2','vol_2'], 'EQ': ['eq_low','eq_mid','eq_high'], 'GENERAL': ['work_a','work_b','crossfader','reset','load_clip','out_cycle'], 'KNOBS': ['speed','glitch','geo','color','sens'], 'FX 2D': Array.from({length:10},(_,i)=>`fx_${i+1}`), 'DEFORM': Array.from({length:10},(_,i)=>`def_${i+1}`), 'STYLES': Array.from({length:5},(_,i)=>`style_${i+1}`) };
+            const groups = { 'AUDIO': ['mic_toggle','audio_xf','play_1','stop_1','vol_1','play_2','stop_2','vol_2'], 'EQ': ['eq_low','eq_mid','eq_high'], 'GENERAL': ['work_a','work_b','crossfader','reset','load_clip','out_cycle'], 'KNOBS': ['speed','glitch','geo','color','sens'], 'FX 3D': Array.from({length:10},(_,i)=>`fx_${i+1}`) };
             for(const [grpName, keys] of Object.entries(groups)) { 
                 const cont = document.createElement('div'); cont.className='midi-group-container';
                 const h=document.createElement('div'); h.className='midi-group'; h.innerText=grpName; cont.appendChild(h);
