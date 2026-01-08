@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>ALEX V.3.0 CORE</title>
+    <title>ALEX V.3.1 DUAL CORE</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
     
     <style>
@@ -14,16 +14,27 @@
             position: absolute; top: 20px; left: 20px; z-index: 10;
             pointer-events: none;
         }
-        h1 { margin: 0; font-size: 24px; color: #FF3300; letter-spacing: 2px; }
-        p { font-size: 14px; color: #888; margin-top: 5px; }
-        .key { color: #fff; font-weight: bold; background: #333; padding: 2px 6px; border-radius: 4px; }
-        
-        #hidden-inputs { display: none; }
+        h1 { margin: 0; font-size: 24px; color: #FF3300; letter-spacing: 2px; text-shadow: 0 0 10px #FF3300; }
+        p { font-size: 14px; color: #ccc; margin-top: 5px; }
+        .key { color: #000; font-weight: bold; background: #FF3300; padding: 2px 6px; border-radius: 2px; }
+        .mode-active { color: #FF3300; font-weight: bold; }
         
         #status-bar {
             position: absolute; bottom: 20px; left: 20px;
-            font-family: monospace; font-size: 12px; color: #666;
+            font-family: monospace; font-size: 12px; color: #888;
+            display: flex; gap: 20px;
         }
+        
+        #fader-ui {
+            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
+            width: 200px; height: 4px; background: #333;
+        }
+        #fader-handle {
+            width: 10px; height: 12px; background: #FF3300; position: absolute; top: -4px; left: 0%;
+            transform: translateX(-50%);
+        }
+
+        #hidden-inputs { display: none; }
     </style>
     <!-- THREE.JS CDN -->
     <script type="importmap">
@@ -37,17 +48,23 @@
 <body>
 
     <div id="ui">
-        <h1>ALEX V.3 CORE</h1>
-        <p><span class="key">A</span> - <span class="key">L</span> : Cargar / Disparar Clips</p>
-        <p><span class="key">Q</span> : TRANSFORMACIÓN 3D (Toggle)</p>
-        <p><span class="key">M</span> : Resetear</p>
-        <p style="color: #FF3300; margin-top: 10px;">* Haz click en la pantalla para activar el audio *</p>
+        <h1>ALEX V.3.1</h1>
+        <p><span class="key">SCROLL</span> : CROSSFADER (A / B)</p>
+        <p><span class="key">A</span> - <span class="key">L</span> : Cargar Clip (Carga Inteligente)</p>
+        <p><span class="key">Q</span> - <span class="key">P</span> : Seleccionar Efecto 3D</p>
+        <p><span class="key">ESPACIO</span> : Transformar 2D / 3D</p>
+        <p id="mode-display">MODO ACTUAL: <span class="mode-active">Q (ESFERA)</span></p>
     </div>
 
-    <div id="status-bar">ESPERANDO CLIP...</div>
+    <div id="fader-ui"><div id="fader-handle"></div></div>
+
+    <div id="status-bar">
+        <span id="deck-a-status">DECK A: VACÍO</span>
+        <span id="deck-b-status">DECK B: VACÍO</span>
+    </div>
+
     <div id="hidden-inputs">
         <input type="file" id="file-input" accept="video/*">
-        <input type="file" id="audio-input" accept="audio/*">
     </div>
 
     <script type="module">
@@ -58,15 +75,22 @@
         let screenMesh;
         let uniforms;
         let audioCtx, analyser, dataArray;
-        let is3DMode = false;
-        let morphValue = 0.0; // 0 = Plano, 1 = Esfera
         
-        // Bancos de video
-        const videoBank = {};
-        let pendingKey = null;
-        let currentVideo = null; // Elemento de video HTML actual
+        // Estado
+        let is3D = false;
+        let morphValue = 0.0;
+        let crossfade = 0.0; // 0.0 = A, 1.0 = B
+        let currentEffect = 1; // 1-10
 
-        // Variables de audio
+        // Decks de Video
+        const deckA = { video: null, texture: null, name: "VACÍO" };
+        const deckB = { video: null, texture: null, name: "VACÍO" };
+        
+        // Banco de archivos (URL blobs)
+        const clips = {};
+        let pendingKey = null;
+
+        // Audio
         const audioData = { bass: 0, mid: 0, high: 0, vol: 0 };
 
         init();
@@ -75,44 +99,48 @@
         function init() {
             // 1. ESCENA
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x000000);
+            scene.background = new THREE.Color(0x000000); // Fondo negro puro
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.z = 8; // Distancia perfecta para llenar pantalla en 16:9
+            camera.position.z = 8; 
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            // 2. MATERIAL Y GEOMETRÍA
-            // Usamos un plano con MUCHOS segmentos para poder doblarlo
-            const geometry = new THREE.PlaneGeometry(16, 9, 200, 112); 
-
-            // Textura inicial (negro)
+            // 2. TEXTURAS INICIALES
             const placeholder = createPlaceholderTexture();
+            deckA.texture = placeholder;
+            deckB.texture = placeholder;
+
+            // 3. MATERIAL Y GEOMETRÍA
+            // Plano muy subdividido para permitir deformación suave
+            const geometry = new THREE.PlaneGeometry(16, 9, 250, 140); 
 
             uniforms = {
-                uTex: { value: placeholder },
+                uTexA: { value: deckA.texture },
+                uTexB: { value: deckB.texture },
+                uCrossfade: { value: 0.0 },
                 uTime: { value: 0 },
-                uMorph: { value: 0.0 }, // Controla la transición 2D -> 3D
+                uMorph: { value: 0.0 }, // 0=Plano, 1=3D
+                uDistType: { value: 1 }, // Tipo de efecto (1-10)
                 uBass: { value: 0.0 },
                 uMid: { value: 0.0 },
                 uHigh: { value: 0.0 }
             };
 
-            // --- SHADERS SIMPLIFICADOS ---
-            
+            // --- SHADERS ---
             const vertexShader = `
                 uniform float uTime;
-                uniform float uMorph; // 0.0 a 1.0
-                uniform float uBass;
-                uniform float uMid;
-                uniform float uHigh;
+                uniform float uMorph;
+                uniform float uBass; uniform float uMid; uniform float uHigh;
+                uniform int uDistType;
                 
                 varying vec2 vUv;
-                varying float vDisplacement; // Para sombrear según deformación
+                varying float vDisplacement;
+                varying vec3 vNormal; // Para iluminación en fragment
 
-                // Ruido simple
+                // Funciones de Ruido y Matemáticas
                 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
                 vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
                 vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
@@ -166,63 +194,146 @@
                 void main() {
                     vUv = uv;
                     
-                    // --- GEOMETRÍA PLANA (VIDEO NORMAL) ---
+                    // --- POSICIÓN BASE: PLANO 2D ---
                     vec3 pos2D = position;
-                    // Reactividad 2D: Leve escala con el bajo
-                    pos2D.z += sin(length(pos2D) * 2.0 - uTime) * 0.1 * uBass;
+                    // Efecto sutil en 2D al ritmo
+                    pos2D.z += sin(pos2D.x * 2.0 + uTime) * uBass * 0.2;
 
-                    // --- GEOMETRÍA 3D (ESFERA ENROLLADA) ---
-                    // Mapeamos el plano rectangular a coordenadas esféricas
-                    float radius = 3.5;
-                    float phi = (uv.x - 0.5) * 3.14159 * 2.0; // Longitud
-                    float theta = (uv.y - 0.5) * 3.14159;     // Latitud
+                    // --- POSICIÓN OBJETIVO: FORMA 3D ---
+                    vec3 pos3D = position;
+                    float audioForce = uBass * 1.5 + uMid; 
+                    float noise = 0.0;
+
+                    // COORDENADAS PARA ENROLLAR (Mapping esférico/cilíndrico básico)
+                    float pi = 3.14159;
+                    float radius = 3.0;
+                    // Normalizar UV a -1 a 1
+                    float nx = (uv.x - 0.5) * 2.0;
+                    float ny = (uv.y - 0.5) * 2.0;
+
+                    // --- LÓGICA DE FORMAS (Q-P) ---
                     
-                    vec3 pos3D;
-                    pos3D.x = radius * cos(theta) * sin(phi);
-                    pos3D.y = radius * sin(theta);
-                    pos3D.z = radius * cos(theta) * cos(phi);
+                    if (uDistType == 1) { // Q: ESFERA LÍQUIDA
+                        float phi = uv.x * pi * 2.0;
+                        float theta = uv.y * pi;
+                        pos3D.x = radius * sin(theta) * cos(phi);
+                        pos3D.y = radius * cos(theta);
+                        pos3D.z = radius * sin(theta) * sin(phi);
+                        noise = snoise(pos3D * 0.8 + uTime);
+                    } 
+                    else if (uDistType == 2) { // W: CUBO ORGÁNICO
+                        // Aproximación simple deformando la esfera
+                        float phi = uv.x * pi * 2.0;
+                        float theta = uv.y * pi;
+                        vec3 s = vec3(sin(theta)*cos(phi), cos(theta), sin(theta)*sin(phi));
+                        // Empujar hacia esquinas de cubo
+                        pos3D = s * (radius + pow(abs(s.x*s.y*s.z), 0.5)*2.0);
+                        noise = snoise(pos3D + uTime) * 0.5;
+                    }
+                    else if (uDistType == 3) { // E: TORUS (DONA)
+                        float r1 = 1.0; float r2 = 2.5;
+                        float u = uv.x * pi * 2.0;
+                        float v = uv.y * pi * 2.0;
+                        pos3D.x = (r2 + r1 * cos(v)) * cos(u);
+                        pos3D.y = (r2 + r1 * cos(v)) * sin(u);
+                        pos3D.z = r1 * sin(v);
+                        noise = sin(u * 5.0 + uTime) * uHigh;
+                    }
+                    else if (uDistType == 4) { // R: PICOS
+                        // Esfera base
+                        float phi = uv.x * pi * 2.0; float theta = uv.y * pi;
+                        pos3D = vec3(radius * sin(theta)*cos(phi), radius * cos(theta), radius * sin(theta)*sin(phi));
+                        // Picos
+                        noise = abs(snoise(pos3D * 2.0)) * uHigh * 3.0;
+                    }
+                    else if (uDistType == 5) { // T: ONDAS (PLANO)
+                        pos3D = pos2D; // Mantener plano
+                        // Pero ondear fuerte en Z
+                        noise = sin(length(pos3D.xy) * 3.0 - uTime * 2.0) * (1.0 + uBass);
+                        pos3D.z += noise * 2.0;
+                        noise = 0.0; // Ya aplicado
+                    }
+                    else if (uDistType == 6) { // Y: CILINDRO GLITCH
+                        float angle = uv.x * pi * 2.0;
+                        pos3D.x = radius * cos(angle);
+                        pos3D.z = radius * sin(angle);
+                        pos3D.y = (uv.y - 0.5) * 6.0;
+                        float glitch = step(0.9, fract(sin(dot(uv, vec2(12.9, 78.2)))*43758.5 + uTime));
+                        noise = glitch * uBass;
+                    }
+                    else if (uDistType == 7) { // U: ICOSAEDRO (Simulado con ruido cristalino)
+                        float phi = uv.x * pi * 2.0; float theta = uv.y * pi;
+                        pos3D = vec3(radius * sin(theta)*cos(phi), radius * cos(theta), radius * sin(theta)*sin(phi));
+                        vec3 cell = floor(pos3D * 1.5);
+                        noise = length(cell) * 0.2 * uMid;
+                    }
+                    else if (uDistType == 8) { // I: VÓRTICE
+                        float r = length(uv - 0.5) * 10.0;
+                        float a = atan(uv.y - 0.5, uv.x - 0.5) + r * 0.5 + uTime;
+                        pos3D.x = r * cos(a);
+                        pos3D.y = r * sin(a);
+                        pos3D.z = -r * 2.0 + 5.0; // Profundidad cónica
+                        noise = sin(r*2.0 - uTime*5.0) * 0.2;
+                    }
+                    else if (uDistType == 9) { // O: BREATHING
+                        float phi = uv.x * pi * 2.0; float theta = uv.y * pi;
+                        pos3D = vec3(radius * sin(theta)*cos(phi), radius * cos(theta), radius * sin(theta)*sin(phi));
+                        // Expansión rítmica global
+                        float breath = sin(uTime * 2.0) * 0.5 + 0.5;
+                        noise = breath * uBass;
+                    }
+                    else { // P: CAOS
+                        pos3D = pos2D;
+                        noise = snoise(vec3(uv * 5.0, uTime)) * 3.0 * uBass;
+                    }
 
-                    // Deformación Orgánica 3D
-                    float noiseVal = snoise(pos3D * 0.5 + uTime * 0.5);
-                    float spike = uBass * 1.5 + uMid * 0.5; // El audio empuja los vértices
-                    pos3D += normalize(pos3D) * (noiseVal * spike);
+                    // Aplicar deformación
+                    vec3 finalShape = pos3D + normalize(pos3D) * (noise * (1.0 + uBass));
+                    vDisplacement = noise; // Para sombras
+
+                    // --- MORPHING ---
+                    // Interpolamos entre el plano 2D y la forma 3D
+                    vec3 result = mix(pos2D, finalShape, uMorph);
                     
-                    vDisplacement = noiseVal * spike; // Pasamos esto al fragment para las sombras
+                    // Calcular normales aproximadas para iluminación (truco simple)
+                    vNormal = normalize(result);
 
-                    // --- MEZCLA (TRANSICIÓN SUAVE) ---
-                    vec3 finalPos = mix(pos2D, pos3D, uMorph);
-
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(finalPos, 1.0);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(result, 1.0);
                 }
             `;
 
             const fragmentShader = `
-                uniform sampler2D uTex;
+                uniform sampler2D uTexA;
+                uniform sampler2D uTexB;
+                uniform float uCrossfade;
                 uniform float uMorph;
                 varying vec2 vUv;
                 varying float vDisplacement;
+                varying vec3 vNormal;
 
                 void main() {
-                    // Muestreamos el color EXACTO del video
-                    vec4 texColor = texture2D(uTex, vUv);
-                    
-                    // --- SIN LUZ BLANCA ESPECULAR ---
-                    // En lugar de añadir blanco, OSCURECEMOS los valles de la deformación
-                    // para crear volumen sin lavar los colores.
+                    // 1. MEZCLA DE VIDEO (CROSSFADE)
+                    vec3 colA = texture2D(uTexA, vUv).rgb;
+                    vec3 colB = texture2D(uTexB, vUv).rgb;
+                    vec3 videoColor = mix(colA, colB, uCrossfade);
+
+                    // 2. ILUMINACIÓN (SÓLO PARA 3D)
+                    // No añadimos blanco especular para no lavar la imagen.
+                    // Usamos sombras (occlusion) basada en la deformación.
                     
                     float shadow = 1.0;
-                    
-                    // Solo aplicamos sombras en modo 3D
                     if(uMorph > 0.1) {
-                        // Si el desplazamiento es negativo (valle), oscurecemos
-                        shadow = smoothstep(-0.5, 0.8, vDisplacement + 0.2);
-                        // Aseguramos que no sea negro total
-                        shadow = clamp(shadow, 0.3, 1.0); 
+                        // Valles oscuros
+                        float valleys = smoothstep(-0.5, 0.5, vDisplacement);
+                        // Borde Fresnel sutil (oscurece bordes para volumen)
+                        float fresnel = dot(vNormal, vec3(0.0, 0.0, 1.0));
+                        fresnel = clamp(fresnel, 0.4, 1.0);
+                        
+                        shadow = valleys * fresnel;
                     }
 
-                    vec3 finalColor = texColor.rgb * shadow;
-
-                    gl_FragColor = vec4(finalColor, 1.0);
+                    // El color final es el video oscurecido por la geometría 3D
+                    gl_FragColor = vec4(videoColor * shadow, 1.0);
                 }
             `;
 
@@ -230,78 +341,93 @@
                 uniforms: uniforms,
                 vertexShader: vertexShader,
                 fragmentShader: fragmentShader,
-                side: THREE.DoubleSide // Importante para ver el "interior" al doblarse
+                side: THREE.DoubleSide
             });
 
             screenMesh = new THREE.Mesh(geometry, material);
             scene.add(screenMesh);
 
-            // 3. LISTENERS
+            // 4. LISTENERS
             window.addEventListener('resize', onWindowResize);
             window.addEventListener('keydown', onKeyDown);
-            window.addEventListener('click', initAudioContext); // Click para audio
+            window.addEventListener('wheel', onWheel, { passive: false }); // Scroll para fader
+            window.addEventListener('click', initAudioContext);
             
-            // Input handlers
             document.getElementById('file-input').addEventListener('change', handleFileSelect);
         }
 
         // --- LÓGICA DE VIDEO ---
         function createPlaceholderTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1280; canvas.height = 720;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#111'; ctx.fillRect(0,0,1280,720);
-            ctx.fillStyle = '#333'; ctx.font = "bold 100px Arial"; ctx.textAlign = "center";
-            ctx.fillText("NO SIGNAL", 640, 360);
-            return new THREE.CanvasTexture(canvas);
-        }
-
-        function loadVideo(file, key) {
-            const url = URL.createObjectURL(file);
-            const video = document.createElement('video');
-            video.src = url;
-            video.loop = true;
-            video.muted = true;
-            video.play();
-            
-            const tex = new THREE.VideoTexture(video);
-            tex.minFilter = THREE.LinearFilter;
-            tex.magFilter = THREE.LinearFilter;
-            
-            videoBank[key] = { video: video, texture: tex, name: file.name };
-            playClip(key);
+            const c = document.createElement('canvas'); c.width=64; c.height=64;
+            const ctx = c.getContext('2d'); ctx.fillStyle='#111'; ctx.fillRect(0,0,64,64);
+            return new THREE.CanvasTexture(c);
         }
 
         function playClip(key) {
-            if(!videoBank[key]) return;
+            if(!clips[key]) return;
+            const clipUrl = clips[key].url;
+            const clipName = clips[key].name;
+
+            // CARGA INTELIGENTE (Smart Loading)
+            // Si estamos viendo el Deck A (crossfade < 0.5), cargamos en B
+            // Si estamos viendo el Deck B (crossfade > 0.5), cargamos en A
+            const targetDeck = (crossfade < 0.5) ? deckB : deckA;
+            const targetName = (targetDeck === deckA) ? "DECK A" : "DECK B";
+
+            // Crear elemento de video
+            const vid = document.createElement('video');
+            vid.src = clipUrl; vid.loop = true; vid.muted = true; vid.play();
             
-            // Pausar anterior si existe
-            if(currentVideo) currentVideo.pause();
+            const tex = new THREE.VideoTexture(vid);
+            tex.minFilter = THREE.LinearFilter;
             
-            const clip = videoBank[key];
-            currentVideo = clip.video;
-            currentVideo.play();
-            
-            uniforms.uTex.value = clip.texture;
-            document.getElementById('status-bar').innerText = `REPRODUCIENDO: [${key}] ${clip.name}`;
+            // Asignar
+            targetDeck.video = vid;
+            targetDeck.texture = tex;
+            targetDeck.name = clipName;
+
+            // Actualizar uniform del shader
+            if(targetDeck === deckA) uniforms.uTexA.value = tex;
+            else uniforms.uTexB.value = tex;
+
+            updateStatusUI();
         }
 
         function handleFileSelect(e) {
             if(e.target.files.length > 0 && pendingKey) {
-                loadVideo(e.target.files[0], pendingKey);
+                const file = e.target.files[0];
+                const url = URL.createObjectURL(file);
+                // Guardar en banco
+                clips[pendingKey] = { url: url, name: file.name.toUpperCase() };
+                // Reproducir inmediatamente
+                playClip(pendingKey);
                 pendingKey = null;
             }
-            e.target.value = ''; // Reset
+            e.target.value = '';
+        }
+
+        function updateStatusUI() {
+            document.getElementById('deck-a-status').innerText = `DECK A: ${deckA.name}`;
+            document.getElementById('deck-b-status').innerText = `DECK B: ${deckB.name}`;
+            // Resaltar deck activo
+            if(crossfade < 0.5) {
+                document.getElementById('deck-a-status').style.color = "#FF3300";
+                document.getElementById('deck-b-status').style.color = "#666";
+            } else {
+                document.getElementById('deck-a-status').style.color = "#666";
+                document.getElementById('deck-b-status').style.color = "#FF3300";
+            }
         }
 
         // --- INPUTS ---
         function onKeyDown(e) {
             const k = e.key.toLowerCase();
             const keys = ['a','s','d','f','g','h','j','k','l'];
+            const effectKeys = { 'q':1, 'w':2, 'e':3, 'r':4, 't':5, 'y':6, 'u':7, 'i':8, 'o':9, 'p':10 };
 
-            // Cargar / Disparar Clips
+            // 1. CARGA / DISPARO
             if (keys.includes(k)) {
-                if (videoBank[k]) {
+                if (clips[k]) {
                     playClip(k);
                 } else {
                     pendingKey = k;
@@ -309,20 +435,47 @@
                 }
             }
 
-            // Transformación (Q) - Toggle simple
-            if (k === 'q') {
-                is3DMode = !is3DMode;
-                document.getElementById('status-bar').innerText = is3DMode ? "MODO: 3D (AUDIO REACTIVO)" : "MODO: 2D (VIDEO PLANO)";
+            // 2. EFECTOS 3D
+            if (effectKeys[k]) {
+                currentEffect = effectKeys[k];
+                uniforms.uDistType.value = currentEffect;
+                // Si ya estamos en 3D, solo cambia la forma. Si no, activamos 3D.
+                is3D = true;
+                document.getElementById('mode-display').innerHTML = `MODO ACTUAL: <span class="mode-active">${k.toUpperCase()} (FX ${currentEffect})</span>`;
             }
 
-            // Reset
+            // 3. TRANSFORMACIÓN ESPACIO (Toggle)
+            if (e.code === 'Space') {
+                e.preventDefault(); // Evitar scroll
+                is3D = !is3D;
+                document.getElementById('mode-display').innerHTML = is3D 
+                    ? `MODO ACTUAL: <span class="mode-active">3D (FX ${currentEffect})</span>`
+                    : `MODO ACTUAL: <span class="mode-active">2D (PLANO)</span>`;
+            }
+
+            // 4. RESET
             if (k === 'm') {
-                is3DMode = false;
-                morphValue = 0;
+                is3D = false;
+                currentEffect = 1;
+                uniforms.uDistType.value = 1;
+                document.getElementById('mode-display').innerHTML = `MODO: RESET`;
             }
         }
 
-        // --- AUDIO ---
+        function onWheel(e) {
+            e.preventDefault();
+            // Scroll arriba/abajo ajusta el fader
+            const delta = e.deltaY * 0.001;
+            crossfade += delta;
+            crossfade = Math.max(0.0, Math.min(1.0, crossfade));
+            
+            // Actualizar Shader y UI
+            uniforms.uCrossfade.value = crossfade;
+            document.getElementById('fader-handle').style.left = (crossfade * 100) + '%';
+            updateStatusUI();
+        }
+
+        // --- AUDIO Y BUCLE ---
         async function initAudioContext() {
             if(audioCtx) return;
             try {
@@ -330,69 +483,54 @@
                 analyser = audioCtx.createAnalyser();
                 analyser.fftSize = 512;
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-                // Capturar micrófono / loopback
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const source = audioCtx.createMediaStreamSource(stream);
                 source.connect(analyser);
-                
-                document.querySelector('#ui p:last-child').style.display = 'none'; // Ocultar aviso
-                console.log("Audio iniciado");
-            } catch(e) {
-                console.error("Error audio", e);
-            }
-        }
-
-        function analyzeAudio() {
-            if(!analyser) return;
-            analyser.getByteFrequencyData(dataArray);
-            
-            // Promediar bandas (simplificado)
-            let b = 0, m = 0, h = 0;
-            for(let i=0; i<10; i++) b += dataArray[i];
-            for(let i=10; i<100; i++) m += dataArray[i];
-            for(let i=100; i<200; i++) h += dataArray[i];
-
-            // Suavizado (Lerp) para que no parpadee
-            audioData.bass += ((b / 10 / 255.0) - audioData.bass) * 0.2;
-            audioData.mid += ((m / 90 / 255.0) - audioData.mid) * 0.2;
-            audioData.high += ((h / 100 / 255.0) - audioData.high) * 0.2;
-        }
-
-        // --- BUCLE ---
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+                document.querySelector('#ui p:last-child').style.display = 'none';
+            } catch(e) { console.error(e); }
         }
 
         function animate() {
             requestAnimationFrame(animate);
-            analyzeAudio();
+            
+            // Audio Analysis
+            if(analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                let b=0, m=0, h=0;
+                for(let i=0; i<10; i++) b+=dataArray[i];
+                for(let i=10; i<100; i++) m+=dataArray[i];
+                for(let i=100; i<200; i++) h+=dataArray[i];
+                audioData.bass += ((b/10/255.0) - audioData.bass)*0.2;
+                audioData.mid += ((m/90/255.0) - audioData.mid)*0.2;
+                audioData.high += ((h/100/255.0) - audioData.high)*0.2;
+            }
 
             uniforms.uTime.value += 0.01;
-            
-            // Pasar datos de audio al shader
-            // Multiplicamos por sensibilidad
             uniforms.uBass.value = audioData.bass;
             uniforms.uMid.value = audioData.mid;
             uniforms.uHigh.value = audioData.high;
 
-            // Interpolación suave del modo 3D
-            const targetMorph = is3DMode ? 1.0 : 0.0;
-            morphValue += (targetMorph - morphValue) * 0.05; // Transición lenta y elegante
+            // Transición suave 2D <-> 3D
+            const targetMorph = is3D ? 1.0 : 0.0;
+            morphValue += (targetMorph - morphValue) * 0.05;
             uniforms.uMorph.value = morphValue;
 
-            // Rotación sutil de la cámara o el objeto en modo 3D para darle dinamismo
-            if (morphValue > 0.1) {
-                screenMesh.rotation.y += 0.002;
+            // Rotación automática si es 3D
+            if(morphValue > 0.01) {
+                screenMesh.rotation.y += 0.003;
+                screenMesh.rotation.z = Math.sin(uniforms.uTime.value * 0.5) * 0.1;
             } else {
-                // En 2D volvemos lentamente a rotación 0
-                screenMesh.rotation.y *= 0.9;
-                screenMesh.rotation.x *= 0.9;
+                screenMesh.rotation.set(0,0,0);
             }
 
             renderer.render(scene, camera);
+        }
+        
+        // Ajuste ventana
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         }
     </script>
 </body>
