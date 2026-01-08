@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>ALEX V.2.0 NEURO-ORB</title>
+    <title>ALEX V.2.1 VIDEO-SKIN</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@500;800;900&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -243,7 +243,7 @@
              <div style="position: absolute; top: 40px; left: 50%; transform: translateX(-50%); width: 160px; height: 10px; background: #000;"></div>
         </div>
         <h1 style="font-size:90px; letter-spacing:-5px; color:#101010; margin: 0 0 10px 0; font-family: 'Montserrat'; font-weight: 900; line-height: 0.8;">ALEX</h1>
-        <h2 style="font-size: 16px; font-family: 'Rajdhani'; letter-spacing: 5px; color: #555; text-transform: uppercase; font-weight: 700; margin-bottom: 40px;">System V.2.0 NEURO</h2>
+        <h2 style="font-size: 16px; font-family: 'Rajdhani'; letter-spacing: 5px; color: #555; text-transform: uppercase; font-weight: 700; margin-bottom: 40px;">System V.2.1 SKIN</h2>
         
         <button id="btn-start" style="padding:15px 50px; background:#101010; border:none; color:#E8E4D9; font-family:'Montserrat'; font-weight: 800; font-size:20px; letter-spacing: 1px; cursor:pointer; transition: 0.3s;">INICIAR SISTEMA</button>
         
@@ -659,42 +659,52 @@
                     }
                 `;
 
+                // --- ORB FRAGMENT SHADER (VIDEO SKIN) ---
                 const orbFrag = `
-                    uniform float uTime;
-                    uniform float uBass;
-                    uniform int uDistType;
-                    varying float vDisplacement;
-                    varying vec3 vNormal;
+                    uniform sampler2D uTexA; uniform sampler2D uTexB; uniform float uCrossfade;
+                    uniform sampler2D uTexCam; uniform float uMix;
+                    uniform float uTime; uniform float uBass; uniform int uDistType;
+                    uniform vec3 uTint; uniform float uTintMix;
+                    varying float vDisplacement; varying vec3 vNormal; varying vec2 vUv;
 
                     void main() {
-                        vec3 color = vec3(0.0);
+                        // 1. MUESTREO DE VIDEO (SKIN)
+                        vec2 uv = vUv;
+                        vec3 cA = texture2D(uTexA, uv).rgb;
+                        vec3 cB = texture2D(uTexB, uv).rgb;
+                        vec3 videoCol = mix(cA, cB, uCrossfade);
                         
-                        // COLORES DINÁMICOS BASADOS EN AUDIO
-                        if(uDistType == 6) { // Y: Neon Plasma
-                             vec3 c1 = vec3(0.1, 0.0, 0.3); // Morado
-                             vec3 c2 = vec3(0.0, 1.0, 1.0); // Cyan
-                             color = mix(c1, c2, smoothstep(-0.5, 0.5, vDisplacement));
-                             color += vec3(uBass, 0.0, 0.0); // Rojo al golpe de bajo
-                        }
-                        else if(uDistType == 7) { // U: Electric Gold
-                             color = vec3(1.0, 0.8, 0.0) * (vDisplacement + 0.5);
-                             color += vec3(1.0) * pow(vDisplacement, 3.0);
-                        }
-                        else { // Otros: Generative Green/White
-                             color = vec3(0.0, 1.0, 0.5) * (vDisplacement + 0.2);
-                             color += vec3(0.1, 0.1, 0.1);
-                        }
+                        // Mezcla Webcam
+                        vec3 cam = texture2D(uTexCam, uv).rgb;
+                        videoCol = mix(videoCol, cam, uMix);
+                        
+                        // Aplicar Tinte Global
+                        videoCol = mix(videoCol, videoCol * uTint, uTintMix);
 
-                        // Fresnel Rim Light
+                        // 2. ILUMINACIÓN Y REACTIVIDAD 3D
                         float fresnel = pow(1.0 + dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0);
-                        color += vec3(fresnel * 0.5);
+                        float highlight = smoothstep(0.2, 0.8, vDisplacement);
+                        
+                        // Base: Color del video modificado por la luz
+                        vec3 finalCol = videoCol * (0.8 + 0.4 * uBass); 
 
-                        gl_FragColor = vec4(color, 1.0);
+                        // Efectos adicionales según deformación
+                        if(uDistType == 6) { // Y: Neon Edge
+                             finalCol += vec3(0.2, 0.0, 0.5) * highlight * uBass;
+                        }
+                        else if(uDistType == 7) { // U: Gold Highlights
+                             finalCol += vec3(1.0, 0.8, 0.0) * highlight * 0.5;
+                        }
+                        
+                        // Sumar Fresnel para volumen
+                        finalCol += vec3(fresnel * 0.4);
+
+                        gl_FragColor = vec4(finalCol, 1.0);
                     }
                 `;
 
-                // Usamos una esfera de alta definición (Icosaedro subdividido)
-                this.orbGeometry = new THREE.IcosahedronGeometry(2.5, 60); 
+                // Usamos SphereGeometry para mayor estabilidad y densidad controlada (CRASH FIX)
+                this.orbGeometry = new THREE.SphereGeometry(2.5, 128, 128); 
                 this.orbMaterial = new THREE.ShaderMaterial({
                     uniforms: this.uniforms, // Compartimos uniforms para audio/tiempo
                     vertexShader: orbVert,
