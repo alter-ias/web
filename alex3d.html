@@ -317,23 +317,23 @@
                     vec3 colB = texture2D(uTexB, vUv).rgb;
                     vec3 videoColor = mix(colA, colB, uCrossfade);
 
-                    // 2. ILUMINACIÓN (SÓLO PARA 3D)
-                    // No añadimos blanco especular para no lavar la imagen.
-                    // Usamos sombras (occlusion) basada en la deformación.
+                    // 2. ILUMINACIÓN BRILLANTE (SÓLO PARA 3D)
+                    // Eliminamos sombras agresivas. Solo un toque muy sutil para dar volumen.
                     
-                    float shadow = 1.0;
+                    float shading = 1.0;
                     if(uMorph > 0.1) {
-                        // Valles oscuros
-                        float valleys = smoothstep(-0.5, 0.5, vDisplacement);
-                        // Borde Fresnel sutil (oscurece bordes para volumen)
-                        float fresnel = dot(vNormal, vec3(0.0, 0.0, 1.0));
-                        fresnel = clamp(fresnel, 0.4, 1.0);
+                        // Sombreado direccional suave
+                        float light = dot(vNormal, vec3(0.0, 0.0, 1.0)); // Luz frontal
+                        light = smoothstep(0.0, 1.0, light);
                         
-                        shadow = valleys * fresnel;
+                        // Limitamos el oscurecimiento: nunca baja del 80% de brillo
+                        shading = mix(0.8, 1.0, light);
+                        
+                        // Un poco de brillo extra en los picos de deformación
+                        shading += vDisplacement * 0.1;
                     }
 
-                    // El color final es el video oscurecido por la geometría 3D
-                    gl_FragColor = vec4(videoColor * shadow, 1.0);
+                    gl_FragColor = vec4(videoColor * shading, 1.0);
                 }
             `;
 
