@@ -192,27 +192,44 @@
         createNeuralNetwork();
 
 
-        // --- CARGAR MODELO (Tu cerebro GLB) ---
+       // --- CARGAR MODELO (CORREGIDO) ---
         let brainModel = null;
         const loader = new THREE.GLTFLoader();
         const dracoLoader = new THREE.DRACOLoader();
-        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+
+        // CAMBIO IMPORTANTE: Usamos el decodificador que viene EXACTAMENTE con la versión r128
+        // en lugar del de Google, para evitar conflictos de atributos.
+        dracoLoader.setDecoderPath('https://unpkg.com/three@0.128.0/examples/js/libs/draco/');
+        dracoLoader.setDecoderConfig({ type: 'js' }); // Forzamos Javascript para máxima compatibilidad
+        
         loader.setDRACOLoader(dracoLoader);
 
         loader.load('models/gltf/brains.glb', (gltf) => {
             brainModel = gltf.scene;
+            
+            // Ajusta la escala si se ve muy grande o chico
             brainModel.scale.set(6, 6, 6); 
             brainModel.position.set(0, -2, 0); 
             
             // Material un poco más oscuro para que resalten las luces
             brainModel.traverse((child) => {
                 if (child.isMesh) {
-                    child.material.roughness = 0.7;
+                    // Hacemos el material un poco más receptivo a la luz
+                    child.material.roughness = 0.6;
+                    child.material.metalness = 0.1;
                 }
             });
 
             scene.add(brainModel);
             document.getElementById('loading').style.display = 'none';
+            console.log("Modelo cargado exitosamente"); // Mensaje para confirmar en consola
+
+        }, (xhr) => {
+             // Ver progreso
+             console.log((xhr.loaded / xhr.total * 100) + '% cargado');
+        }, (error) => {
+             console.error('Error cargando:', error);
+             document.getElementById('loading').innerText = 'Error: No se encuentra el archivo .glb';
         });
 
         // --- INTERACTIVIDAD ---
