@@ -3,57 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cerebro Interactivo + Red Neuronal</title>
+    <title>Neuro-Tech: Atlas Interactivo</title>
     <style>
-        :root { --primary: #00f3ff; --secondary: #ff0055; --bg: #050510; --glass: rgba(20, 20, 35, 0.8); }
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Roboto, sans-serif; background-color: var(--bg); color: white; }
-        
-        #canvas-container { width: 100vw; height: 100vh; position: absolute; z-index: 1; }
-        
-        #ui-layer { position: absolute; width: 100%; height: 100%; z-index: 2; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; }
-        
-        header { padding: 20px; background: linear-gradient(to bottom, black, transparent); pointer-events: auto; }
-        h1 { margin: 0; font-weight: 300; text-transform: uppercase; font-size: 1.5rem; color: var(--primary); text-shadow: 0 0 10px var(--primary); }
-        .subtitle { font-size: 0.9rem; color: #aaa; }
-        
-        .info-panel { 
-            position: absolute; right: 20px; top: 15%; width: 320px; 
-            background: var(--glass); backdrop-filter: blur(10px); 
-            border-left: 3px solid var(--primary); padding: 25px; 
-            border-radius: 10px; pointer-events: auto; 
-            transition: all 0.4s ease;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        :root { 
+            --primary: #00f3ff; 
+            --secondary: #ff0055; 
+            --bg: #050510; 
+            --glass: rgba(10, 10, 20, 0.85); 
+            --text: #e0e0e0;
         }
 
-        .info-card { display: none; animation: slideIn 0.5s ease; }
-        .info-card.active { display: block; }
+        body { 
+            margin: 0; 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text); 
+            overflow-x: hidden; 
+        }
         
-        h3 { color: var(--primary); margin-top: 0; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px; }
-        p { font-size: 0.95rem; line-height: 1.6; color: #eee; }
-        .stat-highlight { color: var(--secondary); font-weight: bold; }
+        /* --- CAPA 1: HERO THREE.JS (TU CÓDIGO) --- */
+        #hero-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: 1;
+            transition: opacity 1s ease;
+        }
 
-        .nav-bar {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+        #hero-ui {
+            position: absolute; width: 100%; height: 100%; z-index: 10;
+            pointer-events: none; /* Permite clickear el modelo */
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+
+        /* Estilos específicos de tu UI Hero */
+        header { padding: 30px; background: linear-gradient(to bottom, black, transparent); pointer-events: auto; }
+        h1 { margin: 0; font-weight: 300; text-transform: uppercase; font-size: 2.5rem; color: var(--primary); text-shadow: 0 0 15px var(--primary); letter-spacing: 2px; }
+        .subtitle { font-size: 1rem; color: #aaa; letter-spacing: 1px; }
+
+        .hero-nav {
+            position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
             display: flex; gap: 15px; pointer-events: auto;
-            background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 30px;
+            background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 30px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255,255,255,0.1);
         }
-
+        
         .nav-btn {
-            background: transparent; border: 1px solid rgba(255,255,255,0.3);
-            color: white; padding: 8px 15px; border-radius: 20px; cursor: pointer;
-            transition: all 0.3s; font-size: 0.8rem; text-transform: uppercase;
+            background: transparent; border: 1px solid rgba(255,255,255,0.3); color: white;
+            padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: all 0.3s;
+            text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px;
+        }
+        .nav-btn:hover, .nav-btn.active { background: var(--primary); color: black; box-shadow: 0 0 15px var(--primary); border-color: var(--primary); font-weight: bold; }
+
+        .scroll-indicator {
+            position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+            font-size: 0.8rem; color: #666; animation: bounce 2s infinite; pointer-events: none;
         }
 
-        .nav-btn:hover, .nav-btn.active {
-            background: var(--primary); border-color: var(--primary);
-            color: black; font-weight: bold; box-shadow: 0 0 15px var(--primary);
+        /* --- CAPA 2: SCROLLTELLING (SKETCHFAB) --- */
+        #scroll-wrapper {
+            position: relative;
+            z-index: 20;
+            margin-top: 100vh; /* Empieza después del Hero */
+            background: linear-gradient(to bottom, transparent, var(--bg) 10%);
         }
 
-        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--primary); font-size: 1.5rem; z-index: 10; font-weight: 300; }
+        .content-container {
+            display: flex;
+            position: relative;
+        }
 
-        @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+        /* Columna Izquierda (Texto) */
+        .text-column {
+            width: 40%;
+            padding-bottom: 20vh;
+        }
+
+        .step {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            opacity: 0.2;
+            transition: all 0.5s ease;
+        }
+
+        .step.active {
+            opacity: 1;
+            transform: translateX(10px);
+        }
+
+        .card {
+            background: var(--glass);
+            border-left: 4px solid var(--secondary);
+            padding: 2.5rem;
+            border-radius: 0 15px 15px 0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            backdrop-filter: blur(12px);
+            max-width: 450px;
+        }
+
+        .card h2 { margin-top: 0; color: var(--secondary); font-size: 2rem; text-transform: uppercase; }
+        .card h3 { color: #aaa; font-size: 0.9rem; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .card p { line-height: 1.7; font-size: 1.1rem; color: #ddd; }
+        .highlight { color: var(--primary); font-weight: bold; }
+
+        /* Columna Derecha (Visor Sticky) */
+        .sticky-column {
+            position: sticky;
+            top: 0;
+            right: 0;
+            width: 60%;
+            height: 100vh;
+            background: radial-gradient(circle at center, #151525 0%, #000 100%);
+        }
+
+        iframe { width: 100%; height: 100%; border: none; transition: opacity 0.5s; }
+        
+        #loading-overlay {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: var(--primary); font-family: monospace; font-size: 1.2rem;
+            pointer-events: none; transition: opacity 0.3s;
+        }
+
+        @keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateX(-50%) translateY(0);} 40% {transform: translateX(-50%) translateY(-10px);} 60% {transform: translateX(-50%) translateY(-5px);} }
+        
+        /* Mobile */
+        @media (max-width: 768px) {
+            .content-container { flex-direction: column-reverse; }
+            .sticky-column { position: relative; width: 100%; height: 50vh; }
+            .text-column { width: 100%; }
+            .step { min-height: 60vh; padding: 1rem; }
+            h1 { font-size: 1.8rem; }
+        }
     </style>
-
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/three@0.147.0/build/three.min.js"></script>
     <script src="https://unpkg.com/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
@@ -63,44 +149,89 @@
 </head>
 <body>
 
-    <div id="loading">Cargando Modelo...</div>
-    <div id="canvas-container"></div>
-
-    <div id="ui-layer">
-        <header>
-            <h1>Neuro-Tech Explorer</h1>
-            <p class="subtitle">Análisis de Red Neuronal Activa</p>
-        </header>
-
-        <div class="info-panel">
-            <div id="content-0" class="info-card active">
-                <h3>Actividad Global</h3>
-                <p>Las <span style="color:#00f3ff">neuronas externas</span> representan la actividad sináptica. El cerebro consume el 20% de la energía del cuerpo manteniendo estos canales eléctricos activos.</p>
+    <div id="hero-container">
+        <div id="loading-hero" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#00f3ff;">Iniciando Sistema...</div>
+        <div id="hero-ui">
+            <header>
+                <h1>Neuro-Tech Explorer</h1>
+                <p class="subtitle">Modelo Neuronal Generativo v2.0</p>
+            </header>
+            
+            <div class="hero-nav">
+                <button class="nav-btn active" onclick="focusSection(0)">Global</button>
+                <button class="nav-btn" onclick="focusSection(1)">Visión</button>
+                <button class="nav-btn" onclick="focusSection(2)">Motor</button>
+                <button class="nav-btn" onclick="focusSection(3)">Frontal</button>
             </div>
-            <div id="content-1" class="info-card">
-                <h3>Procesamiento Visual</h3>
-                <p>Al enfocar la visión, la actividad eléctrica se dispara en el lóbulo occipital (parte trasera). La red neuronal aquí es densa para procesar píxeles a alta velocidad.</p>
-            </div>
-            <div id="content-2" class="info-card">
-                <h3>Control Motor</h3>
-                <p>La coordinación requiere disparos neuronales precisos en el cerebelo. Observa cómo la luz naranja indica los impulsos de movimiento y equilibrio.</p>
-            </div>
-            <div id="content-3" class="info-card">
-                <h3>Juicio y Razón</h3>
-                <p>El lóbulo frontal (azul). Aquí las conexiones son más lentas pero más complejas, integrando información de todo el cerebro para tomar decisiones.</p>
-            </div>
+            <div class="scroll-indicator">▼ Desliza para Explorar Anatomía Real ▼</div>
         </div>
+    </div>
 
-        <div class="nav-bar">
-            <button class="nav-btn active" onclick="focusSection(0)">Global</button>
-            <button class="nav-btn" onclick="focusSection(1)">Visión</button>
-            <button class="nav-btn" onclick="focusSection(2)">Motor</button>
-            <button class="nav-btn" onclick="focusSection(3)">Frontal</button>
+    <div id="scroll-wrapper">
+        <div class="content-container">
+            
+            <div class="text-column">
+                
+                <div class="step" data-model="69757f248db1426495a172df7dfeb7f8">
+                    <div class="card">
+                        <h2>La Corteza</h2>
+                        <h3>El Pensamiento Consciente</h3>
+                        <p>Dejamos la simulación para ver anatomía real. Este es un <strong>Hemisferio Cerebral</strong> aislado.</p>
+                        <p>Observa los pliegues (giros y surcos). Esta estructura arrugada permite empaquetar más superficie neuronal en el cráneo, posibilitando el pensamiento abstracto, el lenguaje y la conciencia.</p>
+                    </div>
+                </div>
+
+                <div class="step" data-model="a7690bea66ba49239d58cd37c5ce76c9">
+                    <div class="card">
+                        <h2>El Cableado</h2>
+                        <h3>Tractografía por fMRI</h3>
+                        <p>Si quitamos la "carne", queda esto: la <strong>Materia Blanca</strong>.</p>
+                        <p>No son más que millones de axones (cables) agrupados en fascículos. Los colores representan la dirección del flujo de datos: <span class="highlight">Rojo</span> (izquierda-derecha), <span class="highlight">Verde</span> (adelante-atrás) y <span class="highlight">Azul</span> (arriba-abajo).</p>
+                    </div>
+                </div>
+
+                <div class="step" data-model="7981dff55a8d40259aff2f1d53649ef6">
+                    <div class="card">
+                        <h2>Emoción Pura</h2>
+                        <h3>Sistema Límbico</h3>
+                        <p>En las profundidades reside nuestro cerebro más primitivo. Aquí vemos el <span class="highlight">Hipocampo</span> (memoria) y la <span class="highlight">Amígdala</span> (miedo y agresión).</p>
+                        <p>Estas estructuras procesan lo que sientes antes de que tu corteza racional sepa qué está pasando.</p>
+                    </div>
+                </div>
+
+                <div class="step" data-model="7c29643dda774c5480bdff90f509462b">
+                    <div class="card">
+                        <h2>Los Sensores</h2>
+                        <h3>Oído Medio e Interno</h3>
+                        <p>El cerebro está aislado en la oscuridad; necesita sensores. Este es el mecanismo del oído.</p>
+                        <p>No solo capta sonido (cóclea), sino que esos tres bucles semicirculares son tus <strong>giroscopios biológicos</strong>. Le dicen al cerebro dónde es "arriba" y mantienen tu equilibrio.</p>
+                    </div>
+                </div>
+
+                <div class="step" data-model="b740e041dbb14d14aa128f9be8258c56">
+                    <div class="card">
+                        <h2>Refrigeración</h2>
+                        <h3>Sistema Venoso</h3>
+                        <p>El cerebro consume el 20% del oxígeno del cuerpo. Este complejo sistema de drenaje (senos venosos) retira la sangre desoxigenada y el calor metabólico.</p>
+                        <p>Sin este sistema de "tuberías", el procesador biológico se sobrecalentaría en minutos.</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="sticky-column">
+                <div id="loading-overlay">Cargando Modelo 3D...</div>
+                <iframe id="sketchfab-frame" title="Viewer" allow="autoplay; fullscreen; vr" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+            </div>
+
         </div>
     </div>
 
     <script>
-        // --- CONFIGURACIÓN DE ESCENA ---
+        // ==========================================
+        // PARTE 1: THREE.JS HERO (TU CÓDIGO MEJORADO)
+        // ==========================================
+        const heroContainer = document.getElementById('hero-container');
         const scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x050510, 0.02);
 
@@ -110,215 +241,147 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
-        // Corrección de color para Three.js r147+
-        renderer.outputEncoding = THREE.sRGBEncoding; 
+        renderer.outputEncoding = THREE.sRGBEncoding;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.0;
-        
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        heroContainer.appendChild(renderer.domElement);
 
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.minDistance = 5;
-        controls.maxDistance = 40;
+        controls.minDistance = 5; controls.maxDistance = 40;
 
-        // --- LUCES ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-        scene.add(ambientLight);
-
+        // Luces
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
         const mainLight = new THREE.DirectionalLight(0xffffff, 1);
-        mainLight.position.set(5, 10, 7);
-        scene.add(mainLight);
-
-        const fillLight = new THREE.DirectionalLight(0x00f3ff, 0.5);
-        fillLight.position.set(-5, 0, -5);
-        scene.add(fillLight);
-
-        // Luz "Linterna" interactiva
+        mainLight.position.set(5, 10, 7); scene.add(mainLight);
         const spotLight = new THREE.PointLight(0x00f3ff, 3, 25);
-        spotLight.position.set(0, 5, 0);
-        scene.add(spotLight);
+        spotLight.position.set(0, 5, 0); scene.add(spotLight);
 
-
-        // --- EFECTOS VISUALES: NEURONAS ---
-        function getNeuronTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 32; canvas.height = 32;
-            const ctx = canvas.getContext('2d');
-            const grad = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
-            grad.addColorStop(0, 'rgba(255,255,255,1)');
-            grad.addColorStop(0.2, 'rgba(255,255,255,0.8)');
-            grad.addColorStop(0.6, 'rgba(255,255,255,0.1)');
-            grad.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = grad;
-            ctx.fillRect(0,0,32,32);
-            return new THREE.CanvasTexture(canvas);
-        }
-
-        let neuronSystem, neuronLines;
-        
+        // Red Neuronal (Particle System)
         function createNeuralNetwork() {
-            // Aumentamos el radio para asegurar que rodee al modelo
-            const radius = 8.5; 
-            const particleCount = 350;
-            const positions = [];
-            
-            for (let i = 0; i < particleCount; i++) {
+            const radius = 8.5; const count = 350; const positions = [];
+            for (let i = 0; i < count; i++) {
                 const theta = Math.random() * Math.PI * 2;
                 const phi = Math.acos((Math.random() * 2) - 1);
-                const r = radius + (Math.random() - 0.5) * 1.5; 
-                positions.push(
-                    r * Math.sin(phi) * Math.cos(theta),
-                    r * Math.sin(phi) * Math.sin(theta),
-                    r * Math.cos(phi)
-                );
+                const r = radius + (Math.random() - 0.5) * 1.5;
+                positions.push(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
             }
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            const mat = new THREE.PointsMaterial({ color: 0x00f3ff, size: 0.5, transparent: true, opacity: 0.8 });
+            const points = new THREE.Points(geo, mat);
+            scene.add(points);
             
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-
-            const pMat = new THREE.PointsMaterial({
-                color: 0x00f3ff, size: 0.5, map: getNeuronTexture(),
-                transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending,
-                depthWrite: false
-            });
-
-            neuronSystem = new THREE.Points(geometry, pMat);
-            scene.add(neuronSystem);
-
             // Líneas
-            const lineGeo = new THREE.BufferGeometry();
-            const linePos = [];
-            for (let i = 0; i < positions.length; i+=3) {
+            const lineGeo = new THREE.BufferGeometry(); const linePos = [];
+            for(let i=0; i<positions.length; i+=3) {
                 const v1 = new THREE.Vector3(positions[i], positions[i+1], positions[i+2]);
-                for (let j = i+3; j < positions.length; j+=3) {
+                for(let j=i+3; j<positions.length; j+=3) {
                     const v2 = new THREE.Vector3(positions[j], positions[j+1], positions[j+2]);
-                    if (v1.distanceTo(v2) < 3.0) {
-                        linePos.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z);
-                    }
+                    if(v1.distanceTo(v2) < 3.0) linePos.push(v1.x, v1.y, v1.z, v2.x, v2.y, v2.z);
                 }
             }
             lineGeo.setAttribute('position', new THREE.Float32BufferAttribute(linePos, 3));
-            neuronLines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({
-                color: 0x00f3ff, transparent: true, opacity: 0.15, blending: THREE.AdditiveBlending
-            }));
-            scene.add(neuronLines);
+            const lines = new THREE.LineSegments(lineGeo, new THREE.LineBasicMaterial({ color: 0x00f3ff, transparent: true, opacity: 0.15 }));
+            scene.add(lines);
+            return { points, lines };
         }
+        const neuralNet = createNeuralNetwork();
 
-        createNeuralNetwork();
-
-        // --- CARGA DEL MODELO (CORREGIDO) ---
+        // Carga Modelo GLB
         let brainModel = null;
-        
-        // Configuración para Draco Moderno con Three r147
         const loader = new THREE.GLTFLoader();
         const dracoLoader = new THREE.DRACOLoader();
-        
-        // Usamos el decoder de Google que es robusto
         dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-        dracoLoader.setDecoderConfig({ type: 'js' });
         loader.setDRACOLoader(dracoLoader);
 
-        loader.load('models/gltf/brains.glb', 
-            (gltf) => {
-                brainModel = gltf.scene;
-                
-                // AJUSTES DE TAMAÑO Y POSICIÓN
-                // Si no lo ves, prueba a cambiar estos valores
-                brainModel.scale.set(6, 6, 6); 
-                brainModel.position.set(0, -1, 0); 
-                
-                // Asegurar que los materiales respondan a la luz
-                brainModel.traverse((child) => {
-                    if (child.isMesh) {
-                        child.castShadow = true;
-                        child.receiveShadow = true;
-                    }
-                });
+        loader.load('models/gltf/brains.glb', (gltf) => {
+            brainModel = gltf.scene;
+            brainModel.scale.set(6, 6, 6); brainModel.position.set(0, -1, 0);
+            scene.add(brainModel);
+            document.getElementById('loading-hero').style.display = 'none';
+            new TWEEN.Tween(brainModel.rotation).to({ y: Math.PI * 2 }, 2500).easing(TWEEN.Easing.Cubic.Out).start();
+        });
 
-                scene.add(brainModel);
-                document.getElementById('loading').style.display = 'none';
-                console.log("¡Cerebro cargado correctamente!");
-
-                // Animación de entrada
-                new TWEEN.Tween(brainModel.rotation).to({ y: Math.PI * 2 }, 2500).easing(TWEEN.Easing.Cubic.Out).start();
-            }, 
-            (xhr) => { console.log((xhr.loaded / xhr.total * 100) + '% cargado'); },
-            (error) => { 
-                console.error('Error:', error); 
-                document.getElementById('loading').innerHTML = 'Error al cargar.<br>Verifica la carpeta models/gltf/';
-            }
-        );
-
-        // --- INTERACTIVIDAD ---
-        function focusSection(index) {
-            // UI Update
-            document.querySelectorAll('.info-card').forEach(c => c.classList.remove('active'));
-            document.getElementById(`content-${index}`).classList.add('active');
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.nav-btn')[index].classList.add('active');
-
-            let colorHex = '#ffffff';
-            let camPos = { x: 0, y: 0, z: 18 };
-            let lightPos = { x: 5, y: 10, z: 5 };
-
-            switch(index) {
-                case 0: // Global (Cian)
-                    colorHex = '#00f3ff';
-                    break;
-                case 1: // Visión (Magenta/Rojo) - Vista Trasera
-                    colorHex = '#ff0055';
-                    camPos = { x: 10, y: 2, z: -10 }; 
-                    lightPos = { x: 0, y: 0, z: -10 };
-                    break;
-                case 2: // Motor (Naranja) - Vista Superior/Trasera
-                    colorHex = '#ffaa00';
-                    camPos = { x: 0, y: 12, z: 8 };
-                    lightPos = { x: 0, y: 8, z: 0 };
-                    break;
-                case 3: // Frontal (Azul eléctrico) - Vista Frontal
-                    colorHex = '#4444ff';
-                    camPos = { x: -8, y: 3, z: 12 };
-                    lightPos = { x: 0, y: 3, z: 10 };
-                    break;
-            }
-
-            // Animar todo junto (Luces, Neuronas, Cámara)
-            const targetColor = new THREE.Color(colorHex);
-
-            if (neuronSystem && neuronLines) {
-                new TWEEN.Tween(neuronSystem.material.color).to({r: targetColor.r, g: targetColor.g, b: targetColor.b}, 800).start();
-                new TWEEN.Tween(neuronLines.material.color).to({r: targetColor.r, g: targetColor.g, b: targetColor.b}, 800).start();
-            }
-
-            new TWEEN.Tween(spotLight.color).to({r: targetColor.r, g: targetColor.g, b: targetColor.b}, 800).start();
-            new TWEEN.Tween(spotLight.position).to(lightPos, 1500).easing(TWEEN.Easing.Cubic.Out).start();
-            new TWEEN.Tween(camera.position).to(camPos, 2000).easing(TWEEN.Easing.Cubic.InOut).start();
-        }
-
-        // --- LOOP PRINCIPAL ---
+        // Loop Three.js
+        let isHeroVisible = true;
         function animate(time) {
+            if(!isHeroVisible) return; // Pausa el render si no se ve
             requestAnimationFrame(animate);
-            TWEEN.update(time);
-            controls.update();
-
-            // Animación suave de flotación
-            if (brainModel) {
-                brainModel.position.y = -1 + Math.sin(time * 0.001) * 0.1;
-            }
-
-            if (neuronSystem) {
-                neuronSystem.rotation.y = time * 0.0001;
-                neuronSystem.rotation.z = Math.sin(time * 0.0002) * 0.05;
-                neuronLines.rotation.y = time * 0.0001;
-                neuronLines.rotation.z = Math.sin(time * 0.0002) * 0.05;
-            }
-
+            TWEEN.update(time); controls.update();
+            if (brainModel) brainModel.position.y = -1 + Math.sin(time * 0.001) * 0.1;
+            if (neuralNet.points) { neuralNet.points.rotation.y = time * 0.0001; neuralNet.lines.rotation.y = time * 0.0001; }
             renderer.render(scene, camera);
         }
         animate();
 
+        // Funciones de UI Hero
+        window.focusSection = function(index) {
+            let colorHex = '#ffffff';
+            let camPos = { x: 0, y: 0, z: 18 };
+            switch(index) {
+                case 0: colorHex = '#00f3ff'; break;
+                case 1: colorHex = '#ff0055'; camPos = { x: 10, y: 2, z: -10 }; break;
+                case 2: colorHex = '#ffaa00'; camPos = { x: 0, y: 12, z: 8 }; break;
+                case 3: colorHex = '#4444ff'; camPos = { x: -8, y: 3, z: 12 }; break;
+            }
+            new TWEEN.Tween(spotLight.color).to(new THREE.Color(colorHex), 800).start();
+            new TWEEN.Tween(spotLight.position).to(camPos, 1500).start();
+            new TWEEN.Tween(camera.position).to(camPos, 2000).easing(TWEEN.Easing.Cubic.InOut).start();
+        };
+
+        // ==========================================
+        // PARTE 2: GESTIÓN DE SCROLL Y SKETCHFAB
+        // ==========================================
+        const iframe = document.getElementById('sketchfab-frame');
+        const loadOverlay = document.getElementById('loading-overlay');
+        const steps = document.querySelectorAll('.step');
+
+        // Detectar Scroll para ocultar Hero
+        window.addEventListener('scroll', () => {
+            const scrollY = window.scrollY;
+            const windowH = window.innerHeight;
+            
+            // Efecto Fade Out del Hero
+            if (scrollY < windowH) {
+                heroContainer.style.opacity = 1 - (scrollY / (windowH * 0.8));
+                heroContainer.style.pointerEvents = 'auto';
+                isHeroVisible = true;
+                requestAnimationFrame(animate); // Reactivar animación
+            } else {
+                heroContainer.style.opacity = 0;
+                heroContainer.style.pointerEvents = 'none';
+                isHeroVisible = false; // Parar animación para ahorrar recursos
+            }
+        });
+
+        // Cargar Modelos Sketchfab
+        function loadModel(uid) {
+            loadOverlay.style.opacity = '1';
+            // autostart=1, ui_theme=dark, transparent=1, ui_infos=0 (limpio)
+            const url = `https://sketchfab.com/models/${uid}/embed?autostart=1&ui_theme=dark&ui_infos=0&ui_watermark=0&transparent=1&ui_controls=1`;
+            
+            // Solo recargar si es diferente
+            if (!iframe.src.includes(uid)) {
+                iframe.src = url;
+                iframe.onload = () => { setTimeout(() => { loadOverlay.style.opacity = '0'; }, 800); };
+            }
+        }
+
+        // Intersection Observer para los pasos
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    steps.forEach(s => s.classList.remove('active'));
+                    entry.target.classList.add('active');
+                    const uid = entry.target.getAttribute('data-model');
+                    if (uid) loadModel(uid);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        steps.forEach(step => observer.observe(step));
+
+        // Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
