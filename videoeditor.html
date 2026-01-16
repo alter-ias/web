@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filtros de Video Artísticos en JS</title>
+    <title>Filtros de Video V2 (Corregido)</title>
     <style>
         body {
-            font-family: sans-serif;
-            background-color: #222;
-            color: #eee;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -17,20 +17,44 @@
             padding: 20px;
         }
 
-        h1 { margin-bottom: 10px; }
+        h1 { text-align: center; font-weight: 300; letter-spacing: 1px;}
 
         .controls {
-            background: #333;
-            padding: 20px;
-            border-radius: 8px;
+            background: #2a2a2a;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
             margin-bottom: 20px;
             width: 90%;
             max-width: 800px;
             text-align: center;
         }
 
-        input[type=file] {
-            margin-bottom: 15px;
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .btn-upload {
+            border: 2px solid #00a8ff;
+            color: #00a8ff;
+            background-color: transparent;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .upload-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
         }
 
         .filter-buttons {
@@ -38,52 +62,65 @@
             flex-wrap: wrap;
             gap: 10px;
             justify-content: center;
+            margin-top: 10px;
         }
 
-        button {
-            padding: 10px 15px;
+        button.filter-btn {
+            padding: 10px 18px;
             cursor: pointer;
-            background-color: #555;
+            background-color: #444;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 20px;
             font-size: 14px;
-            transition: background-color 0.2s;
+            transition: all 0.3s ease;
         }
 
-        button:hover { background-color: #777; }
-        button.active { background-color: #00a8ff; }
+        button.filter-btn:hover { background-color: #666; transform: translateY(-2px); }
+        button.filter-btn.active { background-color: #00a8ff; box-shadow: 0 0 10px #00a8ff; }
 
-        /* El canvas es donde se muestra el video procesado */
+        .canvas-container {
+            position: relative;
+            max-width: 100%;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+
         #outputCanvas {
             max-width: 100%;
-            border: 2px solid #555;
-            background: #000;
-            /* Inicialmente oculto hasta que se cargue un video */
-            display: none; 
+            display: block; /* Importante para evitar espacios extra */
+            border-radius: 4px;
+            background-color: #000;
         }
 
-        /* El elemento de video original permanece oculto, solo lo usamos como fuente */
-        #sourceVideo {
+        /* Mensaje de estado por si algo falla */
+        #statusMessage {
+            color: #ff4757;
+            margin-top: 10px;
+            font-weight: bold;
             display: none;
         }
     </style>
 </head>
 <body>
 
-    <h1>Procesador de Video Artístico</h1>
+    <h1>Editor de Video IA (Estilo)</h1>
 
     <div class="controls">
-        <p>1. Sube tu archivo de video (mp4, webm):</p>
-        <input type="file" id="videoUpload" accept="video/*">
+        <div class="upload-btn-wrapper">
+            <button class="btn-upload">📂 Seleccionar Video</button>
+            <input type="file" id="videoUpload" accept="video/mp4, video/webm, video/ogg">
+        </div>
         
-        <p>2. Selecciona un filtro mientras se reproduce:</p>
-        <div class="filter-buttons" id="buttonContainer">
-            </div>
+        <p>Selecciona un filtro:</p>
+        <div class="filter-buttons" id="buttonContainer"></div>
+        <div id="statusMessage"></div>
     </div>
 
-    <canvas id="outputCanvas"></canvas>
-    <video id="sourceVideo" playsinline loop muted></video>
+    <div class="canvas-container">
+        <canvas id="outputCanvas"></canvas>
+    </div>
+
+    <video id="sourceVideo" playsinline loop muted style="display:none;"></video>
 
     <script>
         const videoUpload = document.getElementById('videoUpload');
@@ -91,133 +128,143 @@
         const outputCanvas = document.getElementById('outputCanvas');
         const ctx = outputCanvas.getContext('2d', { willReadFrequently: true });
         const buttonContainer = document.getElementById('buttonContainer');
+        const statusMessage = document.getElementById('statusMessage');
 
-        let currentFilterStr = 'none';
+        let currentFilterStr = 'Original';
         let animationId;
+        let isProcessing = false;
 
         // --- DEFINICIÓN DE FILTROS ---
-        // Cada filtro es una función que manipula el array de píxeles (data)
-        // data[i] = Rojo, data[i+1] = Verde, data[i+2] = Azul, data[i+3] = Alpha
         const filters = {
-            'Original': (data) => { /* No hace nada */ },
-
-            'Noir (Alto Contraste)': (data) => {
+            'Original': (data) => {}, // Pass through
+            'Noir': (data) => {
                 for (let i = 0; i < data.length; i += 4) {
                     const r = data[i], g = data[i+1], b = data[i+2];
-                    // Convertir a escala de grises usando luminosidad percibida
                     let gray = 0.299 * r + 0.587 * g + 0.114 * b;
-                    // Aplicar un umbral fuerte para alto contraste
                     let val = gray > 100 ? 255 : 0;
                     data[i] = data[i+1] = data[i+2] = val;
                 }
             },
-
-            'Toxic (Mapa de Color)': (data) => {
+            'Toxic': (data) => {
                  for (let i = 0; i < data.length; i += 4) {
                     const r = data[i], g = data[i+1], b = data[i+2];
                     let gray = (r + g + b) / 3;
-                    
-                    // Mapear tonos de gris a colores tóxicos
-                    if (gray < 60) { // Sombras oscuras -> Morado/Azul
-                         data[i] = 50; data[i+1] = 0; data[i+2] = 150;
-                    } else if (gray < 150) { // Tonos medios -> Verde radiactivo
-                         data[i] = 0; data[i+1] = 255; data[i+2] = 50;
-                    } else { // Luces altas -> Amarillo quemado
-                         data[i] = 255; data[i+1] = 255; data[i+2] = 0;
+                    if (gray < 85) { // Oscuro -> Verde Toxico
+                         data[i] = 0; data[i+1] = 50; data[i+2] = 0;
+                    } else if (gray < 170) { // Medio -> Magenta
+                         data[i] = 200; data[i+1] = 0; data[i+2] = 200;
+                    } else { // Claro -> Amarillo Neon
+                         data[i] = 200; data[i+1] = 255; data[i+2] = 0;
                     }
                 }
             },
-
-            'Tinta/Fotocopia': (data) => {
+            'Sketch': (data) => {
                 for (let i = 0; i < data.length; i += 4) {
-                    const r = data[i], g = data[i+1], b = data[i+2];
-                    let gray = (r + g + b) / 3;
-                    // Umbral simple e inversión para efecto de tinta
-                    let val = gray > 120 ? 235 : 30; // No usar blanco/negro puro para efecto papel
-                    data[i] = data[i+1] = data[i+2] = val;
+                    let avg = (data[i] + data[i+1] + data[i+2]) / 3;
+                    // Invertir colores para efecto negativo/sketch
+                    let val = avg > 120 ? 240 : 20; 
+                    data[i] = data[i+1] = data[i+2] = val; 
                 }
             },
-
-             'Sepia Retro': (data) => {
+             'Matrix': (data) => {
                 for (let i = 0; i < data.length; i += 4) {
-                    const r = data[i], g = data[i+1], b = data[i+2];
-                    // Fórmula estándar de sepia
-                    data[i] = (r * 0.393) + (g * 0.769) + (b * 0.189); // Rojo
-                    data[i+1] = (r * 0.349) + (g * 0.686) + (b * 0.168); // Verde
-                    data[i+2] = (r * 0.272) + (g * 0.534) + (b * 0.131); // Azul
-                }
-            },
-             'Cianotipo (Azul)': (data) => {
-                for (let i = 0; i < data.length; i += 4) {
-                    // Escala de grises invertida en el canal azul
-                    let gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
-                    data[i] = 0; // R
-                    data[i+1] = gray * 0.5; // G (un poco de verde para tono cian)
-                    data[i+2] = gray + 50; // B (predominante)
+                    let green = data[i+1];
+                    data[i] = 0; // Sin rojo
+                    data[i+1] = green * 1.5; // Potenciar verde
+                    data[i+2] = 0; // Sin azul
                 }
             }
         };
 
-        // --- CONFIGURACIÓN DE LA INTERFAZ ---
-        // Generar botones dinámicamente
+        // --- CREAR BOTONES ---
         for (const key in filters) {
             const btn = document.createElement('button');
             btn.innerText = key;
+            btn.className = 'filter-btn';
+            if(key === 'Original') btn.classList.add('active');
+            
             btn.addEventListener('click', () => {
                 currentFilterStr = key;
-                // Actualizar estado visual de los botones
-                document.querySelectorAll('.filter-buttons button').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
             });
             buttonContainer.appendChild(btn);
         }
-        buttonContainer.firstChild.classList.add('active'); // Activar el primero por defecto
 
-        // --- MANEJO DE VIDEO ---
-        
-        // 1. Cargar el video cuando el usuario selecciona el archivo
+        // --- LÓGICA DE CARGA Y REPRODUCCIÓN ---
         videoUpload.addEventListener('change', function(e) {
             const file = e.target.files[0];
-            if (file) {
-                const fileURL = URL.createObjectURL(file);
-                sourceVideo.src = fileURL;
-                // Esperar a que el video tenga metadatos para ajustar el canvas
-                sourceVideo.onloadedmetadata = () => {
-                    outputCanvas.width = sourceVideo.videoWidth;
-                    outputCanvas.height = sourceVideo.videoHeight;
-                    outputCanvas.style.display = 'block';
-                    sourceVideo.play();
-                    processVideoFrame(); // Iniciar el bucle de procesamiento
-                };
+            if (!file) return;
+
+            statusMessage.style.display = 'none';
+            
+            // Crear URL local
+            const fileURL = URL.createObjectURL(file);
+            sourceVideo.src = fileURL;
+            
+            // Forzar carga
+            sourceVideo.load();
+        });
+
+        // Usamos 'canplay' que es más seguro que 'loadedmetadata'
+        sourceVideo.addEventListener('canplay', function() {
+            // Ajustar canvas al tamaño del video
+            outputCanvas.width = sourceVideo.videoWidth;
+            outputCanvas.height = sourceVideo.videoHeight;
+            
+            // Intentar reproducir
+            const playPromise = sourceVideo.play();
+
+            if (playPromise !== undefined) {
+                playPromise.then(_ => {
+                    // La reproducción automática comenzó
+                    if (!isProcessing) {
+                        isProcessing = true;
+                        processVideoFrame();
+                    }
+                })
+                .catch(error => {
+                    // Auto-play fue prevenido. 
+                    console.error("Autoplay prevenido:", error);
+                    statusMessage.innerText = "⚠️ El navegador bloqueó el autoplay. Haz clic en la página para iniciar.";
+                    statusMessage.style.display = 'block';
+                    
+                    // Intentamos reproducir de nuevo si el usuario toca la pantalla
+                    document.body.addEventListener('click', () => {
+                         sourceVideo.play();
+                         if (!isProcessing) {
+                            isProcessing = true;
+                            processVideoFrame();
+                        }
+                    }, { once: true });
+                });
             }
         });
 
-
-        // 2. El Bucle Principal de Procesamiento
+        // --- BUCLE DE PROCESAMIENTO ---
         function processVideoFrame() {
-            // Si el video está pausado o terminó, detener el bucle
             if (sourceVideo.paused || sourceVideo.ended) {
                 animationId = requestAnimationFrame(processVideoFrame);
-                return; 
+                return;
             }
 
-            // A. Dibujar el fotograma actual del video en el canvas
+            // 1. Dibujar video en canvas
             ctx.drawImage(sourceVideo, 0, 0, outputCanvas.width, outputCanvas.height);
 
-            // B. Si hay un filtro seleccionado, obtener los píxeles y manipularlos
+            // 2. Aplicar filtro
             if (currentFilterStr !== 'Original') {
-                // Obtener los datos crudos de la imagen (R,G,B,A para cada píxel)
-                let frameData = ctx.getImageData(0, 0, outputCanvas.width, outputCanvas.height);
-                let data = frameData.data;
-
-                // Aplicar la función del filtro seleccionado
-                filters[currentFilterStr](data);
-
-                // Poner los datos modificados de vuelta en el canvas
-                ctx.putImageData(frameData, 0, 0);
+                const frameData = ctx.getImageData(0, 0, outputCanvas.width, outputCanvas.height);
+                const data = frameData.data;
+                
+                try {
+                    filters[currentFilterStr](data);
+                    ctx.putImageData(frameData, 0, 0);
+                } catch (err) {
+                    console.error("Error en filtro:", err);
+                }
             }
 
-            // C. Solicitar el siguiente fotograma de animación
+            // 3. Siguiente frame
             animationId = requestAnimationFrame(processVideoFrame);
         }
     </script>
