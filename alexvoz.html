@@ -3,474 +3,335 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.18.0 INTERNAL</title>
+    <title>ALEX | LUDOVICO TREATMENT</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
-        /* --- ESTILOS VISUALES (INTACTOS) --- */
-        :root {
-            --bg-color: #1a1a1a; 
-            --text-main: #E8E4D9;
-            --text-sub: #888888;
-            --accent: #FF6600; 
-            --glass-panel: rgba(20, 20, 20, 0.8);
-            --border-color: #333;
-        }
-
-        [data-theme="ultra"] {
-            --bg-color: #900a00; 
-            --text-main: #000000;
-            --text-sub: #2a0000;
-            --accent: #FFFFFF; 
-            --glass-panel: rgba(255, 60, 0, 0.8);
-            --border-color: #aa1100;
-        }
-
-        body {
-            margin: 0;
-            background: var(--bg-color);
-            color: var(--text-main);
-            font-family: 'Montserrat', sans-serif;
-            overflow: hidden;
-            transition: background 0.5s ease, color 0.5s ease;
-        }
-
-        #theme-toggle {
-            position: fixed; top: 30px; left: 10%; z-index: 100;
-            background: transparent; border: 2px solid var(--text-main); color: var(--text-main);
-            padding: 10px 20px; font-family: 'Rajdhani'; font-weight: 700; cursor: pointer;
+        /* === ESTILOS VISUALES === */
+        :root { --bg: #1a1a1a; --main: #E8E4D9; --sub: #888; --accent: #FF6600; }
+        [data-theme="ultra"] { --bg: #900a00; --main: #000; --sub: #2a0000; --accent: #FFF; }
+        body { margin: 0; background: var(--bg); color: var(--main); font-family: 'Montserrat', sans-serif; overflow: hidden; transition: 0.5s; }
+        
+        /* UI LAYOUT */
+        #ui-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        .pointer-events-auto { pointer-events: auto; }
+        
+        .top-bar { display: flex; justify-content: space-between; padding: 30px 5%; }
+        button { 
+            background: transparent; border: 2px solid var(--main); color: var(--main);
+            padding: 8px 15px; font-family: 'Rajdhani'; font-weight: 700; cursor: pointer;
             text-transform: uppercase; letter-spacing: 2px; font-size: 10px; transition: 0.3s;
         }
-        #theme-toggle:hover { background: var(--text-main); color: var(--bg-color); }
-
-        #canvas-container {
-            position: fixed; top: 0; right: 0; width: 65%; height: 100vh; z-index: 10;
-            mask-image: linear-gradient(to right, transparent 0%, black 20%);
-            -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%);
+        #mic-btn { border-color: var(--accent); color: var(--accent); min-width: 140px; }
+        #mic-btn:hover, #mic-btn.active { background: var(--accent); color: var(--bg); box-shadow: 0 0 15px var(--accent); }
+        
+        #ai-status { position: fixed; bottom: 80px; width: 100%; text-align: center; }
+        #status-text { 
+            background: rgba(0,0,0,0.8); padding: 5px 15px; border-radius: 4px; 
+            font-family: 'Rajdhani'; font-weight: 600; color: var(--main); 
+            text-transform: uppercase; letter-spacing: 1px; font-size: 14px;
         }
 
-        #content-sidebar {
-            position: relative; width: 45%; height: 100vh; overflow-y: auto; z-index: 20;
-            background: transparent; scrollbar-width: none;
+        /* --- PANTALLA DE CARGA "LUDOVICO" --- */
+        #ludovico-loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 200;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.5s;
         }
-        #content-sidebar::-webkit-scrollbar { display: none; }
+        #ludovico-loader.active { opacity: 1; pointer-events: auto; }
+        
+        .loader-content { text-align: center; width: 80%; max-width: 400px; }
+        .loader-title { font-size: 24px; font-weight: 900; letter-spacing: -1px; margin-bottom: 20px; color: var(--accent); }
+        .loader-bar-bg { width: 100%; height: 4px; background: #333; margin-bottom: 15px; position: relative; overflow: hidden; }
+        .loader-bar-fill { 
+            position: absolute; top: 0; left: 0; height: 100%; width: 0%; 
+            background: var(--accent); transition: width 0.3s linear; 
+            box-shadow: 0 0 10px var(--accent);
+        }
+        .loader-text { font-family: 'Rajdhani'; font-size: 12px; color: var(--sub); letter-spacing: 2px; text-transform: uppercase; min-height: 20px;}
 
-        section {
-            min-height: 100vh; display: flex; flex-direction: column; justify-content: center;
-            padding: 0 10% 0 20%; box-sizing: border-box;
+        /* 3D CANVAS */
+        #canvas-container { position: fixed; top: 0; right: 0; width: 100%; height: 100vh; z-index: 1; }
+        
+        /* INPUT DE TEXTO FALLBACK */
+        #cmd-input {
+            position: fixed; top: 30px; right: 20%; pointer-events: auto;
+            background: rgba(0,0,0,0.5); border: 1px solid var(--sub); color: var(--main);
+            padding: 8px; font-family: 'Rajdhani'; text-transform: uppercase; outline: none; display: none;
         }
-
-        .content-box {
-            border-left: 4px solid var(--accent); padding-left: 30px;
-            opacity: 0; transform: translateY(30px); transition: 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .content-box.visible { opacity: 1; transform: translateY(0); }
-
-        h1 {
-            font-family: 'Montserrat'; font-weight: 900; font-size: 85px; margin: 0;
-            line-height: 0.85; letter-spacing: -3px; text-transform: uppercase;
-            color: var(--text-main);
-        }
-        h2 {
-            font-family: 'Rajdhani'; font-weight: 700; font-size: 14px; letter-spacing: 6px;
-            margin: 0 0 20px 0; color: var(--accent); text-transform: uppercase;
-        }
-        h3 {
-            font-family: 'Montserrat'; font-weight: 800; font-size: 32px; margin: 10px 0;
-            color: var(--text-main);
-        }
-        p {
-            font-family: 'Rajdhani'; font-weight: 600; font-size: 18px; line-height: 1.6;
-            color: var(--text-sub); margin-bottom: 25px; max-width: 420px;
-        }
-
-        .interaction-hint {
-            position: fixed; bottom: 30px; right: 30px; z-index: 30;
-            text-align: right; font-family: 'Rajdhani'; font-weight: 700; font-size: 10px;
-            color: var(--text-sub); letter-spacing: 1px; pointer-events: none;
-            padding: 10px; border-right: 2px solid var(--accent);
-        }
-
-        .btn-cta {
-            padding: 15px 35px; background: var(--text-main); color: var(--bg-color);
-            border: 2px solid var(--text-main); font-family: 'Montserrat'; font-weight: 800;
-            font-size: 12px; cursor: pointer; transition: 0.3s; text-decoration: none;
-            display: inline-block; letter-spacing: 1px; margin-right: 10px; text-transform: uppercase;
-        }
-        .btn-cta:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .btn-cta.secondary { background: transparent; color: var(--text-main); }
-        .btn-cta.secondary:hover { background: var(--text-main); color: var(--bg-color); }
-
+        
         @media (max-width: 768px) {
-            #canvas-container { width: 100%; height: 50vh; top: 0; right: 0; mask-image: none; border-bottom: 1px solid var(--border-color);}
-            #content-sidebar { width: 100%; height: 50vh; top: 50vh; background: var(--bg-color); }
-            section { min-height: 50vh; padding: 40px 30px; justify-content: flex-start; }
-            h1 { font-size: 50px; }
-            #theme-toggle { top: 10px; left: 10px; padding: 5px 10px; font-size: 9px; }
+            .top-bar { padding: 20px 5%; flex-direction: column; gap: 10px; align-items: flex-end; }
+            #cmd-input { top: 70px; right: 5%; }
         }
     </style>
     <script type="importmap">
-        {
-            "imports": {
-                "three": "https://cdn.skypack.dev/three@0.136.0",
-                "three/addons/": "https://cdn.skypack.dev/three@0.136.0/examples/jsm/"
-            }
-        }
+        { "imports": { "three": "https://cdn.skypack.dev/three@0.136.0", "three/addons/": "https://cdn.skypack.dev/three@0.136.0/examples/jsm/" } }
     </script>
 </head>
 <body data-theme="ludovico">
 
-    <button id="theme-toggle">MODELO: LUDOVICO</button>
-    
+    <div id="ludovico-loader">
+        <div class="loader-content">
+            <div class="loader-title">TRATAMIENTO LUDOVICO</div>
+            <div class="loader-bar-bg"><div class="loader-bar-fill" id="ludovico-bar"></div></div>
+            <div class="loader-text" id="ludovico-text">INICIALIZANDO SUJETO...</div>
+        </div>
+    </div>
+
+    <div id="ui-layer">
+        <div class="top-bar">
+            <button id="theme-btn" class="pointer-events-auto">MODELO: LUDOVICO</button>
+            <div style="display:flex; gap:10px;">
+                <input id="cmd-input" placeholder="CMD...">
+                <button id="mic-btn" class="pointer-events-auto">● INICIAR SISTEMA</button>
+            </div>
+        </div>
+        <div id="ai-status"><span id="status-text">PRESIONA INICIAR...</span></div>
+    </div>
+
     <div id="canvas-container"></div>
-
-    <div class="interaction-hint">
-        SCROLL : DESPIECE<br>
-        CLICK IZQ : ROTAR | CLICK DER : MOVER
-    </div>
-
-    <div id="content-sidebar">
-        <section id="sec-intro">
-            <div class="content-box visible">
-                <h2>AI ASSISTANT V.18.0</h2>
-                <h1>ALEX</h1>
-                <h1>VOICE</h1>
-                <br>
-                <p>Diseño 'Minimalist Bottle'. Estructura monolítica de tres capas: Base suave, Cuerpo cerámico y Araña superior con anclaje de tensión.</p>
-                <br>
-                <a href="#" class="btn-cta">COMPRAR AHORA</a>
-                <a href="#" class="btn-cta secondary">VER SPECS</a>
-            </div>
-        </section>
-
-        <section id="sec-design">
-            <div class="content-box">
-                <h2>INGENIERÍA ACÚSTICA</h2>
-                <h3>PROYECCIÓN SUPERIOR</h3>
-                <p>El bombín perforado permite una dispersión de sonido de 360 grados, mientras que la base sólida ancla los graves.</p>
-            </div>
-        </section>
-
-        <section id="sec-tech">
-            <div class="content-box">
-                <h2>ESTRUCTURA DE ARAÑA</h2>
-                <h3>ANCLAJE SIN TORNILLOS</h3>
-                <p>Los cuatro tirantes naranjas son parte integral del cabezal, deslizándose a través del cuerpo para asegurar la base por tensión mecánica.</p>
-            </div>
-        </section>
-
-        <div style="height: 20vh;"></div>
-    </div>
 
     <script type="module">
         import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        // --- GESTIÓN DE TEMAS ---
-        const themes = {
-            ludovico: { 
-                label: "LUDOVICO (DARK)",
-                bg: 0x1a1a1a, 
-                fogDensity: 0.02,
-                rimIntensity: 2.0 
-            },
-            ultra: { 
-                label: "ULTRAVIOLENCIA",
-                bg: 0x900a00, 
-                fogDensity: 0.015,
-                rimIntensity: 0.8
+        // --- CONEXIÓN A TU BACKEND ---
+        const API_URL = "https://alex-voice-backend.onrender.com"; 
+        
+        let isSystemReady = false; 
+        let isSpeaking = false;
+        let isThinking = false;
+        let currentAudio = null;
+
+        // --- SECUENCIA DE INICIO (LUDOVICO) ---
+        const micBtn = document.getElementById('mic-btn');
+        const loader = document.getElementById('ludovico-loader');
+        const loaderBar = document.getElementById('ludovico-bar');
+        const loaderText = document.getElementById('ludovico-text');
+
+        const bootPhrases = [
+            "Administrando Suero 114...",
+            "Asegurando pinzas oculares...",
+            "Forzando apertura de párpados...",
+            "Calibrando respuesta emocional...",
+            "Proyectando ultra-violencia...",
+            "Sincronizando sinapsis..."
+        ];
+
+        micBtn.addEventListener('click', async () => {
+            if (isSystemReady) {
+                if(recognition) try { recognition.start(); } catch(e){}
+                return;
             }
-        };
 
-        let currentThemeKey = 'ludovico';
-        const toggleBtn = document.getElementById('theme-toggle');
-        const bodyEl = document.body;
+            // Inicia secuencia de espera
+            loader.classList.add('active');
+            updateStatus("INICIANDO PROTOCOLO...", "active");
+            
+            // 1. Despertar servidor
+            const wakeUpPromise = fetch(`${API_URL}/wakeup`)
+                .then(res => res.json())
+                .catch(err => console.log("Servidor despertando..."));
 
-        // --- ESCENA 3D ---
+            // 2. Animación de carga
+            let progress = 0;
+            const interval = setInterval(() => {
+                if (progress < 90) {
+                    progress += (Math.random() * 5); 
+                    loaderBar.style.width = progress + "%";
+                    if (Math.random() > 0.7) {
+                        loaderText.innerText = bootPhrases[Math.floor(Math.random() * bootPhrases.length)];
+                    }
+                }
+            }, 500);
+
+            try {
+                // Esperar respuesta del servidor
+                await wakeUpPromise;
+                
+                clearInterval(interval);
+                loaderBar.style.width = "100%";
+                loaderText.innerText = "SUJETO CURADO. SISTEMA ONLINE.";
+                
+                setTimeout(() => {
+                    loader.classList.remove('active');
+                    isSystemReady = true;
+                    micBtn.innerText = "● HABLAR CON ALEX";
+                    updateStatus("LISTO PARA VIDEAR", "");
+                    // Hack para habilitar audio en iOS/Android
+                    const dummy = new Audio(); 
+                    
+                    if(recognition) recognition.start();
+                }, 1000);
+
+            } catch (error) {
+                clearInterval(interval);
+                loaderText.innerText = "ERROR EN TRATAMIENTO. MODO OFFLINE.";
+                setTimeout(() => { loader.classList.remove('active'); isSystemReady = true; micBtn.innerText = "● MODO TEXTO"; }, 2000);
+            }
+        });
+
+        // --- SISTEMA DE AUDIO ---
+        async function speak(text) {
+            if(!text) return;
+            if(currentAudio) currentAudio.pause();
+            isSpeaking = true;
+            updateStatus("TRANSMITIENDO...", "active");
+
+            try {
+                const response = await fetch(`${API_URL}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text, voice: "es-NI-FedericoNeural" })
+                });
+                
+                if (!response.ok) throw new Error("API Error");
+                
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                currentAudio = new Audio(url);
+                
+                currentAudio.onended = () => { isSpeaking = false; updateStatus("ESPERANDO...", ""); URL.revokeObjectURL(url); };
+                await currentAudio.play();
+                
+            } catch (e) {
+                console.warn("Fallo en red, usando fallback");
+                fallbackSpeak(text);
+            }
+        }
+
+        function fallbackSpeak(text) {
+            const u = new SpeechSynthesisUtterance(text);
+            u.lang = 'es-MX'; u.pitch = 0.8; u.rate = 1.0;
+            u.onend = () => { isSpeaking = false; updateStatus("ESPERANDO...", ""); };
+            window.speechSynthesis.speak(u);
+        }
+
+        // --- IA (Pollinations) ---
+        let chatHistory = [];
+        async function askAI(input) {
+            isThinking = true;
+            updateStatus("PENSANDO...", "");
+            
+            chatHistory.push({role: "user", content: input});
+            const histTxt = chatHistory.slice(-4).map(m => m.content).join("\n");
+            
+            // Prompt ajustado para Alex
+            const prompt = `Eres Alex DeLarge (La Naranja Mecánica). Responde en español. 
+            Personalidad: Intelectual, arrogante, violento pero culto. 
+            Vocabulario: Usa palabras Nadsat (drogos, videar, gullever, siny).
+            Longitud: Máximo 30 palabras.
+            
+            Historial: ${histTxt}
+            Usuario: ${input}
+            Alex:`;
+            
+            const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}`;
+
+            try {
+                const res = await fetch(url);
+                const text = await res.text();
+                chatHistory.push({role: "assistant", content: text});
+                isThinking = false;
+                speak(text);
+            } catch(e) { 
+                isThinking = false; 
+                speak("Mis circuitos sangran, drogo."); 
+            }
+        }
+
+        // --- RECONOCIMIENTO VOZ ---
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        
+        if(SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'es-MX'; recognition.interimResults = false;
+            
+            recognition.onstart = () => { updateStatus("ESCUCHANDO...", "active"); micBtn.classList.add('active'); };
+            recognition.onend = () => { if(!isThinking && !isSpeaking) micBtn.classList.remove('active'); };
+            recognition.onresult = (e) => { askAI(e.results[0][0].transcript); };
+        } else {
+            micBtn.style.display = 'none'; 
+            document.getElementById('cmd-input').style.display = 'block';
+        }
+        
+        const cmdInput = document.getElementById('cmd-input');
+        cmdInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') { askAI(cmdInput.value); cmdInput.value = ""; }
+        });
+
+        function updateStatus(text, state) {
+            const el = document.getElementById('status-text');
+            el.innerText = text;
+            el.style.color = state === "active" ? "var(--accent)" : "var(--main)";
+        }
+
+        // --- ESCENA 3D (OJO) ---
         const container = document.getElementById('canvas-container');
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 0.7;
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.setSize(window.innerWidth, window.innerHeight);
         container.appendChild(renderer.domElement);
-
+        
         const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+        camera.position.z = 8;
         
-        // --- CÁMARA ---
-        const initialCamPos = new THREE.Vector3(-0.5, 3.5, 12.5);
-        const initialTargetY = 3.5;
+        const eyeGroup = new THREE.Group();
+        const sclera = new THREE.Mesh(new THREE.IcosahedronGeometry(1.2, 3), new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.4 }));
+        const iris = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.15, 16, 32), new THREE.MeshStandardMaterial({ color: 0x222222, emissive: 0xff6600, emissiveIntensity: 2 }));
+        const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.4, 32, 32), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+        iris.position.z = 1.0; pupil.position.z = 1.1;
+        eyeGroup.add(sclera, iris, pupil);
+        scene.add(eyeGroup);
 
-        const camera = new THREE.PerspectiveCamera(35, container.clientWidth / container.clientHeight, 0.1, 100);
-        camera.position.copy(initialCamPos);
-
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.enableZoom = true;
-        controls.enableRotate = true;
-        controls.enablePan = true;
-        controls.target.set(0, initialTargetY, 0);
-
-        // --- MATERIALES (BASE DEL TEMA) ---
-        // matArmor = Negro (Sombrero y Base)
-        const matArmor = new THREE.MeshStandardMaterial({ 
-            color: 0x111111, roughness: 0.6, metalness: 0.1 
-        });
-
-        // matBody = Blanco (Cuerpo central)
-        const matBody = new THREE.MeshStandardMaterial({ 
-            color: 0xeeeeee, roughness: 0.7, metalness: 0.0
-        });
-
-        // matAccent = Naranja (Tirantes)
-        const matAccent = new THREE.MeshStandardMaterial({
-            color: 0x000000, emissive: 0xFF4400, emissiveIntensity: 2.0, roughness: 0.2
-        });
-
-        // matTech = Estructura interna
-        const matTech = new THREE.MeshStandardMaterial({ 
-            color: 0x222222, roughness: 0.3, metalness: 0.8 
-        });
+        const light = new THREE.PointLight(0xff6600, 1, 100); light.position.set(5, 5, 5); scene.add(light);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.1));
         
-        // matCore = Núcleo brillante
-        const matCore = new THREE.MeshStandardMaterial({ 
-            color: 0xFFFFFF, emissive: 0xFF4400, emissiveIntensity: 3.0, wireframe: true 
-        });
-
-        // --- TEXTURA LOGO ---
-        function createLogoTexture() {
-            const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
-            const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 512, 128);
-            ctx.font = '900 100px "Montserrat", sans-serif'; ctx.fillStyle = '#111111'; 
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ALEX', 256, 64);
-            const texture = new THREE.CanvasTexture(canvas); texture.needsUpdate = true;
-            return texture;
-        }
-        const logoTexture = createLogoTexture();
-        const matLogo = new THREE.MeshBasicMaterial({ map: logoTexture, transparent: true, opacity: 1.0 });
-
-        // --- ILUMINACIÓN ---
-        const ambient = new THREE.AmbientLight(0xffffff, 0.3); scene.add(ambient);
-        const mainLight = new THREE.DirectionalLight(0xffffff, 1.0); mainLight.position.set(5, 5, 8); mainLight.castShadow = true; scene.add(mainLight);
-        const rimLight = new THREE.SpotLight(0xffffff, 2.0); rimLight.position.set(0, 5, -10); rimLight.lookAt(0, 0, 0); scene.add(rimLight);
-
-        // --- ENSAMBLAJE DEL ROBOT ---
-        const robotGroup = new THREE.Group();
-        scene.add(robotGroup);
-        const parts = [];
-
-        function addPart(mesh, explodeDirection) {
-            robotGroup.add(mesh);
-            parts.push({
-                mesh: mesh,
-                originalY: mesh.position.y, 
-                direction: explodeDirection
-            });
-        }
-
-        // ==========================================
-        // === NUEVO MODELO 3D (V.18.0 BOTTLE) ===
-        // ==========================================
-
-        const RADIUS = 1.7;
-
-        // 1. ESTRUCTURA INTERNA
-        const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 4.0, 16), matTech);
-        spine.position.y = 2.5; 
-        addPart(spine, 0.0); // Fijo
-
-        // 2. BASE SUAVIZADA (Botella/Bowl) - NEGRA
-        // Usamos una esfera cortada + un cilindro pequeño
-        const baseGroup = new THREE.Group();
-        const bowlGeo = new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2); 
-        const bowl = new THREE.Mesh(bowlGeo, matArmor);
-        bowl.rotation.z = Math.PI; // Invertir para que sea el fondo
-        bowl.scale.y = 0.7; // Aplanar un poco
-        bowl.position.y = 0.5; // Ajuste altura
-        
-        const bowlRim = new THREE.Mesh(new THREE.CylinderGeometry(RADIUS, RADIUS, 1.0, 64), matArmor);
-        bowlRim.position.y = 1.0; 
-
-        baseGroup.add(bowl, bowlRim);
-        baseGroup.position.y = 0.0;
-        
-        addPart(baseGroup, -0.5); // La base baja al explotar
-
-        // 3. CUERPO CILÍNDRICO - BLANCO
-        const bodyGeo = new THREE.CylinderGeometry(RADIUS, RADIUS, 3.0, 64);
-        const bodyMesh = new THREE.Mesh(bodyGeo, matBody);
-        bodyMesh.position.set(0, 3.0, 0); // Encima de la base (1.5 base + 1.5 mitad cuerpo)
-        bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
-        
-        const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), matLogo);
-        logoPlane.position.set(0, 0, RADIUS + 0.01);
-        bodyMesh.add(logoPlane);
-
-        addPart(bodyMesh, 0.0); // El cuerpo se queda quieto (o sube poco)
-
-        // 4. NÚCLEO IA (Interior)
-        const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 0), matCore);
-        core.position.y = 3.0; // Centro del cuerpo
-        const aiCore = core;
-        addPart(core, 0.0); 
-
-        // 5. ARAÑA SUPERIOR (SOMBRERO + TIRANTES) - NEGRO Y NARANJA
-        const spiderGroup = new THREE.Group();
-        spiderGroup.position.y = 4.5; // Justo encima del cuerpo (3.0 + 1.5)
-
-        // A. Sombrero (Negro)
-        const hatGroup = new THREE.Group();
-        const dome = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor);
-        const brim = new THREE.Mesh(new THREE.TorusGeometry(RADIUS, 0.4, 16, 64), matArmor);
-        brim.rotation.x = Math.PI/2;
-        hatGroup.add(dome, brim);
-
-        // Agujeros Acústicos (Simulados con cilindros negros pequeños)
-        for(let r=1; r<=3; r++){
-            const ringRad = 0.4 * r;
-            const count = 8 * r;
-            for(let i=0; i<count; i++){
-                const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8), matArmor);
-                // Matematicas esfericas simples para posicionar en el domo
-                const angle = (i / count) * Math.PI * 2;
-                hole.position.set(Math.cos(angle)*ringRad, 1.5 - (r*0.2), Math.sin(angle)*ringRad);
-                hole.lookAt(0, 0, 0); // Apuntar al centro
-                hatGroup.add(hole);
-            }
-        }
-        spiderGroup.add(hatGroup);
-
-        // B. Tirantes (Naranjas) - Bajando desde el sombrero
-        // 4 Tirantes que conectan sombrero con base
-        const suspenderGeo = new RoundedBoxGeometry(0.3, 4.5, 0.15, 4, 0.05); // Largos
-        const angles = [25, 155, 205, 335]; // Angulos de separación
-
-        angles.forEach(deg => {
-            const rad = deg * (Math.PI/180);
-            const suspender = new THREE.Mesh(suspenderGeo, matAccent);
-            // Posicion: Radio del cuerpo, bajando en Y
-            // Y = -2.25 (mitad del largo aprox) para que cuelguen desde el sombrero
-            suspender.position.set(Math.sin(rad) * RADIUS, -2.0, Math.cos(rad) * RADIUS);
-            suspender.rotation.y = rad;
-            spiderGroup.add(suspender);
-        });
-
-        // La araña sube MUCHO para mostrar el mecanismo
-        addPart(spiderGroup, 2.0); 
-
-
-        // --- LÓGICA DE TEMA ACTUALIZADA ---
-        function applyTheme3D(key) {
-            const t = themes[key];
-            bodyEl.setAttribute('data-theme', key);
-            toggleBtn.innerText = "MODELO: " + t.label;
-            
-            scene.background = new THREE.Color(t.bg);
-            scene.fog = new THREE.FogExp2(t.bg, t.fogDensity);
-            rimLight.intensity = t.rimIntensity;
-
-            if (key === 'ultra') {
-                // TEMA ULTRA: Inversión
-                matBody.color.setHex(0x111111);
-                matArmor.color.setHex(0xFF6600); // Base y Sombrero Naranjas en modo Ultra
-                matAccent.emissive.setHex(0xFFFFFF); // Tirantes Blancos
-                matCore.emissive.setHex(0xFFFFFF);
-                
-                logoTexture.image.getContext('2d').fillStyle = '#EEEEEE';
-                logoTexture.image.getContext('2d').fillText('ALEX', 256, 64);
-                logoTexture.needsUpdate = true;
-
-            } else {
-                // TEMA LUDOVICO: Clásico (Negro/Blanco/Naranja)
-                matBody.color.setHex(0xEEEEEE); // Cuerpo Blanco
-                matArmor.color.setHex(0x111111); // Base y Sombrero Negros
-                matAccent.emissive.setHex(0xFF4400); // Tirantes Naranjas
-                matCore.emissive.setHex(0xFF4400); 
-                
-                logoTexture.image.getContext('2d').fillStyle = '#111111';
-                logoTexture.image.getContext('2d').fillText('ALEX', 256, 64);
-                logoTexture.needsUpdate = true;
-            }
-        }
-        applyTheme3D(currentThemeKey);
-
-        toggleBtn.addEventListener('click', () => {
-            currentThemeKey = (currentThemeKey === 'ludovico') ? 'ultra' : 'ludovico';
-            applyTheme3D(currentThemeKey);
-        });
-
-        // --- POST PROCESSING ---
         const composer = new EffectComposer(renderer);
         composer.addPass(new RenderPass(scene, camera));
-        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.5, 0.4);
-        bloomPass.threshold = 0.85; bloomPass.strength = 0.4; bloomPass.radius = 0.5;
-        composer.addPass(bloomPass);
-
-        // --- ANIMACIÓN ---
-        let explodeTarget = 0;
-        let explodeCurrent = 0;
-
-        window.addEventListener('wheel', (e) => {
-            if(e.ctrlKey || e.metaKey) {
-                controls.enableZoom = false; e.preventDefault(); e.stopPropagation();
-                explodeTarget += e.deltaY * 0.002; 
-                // Rango aumentado para ver salir los tirantes largos
-                explodeTarget = Math.max(0, Math.min(3.0, explodeTarget));
-            } else {
-                controls.enableZoom = true;
-            }
-        }, { passive: false });
-
-        window.addEventListener('keyup', (e) => {
-            if (e.key === 'Control' || e.key === 'Meta') controls.enableZoom = true;
-        });
-
-        const sidebar = document.getElementById('content-sidebar');
-        const contentBoxes = document.querySelectorAll('.content-box');
-        sidebar.addEventListener('scroll', () => {
-            contentBoxes.forEach(box => {
-                const rect = box.getBoundingClientRect();
-                if(rect.top < window.innerHeight * 0.7) box.classList.add('visible');
-            });
-        });
+        composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85));
 
         function animate() {
             requestAnimationFrame(animate);
-            controls.update();
-            explodeCurrent += (explodeTarget - explodeCurrent) * 0.05;
-            const time = Date.now() * 0.001;
+            const t = Date.now() * 0.001;
             
-            // Flotación Base
-            robotGroup.position.y = (Math.sin(time) * 0.1) + 1.0; 
-
-            parts.forEach(p => {
-                p.mesh.position.y = p.originalY + (p.direction * explodeCurrent);
-            });
-
-            // Rotación del Núcleo IA
-            if(aiCore) {
-                aiCore.rotation.x = time * 0.5;
-                aiCore.rotation.y = time * 0.8;
+            if (isSpeaking) {
+                eyeGroup.rotation.x = Math.sin(t * 10) * 0.2;
+                eyeGroup.rotation.y = Math.sin(t * 5) * 0.3;
+                iris.material.emissiveIntensity = 2 + Math.sin(t * 20);
+                iris.scale.setScalar(1 + Math.sin(t * 15) * 0.1);
+            } else if (isThinking) {
+                eyeGroup.rotation.z += 0.15;
+                iris.material.emissiveIntensity = 0.5;
+            } else {
+                eyeGroup.rotation.y = Math.sin(t) * 0.5;
+                iris.material.emissiveIntensity = 1.5;
+                iris.scale.setScalar(1);
             }
-
             composer.render();
         }
-
-        window.addEventListener('resize', () => {
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            composer.setSize(container.clientWidth, container.clientHeight);
-        });
-
         animate();
+        
+        window.addEventListener('resize', () => { 
+            camera.aspect = window.innerWidth / window.innerHeight; 
+            camera.updateProjectionMatrix(); 
+            renderer.setSize(window.innerWidth, window.innerHeight); 
+            composer.setSize(window.innerWidth, window.innerHeight); 
+        });
+        
+        // Theme Toggle
+        let isUltra = false;
+        document.getElementById('theme-btn').addEventListener('click', (e) => {
+            isUltra = !isUltra;
+            document.body.setAttribute('data-theme', isUltra ? 'ultra' : 'ludovico');
+            iris.material.emissive.setHex(isUltra ? 0xffffff : 0xff6600);
+            light.color.setHex(isUltra ? 0xffffff : 0xff6600);
+            e.target.innerText = isUltra ? "MODO ULTRA" : "MODO LUDOVICO";
+        });
     </script>
 </body>
 </html>
