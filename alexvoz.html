@@ -153,7 +153,7 @@
         .btn-cta.secondary { background: transparent; color: var(--text-main); }
         .btn-cta.secondary:hover { background: var(--text-main); color: var(--bg-color); }
 
-        /* --- NUEVO: PANTALLA DE CARGA LUDOVICO (SOLO AGREGADO ESTO) --- */
+        /* --- PANTALLA DE CARGA LUDOVICO --- */
         #ludovico-loader {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg-color); z-index: 200;
@@ -259,12 +259,13 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        /* === CONFIGURACIÓN DE VOZ (RENDER PYTHON) === */
+        /* === CONFIGURACIÓN DE VOZ (RENDER - MICROSOFT) === */
         const API_URL = "https://alex-voice-backend.onrender.com"; 
         
-        let isSystemReady = false; // Control de estado Ludovico
+        // Control de Estado Ludovico
+        let isSystemReady = false; 
 
-        // --- GESTIÓN DE TEMAS ---
+        // --- GESTIÓN DE TEMAS (INTACTO) ---
         const themes = {
             ludovico: { label: "LUDOVICO (DARK)", bg: 0x1a1a1a, fogDensity: 0.02, rimIntensity: 2.0 },
             ultra: { label: "ULTRAVIOLENCIA", bg: 0x900a00, fogDensity: 0.015, rimIntensity: 0.8 }
@@ -274,7 +275,7 @@
         const toggleBtn = document.getElementById('theme-toggle');
         const bodyEl = document.body;
 
-        // --- ESCENA 3D (TU CODIGO EXACTO) ---
+        // --- ESCENA 3D (INTACTO) ---
         const container = document.getElementById('canvas-container');
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(container.clientWidth, container.clientHeight);
@@ -411,6 +412,18 @@
         let sessionEndTime = 0;
         
         let chatHistory = []; 
+
+        // --- FUNCIÓN DE LIMPIEZA TÉCNICA (PARA TTS) ---
+        // Elimina símbolos que la voz leería incorrectamente
+        function cleanTextForTTS(text) {
+            return text
+                .replace(/[*_#`~]/g, '') 
+                .replace(/\\/g, '')      
+                .replace(/\//g, '')      
+                .replace(/["']/g, '')    
+                .replace(/\n/g, '. ')    
+                .trim();
+        }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition;
@@ -598,15 +611,16 @@
             if (chatHistory.length > 8) chatHistory = chatHistory.slice(-8);
             const contextString = chatHistory.join("\n");
             
+            // --- TU PROMPT ORIGINAL (INTACTO) ---
             const systemPrompt = 
                 "Eres 'Alex' (de la Naranja Mecánica). Tu personalidad es: Intelectual, cínico, refinado, pero con un fondo violento y arrogante. " +
                 "REGLAS OBLIGATORIAS: " +
-                "1. VOCABULARIO: Habla en Español Latino neutro mezclado con un toque sutil (2%) de jerga Nadsat adaptada a la pronunciación al español (usa términos como: 'drog' (amigo), 'videar' (ver/entender), 'orrorshou' (genial/bien), 'gulever' (cabeza), 'siny' (cine)). No abuses, que sea comprensible." +
+                "1. VOCABULARIO: Habla en Español Latino neutro mezclado con un toque sutil (1%) de jerga Nadsat adaptada a la pronunciación al español (usa términos como: 'drog' (amigo), 'videar' (ver/entender), 'orrorshou' (genial/bien), 'gulever' (cabeza), 'siny' (cine)). No abuses, que sea comprensible." +
                 "2. LONGITUD (ESTRICTO): " +
                 "   - Para saludos o trivialidades ('hola', 'qué haces'): Sé BREVE, cortante y superior (Máximo 15 palabras). " +
                 "   - Para temas interesantes (arte, vida, caos): Sé PROFUNDO pero CONCISO (Máximo 80 palabras). No des discursos eternos. " +
                 "3. ACTITUD: Nunca actúes como un asistente servil. Eres el líder." +
-                "4. Las palabras en otros idiomas adátalas a la pronunciación al español. Por ejemplo frame debes escribirla y leerla como freim, o roomie debes escribirlo y leerlo como rumi." ;
+                "4. Las palabras en otros idiomas adáptalas a la pronunciación al español. Por ejemplo 'frame' debes escribirla y leerla como 'freim', o 'roomie' debes escribirlo y leerlo como 'rumi'." ;
             
             const finalPrompt = `${systemPrompt}\n\nHistorial reciente:\n${contextString}\n\nAlex responde:`;
             
@@ -620,7 +634,11 @@
 
                 isThinking = false;
                 updateUI(aiResponse, "speaking"); 
-                speakResponse(aiResponse);
+                
+                // LIMPIEZA TÉCNICA ANTES DE LA VOZ
+                const textToSpeak = cleanTextForTTS(aiResponse);
+                speakResponse(textToSpeak);
+                
             } catch (error) {
                 isThinking = false;
                 updateUI("Error de conexión", "error");
@@ -644,7 +662,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         text: text,
-                        voice: "es-NI-FedericoNeural" // Voz por defecto
+                        voice: "es-NI-FedericoNeural" 
                     })
                 });
 
