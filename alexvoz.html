@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ALEX ASSISTANT | V.25.3 FINAL</title>
+    <title>ALEX ASSISTANT | V.25.4 SUBTITLES</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;800;900&display=swap" rel="stylesheet">
     <style>
-        /* --- ESTILOS VISUALES (TU DISEÑO ORIGINAL INTACTO) --- */
+        /* --- ESTILOS VISUALES --- */
         :root { --bg-color: #1a1a1a; --text-main: #E8E4D9; --text-sub: #888888; --accent: #FF6600; --glass-panel: rgba(20, 20, 20, 0.8); --border-color: #333; }
         [data-theme="ultra"] { --bg-color: #900a00; --text-main: #000000; --text-sub: #2a0000; --accent: #FFFFFF; --glass-panel: rgba(255, 60, 0, 0.8); --border-color: #aa1100; }
         body { margin: 0; background: var(--bg-color); color: var(--text-main); font-family: 'Montserrat', sans-serif; overflow: hidden; transition: background 0.5s ease, color 0.5s ease; }
@@ -23,8 +23,24 @@
         #cmd-input { background: rgba(0,0,0,0.3); border: 1px solid var(--text-sub); color: var(--text-main); padding: 8px 15px; font-family: 'Rajdhani'; font-weight: 600; font-size: 14px; width: 200px; outline: none; transition: 0.3s; display: none; text-transform: uppercase; }
         #cmd-input:focus { border-color: var(--accent); background: rgba(0,0,0,0.6); }
 
-        #ai-status { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); z-index: 100; text-align: center; width: 80%; pointer-events: none; }
-        #ai-text { font-family: 'Rajdhani'; font-weight: 600; font-size: 18px; color: var(--text-main); text-shadow: 0 0 10px rgba(0,0,0,0.5); background: rgba(0,0,0,0.5); padding: 5px 15px; border-radius: 20px; display: inline-block; opacity: 0; transition: opacity 0.5s; }
+        /* --- SUBTÍTULOS MEJORADOS --- */
+        #ai-status { 
+            position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
+            z-index: 100; text-align: center; width: 90%; pointer-events: none;
+            display: flex; justify-content: center;
+        }
+        #ai-text { 
+            font-family: 'Rajdhani'; font-weight: 600; font-size: 18px; 
+            color: var(--text-main); text-shadow: 0 0 10px rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 8px;
+            display: inline-block; opacity: 0; transition: opacity 0.3s;
+            /* Mejoras visuales para texto largo */
+            max-width: 600px; 
+            line-height: 1.4;
+            white-space: pre-wrap;
+            text-align: center;
+        }
+        
         #session-bar { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); width: 0%; height: 2px; background: var(--accent); z-index: 100; transition: width 0.2s linear; opacity: 0; }
 
         #canvas-container { position: fixed; top: 0; right: 0; width: 65%; height: 100vh; z-index: 10; mask-image: linear-gradient(to right, transparent 0%, black 20%); -webkit-mask-image: linear-gradient(to right, transparent 0%, black 20%); }
@@ -46,7 +62,7 @@
         .btn-cta.secondary { background: transparent; color: var(--text-main); }
         .btn-cta.secondary:hover { background: var(--text-main); color: var(--bg-color); }
 
-        /* --- LOADER LUDOVICO --- */
+        /* LOADER LUDOVICO */
         #ludovico-loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 200; display: flex; flex-direction: column; justify-content: center; align-items: center; opacity: 0; pointer-events: none; transition: opacity 0.5s; }
         #ludovico-loader.active { opacity: 1; pointer-events: auto; }
         .loader-content { text-align: center; width: 80%; max-width: 400px; }
@@ -64,6 +80,7 @@
             .controls-container { top: 10px; right: 10px; }
             #mic-toggle { padding: 5px 10px; font-size: 9px; min-width: auto; }
             #cmd-input { width: 120px; font-size: 12px; padding: 5px; }
+            #ai-text { font-size: 14px; max-width: 90%; }
         }
     </style>
     <script type="importmap">
@@ -123,10 +140,9 @@
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
-        /* === CONFIGURACIÓN BACKEND === */
         const API_URL = "https://alex-voice-backend.onrender.com"; 
         
-        // --- 3D SETUP (INTACTO) ---
+        // --- 3D SETUP ---
         const container = document.getElementById('canvas-container');
         const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         renderer.setSize(container.clientWidth, container.clientHeight);
@@ -143,54 +159,44 @@
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true; controls.dampingFactor = 0.05; controls.enableZoom = true; controls.target.set(0, 3.5, 0);
 
-        // --- MATERIALES ---
         const matArmor = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.6, metalness: 0.1 });
         const matBody = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.7, metalness: 0.0 });
         const matAccent = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xFF4400, emissiveIntensity: 2.0, roughness: 0.2 });
         const matTech = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.3, metalness: 0.8 });
         const matCore = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFF4400, emissiveIntensity: 3.0, wireframe: true });
 
-        // --- TEXTURA LOGO ---
         function createLogoTexture() {
             const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 128;
             const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, 512, 128);
             ctx.font = '900 100px "Montserrat", sans-serif'; ctx.fillStyle = '#111111'; 
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ALEX', 256, 64);
-            const texture = new THREE.CanvasTexture(canvas); texture.needsUpdate = true;
-            return texture;
+            const texture = new THREE.CanvasTexture(canvas); texture.needsUpdate = true; return texture;
         }
         const logoTexture = createLogoTexture();
         const matLogo = new THREE.MeshBasicMaterial({ map: logoTexture, transparent: true, opacity: 1.0 });
 
-        // --- ILUMINACIÓN ---
         const ambient = new THREE.AmbientLight(0xffffff, 0.3); scene.add(ambient);
         const mainLight = new THREE.DirectionalLight(0xffffff, 1.0); mainLight.position.set(5, 5, 8); mainLight.castShadow = true; scene.add(mainLight);
         const rimLight = new THREE.SpotLight(0xffffff, 2.0); rimLight.position.set(0, 5, -10); rimLight.lookAt(0, 0, 0); scene.add(rimLight);
 
-        // --- MODELO 3D ---
         const robotGroup = new THREE.Group(); scene.add(robotGroup);
         const parts = [];
-        function addPart(mesh, explodeDirection) {
-            robotGroup.add(mesh);
-            parts.push({ mesh: mesh, originalY: mesh.position.y, direction: explodeDirection });
-        }
+        function addPart(mesh, explodeDirection) { robotGroup.add(mesh); parts.push({ mesh: mesh, originalY: mesh.position.y, direction: explodeDirection }); }
 
-        const RADIUS = 1.7;
         const spine = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 4.0, 16), matTech); spine.position.y = 2.5; addPart(spine, 0.0);
         const baseGroup = new THREE.Group();
-        const bowl = new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor); bowl.rotation.z = Math.PI; bowl.scale.y = 0.7; bowl.position.y = 0.5;
-        const bowlRim = new THREE.Mesh(new THREE.CylinderGeometry(RADIUS, RADIUS, 1.0, 64), matArmor); bowlRim.position.y = 1.0;
+        const bowl = new THREE.Mesh(new THREE.SphereGeometry(1.7, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor); bowl.rotation.z = Math.PI; bowl.scale.y = 0.7; bowl.position.y = 0.5;
+        const bowlRim = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 1.0, 64), matArmor); bowlRim.position.y = 1.0;
         baseGroup.add(bowl, bowlRim); baseGroup.position.y = 0.0; addPart(baseGroup, -0.5);
 
-        const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(RADIUS, RADIUS, 3.0, 64), matBody); bodyMesh.position.set(0, 3.0, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
-        const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), matLogo); logoPlane.position.set(0, 0, RADIUS + 0.01); bodyMesh.add(logoPlane); addPart(bodyMesh, 0.0);
-
+        const bodyMesh = new THREE.Mesh(new THREE.CylinderGeometry(1.7, 1.7, 3.0, 64), matBody); bodyMesh.position.set(0, 3.0, 0); bodyMesh.castShadow = true; bodyMesh.receiveShadow = true;
+        const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4), matLogo); logoPlane.position.set(0, 0, 1.71); bodyMesh.add(logoPlane); addPart(bodyMesh, 0.0);
         const aiCore = new THREE.Mesh(new THREE.IcosahedronGeometry(0.6, 0), matCore); aiCore.position.y = 3.0; addPart(aiCore, 0.0); 
 
         const spiderGroup = new THREE.Group(); spiderGroup.position.y = 4.5; 
         const hatGroup = new THREE.Group();
-        hatGroup.add(new THREE.Mesh(new THREE.SphereGeometry(RADIUS, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor));
-        const brim = new THREE.Mesh(new THREE.TorusGeometry(RADIUS, 0.4, 16, 64), matArmor); brim.rotation.x = Math.PI/2; hatGroup.add(brim);
+        hatGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1.7, 64, 32, 0, Math.PI*2, 0, Math.PI/2), matArmor));
+        const brim = new THREE.Mesh(new THREE.TorusGeometry(1.7, 0.4, 16, 64), matArmor); brim.rotation.x = Math.PI/2; hatGroup.add(brim);
         for(let r=1; r<=3; r++){
             const ringRad = 0.4 * r; const count = 8 * r;
             for(let i=0; i<count; i++){
@@ -202,15 +208,13 @@
         const suspenderGeo = new RoundedBoxGeometry(0.3, 4.5, 0.15, 4, 0.05);
         [25, 155, 205, 335].forEach(deg => {
             const rad = deg * (Math.PI/180); const suspender = new THREE.Mesh(suspenderGeo, matAccent);
-            suspender.position.set(Math.sin(rad) * RADIUS, -2.0, Math.cos(rad) * RADIUS); suspender.rotation.y = rad; spiderGroup.add(suspender);
+            suspender.position.set(Math.sin(rad) * 1.7, -2.0, Math.cos(rad) * 1.7); suspender.rotation.y = rad; spiderGroup.add(suspender);
         });
         addPart(spiderGroup, 2.0); 
 
-        // THEME
         let currentThemeKey = 'ludovico';
         const toggleBtn = document.getElementById('theme-toggle');
         const bodyEl = document.body;
-
         function applyTheme3D(key) {
             const t = { ludovico: { label: "LUDOVICO (DARK)", bg: 0x1a1a1a, fogDensity: 0.02, rimIntensity: 2.0 }, ultra: { label: "ULTRAVIOLENCIA", bg: 0x900a00, fogDensity: 0.015, rimIntensity: 0.8 } }[key];
             bodyEl.setAttribute('data-theme', key); toggleBtn.innerText = "MODELO: " + t.label;
@@ -231,7 +235,6 @@
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.5, 0.4);
         bloomPass.threshold = 0.85; bloomPass.strength = 0.4; bloomPass.radius = 0.5; composer.addPass(bloomPass);
 
-        // ANIMATION EVENTS
         let explodeTarget = 0; let explodeCurrent = 0;
         window.addEventListener('wheel', (e) => {
             if(e.ctrlKey || e.metaKey) { controls.enableZoom = false; e.preventDefault(); e.stopPropagation(); explodeTarget += e.deltaY * 0.002; explodeTarget = Math.max(0, Math.min(3.0, explodeTarget)); } 
@@ -243,109 +246,99 @@
         });
 
         /* ========================================= */
-        /* === LOGICA IA & VOZ CLEANER           === */
+        /* === LOGICA IA & VOZ & TYPEWRITER      === */
         /* ========================================= */
         let isListening = false, isThinking = false, isSpeaking = false;
         let sessionActive = false, sessionEndTime = 0;
         let chatHistory = [];
         let isSystemReady = false; 
+        let typingInterval; // Para controlar la máquina de escribir
 
         const micBtn = document.getElementById('mic-toggle');
         const cmdInput = document.getElementById('cmd-input');
         const statusText = document.getElementById('ai-text');
         const sessionBar = document.getElementById('session-bar');
 
-        // --- FILTRO CRÍTICO: LIMPIA EL TEXTO ANTES DE HABLAR ---
         function cleanTextForTTS(text) {
             return text
-                .replace(/[*_#`~]/g, '') // Elimina Markdown
-                .replace(/\\/g, '')      // Elimina la barra inversa (LA CLAVE)
-                .replace(/\//g, '')      // Elimina barras normales
-                .replace(/["']/g, '')    // Elimina comillas
-                .replace(/\n/g, '. ')    // Convierte saltos de línea en puntos
+                .replace(/[*_#`~]/g, '') 
+                .replace(/\\/g, '')      
+                .replace(/\//g, '')      
+                .replace(/["']/g, '')    
+                .replace(/\n/g, '. ')    
                 .trim();
+        }
+
+        // --- TYPEWRITER EFFECT (APARICIÓN LENTA DE TEXTO) ---
+        function typeWrite(text) {
+            clearInterval(typingInterval); // Detener escritura anterior
+            statusText.innerText = "";
+            statusText.style.opacity = 1;
+            statusText.style.color = "var(--text-main)";
+            
+            let i = 0;
+            const speed = 30; // Velocidad de escritura (ms)
+
+            typingInterval = setInterval(() => {
+                if (i < text.length) {
+                    statusText.innerText += text.charAt(i);
+                    i++;
+                } else {
+                    clearInterval(typingInterval);
+                }
+            }, speed);
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition;
-
-        const bootPhrases = [
-            "Administrando Suero 114...",
-            "Asegurando pinzas oculares...",
-            "Forzando apertura de párpados...",
-            "Calibrando respuesta emocional...",
-            "Proyectando ultra-violencia...",
-            "Sincronizando sinapsis..."
-        ];
+        const bootPhrases = [ "Administrando Suero 114...", "Asegurando pinzas oculares...", "Forzando apertura de párpados...", "Calibrando respuesta emocional...", "Proyectando ultra-violencia...", "Sincronizando sinapsis..." ];
 
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
             recognition.lang = 'es-MX'; recognition.interimResults = false;
             
-            recognition.onstart = () => { isListening = true; updateUI(sessionActive ? "Escuchando..." : "Di 'ALEX'...", "active"); };
+            recognition.onstart = () => { isListening = true; if(sessionActive) updateUI("Escuchando...", "active"); else updateUI("Di 'ALEX' para despertar...", "active"); };
             recognition.onend = () => { isListening = false; if(sessionActive && !isThinking && !isSpeaking) { updateUI("Sesión abierta", "active"); try{recognition.start();}catch(e){} } else if(!sessionActive) updateUI("En espera", ""); };
             
-            recognition.onresult = (e) => {
-                const t = e.results[0][0].transcript;
+            recognition.onresult = (event) => {
+                const t = event.results[0][0].transcript;
                 if(t.toLowerCase().match(/(basta|adiós|silencio)/)) { closeSession(); speakResponse("Hasta nunca."); return; }
                 
-                if (sessionActive) {
-                    refreshSession(); updateUI(`"${t}"`, ""); processWithPollinations(t);
-                } else {
-                    if (t.toLowerCase().includes("alex")) {
-                        openSession(); processWithPollinations(t.replace(/alex/gi, "").trim() || "Hola");
-                    } else updateUI("Ignorado (Di 'Alex')", "error");
-                }
+                if (sessionActive) { refreshSession(); updateUI(`"${t}"`, ""); processWithPollinations(t); }
+                else { if (t.toLowerCase().includes("alex")) { openSession(); processWithPollinations(t.replace(/alex/gi, "").trim() || "Hola"); } else updateUI("Ignorado (Di 'Alex')", "error"); }
             };
 
-            // --- CLICK MIC: WARM UP REAL (SOLUCION DEL DELAY) ---
             micBtn.addEventListener('click', async () => {
                 if (sessionActive) { closeSession(); return; }
-                
                 if (!isSystemReady) {
                     const loader = document.getElementById('ludovico-loader');
                     const bar = document.getElementById('ludovico-bar');
                     const txt = document.getElementById('ludovico-text');
-                    
                     loader.classList.add('active');
                     
-                    // --- AQUÍ ESTÁ LA CLAVE: PEDIR AUDIO REAL PARA CALENTAR ---
                     const warmUpPromise = fetch(`${API_URL}/generate`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ text: "Sistema online.", voice: "es-NI-FedericoNeural" })
-                    }).then(res => {
-                        if(!res.ok) throw new Error("Server Error");
-                        return res.blob(); // Descargar blob para forzar carga completa
-                    });
+                    }).then(res => { if(!res.ok) throw new Error("Err"); return res.blob(); });
                     
                     let prog = 0;
                     const interval = setInterval(() => {
-                        if(prog < 90) { 
-                            prog += Math.random()*4; 
-                            bar.style.width = prog+"%"; 
-                            if(Math.random()>0.8) txt.innerText = bootPhrases[Math.floor(Math.random()*bootPhrases.length)]; 
-                        }
+                        if(prog < 90) { prog += Math.random()*4; bar.style.width = prog+"%"; if(Math.random()>0.8) txt.innerText = bootPhrases[Math.floor(Math.random()*bootPhrases.length)]; }
                     }, 400);
 
                     try {
-                        // Esperamos a que Render responda con el audio (Warm Up completo)
                         await warmUpPromise;
-                        
                         clearInterval(interval); bar.style.width = "100%"; txt.innerText = "SISTEMA ONLINE";
                         setTimeout(() => { loader.classList.remove('active'); isSystemReady = true; try{recognition.start();}catch(e){} }, 800);
                     } catch(e) {
                         clearInterval(interval); txt.innerText = "ERROR DE CONEXIÓN";
                         setTimeout(() => { loader.classList.remove('active'); isSystemReady = true; }, 2000);
                     }
-                } else {
-                    try{recognition.start();}catch(e){}
-                }
+                } else { try{recognition.start();}catch(e){} }
             });
             cmdInput.style.display = 'block';
         } else {
-            micBtn.style.display = 'none'; cmdInput.style.display = 'block';
-            cmdInput.placeholder = "SOLO TEXTO"; updateUI("Modo Texto Activado", "");
+            micBtn.style.display = 'none'; cmdInput.style.display = 'block'; cmdInput.placeholder = "SOLO TEXTO"; updateUI("Modo Texto Activado", "");
         }
 
         function openSession() { sessionActive = true; micBtn.innerText = "● SESIÓN ACTIVA"; micBtn.classList.add("active-mode"); sessionBar.style.opacity = 1; refreshSession(); loopSession(); }
@@ -362,36 +355,30 @@
 
         async function processWithPollinations(userText) {
             isThinking = true; updateUI("Analizando...", "active");
+            chatHistory.push(`Usuario: ${userText}`); if (chatHistory.length > 8) chatHistory = chatHistory.slice(-8);
             
-            chatHistory.push(`Usuario: ${userText}`);
-            if (chatHistory.length > 8) chatHistory = chatHistory.slice(-8);
-            const contextString = chatHistory.join("\n");
-            
-            // --- TU PROMPT ORIGINAL (100% RESPETADO) ---
-            const systemPrompt = 
-                "Eres 'Alex' (de la Naranja Mecánica). Tu personalidad es: Intelectual, cínico, refinado, pero con un fondo violento y arrogante. " +
+            const systemPrompt = "Eres 'Alex' (de la Naranja Mecánica). Tu personalidad es: Intelectual, cínico, refinado, pero con un fondo violento y arrogante. " +
                 "REGLAS OBLIGATORIAS: " +
-                "1. VOCABULARIO: Habla en Español Latino neutro, usa de vez en cuando (1 de cada 5 interacciones) los términos 'drog' (amigo), 'gulever' (cabeza) y 'siny' (cine)." +
+                "1. VOCABULARIO: Habla en Español Latino neutro mezclado con un toque sutil (2%) de jerga Nadsat adaptada a la pronunciación al español (usa términos como: 'drog' (amigo), 'videar' (ver/entender), 'orrorshou' (genial/bien), 'gulever' (cabeza), 'siny' (cine)). No abuses, que sea comprensible." +
                 "2. LONGITUD (ESTRICTO): " +
                 "   - Para saludos o trivialidades ('hola', 'qué haces'): Sé BREVE, cortante y superior (Máximo 15 palabras). " +
                 "   - Para temas interesantes (arte, vida, caos): Sé PROFUNDO pero CONCISO (Máximo 80 palabras). No des discursos eternos. " +
                 "3. ACTITUD: Nunca actúes como un asistente servil. Eres el líder." +
                 "4. Las palabras en otros idiomas adáptalas a la pronunciación al español. Por ejemplo frame debes escribirla y leerla como freim, o roomie debes escribirlo y leerlo como rumi." ;
             
-            const finalPrompt = `${systemPrompt}\n\nHistorial reciente:\n${contextString}\n\nAlex responde:`;
+            const finalPrompt = `${systemPrompt}\n\nHistorial reciente:\n${chatHistory.join("\n")}\n\nAlex responde:`;
             
             try {
                 const response = await fetch(`https://text.pollinations.ai/${encodeURIComponent(finalPrompt)}`);
                 const aiResponse = await response.text();
-                
                 chatHistory.push(`Alex: ${aiResponse}`);
                 isThinking = false;
                 
-                updateUI(aiResponse.substring(0, 50)+"...", "speaking");
+                // TEXTO LIMPIO PARA VOZ Y PARA PANTALLA
+                const cleanText = cleanTextForTTS(aiResponse);
                 
-                // LIMPIEZA TÉCNICA ANTES DE LA VOZ
-                const textToSpeak = cleanTextForTTS(aiResponse);
-                speakResponse(textToSpeak);
+                typeWrite(cleanText); // ESCRIBE TIPO MÁQUINA
+                speakResponse(cleanText);
 
             } catch (error) {
                 isThinking = false; updateUI("Error de conexión", "error"); speakResponse("Algo falla en el sistema, mi droog.");
@@ -402,29 +389,25 @@
             if(!text) return;
             if(window.currentAudio) window.currentAudio.pause(); if(window.speechSynthesis) window.speechSynthesis.cancel();
             isSpeaking = true;
-
             try {
                 const response = await fetch(`${API_URL}/generate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text: text, voice: "es-NI-FedericoNeural" })
                 });
-
                 if (!response.ok) throw new Error("API_ERROR");
-
                 const blob = await response.blob();
                 const url = URL.createObjectURL(blob);
                 const audio = new Audio(url);
                 window.currentAudio = audio; 
-
                 audio.onended = () => {
-                    isSpeaking = false; updateUI("ALEX VOICE", "");
-                    if (sessionActive) { refreshSession(); try { recognition.start(); } catch(e) {} } else { setTimeout(() => { if(!isListening) statusText.style.opacity = 0; }, 3000); }
+                    isSpeaking = false; 
+                    // No limpiamos el texto inmediatamente para que se pueda leer, solo al volver a escuchar
+                    if(!isListening && !sessionActive) setTimeout(() => { statusText.style.opacity = 0; }, 5000); 
+                    if (sessionActive) { refreshSession(); try { recognition.start(); } catch(e) {} }
                 };
                 audio.play();
-
             } catch (error) {
-                console.warn("Fallo Render, usando fallback local..."); isSpeaking = false;
+                isSpeaking = false;
                 if(window.speechSynthesis) {
                     const u = new SpeechSynthesisUtterance(text); u.lang = 'es-MX'; u.pitch = 0.9;
                     u.onend = () => { if (sessionActive) { refreshSession(); try { recognition.start(); } catch(e) {} } };
@@ -434,7 +417,9 @@
         }
 
         function updateUI(text, state) {
-            statusText.innerText = text.toUpperCase(); statusText.style.opacity = 1;
+            clearInterval(typingInterval); // Cortar cualquier escritura pendiente
+            statusText.innerText = text.toUpperCase();
+            statusText.style.opacity = 1;
             if (state === "active") statusText.style.color = "var(--accent)";
             else if (state === "error") statusText.style.color = "red";
             else statusText.style.color = "var(--text-main)";
@@ -455,7 +440,10 @@
             }
             composer.render();
         }
-        window.addEventListener('resize', () => { camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(container.clientWidth, container.clientHeight); composer.setSize(container.clientWidth, container.clientHeight); });
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight); composer.setSize(container.clientWidth, container.clientHeight);
+        });
         animate();
     </script>
 </body>
