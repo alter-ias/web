@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CUENTOS INUSUALES</title>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Limelight&family=Rye&display=swap');
+
+        :root {
+            --color-fondo: rgb(22, 24, 28);
+            --color-texto: rgb(230, 230, 230);
+            --color-acento: rgb(190, 225, 218);
+            --color-pastel-cyan: rgb(190, 225, 218);
+            --color-pastel-orange: #ffb347;
+            --font-principal: 'Courier New', Courier, monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: var(--font-principal); 
+            background-color: var(--color-fondo); 
+            color: var(--color-texto); 
+            overflow-x: hidden; /* Previene el scroll horizontal no deseado */
+        }
+        
+        .hero-section {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            z-index: 1;
+            background-color: var(--color-fondo);
+        }
+
+        #hero-canvas-container { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            cursor: move; 
+            /* Esta es la corrección clave para que el scroll funcione en Chrome */
+            touch-action: pan-y; 
+        }
+        
+        #hero-canvas-container canvas {
+            touch-action: pan-y;
+        }
+
+        .hero-header, .hero-description { position: absolute; left: 50%; transform: translateX(-50%); width: 100%; padding: 2rem; text-align: center; pointer-events: none; z-index: 2; }
+        .hero-header { top: 25%; transform: translate(-50%, -50%); }
+        .hero-description { bottom: 5%; max-width: 700px; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+        
+        .scroll-container { 
+            position: relative; 
+            z-index: 2;
+            background-color: var(--color-fondo);
+        }
+        
+        .content-container { padding: 0 2rem 10vh 2rem; max-width: 95%; margin: 0 auto; }
+
+        .interactive-project-block { 
+            position: relative;
+            width: 100%;
+            display: flex;
+            gap: 4rem;
+            align-items: flex-start;
+            padding: 10vh 0;
+            min-height: 100vh;
+        }
+
+        .layout-reversed { flex-direction: row-reverse; }
+        
+        .project-col { flex: 1; }
+        .project-col-visuals { position: sticky; top: 10vh; height: 80vh; }
+        .project-col-text { min-height: 80vh; padding-top: 5vh; }
+
+        @media (max-width: 900px) {
+            .interactive-project-block, .layout-reversed {
+                flex-direction: column; 
+                padding: 5vh 0;
+            }
+            .project-col-visuals { position: static; width: 100%; height: auto; }
+            .visual-canvas-container { padding-top: 56.25%; height: 0; }
+            .project-col-text { padding-top: 2vh; }
+        }
+        
+        .active-text-display {
+            font-size: 1.15rem;
+            line-height: 1.8;
+            text-align: justify;
+            hyphens: auto;
+            -webkit-hyphens: auto;
+            word-wrap: break-word;
+        }
+        .active-text-display p { margin-bottom: 1.5rem; }
+        
+        .active-text-display h2 {
+            font-family: 'Limelight', cursive;
+            color: var(--color-pastel-orange);
+            font-size: 2.8rem;
+            margin-bottom: 1.5rem;
+            text-align: left;
+            text-transform: uppercase;
+        }
+        
+        .project-quote {
+            font-family: 'Limelight', cursive;
+            color: var(--color-pastel-cyan);
+            font-size: 1.6rem;
+            margin: 3rem 0;
+            padding: 1rem 0 1rem 1.5rem;
+            border-left: 4px solid var(--color-pastel-orange);
+            line-height: 1.4;
+            text-align: left;
+            background: linear-gradient(90deg, rgba(190, 225, 218, 0.05) 0%, transparent 100%);
+        }
+
+        .visual-canvas-container { 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .visual-display { position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: cover; }
+        
+        h1 { font-family: var(--font-principal); font-size: 2.5rem; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+        h1 span { font-size: 1rem; display: block; margin-top: 10px; color: var(--color-acento); text-transform: none; }
+        
+        @media (max-width: 768px) {
+             h1 { font-size: 1.8rem; }
+             .hero-header { top: 18%; }
+             .hero-description { bottom: 2%; font-size: 0.9rem; max-width: 90%; }
+             .active-text-display { font-size: 1.05rem; }
+             .active-text-display h2 { font-size: 2.2rem; }
+             .project-quote { font-size: 1.3rem; margin: 2rem 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="hero-section">
+        <div id="hero-canvas-container"></div>
+        <header class="hero-header"><h1>CUENTOS INUSUALES<span>Escritos por Omar Durán Guerra</span></h1></header>
+        <section class="hero-description"><p style="line-height: 1.6; font-size: 1.1rem;">Este es un mensaje en una botella, arrojado al vasto océano digital. Un recordatorio de que en la creación deliberada y en la vulnerabilidad, encontramos una forma de salvación.</p></section>
+    </div>
+
+    <main class="scroll-container">
+        <div class="content-container"></div>
+    </main>
+    
+    <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/" } }</script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        // --- 1. CONFIGURACIÓN DEL HEADER 3D (Máquina) ---
+        const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5, };
+        const heroContainer = document.getElementById('hero-canvas-container');
+        const heroScene = new THREE.Scene();
+        const heroCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+        heroCamera.position.z = heroParams.cameraDistance;
+        
+        const heroRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        heroRenderer.setPixelRatio(window.devicePixelRatio);
+        heroContainer.appendChild(heroRenderer.domElement);
+        
+        heroScene.add(new THREE.AmbientLight(0xffffff, heroParams.ambientIntensity));
+        const heroDirectionalLight = new THREE.DirectionalLight(0xffffff, heroParams.directionalIntensity);
+        heroDirectionalLight.position.set(5, 10, 7.5); 
+        heroScene.add(heroDirectionalLight);
+        
+        let heroModel;
+        new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { 
+            heroModel = gltf.scene; 
+            heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); 
+            updateHeroModelTransform(); 
+            heroScene.add(heroModel); 
+        });
+
+
+        // --- 2. LECTURA DE CSV Y LÓGICA DE PROYECTOS ---
+        const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRIQwSB6tUFLal0lG8c7YRStbOWGAhWm-wcRQz-X00rIQEuoT2rAEY9Q8O0cM7EAHmU7nAZNjxndJdc/pub?output=csv';
+        const contentContainer = document.querySelector('.content-container');
+
+        function initProject() {
+            const fetchUrl = `${CSV_URL}&t=${new Date().getTime()}`;
+
+            Papa.parse(fetchUrl, {
+                download: true, 
+                header: false,
+                skipEmptyLines: true,
+                complete: (results) => {
+                    let data = results.data;
+                    
+                    if (data.length > 0) {
+                        const cell0 = String(data[0][0]).toLowerCase();
+                        const cell1 = String(data[0][1]).toLowerCase();
+                        if (cell0.includes('texto') || cell0.includes('text') || cell1.includes('video') || cell1.includes('media')) {
+                            data.shift();
+                        }
+                    }
+
+                    const projectData = data.map(row => {
+                        return {
+                            texto: row[0] ? row[0].trim() : '',   
+                            media: row[1] ? row[1].trim() : '',   
+                            titulo: row[2] ? row[2].trim() : '',  
+                            quote: row[3] ? row[3].trim() : ''    
+                        };
+                    }).filter(p => p.texto && p.media); 
+
+                    if (projectData.length > 0) {
+                        buildProjectBlocks(projectData);
+                    } else {
+                        contentContainer.innerHTML = `<p>No se encontraron proyectos en el CSV o las celdas están vacías.</p>`;
+                    }
+                },
+                error: (error) => console.error("Error al parsear CSV:", error),
+            });
+        }
+
+        function buildProjectBlocks(data) {
+            contentContainer.innerHTML = '';
+            
+            data.forEach((project, index) => {
+                const projectBlock = document.createElement('div');
+                const isReversed = index % 2 !== 0;
+                
+                const visualAos = isReversed ? "fade-right" : "fade-left";
+                const textAos = isReversed ? "fade-left" : "fade-right";
+
+                projectBlock.className = `interactive-project-block ${isReversed ? 'layout-reversed' : ''}`;
+                
+                let paragraphs = project.texto.split(/\n+/).filter(p => p.trim() !== '');
+                let midIndex = Math.floor(paragraphs.length / 2);
+                
+                let formattedHtml = '';
+                
+                if (project.titulo) {
+                    formattedHtml += `<h2>${project.titulo}</h2>`;
+                }
+
+                paragraphs.forEach((p, i) => {
+                    formattedHtml += `<p>${p}</p>`;
+                    
+                    if (i === midIndex && project.quote) {
+                        formattedHtml += `<blockquote class="project-quote">"${project.quote}"</blockquote>`;
+                    }
+                });
+
+                let isVideo = project.media.match(/\.(mp4|webm|m4v)$/i);
+                let visualElement = isVideo
+                    ? `<video class="visual-display" loop muted playsinline src="${project.media}"></video>`
+                    : `<img class="visual-display" src="${project.media}" alt="Contenido Visual">`;
+
+                projectBlock.innerHTML = `
+                    <div class="project-col project-col-visuals" data-aos="${visualAos}">
+                        <div class="visual-canvas-container">
+                            ${visualElement}
+                        </div>
+                    </div>
+                    <div class="project-col project-col-text" data-aos="${textAos}" data-aos-delay="200">
+                        <div class="active-text-display">
+                            ${formattedHtml}
+                        </div>
+                    </div>
+                `;
+                
+                contentContainer.appendChild(projectBlock);
+                
+                const visualDisplay = projectBlock.querySelector('video.visual-display');
+                if (visualDisplay) {
+                    visualDisplay.play().catch(()=>{});
+                }
+            });
+            
+            // Refresca las animaciones una vez que el contenido se inyectó
+            setTimeout(() => {
+                AOS.init({
+                    duration: 1200,
+                    offset: 150,
+                    once: true,
+                    easing: 'ease-out-cubic'
+                });
+                AOS.refresh(); 
+            }, 500);
+        }
+
+        // --- 3. RENDERIZADO Y CONTROLADORES DE EVENTOS ---
+        let mouseX = 0;
+        
+        window.addEventListener('mousemove', e => { 
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1; 
+        });
+
+        function updateHeroModelTransform() { 
+            if (!heroModel) return; 
+            const isMobile = window.innerWidth <= 768; 
+            const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; 
+            heroModel.scale.setScalar(scale); 
+            heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; 
+        }
+
+        function handleResize() { 
+            const heroRect = document.querySelector('.hero-section').getBoundingClientRect(); 
+            heroCamera.aspect = heroRect.width / heroRect.height; 
+            heroCamera.updateProjectionMatrix(); 
+            heroRenderer.setSize(heroRect.width, heroRect.height); 
+            updateHeroModelTransform(); 
+            AOS.refresh(); 
+        }
+
+        function animate() { 
+            requestAnimationFrame(animate); 
+            
+            if (heroModel) { 
+                const targetHeroRotY = heroParams.initialRotationY + (mouseX * heroParams.mouseIntensity); 
+                heroModel.rotation.y += (targetHeroRotY - heroModel.rotation.y) * heroParams.smoothingFactor; 
+            } 
+            heroRenderer.render(heroScene, heroCamera); 
+        }
+
+        window.addEventListener('resize', handleResize);
+        handleResize();
+        initProject();
+        animate();
+    </script>
+</body>
+</html>
