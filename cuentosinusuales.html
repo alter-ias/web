@@ -11,6 +11,7 @@
 
         :root {
             --color-fondo: rgb(22, 24, 28);
+            --color-fondo-transparente: rgba(22, 24, 28, 0.85); /* Para dejar ver la malla */
             --color-texto: rgb(230, 230, 230);
             --color-acento: rgb(190, 225, 218);
             --color-pastel-cyan: rgb(190, 225, 218);
@@ -20,7 +21,23 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        body { font-family: var(--font-principal); background-color: var(--color-fondo); color: var(--color-texto); overflow-x: hidden; }
+        body { 
+            font-family: var(--font-principal); 
+            background-color: var(--color-fondo); 
+            color: var(--color-texto); 
+            overflow-x: hidden; 
+        }
+
+        /* LIENZO DEL BACKGROUND DINÁMICO */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none; /* Evita que bloquee clicks */
+        }
         
         .hero-section {
             position: sticky;
@@ -28,17 +45,19 @@
             width: 100%;
             height: 100vh;
             z-index: 1;
+            background-color: transparent;
         }
 
         #hero-canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: move; }
         .hero-header, .hero-description { position: absolute; left: 50%; transform: translateX(-50%); width: 100%; padding: 2rem; text-align: center; pointer-events: none; z-index: 2; }
         .hero-header { top: 25%; transform: translate(-50%, -50%); }
-        .hero-description { bottom: 5%; max-width: 700px; }
+        .hero-description { bottom: 5%; max-width: 700px; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
         
         .scroll-container { 
             position: relative; 
             z-index: 2;
-            background-color: var(--color-fondo);
+            background-color: var(--color-fondo-transparente);
+            backdrop-filter: blur(5px); /* Toque premium para legibilidad */
         }
         
         .content-container { padding: 0 2rem; max-width: 95%; margin: 0 auto; }
@@ -71,7 +90,6 @@
             .project-col-text { padding-top: 2vh; }
         }
         
-        /* Estilos de texto y formato */
         .active-text-display {
             font-size: 1.15rem;
             line-height: 1.8;
@@ -82,7 +100,6 @@
         }
         .active-text-display p { margin-bottom: 1.5rem; }
         
-        /* Título Color Naranja (Columna D) */
         .active-text-display h2 {
             font-family: 'Limelight', cursive;
             color: var(--color-pastel-orange);
@@ -93,7 +110,6 @@
             text-shadow: 0 0 10px rgba(255, 179, 71, 0.3);
         }
         
-        /* Diseño para el Quote (Columna E) */
         .project-quote {
             font-family: 'Limelight', cursive;
             color: var(--color-pastel-cyan);
@@ -120,7 +136,7 @@
         }
         .visual-display { position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: cover; }
         
-        h1 { font-family: var(--font-principal); font-size: 2.5rem; text-transform: uppercase; }
+        h1 { font-family: var(--font-principal); font-size: 2.5rem; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
         h1 span { font-size: 1rem; display: block; margin-top: 10px; color: var(--color-acento); text-transform: none; }
         
         @media (max-width: 768px) {
@@ -134,7 +150,7 @@
 
         .erasure-pin-container { position: relative; height: 200vh; width: 100%; }
         .erasure-pin-container .erasure-block-wrapper { position: sticky; top: 0; left: 0; width: 100%; height: 100vh; z-index: 15; }
-        .erasure-block { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 20; display: flex; justify-content: center; align-items: center; overflow: hidden; background-color: var(--color-fondo); will-change: transform; transform: translateX(100%); }
+        .erasure-block { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 20; display: flex; justify-content: center; align-items: center; overflow: hidden; background-color: var(--color-fondo-transparente); will-change: transform; transform: translateX(100%); }
         .erasure-text { text-align: center; font-size: 6vw; font-weight: bold; text-transform: uppercase; padding: 2rem; }
         .erasure-text span { display: block; line-height: 1.1; margin-bottom: 0.5rem; }
         .font-rye { font-family: 'Rye', cursive; }
@@ -163,6 +179,8 @@
     </style>
 </head>
 <body>
+    <canvas id="bg-canvas"></canvas>
+
     <div id="audio-unlock-overlay">
         <button id="audio-unlock-btn">ENTRAR</button>
     </div>
@@ -178,13 +196,92 @@
     </main>
     
     <script type="importmap">{ "imports": { "three": "https://unpkg.com/three@0.163.0/build/three.module.js", "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/" } }</script>
-    
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
 
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         
+        // --- 1. CONFIGURACIÓN DEL BACKGROUND DINÁMICO (MALLA DE COLIBRÍ) ---
+        const bgCanvas = document.getElementById('bg-canvas');
+        const bgScene = new THREE.Scene();
+        const bgCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        bgCamera.position.z = 5;
+        bgCamera.position.y = 2;
+        bgCamera.lookAt(0, 0, 0);
+
+        const bgRenderer = new THREE.WebGLRenderer({ canvas: bgCanvas, antialias: true, alpha: true });
+        bgRenderer.setPixelRatio(window.devicePixelRatio);
+        bgRenderer.setSize(window.innerWidth, window.innerHeight);
+
+        const bgGeo = new THREE.PlaneGeometry(35, 35, 70, 70);
+        
+        // Shaders personalizados para la iridiscencia
+        const vertexShader = `
+            uniform float uTime;
+            uniform vec2 uMouse;
+            varying vec2 vUv;
+            varying float vElevation;
+            
+            void main() {
+                vUv = uv;
+                vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+                
+                float distanceToMouse = distance(uv, uMouse * 0.5 + 0.5);
+                
+                // Ondulación base fluida
+                float elevation = sin(modelPosition.x * 2.0 + uTime) * 0.4 
+                                + cos(modelPosition.y * 2.0 + uTime) * 0.4;
+                
+                // Explosión al paso del mouse
+                elevation += exp(-distanceToMouse * 8.0) * 1.5 * sin(uTime * 3.0);
+                
+                modelPosition.z += elevation;
+                vElevation = elevation;
+                
+                gl_Position = projectionMatrix * viewMatrix * modelPosition;
+            }
+        `;
+
+        const fragmentShader = `
+            uniform float uTime;
+            varying vec2 vUv;
+            varying float vElevation;
+            
+            void main() {
+                // Tonos Colibrí: Cian luminoso, Morado brillante, Dorado/Naranja
+                vec3 colorCyan = vec3(0.1, 0.9, 0.7);
+                vec3 colorPurple = vec3(0.6, 0.2, 0.9);
+                vec3 colorGold = vec3(1.0, 0.7, 0.2);
+                
+                float mixStrength = (vElevation + 1.0) * 0.5;
+                
+                vec3 mixedColor = mix(colorCyan, colorPurple, sin(uTime * 0.5 + vUv.x * 10.0) * 0.5 + 0.5);
+                mixedColor = mix(mixedColor, colorGold, mixStrength * 0.8);
+                
+                // Atenuar un poco las líneas de la malla para que no abrume
+                gl_FragColor = vec4(mixedColor, 0.35);
+            }
+        `;
+
+        const bgMat = new THREE.ShaderMaterial({
+            uniforms: {
+                uTime: { value: 0 },
+                uMouse: { value: new THREE.Vector2(0, 0) }
+            },
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
+            wireframe: true,
+            transparent: true,
+            depthWrite: false
+        });
+
+        const bgMesh = new THREE.Mesh(bgGeo, bgMat);
+        bgMesh.rotation.x = -Math.PI * 0.4;
+        bgScene.add(bgMesh);
+
+
+        // --- 2. CONFIGURACIÓN ORIGINAL DEL HEADER (INTACTA) ---
         const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5, };
         const heroContainer = document.getElementById('hero-canvas-container');
         const heroScene = new THREE.Scene();
@@ -199,12 +296,12 @@
         let heroModel;
         new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
 
-        // NUEVO ORIGEN DE DATOS
+
+        // --- 3. LECTURA DE CSV Y LÓGICA DE PROYECTOS ---
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRIQwSB6tUFLal0lG8c7YRStbOWGAhWm-wcRQz-X00rIQEuoT2rAEY9Q8O0cM7EAHmU7nAZNjxndJdc/pub?output=csv';
         const contentContainer = document.querySelector('.content-container');
 
         function initProject() {
-            // Agregamos un timestamp dinámico para evitar la caché del navegador y forzar los últimos datos
             const fetchUrl = `${CSV_URL}&t=${new Date().getTime()}`;
 
             Papa.parse(fetchUrl, {
@@ -221,11 +318,7 @@
                     const projectData = data.map(row => {
                         let col0 = row[0] || '';
                         let col2 = row[2] || '';
-                        
-                        // Determinamos cuál tiene el audio evaluando extensiones comunes
                         let audioUrl = col0.match(/\.(mp3|wav|ogg)$/i) ? col0 : (col2.match(/\.(mp3|wav|ogg)$/i) ? col2 : '');
-                        
-                        // El medio visual será el que no se haya detectado como audio
                         let mediaUrl = (audioUrl === col0 && col0 !== '') ? col2 : col0;
 
                         return {
@@ -235,7 +328,7 @@
                             titulo: row[3] || '', 
                             quote: row[4] || ''   
                         };
-                    }).filter(p => p.texto && p.media); // Verificamos que al menos exista texto y un enlace visual
+                    }).filter(p => p.texto && p.media); 
 
                     if (projectData.length > 0) {
                         buildProjectBlocks(projectData);
@@ -308,7 +401,6 @@
                     }
                 });
 
-                // Lógica dinámica para saber si renderizar un video o una imagen
                 let isVideo = project.media.match(/\.(mp4|webm|m4v)$/i);
                 let visualElement = isVideo
                     ? `<video class="visual-display" loop muted playsinline src="${project.media}"></video>`
@@ -331,7 +423,6 @@
                 contentContainer.appendChild(projectBlock);
                 observer.observe(projectBlock);
                 
-                // Si es un video, iniciamos la reproducción
                 const visualDisplay = projectBlock.querySelector('video.visual-display');
                 if (visualDisplay) {
                     visualDisplay.play().catch(()=>{});
@@ -379,11 +470,56 @@
             }, { once: true });
         }
 
+
+        // --- 4. RENDERIZADO Y CONTROLADORES DE EVENTOS ---
         let mouseX = 0, mouseY = 0;
-        window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 - 1; });
-        function updateHeroModelTransform() { if (!heroModel) return; const isMobile = window.innerWidth <= 768; const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; heroModel.scale.setScalar(scale); heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; }
-        function handleResize() { const heroRect = document.querySelector('.hero-section').getBoundingClientRect(); heroCamera.aspect = heroRect.width / heroRect.height; heroCamera.updateProjectionMatrix(); heroRenderer.setSize(heroRect.width, heroRect.height); updateHeroModelTransform(); }
-        function animate() { requestAnimationFrame(animate); if (heroModel) { const targetHeroRotY = heroParams.initialRotationY + (mouseX * heroParams.mouseIntensity); heroModel.rotation.y += (targetHeroRotY - heroModel.rotation.y) * heroParams.smoothingFactor; } heroRenderer.render(heroScene, heroCamera); }
+        
+        window.addEventListener('mousemove', e => { 
+            // Normalizar coordenadas para ambos modelos
+            mouseX = (e.clientX / window.innerWidth) * 2 - 1; 
+            mouseY = -(e.clientY / window.innerHeight) * 2 - 1; 
+            
+            // Actualizar el shader del colibrí
+            bgMat.uniforms.uMouse.value.set(mouseX, mouseY);
+        });
+
+        function updateHeroModelTransform() { 
+            if (!heroModel) return; 
+            const isMobile = window.innerWidth <= 768; 
+            const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; 
+            heroModel.scale.setScalar(scale); 
+            heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; 
+        }
+
+        function handleResize() { 
+            // Resize Hero
+            const heroRect = document.querySelector('.hero-section').getBoundingClientRect(); 
+            heroCamera.aspect = heroRect.width / heroRect.height; 
+            heroCamera.updateProjectionMatrix(); 
+            heroRenderer.setSize(heroRect.width, heroRect.height); 
+            updateHeroModelTransform(); 
+
+            // Resize Background Dinámico
+            bgCamera.aspect = window.innerWidth / window.innerHeight;
+            bgCamera.updateProjectionMatrix();
+            bgRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() { 
+            requestAnimationFrame(animate); 
+            
+            // Render Hero Model
+            if (heroModel) { 
+                const targetHeroRotY = heroParams.initialRotationY + (mouseX * heroParams.mouseIntensity); 
+                heroModel.rotation.y += (targetHeroRotY - heroModel.rotation.y) * heroParams.smoothingFactor; 
+            } 
+            heroRenderer.render(heroScene, heroCamera); 
+
+            // Render Background Shader
+            bgMat.uniforms.uTime.value += 0.015;
+            bgRenderer.render(bgScene, bgCamera);
+        }
+
         window.addEventListener('resize', handleResize);
         handleResize();
         initProject();
