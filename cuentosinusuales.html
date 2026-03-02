@@ -11,12 +11,10 @@
 
         :root {
             --color-fondo: rgb(22, 24, 28);
-            --color-fondo-transparente: rgba(22, 24, 28, 0.85);
             --color-texto: rgb(230, 230, 230);
             --color-acento: rgb(190, 225, 218);
             --color-pastel-cyan: rgb(190, 225, 218);
             --color-pastel-orange: #ffb347;
-            --color-pastel-yellow: #fdfd96;
             --font-principal: 'Courier New', Courier, monospace;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -25,26 +23,15 @@
             font-family: var(--font-principal); 
             background-color: var(--color-fondo); 
             color: var(--color-texto); 
-            overflow-x: hidden; 
-        }
-
-        #bg-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 0;
-            pointer-events: none;
+            overflow-x: hidden; /* Previene el scroll horizontal no deseado */
         }
         
         .hero-section {
-            position: sticky;
-            top: 0;
+            position: relative;
             width: 100%;
             height: 100vh;
             z-index: 1;
-            background-color: transparent;
+            background-color: var(--color-fondo);
         }
 
         #hero-canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: move; }
@@ -55,11 +42,10 @@
         .scroll-container { 
             position: relative; 
             z-index: 2;
-            background-color: var(--color-fondo-transparente);
-            backdrop-filter: blur(5px);
+            background-color: var(--color-fondo);
         }
         
-        .content-container { padding: 0 2rem; max-width: 95%; margin: 0 auto; }
+        .content-container { padding: 0 2rem 10vh 2rem; max-width: 95%; margin: 0 auto; }
 
         .interactive-project-block { 
             position: relative;
@@ -104,7 +90,6 @@
             margin-bottom: 1.5rem;
             text-align: left;
             text-transform: uppercase;
-            text-shadow: 0 0 10px rgba(255, 179, 71, 0.3);
         }
         
         .project-quote {
@@ -116,12 +101,9 @@
             border-left: 4px solid var(--color-pastel-orange);
             line-height: 1.4;
             text-align: left;
-            text-shadow: 0 0 8px rgba(190, 225, 218, 0.4);
             background: linear-gradient(90deg, rgba(190, 225, 218, 0.05) 0%, transparent 100%);
         }
 
-        .hidden { display: none; }
-        
         .visual-canvas-container { 
             position: relative; 
             width: 100%; 
@@ -144,27 +126,9 @@
              .active-text-display h2 { font-size: 2.2rem; }
              .project-quote { font-size: 1.3rem; margin: 2rem 0; }
         }
-
-        .erasure-pin-container { position: relative; height: 200vh; width: 100%; }
-        .erasure-pin-container .erasure-block-wrapper { position: sticky; top: 0; left: 0; width: 100%; height: 100vh; z-index: 15; }
-        .erasure-block { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: 20; display: flex; justify-content: center; align-items: center; overflow: hidden; background-color: var(--color-fondo-transparente); will-change: transform; transform: translateX(100%); }
-        .erasure-text { text-align: center; font-size: 6vw; font-weight: bold; text-transform: uppercase; padding: 2rem; }
-        .erasure-text span { display: block; line-height: 1.1; margin-bottom: 0.5rem; }
-        .font-rye { font-family: 'Rye', cursive; }
-        .font-limelight { font-family: 'Limelight', cursive; }
-        .font-bitcount-alt { font-family: var(--font-principal); font-size: 5.5vw; letter-spacing: -2px; }
-        .text-cyan { color: var(--color-pastel-cyan); text-shadow: 0 0 15px rgba(190, 225, 218, 0.7); }
-        .text-orange { color: var(--color-pastel-orange); text-shadow: 0 0 15px rgba(255, 179, 71, 0.7); }
-        .text-yellow { color: var(--color-pastel-yellow); text-shadow: 0 0 15px rgba(253, 253, 150, 0.7); }
-        @media (max-width: 768px) {
-            .erasure-text { font-size: 10vw; }
-            .font-bitcount-alt { font-size: 9vw; }
-            .erasure-pin-container { height: 150vh; }
-        }
     </style>
 </head>
 <body>
-    <canvas id="bg-canvas"></canvas>
 
     <div class="hero-section">
         <div id="hero-canvas-container"></div>
@@ -182,98 +146,33 @@
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        
-        // --- 1. CONFIGURACIÓN DEL BACKGROUND DINÁMICO ---
-        const bgCanvas = document.getElementById('bg-canvas');
-        const bgScene = new THREE.Scene();
-        const bgCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        bgCamera.position.z = 5;
-        bgCamera.position.y = 2;
-        bgCamera.lookAt(0, 0, 0);
 
-        const bgRenderer = new THREE.WebGLRenderer({ canvas: bgCanvas, antialias: true, alpha: true });
-        bgRenderer.setPixelRatio(window.devicePixelRatio);
-        bgRenderer.setSize(window.innerWidth, window.innerHeight);
-
-        const bgGeo = new THREE.PlaneGeometry(35, 35, 70, 70);
-        
-        const vertexShader = `
-            uniform float uTime;
-            uniform vec2 uMouse;
-            varying vec2 vUv;
-            varying float vElevation;
-            
-            void main() {
-                vUv = uv;
-                vec4 modelPosition = modelMatrix * vec4(position, 1.0);
-                
-                float distanceToMouse = distance(uv, uMouse * 0.5 + 0.5);
-                
-                float elevation = sin(modelPosition.x * 2.0 + uTime) * 0.4 
-                                + cos(modelPosition.y * 2.0 + uTime) * 0.4;
-                
-                elevation += exp(-distanceToMouse * 8.0) * 1.5 * sin(uTime * 3.0);
-                
-                modelPosition.z += elevation;
-                vElevation = elevation;
-                
-                gl_Position = projectionMatrix * viewMatrix * modelPosition;
-            }
-        `;
-
-        const fragmentShader = `
-            uniform float uTime;
-            varying vec2 vUv;
-            varying float vElevation;
-            
-            void main() {
-                vec3 colorCyan = vec3(0.1, 0.9, 0.7);
-                vec3 colorPurple = vec3(0.6, 0.2, 0.9);
-                vec3 colorGold = vec3(1.0, 0.7, 0.2);
-                
-                float mixStrength = (vElevation + 1.0) * 0.5;
-                
-                vec3 mixedColor = mix(colorCyan, colorPurple, sin(uTime * 0.5 + vUv.x * 10.0) * 0.5 + 0.5);
-                mixedColor = mix(mixedColor, colorGold, mixStrength * 0.8);
-                
-                gl_FragColor = vec4(mixedColor, 0.35);
-            }
-        `;
-
-        const bgMat = new THREE.ShaderMaterial({
-            uniforms: {
-                uTime: { value: 0 },
-                uMouse: { value: new THREE.Vector2(0, 0) }
-            },
-            vertexShader: vertexShader,
-            fragmentShader: fragmentShader,
-            wireframe: true,
-            transparent: true,
-            depthWrite: false
-        });
-
-        const bgMesh = new THREE.Mesh(bgGeo, bgMat);
-        bgMesh.rotation.x = -Math.PI * 0.4;
-        bgScene.add(bgMesh);
-
-
-        // --- 2. CONFIGURACIÓN DEL HEADER ---
+        // --- 1. CONFIGURACIÓN DEL HEADER 3D (Máquina) ---
         const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5, };
         const heroContainer = document.getElementById('hero-canvas-container');
         const heroScene = new THREE.Scene();
         const heroCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
         heroCamera.position.z = heroParams.cameraDistance;
+        
         const heroRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         heroRenderer.setPixelRatio(window.devicePixelRatio);
         heroContainer.appendChild(heroRenderer.domElement);
+        
         heroScene.add(new THREE.AmbientLight(0xffffff, heroParams.ambientIntensity));
         const heroDirectionalLight = new THREE.DirectionalLight(0xffffff, heroParams.directionalIntensity);
-        heroDirectionalLight.position.set(5, 10, 7.5); heroScene.add(heroDirectionalLight);
+        heroDirectionalLight.position.set(5, 10, 7.5); 
+        heroScene.add(heroDirectionalLight);
+        
         let heroModel;
-        new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { heroModel = gltf.scene; heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); updateHeroModelTransform(); heroScene.add(heroModel); });
+        new GLTFLoader().load('./assets/3d/maquina.glb', (gltf) => { 
+            heroModel = gltf.scene; 
+            heroModel.position.sub(new THREE.Box3().setFromObject(heroModel).getCenter(new THREE.Vector3())); 
+            updateHeroModelTransform(); 
+            heroScene.add(heroModel); 
+        });
 
 
-        // --- 3. LECTURA DE CSV Y LÓGICA DE PROYECTOS ---
+        // --- 2. LECTURA DE CSV Y LÓGICA DE PROYECTOS ---
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRIQwSB6tUFLal0lG8c7YRStbOWGAhWm-wcRQz-X00rIQEuoT2rAEY9Q8O0cM7EAHmU7nAZNjxndJdc/pub?output=csv';
         const contentContainer = document.querySelector('.content-container');
 
@@ -287,7 +186,6 @@
                 complete: (results) => {
                     let data = results.data;
                     
-                    // Identifica y remueve el encabezado basado en las nuevas columnas
                     if (data.length > 0) {
                         const cell0 = String(data[0][0]).toLowerCase();
                         const cell1 = String(data[0][1]).toLowerCase();
@@ -298,10 +196,10 @@
 
                     const projectData = data.map(row => {
                         return {
-                            texto: row[0] ? row[0].trim() : '',   // Nueva Columna A
-                            media: row[1] ? row[1].trim() : '',   // Nueva Columna B (video/imagen)
-                            titulo: row[2] ? row[2].trim() : '',  // Nueva Columna C
-                            quote: row[3] ? row[3].trim() : ''    // Nueva Columna D
+                            texto: row[0] ? row[0].trim() : '',   
+                            media: row[1] ? row[1].trim() : '',   
+                            titulo: row[2] ? row[2].trim() : '',  
+                            quote: row[3] ? row[3].trim() : ''    
                         };
                     }).filter(p => p.texto && p.media); 
 
@@ -369,24 +267,6 @@
                     visualDisplay.play().catch(()=>{});
                 }
             });
-
-            // Vuelve a agregar el bloque de "SÍGUEME"
-            const erasureContainer = document.createElement('div');
-            erasureContainer.className = 'erasure-pin-container';
-            erasureContainer.innerHTML = `
-                <div class="erasure-block-wrapper">
-                    <section class="erasure-block">
-                        <div class="erasure-text">
-                            <span class="font-rye text-cyan">SÍGUEME</span>
-                            <span class="font-limelight text-orange">PARA</span>
-                            <span class="font-bitcount-alt text-yellow">MÁS</span>
-                            <span class="font-rye text-cyan">CUENTOS</span>
-                            <span class="font-limelight text-orange">INUSUALES</span>
-                        </div>
-                    </section>
-                </div>`;
-            contentContainer.appendChild(erasureContainer);
-            initErasureAnimation(erasureContainer);
             
             setTimeout(() => {
                 AOS.init({
@@ -398,13 +278,11 @@
             }, 100);
         }
 
-        // --- 4. RENDERIZADO Y CONTROLADORES DE EVENTOS ---
-        let mouseX = 0, mouseY = 0;
+        // --- 3. RENDERIZADO Y CONTROLADORES DE EVENTOS ---
+        let mouseX = 0;
         
         window.addEventListener('mousemove', e => { 
             mouseX = (e.clientX / window.innerWidth) * 2 - 1; 
-            mouseY = -(e.clientY / window.innerHeight) * 2 - 1; 
-            bgMat.uniforms.uMouse.value.set(mouseX, mouseY);
         });
 
         function updateHeroModelTransform() { 
@@ -421,10 +299,6 @@
             heroCamera.updateProjectionMatrix(); 
             heroRenderer.setSize(heroRect.width, heroRect.height); 
             updateHeroModelTransform(); 
-
-            bgCamera.aspect = window.innerWidth / window.innerHeight;
-            bgCamera.updateProjectionMatrix();
-            bgRenderer.setSize(window.innerWidth, window.innerHeight);
         }
 
         function animate() { 
@@ -435,35 +309,12 @@
                 heroModel.rotation.y += (targetHeroRotY - heroModel.rotation.y) * heroParams.smoothingFactor; 
             } 
             heroRenderer.render(heroScene, heroCamera); 
-
-            bgMat.uniforms.uTime.value += 0.015;
-            bgRenderer.render(bgScene, bgCamera);
         }
 
         window.addEventListener('resize', handleResize);
         handleResize();
         initProject();
         animate();
-
-        function initErasureAnimation(container) {
-            const erasureBlock = container.querySelector('.erasure-block');
-            let isTicking = false;
-            function updateAnimation() {
-                const rect = container.getBoundingClientRect();
-                const scrollableDistance = container.offsetHeight - window.innerHeight;
-                if (scrollableDistance <= 0) return;
-                let progress = -rect.top / scrollableDistance;
-                progress = Math.max(0, Math.min(1, progress));
-                const transformX = 100 - (progress * 100);
-                if (rect.top > 0) { erasureBlock.style.visibility = 'hidden'; } 
-                else { erasureBlock.style.visibility = 'visible'; erasureBlock.style.transform = `translateX(${transformX}%)`; }
-                isTicking = false;
-            }
-            function onScroll() { if (!isTicking) { window.requestAnimationFrame(updateAnimation); isTicking = true; } }
-            window.addEventListener('scroll', onScroll, { passive: true });
-            window.addEventListener('resize', onScroll);
-            onScroll();
-        }
     </script>
 </body>
 </html>
