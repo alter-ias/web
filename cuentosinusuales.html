@@ -11,7 +11,7 @@
 
         :root {
             --color-fondo: rgb(22, 24, 28);
-            --color-fondo-transparente: rgba(22, 24, 28, 0.85); /* Para dejar ver la malla */
+            --color-fondo-transparente: rgba(22, 24, 28, 0.85);
             --color-texto: rgb(230, 230, 230);
             --color-acento: rgb(190, 225, 218);
             --color-pastel-cyan: rgb(190, 225, 218);
@@ -28,7 +28,6 @@
             overflow-x: hidden; 
         }
 
-        /* LIENZO DEL BACKGROUND DINÁMICO */
         #bg-canvas {
             position: fixed;
             top: 0;
@@ -36,7 +35,7 @@
             width: 100vw;
             height: 100vh;
             z-index: 0;
-            pointer-events: none; /* Evita que bloquee clicks */
+            pointer-events: none;
         }
         
         .hero-section {
@@ -57,7 +56,7 @@
             position: relative; 
             z-index: 2;
             background-color: var(--color-fondo-transparente);
-            backdrop-filter: blur(5px); /* Toque premium para legibilidad */
+            backdrop-filter: blur(5px);
         }
         
         .content-container { padding: 0 2rem; max-width: 95%; margin: 0 auto; }
@@ -72,9 +71,7 @@
             min-height: 100vh;
         }
 
-        .layout-reversed {
-            flex-direction: row-reverse;
-        }
+        .layout-reversed { flex-direction: row-reverse; }
         
         .project-col { flex: 1; }
         .project-col-visuals { position: sticky; top: 10vh; height: 80vh; }
@@ -186,7 +183,7 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
         
-        // --- 1. CONFIGURACIÓN DEL BACKGROUND DINÁMICO (MALLA DE COLIBRÍ) ---
+        // --- 1. CONFIGURACIÓN DEL BACKGROUND DINÁMICO ---
         const bgCanvas = document.getElementById('bg-canvas');
         const bgScene = new THREE.Scene();
         const bgCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -200,7 +197,6 @@
 
         const bgGeo = new THREE.PlaneGeometry(35, 35, 70, 70);
         
-        // Shaders personalizados para la iridiscencia
         const vertexShader = `
             uniform float uTime;
             uniform vec2 uMouse;
@@ -213,11 +209,9 @@
                 
                 float distanceToMouse = distance(uv, uMouse * 0.5 + 0.5);
                 
-                // Ondulación base fluida
                 float elevation = sin(modelPosition.x * 2.0 + uTime) * 0.4 
                                 + cos(modelPosition.y * 2.0 + uTime) * 0.4;
                 
-                // Explosión al paso del mouse
                 elevation += exp(-distanceToMouse * 8.0) * 1.5 * sin(uTime * 3.0);
                 
                 modelPosition.z += elevation;
@@ -233,7 +227,6 @@
             varying float vElevation;
             
             void main() {
-                // Tonos Colibrí: Cian luminoso, Morado brillante, Dorado/Naranja
                 vec3 colorCyan = vec3(0.1, 0.9, 0.7);
                 vec3 colorPurple = vec3(0.6, 0.2, 0.9);
                 vec3 colorGold = vec3(1.0, 0.7, 0.2);
@@ -243,7 +236,6 @@
                 vec3 mixedColor = mix(colorCyan, colorPurple, sin(uTime * 0.5 + vUv.x * 10.0) * 0.5 + 0.5);
                 mixedColor = mix(mixedColor, colorGold, mixStrength * 0.8);
                 
-                // Atenuar un poco las líneas de la malla para que no abrume
                 gl_FragColor = vec4(mixedColor, 0.35);
             }
         `;
@@ -265,7 +257,7 @@
         bgScene.add(bgMesh);
 
 
-        // --- 2. CONFIGURACIÓN ORIGINAL DEL HEADER (INTACTA) ---
+        // --- 2. CONFIGURACIÓN DEL HEADER ---
         const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5, };
         const heroContainer = document.getElementById('hero-canvas-container');
         const heroScene = new THREE.Scene();
@@ -295,28 +287,28 @@
                 complete: (results) => {
                     let data = results.data;
                     
-                    // Remueve de forma más segura el encabezado si existe (busca palabras clave)
+                    // Identifica y remueve el encabezado basado en las nuevas columnas
                     if (data.length > 0) {
                         const cell0 = String(data[0][0]).toLowerCase();
                         const cell1 = String(data[0][1]).toLowerCase();
-                        if (cell1 === 'texto' || cell1 === 'text' || cell0 === 'media' || cell0 === 'link') {
+                        if (cell0.includes('texto') || cell0.includes('text') || cell1.includes('video') || cell1.includes('media')) {
                             data.shift();
                         }
                     }
 
                     const projectData = data.map(row => {
                         return {
-                            media: row[0] ? row[0].trim() : '',
-                            texto: row[1] ? row[1].trim() : '',
-                            titulo: row[3] ? row[3].trim() : '',
-                            quote: row[4] ? row[4].trim() : ''
+                            texto: row[0] ? row[0].trim() : '',   // Nueva Columna A
+                            media: row[1] ? row[1].trim() : '',   // Nueva Columna B (video/imagen)
+                            titulo: row[2] ? row[2].trim() : '',  // Nueva Columna C
+                            quote: row[3] ? row[3].trim() : ''    // Nueva Columna D
                         };
                     }).filter(p => p.texto && p.media); 
 
                     if (projectData.length > 0) {
                         buildProjectBlocks(projectData);
                     } else {
-                        contentContainer.innerHTML = `<p>No se encontraron proyectos en el CSV.</p>`;
+                        contentContainer.innerHTML = `<p>No se encontraron proyectos en el CSV o las celdas están vacías.</p>`;
                     }
                 },
                 error: (error) => console.error("Error al parsear CSV:", error),
@@ -378,6 +370,7 @@
                 }
             });
 
+            // Vuelve a agregar el bloque de "SÍGUEME"
             const erasureContainer = document.createElement('div');
             erasureContainer.className = 'erasure-pin-container';
             erasureContainer.innerHTML = `
@@ -405,16 +398,12 @@
             }, 100);
         }
 
-
         // --- 4. RENDERIZADO Y CONTROLADORES DE EVENTOS ---
         let mouseX = 0, mouseY = 0;
         
         window.addEventListener('mousemove', e => { 
-            // Normalizar coordenadas para ambos modelos
             mouseX = (e.clientX / window.innerWidth) * 2 - 1; 
             mouseY = -(e.clientY / window.innerHeight) * 2 - 1; 
-            
-            // Actualizar el shader del colibrí
             bgMat.uniforms.uMouse.value.set(mouseX, mouseY);
         });
 
@@ -427,14 +416,12 @@
         }
 
         function handleResize() { 
-            // Resize Hero
             const heroRect = document.querySelector('.hero-section').getBoundingClientRect(); 
             heroCamera.aspect = heroRect.width / heroRect.height; 
             heroCamera.updateProjectionMatrix(); 
             heroRenderer.setSize(heroRect.width, heroRect.height); 
             updateHeroModelTransform(); 
 
-            // Resize Background Dinámico
             bgCamera.aspect = window.innerWidth / window.innerHeight;
             bgCamera.updateProjectionMatrix();
             bgRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -443,14 +430,12 @@
         function animate() { 
             requestAnimationFrame(animate); 
             
-            // Render Hero Model
             if (heroModel) { 
                 const targetHeroRotY = heroParams.initialRotationY + (mouseX * heroParams.mouseIntensity); 
                 heroModel.rotation.y += (targetHeroRotY - heroModel.rotation.y) * heroParams.smoothingFactor; 
             } 
             heroRenderer.render(heroScene, heroCamera); 
 
-            // Render Background Shader
             bgMat.uniforms.uTime.value += 0.015;
             bgRenderer.render(bgScene, bgCamera);
         }
