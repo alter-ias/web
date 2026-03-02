@@ -20,7 +20,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         html {
-            scroll-behavior: smooth; /* Deslizamiento suave al hacer clic en el índice */
+            scroll-behavior: smooth; 
         }
 
         body { 
@@ -275,20 +275,28 @@
 
         function buildProjectBlocks(data) {
             contentContainer.innerHTML = '';
-            let indexHtml = '<h3>ÍNDICE</h3><ul class="story-index-list">';
+            
+            // Creamos la variable para el índice pero no le ponemos el título todavía
+            let indexHtml = '';
+            let hasTitles = false;
             
             data.forEach((project, index) => {
                 const projectBlock = document.createElement('div');
                 const isReversed = index % 2 !== 0;
                 
-                // Creación del ID único para enlazar el índice
                 const blockId = `cuento-${index}`;
                 projectBlock.id = blockId;
-                projectBlock.style.scrollMarginTop = "5vh"; // Da un margen al anclar para que no quede muy pegado arriba
+                projectBlock.style.scrollMarginTop = "5vh"; 
 
-                // Extracción del título para el índice (o texto por defecto si viene vacío)
-                const tituloIndice = project.titulo ? project.titulo : `Cuento ${index + 1}`;
-                indexHtml += `<li><a href="#${blockId}">${tituloIndice}</a></li>`;
+                // AQUÍ ESTÁ EL CAMBIO: Solo se agrega al índice si hay título explícito
+                if (project.titulo) {
+                    if (!hasTitles) {
+                        // Si es el primer título que encontramos, agregamos el encabezado del índice
+                        indexHtml += '<h3>ÍNDICE</h3><ul class="story-index-list">';
+                        hasTitles = true;
+                    }
+                    indexHtml += `<li><a href="#${blockId}">${project.titulo}</a></li>`;
+                }
                 
                 const visualAos = isReversed ? "fade-right" : "fade-left";
                 const textAos = isReversed ? "fade-left" : "fade-right";
@@ -338,9 +346,13 @@
                 }
             });
             
-            // Inyectar el HTML del índice construido
-            indexHtml += '</ul>';
-            indexContainer.innerHTML = indexHtml;
+            // Si hubo al menos un título, cerramos la lista y la inyectamos
+            if (hasTitles) {
+                indexHtml += '</ul>';
+                indexContainer.innerHTML = indexHtml;
+            } else {
+                indexContainer.style.display = 'none';
+            }
             
             setTimeout(() => {
                 AOS.init({
