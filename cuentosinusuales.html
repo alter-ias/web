@@ -204,33 +204,38 @@
         const contentContainer = document.querySelector('.content-container');
 
         function initProject() {
-            Papa.parse(CSV_URL, {
+            // Agregamos un timestamp dinámico para evitar la caché del navegador y forzar los últimos datos
+            const fetchUrl = `${CSV_URL}&t=${new Date().getTime()}`;
+
+            Papa.parse(fetchUrl, {
                 download: true, 
-                header: false, // Usamos false para guiarnos exactamente por el orden de las columnas (A, B, C, D, E)
+                header: false,
                 skipEmptyLines: true,
                 complete: (results) => {
                     let data = results.data;
                     
-                    // Si la primera fila es encabezado (lo sabemos si no es una url o un texto muy largo), la quitamos
                     if (data.length > 0 && !data[0][0].includes('http') && !data[0][0].includes('./')) {
                         data.shift();
                     }
 
                     const projectData = data.map(row => {
-                        // Por seguridad, aseguramos que audio y video queden bien mapeados aunque se inviertan A y C
                         let col0 = row[0] || '';
                         let col2 = row[2] || '';
-                        let videoUrl = col0.includes('.mp4') ? col0 : (col2.includes('.mp4') ? col2 : col0);
-                        let audioUrl = col2.includes('.mp3') ? col2 : (col0.includes('.mp3') ? col0 : col2);
+                        
+                        // Determinamos cuál tiene el audio evaluando extensiones comunes
+                        let audioUrl = col0.match(/\.(mp3|wav|ogg)$/i) ? col0 : (col2.match(/\.(mp3|wav|ogg)$/i) ? col2 : '');
+                        
+                        // El medio visual será el que no se haya detectado como audio
+                        let mediaUrl = (audioUrl === col0 && col0 !== '') ? col2 : col0;
 
                         return {
-                            video: videoUrl,
-                            texto: row[1] || '',  // Columna B: Textos principales
+                            media: mediaUrl,
+                            texto: row[1] || '',  
                             audio: audioUrl,
-                            titulo: row[3] || '', // Columna D: Títulos
-                            quote: row[4] || ''   // Columna E: Quotes
+                            titulo: row[3] || '', 
+                            quote: row[4] || ''   
                         };
-                    }).filter(p => p.texto && p.video); // Filtramos para usar solo filas válidas
+                    }).filter(p => p.texto && p.media); // Verificamos que al menos exista texto y un enlace visual
 
                     if (projectData.length > 0) {
                         buildProjectBlocks(projectData);
@@ -286,32 +291,33 @@
 
                 projectBlock.className = `interactive-project-block ${isReversed ? 'layout-reversed' : ''}`;
                 
-                // --- LÓGICA DE FORMATEO AUTOMÁTICO ---
-                // Dividimos el texto largo en párrafos separados por los saltos de línea de la celda
                 let paragraphs = project.texto.split(/\n+/).filter(p => p.trim() !== '');
-                let midIndex = Math.floor(paragraphs.length / 2); // Calculamos la mitad exacta
+                let midIndex = Math.floor(paragraphs.length / 2);
                 
                 let formattedHtml = '';
                 
-                // Si existe un título en la columna D, lo inyectamos al inicio
                 if (project.titulo) {
                     formattedHtml += `<h2>${project.titulo}</h2>`;
                 }
 
-                // Construimos los párrafos
                 paragraphs.forEach((p, i) => {
                     formattedHtml += `<p>${p}</p>`;
                     
-                    // Si llegamos a la mitad y existe un Quote en la columna E, lo inyectamos
                     if (i === midIndex && project.quote) {
                         formattedHtml += `<blockquote class="project-quote">"${project.quote}"</blockquote>`;
                     }
                 });
-                
+
+                // Lógica dinámica para saber si renderizar un video o una imagen
+                let isVideo = project.media.match(/\.(mp4|webm|m4v)$/i);
+                let visualElement = isVideo
+                    ? `<video class="visual-display" loop muted playsinline src="${project.media}"></video>`
+                    : `<img class="visual-display" src="${project.media}" alt="Contenido Visual">`;
+
                 projectBlock.innerHTML = `
                     <div class="project-col project-col-visuals" data-aos="${visualAos}">
                         <div class="visual-canvas-container">
-                            <video class="visual-display" loop muted playsinline src="${project.video}"></video>
+                            ${visualElement}
                         </div>
                     </div>
                     <div class="project-col project-col-text" data-aos="${textAos}" data-aos-delay="200">
@@ -319,12 +325,17 @@
                             ${formattedHtml}
                         </div>
                     </div>
-                    <audio class="project-audio-player hidden" loop src="${project.audio}"></audio>
+                    ${project.audio ? `<audio class="project-audio-player hidden" loop src="${project.audio}"></audio>` : ''}
                 `;
                 
                 contentContainer.appendChild(projectBlock);
                 observer.observe(projectBlock);
-                projectBlock.querySelector('.visual-display').play().catch(()=>{});
+                
+                // Si es un video, iniciamos la reproducción
+                const visualDisplay = projectBlock.querySelector('video.visual-display');
+                if (visualDisplay) {
+                    visualDisplay.play().catch(()=>{});
+                }
             });
 
             const erasureContainer = document.createElement('div');
@@ -345,7 +356,6 @@
             contentContainer.appendChild(erasureContainer);
             initErasureAnimation(erasureContainer);
             
-            // Inicializamos AOS de manera tardía asegurando que el DOM exista
             setTimeout(() => {
                 AOS.init({
                     duration: 1200,
@@ -359,15 +369,16 @@
             const unlockBtn = document.getElementById('audio-unlock-btn');
             unlockBtn.addEventListener('click', () => {
                 const players = document.querySelectorAll('.project-audio-player');
-                let unlockPromise = players[0]?.play();
-                if (unlockPromise !== undefined) {
-                    unlockPromise.then(() => { players[0].pause(); }).catch(error => {});
+                if (players.length > 0) {
+                    let unlockPromise = players[0].play();
+                    if (unlockPromise !== undefined) {
+                        unlockPromise.then(() => { players[0].pause(); }).catch(error => {});
+                    }
                 }
                 overlay.style.display = 'none';
             }, { once: true });
         }
 
-        // --- FUNCIONES DE UTILIDAD Y ANIMACIÓN ---
         let mouseX = 0, mouseY = 0;
         window.addEventListener('mousemove', e => { mouseX = (e.clientX / window.innerWidth) * 2 - 1; mouseY = -(e.clientY / window.innerHeight) * 2 - 1; });
         function updateHeroModelTransform() { if (!heroModel) return; const isMobile = window.innerWidth <= 768; const scale = isMobile ? heroParams.mobileModelScale : heroParams.desktopModelScale; heroModel.scale.setScalar(scale); heroModel.position.y = isMobile ? heroParams.mobileModelPositionY : heroParams.desktopModelPositionY; }
