@@ -19,11 +19,15 @@
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
+        html {
+            scroll-behavior: smooth; /* Deslizamiento suave al hacer clic en el índice */
+        }
+
         body { 
             font-family: var(--font-principal); 
             background-color: var(--color-fondo); 
             color: var(--color-texto); 
-            overflow-x: hidden; /* Previene el scroll horizontal no deseado */
+            overflow-x: hidden; 
         }
         
         .hero-section {
@@ -41,7 +45,6 @@
             width: 100%; 
             height: 100%; 
             cursor: move; 
-            /* Esta es la corrección clave para que el scroll funcione en Chrome */
             touch-action: pan-y; 
         }
         
@@ -57,6 +60,46 @@
             position: relative; 
             z-index: 2;
             background-color: var(--color-fondo);
+        }
+
+        /* ESTILOS DEL ÍNDICE */
+        .story-index-container {
+            max-width: 95%;
+            margin: 0 auto 5vh auto;
+            padding: 5vh 2rem 2vh 2rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .story-index-container h3 {
+            font-family: 'Limelight', cursive;
+            color: var(--color-pastel-cyan);
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            letter-spacing: 2px;
+        }
+
+        .story-index-list {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2rem;
+        }
+
+        .story-index-list a {
+            color: var(--color-texto);
+            text-decoration: none;
+            font-family: var(--font-principal);
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            transition: color 0.3s ease, transform 0.3s ease;
+            display: inline-block;
+        }
+
+        .story-index-list a:hover {
+            color: var(--color-pastel-orange);
+            transform: translateY(-2px);
         }
         
         .content-container { padding: 0 2rem 10vh 2rem; max-width: 95%; margin: 0 auto; }
@@ -139,6 +182,8 @@
              .active-text-display { font-size: 1.05rem; }
              .active-text-display h2 { font-size: 2.2rem; }
              .project-quote { font-size: 1.3rem; margin: 2rem 0; }
+             .story-index-container h3 { font-size: 1.5rem; }
+             .story-index-list a { font-size: 1rem; }
         }
     </style>
 </head>
@@ -151,6 +196,8 @@
     </div>
 
     <main class="scroll-container">
+        <nav id="story-index" class="story-index-container"></nav>
+        
         <div class="content-container"></div>
     </main>
     
@@ -161,7 +208,6 @@
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-        // --- 1. CONFIGURACIÓN DEL HEADER 3D (Máquina) ---
         const heroParams = { desktopModelScale: 2.9, desktopModelPositionY: 0.2, mobileModelScale: 2.0, mobileModelPositionY: 0.7, initialRotationY: -1.57, mouseIntensity: 0.51, smoothingFactor: 0.088, cameraDistance: 4.4, ambientIntensity: 5.0, directionalIntensity: 4.5, };
         const heroContainer = document.getElementById('hero-canvas-container');
         const heroScene = new THREE.Scene();
@@ -185,10 +231,9 @@
             heroScene.add(heroModel); 
         });
 
-
-        // --- 2. LECTURA DE CSV Y LÓGICA DE PROYECTOS ---
         const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRIQwSB6tUFLal0lG8c7YRStbOWGAhWm-wcRQz-X00rIQEuoT2rAEY9Q8O0cM7EAHmU7nAZNjxndJdc/pub?output=csv';
         const contentContainer = document.querySelector('.content-container');
+        const indexContainer = document.getElementById('story-index');
 
         function initProject() {
             const fetchUrl = `${CSV_URL}&t=${new Date().getTime()}`;
@@ -221,6 +266,7 @@
                         buildProjectBlocks(projectData);
                     } else {
                         contentContainer.innerHTML = `<p>No se encontraron proyectos en el CSV o las celdas están vacías.</p>`;
+                        indexContainer.style.display = 'none';
                     }
                 },
                 error: (error) => console.error("Error al parsear CSV:", error),
@@ -229,10 +275,20 @@
 
         function buildProjectBlocks(data) {
             contentContainer.innerHTML = '';
+            let indexHtml = '<h3>ÍNDICE</h3><ul class="story-index-list">';
             
             data.forEach((project, index) => {
                 const projectBlock = document.createElement('div');
                 const isReversed = index % 2 !== 0;
+                
+                // Creación del ID único para enlazar el índice
+                const blockId = `cuento-${index}`;
+                projectBlock.id = blockId;
+                projectBlock.style.scrollMarginTop = "5vh"; // Da un margen al anclar para que no quede muy pegado arriba
+
+                // Extracción del título para el índice (o texto por defecto si viene vacío)
+                const tituloIndice = project.titulo ? project.titulo : `Cuento ${index + 1}`;
+                indexHtml += `<li><a href="#${blockId}">${tituloIndice}</a></li>`;
                 
                 const visualAos = isReversed ? "fade-right" : "fade-left";
                 const textAos = isReversed ? "fade-left" : "fade-right";
@@ -282,7 +338,10 @@
                 }
             });
             
-            // Refresca las animaciones una vez que el contenido se inyectó
+            // Inyectar el HTML del índice construido
+            indexHtml += '</ul>';
+            indexContainer.innerHTML = indexHtml;
+            
             setTimeout(() => {
                 AOS.init({
                     duration: 1200,
@@ -294,7 +353,6 @@
             }, 500);
         }
 
-        // --- 3. RENDERIZADO Y CONTROLADORES DE EVENTOS ---
         let mouseX = 0;
         
         window.addEventListener('mousemove', e => { 
