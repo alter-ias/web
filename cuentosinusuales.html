@@ -164,26 +164,10 @@
             .font-bitcount-alt { font-size: 9vw; }
             .erasure-pin-container { height: 150vh; }
         }
-
-        #audio-unlock-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.9); z-index: 9999;
-            display: flex; justify-content: center; align-items: center; cursor: pointer;
-        }
-        #audio-unlock-btn {
-            background-color: transparent; border: 2px solid var(--color-acento); color: var(--color-acento);
-            font-family: var(--font-principal); font-size: 1.5rem; padding: 1rem 2rem;
-            cursor: pointer; transition: all 0.3s ease;
-        }
-        #audio-unlock-btn:hover { background-color: var(--color-acento); color: var(--color-fondo); }
     </style>
 </head>
 <body>
     <canvas id="bg-canvas"></canvas>
-
-    <div id="audio-unlock-overlay">
-        <button id="audio-unlock-btn">ENTRAR</button>
-    </div>
 
     <div class="hero-section">
         <div id="hero-canvas-container"></div>
@@ -311,22 +295,21 @@
                 complete: (results) => {
                     let data = results.data;
                     
-                    if (data.length > 0 && !data[0][0].includes('http') && !data[0][0].includes('./')) {
-                        data.shift();
+                    // Remueve de forma más segura el encabezado si existe (busca palabras clave)
+                    if (data.length > 0) {
+                        const cell0 = String(data[0][0]).toLowerCase();
+                        const cell1 = String(data[0][1]).toLowerCase();
+                        if (cell1 === 'texto' || cell1 === 'text' || cell0 === 'media' || cell0 === 'link') {
+                            data.shift();
+                        }
                     }
 
                     const projectData = data.map(row => {
-                        let col0 = row[0] || '';
-                        let col2 = row[2] || '';
-                        let audioUrl = col0.match(/\.(mp3|wav|ogg)$/i) ? col0 : (col2.match(/\.(mp3|wav|ogg)$/i) ? col2 : '');
-                        let mediaUrl = (audioUrl === col0 && col0 !== '') ? col2 : col0;
-
                         return {
-                            media: mediaUrl,
-                            texto: row[1] || '',  
-                            audio: audioUrl,
-                            titulo: row[3] || '', 
-                            quote: row[4] || ''   
+                            media: row[0] ? row[0].trim() : '',
+                            texto: row[1] ? row[1].trim() : '',
+                            titulo: row[3] ? row[3].trim() : '',
+                            quote: row[4] ? row[4].trim() : ''
                         };
                     }).filter(p => p.texto && p.media); 
 
@@ -339,38 +322,6 @@
                 error: (error) => console.error("Error al parsear CSV:", error),
             });
         }
-
-        function fadeAudio(audio, direction, duration) {
-            clearInterval(audio.fadeInterval);
-            const targetVolume = (direction === 'in') ? 1 : 0;
-            const steps = 50;
-            const stepTime = duration / steps;
-            const volStep = 1 / steps;
-            
-            if (direction === 'in' && audio.paused) {
-                 audio.volume = 0;
-                 audio.play().catch(e => console.error("Error al iniciar audio:", e));
-            }
-
-            audio.fadeInterval = setInterval(() => {
-                let currentVolume = audio.volume;
-                if (direction === 'in') {
-                    if (currentVolume < targetVolume - volStep) { audio.volume += volStep; } 
-                    else { audio.volume = 1; clearInterval(audio.fadeInterval); }
-                } else {
-                    if (currentVolume > targetVolume + volStep) { audio.volume -= volStep; } 
-                    else { audio.volume = 0; clearInterval(audio.fadeInterval); audio.pause(); }
-                }
-            }, stepTime);
-        }
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                const audio = entry.target.querySelector('.project-audio-player');
-                if (!audio) return;
-                fadeAudio(audio, entry.isIntersecting ? 'in' : 'out', 1500);
-            });
-        }, { root: null, threshold: [0.2, 0.8] });
 
         function buildProjectBlocks(data) {
             contentContainer.innerHTML = '';
@@ -417,11 +368,9 @@
                             ${formattedHtml}
                         </div>
                     </div>
-                    ${project.audio ? `<audio class="project-audio-player hidden" loop src="${project.audio}"></audio>` : ''}
                 `;
                 
                 contentContainer.appendChild(projectBlock);
-                observer.observe(projectBlock);
                 
                 const visualDisplay = projectBlock.querySelector('video.visual-display');
                 if (visualDisplay) {
@@ -435,12 +384,11 @@
                 <div class="erasure-block-wrapper">
                     <section class="erasure-block">
                         <div class="erasure-text">
-                            <span class="font-rye text-cyan">Las</span>
-                            <span class="font-limelight text-orange">Redes</span>
-                            <span class="font-bitcount-alt text-yellow">Sociales</span>
-                            <span class="font-rye text-cyan">Nos</span>
-                            <span class="font-limelight text-orange">Están</span>
-                            <span class="font-bitcount-alt text-yellow">Exterminando</span>
+                            <span class="font-rye text-cyan">SÍGUEME</span>
+                            <span class="font-limelight text-orange">PARA</span>
+                            <span class="font-bitcount-alt text-yellow">MÁS</span>
+                            <span class="font-rye text-cyan">CUENTOS</span>
+                            <span class="font-limelight text-orange">INUSUALES</span>
                         </div>
                     </section>
                 </div>`;
@@ -455,19 +403,6 @@
                     easing: 'ease-out-cubic'
                 });
             }, 100);
-            
-            const overlay = document.getElementById('audio-unlock-overlay');
-            const unlockBtn = document.getElementById('audio-unlock-btn');
-            unlockBtn.addEventListener('click', () => {
-                const players = document.querySelectorAll('.project-audio-player');
-                if (players.length > 0) {
-                    let unlockPromise = players[0].play();
-                    if (unlockPromise !== undefined) {
-                        unlockPromise.then(() => { players[0].pause(); }).catch(error => {});
-                    }
-                }
-                overlay.style.display = 'none';
-            }, { once: true });
         }
 
 
