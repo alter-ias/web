@@ -1,4 +1,335 @@
-<div class="portfolio-grid">
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COLMENA | Alter.Lab Project</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;900&family=Prata&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+
+    <style>
+        :root {
+            /* TEMA INICIAL: OBSIDIAN SOUL (Modificado: Colmena Blanca) */
+            --bg-void: #050505;
+            --text-main: #FFFFFF; /* Blanco Puro para máximo contraste */
+            --text-muted: #AAAAAA;
+            --accent: #E50914; /* Rojo para detalles */
+            --card-bg: #111111;
+            --card-border: rgba(255,255,255,0.15);
+            --radius-smooth: 30px;
+            --text-shadow-strong: 0 5px 20px rgba(0,0,0,0.8); /* Nueva variable para contraste fuerte */
+        }
+
+        /* --- CSS BASE --- */
+        html.lenis, html.lenis body { height: auto; }
+        html { scroll-behavior: auto !important; }
+        .lenis.lenis-smooth { scroll-behavior: auto !important; }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
+
+        body {
+            background-color: var(--bg-void);
+            color: var(--text-main);
+            font-family: 'Montserrat', sans-serif;
+            overflow-x: hidden;
+            width: 100%;
+            transition: background-color 0.8s ease, color 0.8s ease;
+        }
+
+        /* --- 3D BACKGROUND --- */
+        #hive-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; opacity: 0.5; pointer-events: none; /* Opacidad aumentada ligeramente */
+            transition: opacity 0.8s ease;
+        }
+
+        /* --- CURSOR --- */
+        .cursor-spot {
+            position: fixed; top: 0; left: 0; width: 400px; height: 400px;
+            background: radial-gradient(circle, var(--accent) 0%, rgba(0,0,0,0) 70%);
+            opacity: 0.1;
+            border-radius: 50%; pointer-events: none; z-index: 0;
+            transform: translate(-50%, -50%); mix-blend-mode: screen;
+            transition: background 0.5s ease;
+        }
+        .cursor-dot {
+            position: fixed; top: 0; left: 0; width: 12px; height: 12px;
+            background: var(--accent); border-radius: 50%;
+            pointer-events: none; z-index: 10000;
+            transform: translate(-50%, -50%); 
+            box-shadow: 0 0 15px var(--accent);
+            transition: width 0.2s, height 0.2s, background-color 0.5s;
+        }
+        body:hover .cursor-dot.active { transform: translate(-50%, -50%) scale(5); background: var(--text-main); mix-blend-mode: difference; }
+
+        /* --- NAV --- */
+        nav {
+            position: fixed; top: 0; width: 100%; padding: 2rem 4rem;
+            display: flex; justify-content: space-between; align-items: center;
+            z-index: 100; 
+            background: linear-gradient(to bottom, var(--bg-void) 0%, transparent 100%);
+        }
+        .logo { 
+            font-family: 'Prata'; font-size: 1.8rem; letter-spacing: 2px; font-weight: 700; 
+            cursor: pointer; user-select: none;
+            padding: 10px 20px; border: 1px solid transparent; border-radius: 10px;
+            transition: 0.3s;
+            text-shadow: var(--text-shadow-strong); /* Sombra para el logo */
+        }
+        .logo:hover { border-color: var(--accent); background: rgba(255,255,255,0.05); }
+        .logo span { color: var(--text-main); transition: color 0.5s; }
+        .logo .accent-text { color: var(--accent); transition: color 0.5s; }
+        
+        .agency-tag {
+            font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase; 
+            border: 1px solid var(--text-muted); color: var(--text-muted); padding: 5px 15px; border-radius: 50px;
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(5px);
+        }
+
+        /* --- HERO --- */
+        .hero {
+            min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            position: relative; flex-direction: column; text-align: center;
+            padding: 10rem 2rem 5rem 2rem;
+        }
+        .hero-sub {
+            font-family: 'Montserrat'; font-size: 0.9rem; color: var(--accent); font-weight: 600;
+            letter-spacing: 6px; 
+            margin-bottom: 3rem;
+            text-transform: uppercase; display: block;
+            text-shadow: 0 2px 15px rgba(0,0,0,0.8); /* Sombra reforzada */
+        }
+        .display-xxl {
+            font-family: 'Prata'; font-size: clamp(3.5rem, 10vw, 9rem); line-height: 1.1;
+            color: var(--text-main); text-transform: uppercase; margin-bottom: 2rem;
+            position: relative; z-index: 2;
+            /* Sombra reforzada para contraste con fondo blanco 3D */
+            text-shadow: var(--text-shadow-strong);
+        }
+        .display-xxl span {
+            display: block; font-family: 'Montserrat'; font-weight: 900; 
+            -webkit-text-stroke: 1px var(--text-muted); 
+            color: transparent; 
+            font-size: 0.5em; letter-spacing: 10px;
+            opacity: 0.6;
+        }
+        .hero p {
+             text-shadow: 0 2px 10px rgba(0,0,0,0.8); /* Sombra para el párrafo hero */
+        }
+        
+        /* --- SECCIONES --- */
+        .section-padding { padding: 15vh 10vw; position: relative; }
+        
+        h2 { text-shadow: var(--text-shadow-strong); }
+
+        .feature-card {
+            border-top: 1px solid var(--card-border);
+            padding: 2rem 0;
+            transition: 0.3s;
+        }
+        .feature-card:hover { border-color: var(--accent); padding-left: 10px; }
+        .feature-num { font-family: 'Prata'; font-size: 3rem; color: var(--accent); opacity: 0.8; margin-bottom: 1rem; text-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .feature-title { font-size: 1.5rem; color: var(--text-main); margin-bottom: 1rem; font-family: 'Prata'; text-shadow: var(--text-shadow-strong); }
+        .feature-desc { color: var(--text-muted); font-size: 1rem; line-height: 1.6; max-width: 95%; font-weight: 400; }
+
+        /* --- DATA --- */
+        .data-section { background: rgba(100, 100, 100, 0.05); border-top: 1px solid var(--card-border); border-bottom: 1px solid var(--card-border); }
+        .chart-container { display: flex; flex-direction: column; gap: 2rem; margin-top: 4rem; }
+        .bar-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        @media(min-width: 768px) { .bar-group { flex-direction: row; align-items: center; gap: 2rem; } }
+        
+        .bar-label { width: 150px; text-align: left; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; color: var(--text-main); font-weight: 600; text-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        @media(min-width: 768px) { .bar-label { text-align: right; } }
+
+        .bar-track { flex-grow: 1; background: var(--card-border); height: 40px; border-radius: 4px; overflow: hidden; position: relative; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+        .bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 2s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; align-items: center; justify-content: flex-end; padding-right: 15px; color: var(--bg-void); font-weight: 800; white-space: nowrap; }
+        .bar-fill.low { background: var(--text-muted); color: var(--bg-void); }
+
+        /* --- PORTFOLIO --- */
+        .portfolio-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;
+            margin-top: 4rem;
+        }
+        .project-card {
+            background: var(--card-bg); border-radius: var(--radius-smooth);
+            overflow: hidden; aspect-ratio: 16/9; position: relative;
+            border: 1px solid var(--card-border);
+            transition: transform 0.4s ease, border-color 0.4s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .project-card:hover { transform: translateY(-10px); border-color: var(--accent); }
+        .p-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.7; filter: grayscale(100%); transition: 0.4s; }
+        .project-card:hover .p-img { opacity: 1; filter: grayscale(0%); scale: 1.05; }
+        .p-info {
+            position: absolute; bottom: 0; left: 0; width: 100%; padding: 2rem;
+            background: linear-gradient(to top, var(--bg-void), transparent);
+        }
+        .p-title { font-family: 'Prata'; color: var(--text-main); font-size: 1.5rem; margin-bottom: 0.5rem; text-shadow: var(--text-shadow-strong); }
+        .p-link { color: var(--accent); text-decoration: none; font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; display: flex; align-items: center; gap: 10px; font-weight: 700; text-shadow: 0 2px 5px rgba(0,0,0,0.8);}
+
+        /* --- PRICING --- */
+        .cta-box {
+            border: 2px solid var(--accent);
+            border-radius: var(--radius-smooth);
+            padding: 4rem 2rem; text-align: center;
+            background: rgba(50,50,50,0.1);
+            position: relative; overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+        }
+        .price-tag { font-family: 'Prata'; font-size: clamp(3rem, 5vw, 5rem); color: var(--accent); margin: 1rem 0; font-weight: 400; text-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .price-strike { text-decoration: line-through; color: var(--text-muted); font-size: 1.2rem; }
+        .btn-gold {
+            background: var(--accent); color: var(--bg-void); border: none;
+            padding: 1rem 3rem; font-size: 1rem; font-weight: 800; letter-spacing: 2px;
+            text-transform: uppercase; border-radius: 50px; margin-top: 2rem;
+            transition: 0.3s; display: inline-block; text-decoration: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .btn-gold:hover { background: var(--text-main); color: var(--bg-void); transform: scale(1.05); box-shadow: 0 0 30px var(--accent); }
+
+        /* --- MARQUEE --- */
+        .marquee-strip {
+            background: var(--accent); padding: 1rem 0; overflow: hidden; white-space: nowrap;
+            border-top: 2px solid var(--bg-void); border-bottom: 2px solid var(--bg-void);
+            transition: background 0.8s ease;
+        }
+        .marquee-text {
+            font-weight: 900; font-size: 2rem; text-transform: uppercase; color: var(--bg-void);
+            animation: scroll 20s linear infinite; display: inline-block;
+            transition: color 0.8s ease;
+        }
+        @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+        footer { padding: 3rem 0; text-align: center; font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid var(--card-border); background: rgba(0,0,0,0.2); }
+
+        .theme-hint {
+            position: fixed; top: 80px; left: 60px;
+            font-size: 0.7rem; color: var(--accent);
+            opacity: 0; transition: opacity 0.5s; pointer-events: none;
+            background: var(--bg-void); padding: 5px 10px; border: 1px solid var(--accent); border-radius: 20px;
+        }
+        .logo:hover + .theme-hint, .logo:hover ~ .theme-hint { opacity: 1; }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="hive-canvas"></canvas>
+
+    <div class="cursor-dot"></div>
+    <div class="cursor-spot"></div>
+
+    <nav>
+        <div style="position: relative;">
+            <div class="logo interactable" onclick="switchTheme()">
+                COLMENA<span class="accent-text">.</span>
+            </div>
+            <div class="theme-hint">Click para cambiar estilo</div>
+        </div>
+        <div class="agency-tag interactable">Project by Alter.Lab</div>
+    </nav>
+
+    <header class="hero">
+        <div data-aos="fade-up" data-aos-duration="1000">
+            <span class="hero-sub">Identidad Digital Generativa</span>
+            <h1 class="display-xxl">NO EXISTES<br><span>HASTA QUE TE VEN</span></h1>
+            <p style="color: var(--text-main); font-size: 1.1rem; max-width: 600px; margin: 0 auto; letter-spacing: 0.5px; opacity: 0.9;">
+                Creamos tu ecosistema digital extrayendo la esencia de tus redes sociales. Diseño de alta gama, indexación inmediata y conexión global.
+            </p>
+        </div>
+        <div style="margin-top: 5rem;" class="interactable">
+            <i class="ri-arrow-down-line" style="font-size: 2rem; color: var(--accent); animation: bounce 2s infinite;"></i>
+        </div>
+    </header>
+
+    <div class="marquee-strip">
+        <div class="marquee-text">
+            PRESENCIA • SEO • CONEXIÓN • COLMENA • IDENTIDAD • FUTURO • PRESENCIA • SEO • CONEXIÓN • COLMENA • IDENTIDAD • FUTURO •
+        </div>
+    </div>
+
+    <section class="section-padding">
+        <div class="container">
+            <div class="row mb-5">
+                <div class="col-lg-6" data-aos="fade-right">
+                    <h2 style="font-family: 'Prata'; font-size: 3rem; margin-bottom: 2rem; color: var(--text-main);">La Arquitectura<br><span style="color: var(--accent);">de lo Invisible</span></h2>
+                </div>
+                <div class="col-lg-6 d-flex align-items-center" data-aos="fade-left">
+                    <p style="color: var(--text-main); opacity: 0.9; font-size: 1.1rem; line-height: 1.8; text-shadow: 0 1px 5px rgba(0,0,0,0.5);">
+                        Tu negocio en Instagram es efímero. Una web es propiedad raíz digital. En Colmena, no solo construimos páginas; tejemos redes de apoyo empresarial. Utilizamos IA para estructurar tu contenido y diseñadores humanos para perfeccionar tu alma.
+                    </p>
+                </div>
+            </div>
+
+            <div class="row mt-5">
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="100">
+                    <div class="feature-card interactable">
+                        <div class="feature-num">01</div>
+                        <h3 class="feature-title">Indexado Real</h3>
+                        <p class="feature-desc">Instagram es un jardín cerrado. Google es el mundo. Sin una web optimizada con palabras clave, eres invisible para el 90% de las búsquedas.</p>
+                    </div>
+                </div>
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="200">
+                    <div class="feature-card interactable">
+                        <div class="feature-num">02</div>
+                        <h3 class="feature-title">Prestigio Visual</h3>
+                        <p class="feature-desc">La diferencia entre un negocio local y una marca es la presentación. Usamos plantillas de vanguardia que inspiran confianza inmediata.</p>
+                    </div>
+                </div>
+                <div class="col-md-4" data-aos="fade-up" data-aos-delay="300">
+                    <div class="feature-card interactable">
+                        <div class="feature-num">03</div>
+                        <h3 class="feature-title">La Red Colmena</h3>
+                        <p class="feature-desc">Al unirte, accedes a una red de empresarios interconectados. Tu crecimiento impulsa a la colmena. Soporte real, no bots.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section-padding data-section">
+        <div class="container">
+            <h2 class="text-center mb-5" style="font-family: 'Prata'; font-size: 2.5rem; color: var(--text-main);" data-aos="fade-up">La Realidad de los Datos</h2>
+            
+            <div class="chart-container">
+                <div class="bar-group">
+                    <div class="bar-label">Sin Sitio Web</div>
+                    <div class="bar-track">
+                        <div class="bar-fill low scroll-fill" data-width="35%">35% Alcance</div>
+                    </div>
+                </div>
+                <div class="bar-group">
+                    <div class="bar-label">Web Básica</div>
+                    <div class="bar-track">
+                        <div class="bar-fill low scroll-fill" data-width="55%">55% Alcance</div>
+                    </div>
+                </div>
+                <div class="bar-group">
+                    <div class="bar-label" style="color: var(--accent);">Web COLMENA</div>
+                    <div class="bar-track" style="border: 1px solid var(--accent);">
+                        <div class="bar-fill scroll-fill" data-width="92%">92% Alcance Potencial</div>
+                    </div>
+                </div>
+            </div>
+            <p class="text-center mt-5" style="font-size: 0.8rem; color: var(--text-muted);">*Datos basados en métricas de conversión promedio 2024-2025.</p>
+        </div>
+    </section>
+
+    <section class="section-padding">
+        <div class="container">
+            <h2 style="font-family: 'Prata'; font-size: 3rem; color: var(--text-main);" data-aos="fade-right">El Estándar<br>Visual</h2>
+            <p style="color: var(--text-muted); margin-bottom: 3rem; font-size: 1.1rem; text-shadow: 0 1px 5px rgba(0,0,0,0.5);">Nuestros desarrolladores han colaborado en proyectos que definen la web moderna. Tu sitio heredará este ADN.</p>
+
+            <div class="portfolio-grid">
                 <div class="project-card interactable" data-aos="zoom-in" data-aos-delay="100">
                     <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800" class="p-img" alt="Abstract Web">
                     <div class="p-info">
@@ -28,3 +359,216 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <section class="section-padding">
+        <div class="container">
+            <div class="cta-box interactable" data-aos="flip-up">
+                <h3 style="text-transform: uppercase; letter-spacing: 5px; font-size: 1rem; color: var(--text-main); opacity: 0.8; text-shadow: 0 1px 5px rgba(0,0,0,0.5);">Oferta Exclusiva de Lanzamiento</h3>
+                <h2 style="font-family: 'Prata'; margin-top: 1rem; color: var(--text-main); text-shadow: var(--text-shadow-strong);">Tu Negocio en la Red<br>En 72 Horas</h2>
+                
+                <div class="price-tag">
+                    $3,000 <span style="font-size: 1.5rem; color: var(--text-muted);">MXN</span>
+                </div>
+                <div class="price-strike">Precio Regular: $5,500 MXN</div>
+
+                <div class="mt-4 text-start d-inline-block" style="font-size: 1rem; color: var(--text-main); text-shadow: 0 1px 3px rgba(0,0,0,0.8);">
+                    <ul style="list-style: none; padding: 0;">
+                        <li class="mb-2"><i class="ri-check-line" style="color: var(--accent);"></i> Extracción de contenido de Instagram</li>
+                        <li class="mb-2"><i class="ri-check-line" style="color: var(--accent);"></i> Diseño Premium Responsivo</li>
+                        <li class="mb-2"><i class="ri-check-line" style="color: var(--accent);"></i> 2 Revisiones con Diseñador Humano</li>
+                        <li class="mb-2"><i class="ri-check-line" style="color: var(--accent);"></i> Hosting de Alta Velocidad incluido</li>
+                    </ul>
+                </div>
+                <br>
+                <a href="#" class="btn-gold">RECLAMAR MI SITIO AHORA</a>
+                <p class="mt-3" style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Oferta válida por 72 horas después de la apertura de este enlace.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>COLMENA © 2026. Un proyecto de Agencia Alter.Lab.<br>Santiago de Querétaro, México.</p>
+    </footer>
+
+    <script>
+        // --- 1. CONFIGURACIÓN DE LOS 3 TEMAS ---
+        const themes = [
+            {
+                name: 'Obsidian Soul (Modificado: Colmena Blanca)',
+                vars: {
+                    '--bg-void': '#050505',
+                    '--text-main': '#FFFFFF', // Blanco puro para contraste
+                    '--text-muted': '#AAAAAA',
+                    '--accent': '#E50914', // Rojo
+                    '--card-bg': '#111111',
+                    '--card-border': 'rgba(255,255,255,0.2)',
+                    '--text-shadow-strong': '0 5px 20px rgba(0,0,0,1)' // Sombra fuerte para el texto blanco sobre fondo blanco 3D
+                },
+                modelColor: 0xFFFFFF // BLANCO PURO PARA EL MODELO 3D
+            },
+            {
+                name: 'Gilded Eclipse (Cyan PLAIFANS)',
+                vars: {
+                    '--bg-void': '#0A0F14',
+                    '--text-main': '#F0F0F0',
+                    '--text-muted': '#AABBC3',
+                    '--accent': '#00D4FF', // Cyan
+                    '--card-bg': '#131A22',
+                    '--card-border': 'rgba(0, 212, 255, 0.2)',
+                    '--text-shadow-strong': '0 5px 20px rgba(0,0,0,0.5)'
+                },
+                modelColor: 0x00D4FF
+            },
+            {
+                name: 'Swiss Architecture (White/Red)',
+                vars: {
+                    '--bg-void': '#F4F4F4', // Blanco humo
+                    '--text-main': '#111111', // Negro
+                    '--text-muted': '#555555',
+                    '--accent': '#E50914', // Rojo contraste
+                    '--card-bg': '#FFFFFF',
+                    '--card-border': 'rgba(0,0,0,0.1)',
+                    '--text-shadow-strong': 'none' // No necesita sombra en fondo claro
+                },
+                modelColor: 0x333333 // Wireframe oscuro para que se vea en fondo blanco
+            }
+        ];
+
+        let currentThemeIndex = 0;
+
+        // --- 2. THREE.JS CONFIG ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('hive-canvas'), alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        // Geometría Esfera (Colmena)
+        const geometry = new THREE.IcosahedronGeometry(10, 2);
+        const material = new THREE.MeshBasicMaterial({ 
+            color: themes[0].modelColor, 
+            wireframe: true, 
+            transparent: true, 
+            opacity: 0.15 
+        });
+        const hiveSphere = new THREE.Mesh(geometry, material);
+        scene.add(hiveSphere);
+
+        // Partículas (Abejas)
+        const particlesGeometry = new THREE.BufferGeometry();
+        const particlesCount = 350;
+        const posArray = new Float32Array(particlesCount * 3);
+        for(let i = 0; i < particlesCount * 3; i++) {
+            posArray[i] = (Math.random() - 0.5) * 40;
+        }
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({
+            size: 0.09,
+            color: themes[0].modelColor,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+        const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particlesMesh);
+
+        camera.position.z = 15;
+
+        // --- 3. SWITCH DE TEMAS ---
+        function switchTheme() {
+            currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+            const theme = themes[currentThemeIndex];
+            
+            // CSS Variables
+            const root = document.documentElement;
+            for (const [key, value] of Object.entries(theme.vars)) {
+                root.style.setProperty(key, value);
+            }
+
+            // Three.js Colors
+            const newColor = new THREE.Color(theme.modelColor);
+            gsap.to(hiveSphere.material.color, {r: newColor.r, g: newColor.g, b: newColor.b, duration: 0.5});
+            gsap.to(particlesMesh.material.color, {r: newColor.r, g: newColor.g, b: newColor.b, duration: 0.5});
+        }
+
+        // --- 4. INTERACCIÓN Y ANIMACIÓN ---
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetX = 0;
+        let targetY = 0;
+        const windowHalfX = window.innerWidth / 2;
+        const windowHalfY = window.innerHeight / 2;
+
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - windowHalfX);
+            mouseY = (event.clientY - windowHalfY);
+        });
+
+        const clock = new THREE.Clock();
+
+        function animate3D() {
+            targetX = mouseX * 0.001;
+            targetY = mouseY * 0.001;
+            const elapsedTime = clock.getElapsedTime();
+
+            hiveSphere.rotation.y += 0.002;
+            hiveSphere.rotation.x += 0.001;
+            // Movimiento suave con mouse
+            hiveSphere.rotation.y += 0.05 * (targetX - hiveSphere.rotation.y);
+            hiveSphere.rotation.x += 0.05 * (targetY - hiveSphere.rotation.x);
+
+            particlesMesh.rotation.y = -elapsedTime * 0.05;
+            particlesMesh.position.y = Math.sin(elapsedTime * 0.5) * 1;
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate3D);
+        }
+        animate3D();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Scroll suave
+        const lenis = new Lenis({ duration: 1.2, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smooth: true });
+        function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
+        requestAnimationFrame(raf);
+
+        gsap.registerPlugin(ScrollTrigger);
+
+        // Animación de Barras de Datos
+        gsap.utils.toArray('.scroll-fill').forEach(bar => {
+            gsap.to(bar, {
+                width: bar.getAttribute('data-width'),
+                duration: 1.5,
+                ease: "power2.out",
+                scrollTrigger: { trigger: ".chart-container", start: "top 80%" }
+            });
+        });
+
+        AOS.init({ duration: 1000, once: false, mirror: true });
+
+        // Cursor
+        const dot = document.querySelector('.cursor-dot');
+        const spot = document.querySelector('.cursor-spot');
+        window.addEventListener('mousemove', (e) => {
+            gsap.to(dot, { x: e.clientX, y: e.clientY, duration: 0.1 });
+            gsap.to(spot, { x: e.clientX, y: e.clientY, duration: 0.5 });
+        });
+        document.querySelectorAll('.interactable').forEach(el => {
+            el.addEventListener('mouseenter', () => dot.classList.add('active'));
+            el.addEventListener('mouseleave', () => dot.classList.remove('active'));
+        });
+
+        // Animación Flecha
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = `@keyframes bounce { 0%, 20%, 50%, 80%, 100% {transform: translateY(0);} 40% {transform: translateY(-10px);} 60% {transform: translateY(-5px);} }`;
+        document.head.appendChild(styleSheet);
+
+    </script>
+</body>
+</html>
