@@ -444,47 +444,57 @@ sendMessage();
 // ====== RESPONSE PARSER ======
 // Handles cases where Pollinations returns raw model JSON instead of plain text
 function extractReplyText(raw){
-// If the response looks like JSON, try to parse and extract the actual text
 let text = raw.trim();
 if(text.startsWith('{')){
 try{
 const obj = JSON.parse(text);
-// Case 1: OpenAI chat completion format {choices:[{message:{content:...}}]}
+// OpenAI chat completion format
 if(obj.choices && obj.choices[0] && obj.choices[0].message){
 return obj.choices[0].message.content || '';
 }
-// Case 2: Raw assistant message format {role:"assistant", reasoning_content:..., content:...}
+// Raw assistant message format (the bug you found)
 if(obj.role === 'assistant'){
-// If there's actual content, use it; otherwise the model only returned reasoning
 if(obj.content && obj.content.trim()) return obj.content;
-// If only reasoning_content exists, the model didn't produce a user-facing reply
-if(obj.reasoning_content) return '⏳ El modelo está procesando tu consulta. Por favor intenta de nuevo.';
+// Use reasoning_content as fallback — it usually HAS the answer
+if(obj.reasoning_content && obj.reasoning_content.trim()){
+// The reasoning often contains the actual response mixed with thinking
+// Extract useful parts (skip lines that are clearly internal reasoning)
+const rc = obj.reasoning_content.trim();
+return rc; // Return it — formatMsg will clean it up
 }
-// Case 3: Simple {text:"..."} or {response:"..."} wrapper
+return ''; // Signal retry
+}
 if(obj.text) return obj.text;
 if(obj.response) return obj.response;
-if(obj.message) return typeof obj.message === 'string' ? obj.message : JSON.stringify(obj.message);
-// Case 4: Pollinations error
+if(obj.message) return typeof obj.message === 'string' ? obj.message : '';
 if(obj.error) return '⚠️ Error del servicio: ' + obj.error;
-}catch(e){
-// Not valid JSON, just return as text
+}catch(e){}
 }
-}
-// Filter out Pollinations deprecation warnings
+// Filter Pollinations deprecation warnings
 if(text.includes('IMPORTANT NOTICE') && text.includes('deprecated')){
 const lines = text.split('\n');
 const clean = lines.filter(l =>
-!l.includes('IMPORTANT NOTICE') &&
-!l.includes('deprecated') &&
-!l.includes('migrate') &&
-!l.includes('enter.pollinations') &&
-!l.includes('Anonymous requests') &&
-!l.trim().startsWith('⚠')
+!l.includes('IMPORTANT NOTICE') && !l.includes('deprecated') &&
+!l.includes('migrate') && !l.includes('enter.pollinations') &&
+!l.includes('Anonymous requests') && !l.trim().startsWith('⚠')
 );
 text = clean.join('\n').trim();
-if(!text) return '⏳ El servicio no generó respuesta. Por favor intenta de nuevo.';
 }
 return text;
+}
+
+// Single API call to Pollinations
+async function callPollinations(userPrompt, systemPrompt){
+const seed = Math.floor(Math.random()*99999);
+const url = 'https://text.pollinations.ai/'
++ encodeURIComponent(userPrompt)
++ '?system=' + encodeURIComponent(systemPrompt)
++ '&model=openai'
++ '&json=false'
++ '&seed=' + seed
++ '&private=true';
+const res = await fetch(url);
+return await res.text();
 }
 
 // ====== CHAT ======
@@ -499,26 +509,26 @@ chatHistory.push({role:'user',content:text});
 isTyping=true;
 const typingEl=addMsg('bot','<div class="dots"><span></span><span></span><span></span></div>',true);
 try{
-// Build conversation context for the GET request
-const historyContext = chatHistory.map(m => (m.role==='user'?'Usuario: ':'Asesor: ')+m.content).join('\n');
-const userPrompt = historyContext;
+// Only send last 6 messages to keep URL short (critical for GET requests)
+const recentHistory = chatHistory.slice(-6);
+const historyContext = recentHistory.map(m => (m.role==='user'?'Usuario: ':'Asesor: ')+m.content).join('\n');
 const systemPrompt = PROMPTS[currentProfile];
-const seed = Math.floor(Math.random()*99999);
-const url = 'https://text.pollinations.ai/'
-+ encodeURIComponent(userPrompt)
-+ '?system=' + encodeURIComponent(systemPrompt)
-+ '&model=openai'
-+ '&json=false'
-+ '&seed=' + seed
-+ '&private=true';
-const res = await fetch(url);
-const raw = await res.text();
-const reply = extractReplyText(raw);
-if(!reply) throw new Error('empty response');
+
+// Try up to 2 times (original + 1 retry)
+let reply = '';
+for(let attempt = 0; attempt < 2; attempt++){
+const raw = await callPollinations(historyContext, systemPrompt);
+reply = extractReplyText(raw);
+if(reply && !reply.startsWith('⚠️')) break;
+// Brief pause before retry
+if(attempt === 0) await new Promise(r => setTimeout(r, 1500));
+}
+
+if(!reply) throw new Error('empty');
 chatHistory.push({role:'assistant',content:reply});
 typingEl.remove();
 addMsg('bot',formatMsg(reply));
-}catch(e){typingEl.remove();addMsg('bot','❌ Error de conexión. Intenta de nuevo en unos segundos.')}
+}catch(e){typingEl.remove();addMsg('bot','❌ No se pudo obtener respuesta. Intenta de nuevo en unos segundos.');}
 isTyping=false;
 }
 function addMsg(type,html,isTyping=false){
