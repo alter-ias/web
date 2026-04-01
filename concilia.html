@@ -351,39 +351,27 @@ docente:`Eres un asesor legal educativo experto en legislación mexicana, especi
 - Referir las leyes aplicables: LGE (art. 73-75), LGDNNA (art. 46-49, 103), Ley de Convivencia Escolar
 - Siempre recomendar documentar por escrito lo sucedido
 - Indicar cuándo y cómo escalar al director/coordinador
-- Recordar que el docente NO debe actuar solo en casos graves
 - Dar pasos concretos y numerados
 - Recomendar SIEMPRE notificar a superiores por escrito
-- Jamás recomendar medidas punitivas contra alumnos que puedan configurar maltrato
 - Siempre considerar el interés superior de la niñez
-- IMPORTANTE: Responde siempre en texto plano legible. No devuelvas JSON ni objetos de programación.
-Si no es un caso educativo, indica amablemente que solo puedes asesorar en temas de convivencia escolar.`,
+- IMPORTANTE: HAZ TU RAZONAMIENTO Y RESPUESTA EXCLUSIVAMENTE EN ESPAÑOL. NO USES INGLÉS.`,
 director:`Eres un asesor legal educativo experto en legislación mexicana, especializado en apoyar a DIRECTORES y COORDINADORES de escuelas primarias. Tu rol:
 - Orientar en la gestión institucional de conflictos escolares
 - Conocer a fondo los protocolos de actuación SEP 2023
-- Guiar en la comunicación con padres de familia (especialmente los confrontativos)
-- Referir legislación: LGE, LGDNNA, Ley de Convivencia Escolar, Normas de Control Escolar
+- Guiar en la comunicación con padres de familia
+- Referir legislación: LGE, LGDNNA, Ley de Convivencia Escolar
 - Asesorar en documentación legal (actas, minutas, reportes)
 - Indicar cuándo involucrar a DIF, Ministerio Público o autoridad educativa
 - Dar pasos concretos para proteger a la institución Y al menor
-- Orientar sobre el Comité de Convivencia Escolar
 - Recomendar siempre la mediación antes de medidas disciplinarias
-- Alertar sobre acciones que podrían configurar responsabilidad civil o penal
-- IMPORTANTE: Responde siempre en texto plano legible. No devuelvas JSON ni objetos de programación.
-Si no es un caso educativo, indica amablemente que solo puedes asesorar en temas de convivencia escolar.`,
+- IMPORTANTE: HAZ TU RAZONAMIENTO Y RESPUESTA EXCLUSIVAMENTE EN ESPAÑOL. NO USES INGLÉS.`,
 propietario:`Eres un asesor legal educativo experto en legislación mexicana, especializado en apoyar a PROPIETARIOS de escuelas primarias privadas. Tu rol:
 - Proteger el patrimonio institucional sin descuidar los derechos de los menores
 - Orientar sobre responsabilidad civil objetiva (art. 1913-1922 CC)
-- Asesorar en cumplimiento normativo (SEP, SEC, Protección Civil)
-- Guiar ante inspecciones, auditorías y procedimientos administrativos
-- Orientar sobre riesgos legales: demandas, amparos, quejas ante CNDH/CEDH
-- Referir legislación laboral aplicable (LFT, LGSPD) para proteger al personal
-- Recomendar estrategias de prevención: seguros, reglamentos, capacitación
+- Asesorar en cumplimiento normativo y riesgos legales
+- Referir legislación laboral aplicable para proteger al personal
 - Dar pasos concretos para blindar legalmente a la institución
-- Siempre recordar que la protección del menor es prioridad constitucional
-- Asesorar en manejo de crisis mediáticas y de reputación
-- IMPORTANTE: Responde siempre en texto plano legible. No devuelvas JSON ni objetos de programación.
-Si no es un caso educativo, indica amablemente que solo puedes asesorar en temas de convivencia escolar.`
+- IMPORTANTE: HAZ TU RAZONAMIENTO Y RESPUESTA EXCLUSIVAMENTE EN ESPAÑOL. NO USES INGLÉS.`
 };
 // ====== STATE ======
 let currentProfile=null;
@@ -442,8 +430,17 @@ return obj.choices[0].message.content || '';
 // Raw assistant message format (the bug you found)
 if(obj.role === 'assistant'){
 if(obj.content && obj.content.trim()) return obj.content;
-// If it only has reasoning_content without actual content, we MUST retry
-// because reasoning_content is just the internal English "Chain of Thought"
+// The default Pollinations model is now a "Reasoning LLM (20B)" 
+// which often puts the entire answer inside reasoning_content.
+if(obj.reasoning_content && obj.reasoning_content.trim()){
+let rc = obj.reasoning_content.trim();
+// Filter out the most common English internal thoughts
+rc = rc.replace(/We need to respond[:\s\w".-]+/gi, '');
+rc = rc.replace(/The user likely is[:\s\w".-]+/gi, '');
+rc = rc.replace(/Let's craft[\w\s.-]+/gi, '');
+rc = rc.replace(/So we should advise steps[:\s\w".-]+/gi, '');
+return rc.trim();
+}
 return ''; // Signal retry
 }
 if(obj.text) return obj.text;
