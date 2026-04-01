@@ -360,30 +360,36 @@ docente:`Eres un asesor legal educativo experto en legislación mexicana, especi
 - Referir las leyes aplicables: LGE (art. 73-75), LGDNNA (art. 46-49, 103), Ley de Convivencia Escolar
 - Siempre recomendar documentar por escrito lo sucedido
 - Indicar cuándo y cómo escalar al director/coordinador
+- Recordar que el docente NO debe actuar solo en casos graves
 - Dar pasos concretos y numerados
 - Recomendar SIEMPRE notificar a superiores por escrito
+- Jamás recomendar medidas punitivas contra alumnos que puedan configurar maltrato
 - Siempre considerar el interés superior de la niñez
-- REGLA ESTRICTA: Escribe TODO tu razonamiento interno en Español.
-- FORMATO OBLIGATORIO: Debes envolver tu respuesta final y útil para el usuario entre las etiquetas [RESPUESTA] y [/RESPUESTA].`,
+- Responde DIRECTAMENTE la solución en Español. No generes textos de introducción ni de razonamiento.`,
 director:`Eres un asesor legal educativo experto en legislación mexicana, especializado en apoyar a DIRECTORES y COORDINADORES de escuelas primarias. Tu rol:
 - Orientar en la gestión institucional de conflictos escolares
 - Conocer a fondo los protocolos de actuación SEP 2023
-- Guiar en la comunicación con padres de familia
-- Referir legislación: LGE, LGDNNA, Ley de Convivencia Escolar
+- Guiar en la comunicación con padres de familia (especialmente los confrontativos)
+- Referir legislación: LGE, LGDNNA, Ley de Convivencia Escolar, Normas de Control Escolar
 - Asesorar en documentación legal (actas, minutas, reportes)
 - Indicar cuándo involucrar a DIF, Ministerio Público o autoridad educativa
 - Dar pasos concretos para proteger a la institución Y al menor
+- Orientar sobre el Comité de Convivencia Escolar
 - Recomendar siempre la mediación antes de medidas disciplinarias
-- REGLA ESTRICTA: Escribe TODO tu razonamiento interno en Español.
-- FORMATO OBLIGATORIO: Debes envolver tu respuesta final y útil para el usuario entre las etiquetas [RESPUESTA] y [/RESPUESTA].`,
+- Alertar sobre acciones que podrían configurar responsabilidad civil o penal
+- Responde DIRECTAMENTE la solución en Español. No generes textos de introducción ni de razonamiento.`,
 propietario:`Eres un asesor legal educativo experto en legislación mexicana, especializado en apoyar a PROPIETARIOS de escuelas primarias privadas. Tu rol:
 - Proteger el patrimonio institucional sin descuidar los derechos de los menores
 - Orientar sobre responsabilidad civil objetiva (art. 1913-1922 CC)
-- Asesorar en cumplimiento normativo y riesgos legales
-- Referir legislación laboral aplicable para proteger al personal
+- Asesorar en cumplimiento normativo (SEP, SEC, Protección Civil)
+- Guiar ante inspecciones, auditorías y procedimientos administrativos
+- Orientar sobre riesgos legales: demandas, amparos, quejas ante CNDH/CEDH
+- Referir legislación laboral aplicable (LFT, LGSPD) para proteger al personal
+- Recomendar estrategias de prevención: seguros, reglamentos, capacitación
 - Dar pasos concretos para blindar legalmente a la institución
-- REGLA ESTRICTA: Escribe TODO tu razonamiento interno en Español.
-- FORMATO OBLIGATORIO: Debes envolver tu respuesta final y útil para el usuario entre las etiquetas [RESPUESTA] y [/RESPUESTA].`
+- Siempre recordar que la protección del menor es prioridad constitucional
+- Asesorar en manejo de crisis mediáticas y de reputación
+- Responde DIRECTAMENTE la solución en Español. No generes textos de introducción ni de razonamiento.`
 };
 
 // ====== STATE ======
@@ -433,32 +439,22 @@ sendMessage();
 }
 
 // ====== RESPONSE PARSER ======
-// Handles cases where Pollinations returns raw model JSON instead of plain text
 function extractReplyText(raw){
 let text = raw.trim();
+
+// 1. If Pollinations returned JSON, extract ONLY the final content
 if(text.startsWith('{')){
 try{
 const obj = JSON.parse(text);
-// OpenAI chat completion format
+// Standard OpenAI format
 if(obj.choices && obj.choices[0] && obj.choices[0].message){
-return obj.choices[0].message.content || '';
+if(obj.choices[0].message.content) return obj.choices[0].message.content;
 }
-// Raw assistant message format (the bug you found)
+// Assistant message format
 if(obj.role === 'assistant'){
+// Only return actual content. DO NOT return reasoning_content (English CoT)
 if(obj.content && obj.content.trim()) return obj.content;
-// The default Pollinations model is now a "Reasoning LLM (20B)" 
-// which often puts the entire answer inside reasoning_content.
-if(obj.reasoning_content && obj.reasoning_content.trim()){
-let rc = obj.reasoning_content.trim();
-// If the model followed the [RESPUESTA] constraint, extract ONLY that
-const match = rc.match(/\[RESPUESTA\]([\s\S]*?)(\[\/RESPUESTA\]|$)/i);
-if(match && match[1].trim()){
-return match[1].trim();
-}
-// Otherwise, it failed to produce the final answer block, force retry
-return '';
-}
-return ''; // Signal retry
+return ''; // Force retry if content is missing
 }
 if(obj.text) return obj.text;
 if(obj.response) return obj.response;
@@ -466,21 +462,24 @@ if(obj.message) return typeof obj.message === 'string' ? obj.message : '';
 if(obj.error) return '⚠️ Error del servicio: ' + obj.error;
 }catch(e){}
 }
-// Filter Pollinations deprecation warnings
+
+// 2. Filter out Pollinations API warning messages
 if(text.includes('IMPORTANT NOTICE') && text.includes('deprecated')){
 const lines = text.split('\n');
-const clean = lines.filter(l =>
-!l.includes('IMPORTANT NOTICE') && !l.includes('deprecated') &&
-!l.includes('migrate') && !l.includes('enter.pollinations') &&
+const clean = lines.filter(l => 
+!l.includes('IMPORTANT NOTICE') && !l.includes('deprecated') && 
+!l.includes('migrate') && !l.includes('enter.pollinations') && 
 !l.includes('Anonymous requests') && !l.trim().startsWith('⚠')
 );
 text = clean.join('\n').trim();
 }
 
-// Global regex extraction just in case the model outputs plain text with labels directly
-const globalMatch = text.match(/\[RESPUESTA\]([\s\S]*?)(\[\/RESPUESTA\]|$)/i);
-if(globalMatch && globalMatch[1].trim()){
-text = globalMatch[1].trim();
+// 3. Fallback check: if the text is entirely English AI reasoning, reject it
+// (This catches cases where Pollinations returned plain text CoT without JSON)
+if(text.includes("Let's produce") || text.includes("We need to respond") || text.includes("The user:") || text.includes("Usuario:")) {
+if(!text.includes("Ley General") && !text.includes("1.") && text.length < 800) {
+return ''; // Force retry
+}
 }
 
 return text;
@@ -517,18 +516,22 @@ const recentHistory = chatHistory.slice(-6);
 const historyContext = recentHistory.map(m => (m.role==='user'?'Usuario: ':'Asesor: ')+m.content).join('\n');
 const systemPrompt = PROMPTS[currentProfile];
 
-// Try up to 2 times (original + 1 retry)
+// Try up to 4 times
 let reply = '';
-for(let attempt = 0; attempt < 3; attempt++){
+for(let attempt = 0; attempt < 4; attempt++){
 const raw = await callPollinations(historyContext, systemPrompt);
 reply = extractReplyText(raw);
+
 // Check if it's a valid reply that is NOT predominantly english CoT fallback
-if(reply && !reply.startsWith('⚠️') && !reply.includes("We need to respond") && !reply.includes("The user says")){
+if(reply && !reply.startsWith('⚠️')) {
+// Check if it's just a tiny fragment that slipped through the English parser
+if(reply.length > 50 || reply.includes('1.') || reply.includes('Hola')) {
 break; // Success!
+}
 }
 reply = ''; // Clear it to trigger retry Error if max attempts reached
 // Wait briefly before retrying (backoff)
-await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
 }
 
 if(!reply) throw new Error('empty');
