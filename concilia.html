@@ -252,7 +252,7 @@ section{padding:60px 0}
 <p class="section-sub" data-aos="fade-up">La orientación se adapta a tu rol, responsabilidades y nivel de intervención en la comunidad escolar.</p>
 <div class="profiles-grid">
 <div class="profile-card" data-profile="docente" data-aos="fade-up" data-aos-delay="100" onclick="selectProfile('docente')">
-<span class="profile-emoji">👩‍🏫</span><h3>Docente</h3><p>Primera línea de intervención. Necesitas actuar rápido, contener el conflicto y documentar correctamente antes de escalar.</p>
+<span class="profile-emoji">👩🏫</span><h3>Docente</h3><p>Primera línea de intervención. Necesitas actuar rápido, contener el conflicto y documentar correctamente antes de escalar.</p>
 </div>
 <div class="profile-card" data-profile="director" data-aos="fade-up" data-aos-delay="200" onclick="selectProfile('director')">
 <span class="profile-emoji">🏫</span><h3>Director / Coordinador</h3><p>Gestionas la respuesta institucional. Necesitas protocolos claros, comunicación con padres y documentación legal.</p>
@@ -365,6 +365,7 @@ docente:`Eres un asesor legal educativo experto en legislación mexicana, especi
 - Recomendar SIEMPRE notificar a superiores por escrito
 - Jamás recomendar medidas punitivas contra alumnos que puedan configurar maltrato
 - Siempre considerar el interés superior de la niñez
+- IMPORTANTE: Responde siempre en texto plano legible. No devuelvas JSON ni objetos de programación.
 Si no es un caso educativo, indica amablemente que solo puedes asesorar en temas de convivencia escolar.`,
 director:`Eres un asesor legal educativo experto en legislación mexicana, especializado en apoyar a DIRECTORES y COORDINADORES de escuelas primarias. Tu rol:
 - Orientar en la gestión institucional de conflictos escolares
@@ -377,6 +378,7 @@ director:`Eres un asesor legal educativo experto en legislación mexicana, espec
 - Orientar sobre el Comité de Convivencia Escolar
 - Recomendar siempre la mediación antes de medidas disciplinarias
 - Alertar sobre acciones que podrían configurar responsabilidad civil o penal
+- IMPORTANTE: Responde siempre en texto plano legible. No devuelvas JSON ni objetos de programación.
 Si no es un caso educativo, indica amablemente que solo puedes asesorar en temas de convivencia escolar.`,
 propietario:`Eres un asesor legal educativo experto en legislación mexicana, especializado en apoyar a PROPIETARIOS de escuelas primarias privadas. Tu rol:
 - Proteger el patrimonio institucional sin descuidar los derechos de los menores
@@ -389,6 +391,7 @@ propietario:`Eres un asesor legal educativo experto en legislación mexicana, es
 - Dar pasos concretos para blindar legalmente a la institución
 - Siempre recordar que la protección del menor es prioridad constitucional
 - Asesorar en manejo de crisis mediáticas y de reputación
+- IMPORTANTE: Responde siempre en texto plano legible. No devuelvas JSON ni objetos de programación.
 Si no es un caso educativo, indica amablemente que solo puedes asesorar en temas de convivencia escolar.`
 };
 
@@ -419,7 +422,7 @@ function selectProfile(p){
 currentProfile=p;
 document.querySelectorAll('.profile-card').forEach(c=>c.classList.remove('active'));
 document.querySelector(`[data-profile="${p}"]`).classList.add('active');
-const labels={docente:'👩‍🏫 Docente',director:'🏫 Director',propietario:'🏛️ Propietario'};
+const labels={docente:'👩🏫 Docente',director:'🏫 Director',propietario:'🏛️ Propietario'};
 const colors={docente:['var(--docente)','rgba(59,130,246,0.15)'],director:['var(--director)','rgba(16,185,129,0.15)'],propietario:['var(--propietario)','rgba(139,92,246,0.15)']};
 document.getElementById('navBadge').innerHTML=`<i class="fas fa-user-check"></i> <span>${labels[p]}</span>`;
 const cb=document.getElementById('chatProfileBadge');
@@ -436,6 +439,52 @@ c.innerHTML=(CHIPS[p]||[]).map(t=>`<div class="chip" onclick="sendChip(this)">${
 function sendChip(el){
 document.getElementById('chatInput').value=el.textContent;
 sendMessage();
+}
+
+// ====== RESPONSE PARSER ======
+// Handles cases where Pollinations returns raw model JSON instead of plain text
+function extractReplyText(raw){
+// If the response looks like JSON, try to parse and extract the actual text
+let text = raw.trim();
+if(text.startsWith('{')){
+try{
+const obj = JSON.parse(text);
+// Case 1: OpenAI chat completion format {choices:[{message:{content:...}}]}
+if(obj.choices && obj.choices[0] && obj.choices[0].message){
+return obj.choices[0].message.content || '';
+}
+// Case 2: Raw assistant message format {role:"assistant", reasoning_content:..., content:...}
+if(obj.role === 'assistant'){
+// If there's actual content, use it; otherwise the model only returned reasoning
+if(obj.content && obj.content.trim()) return obj.content;
+// If only reasoning_content exists, the model didn't produce a user-facing reply
+if(obj.reasoning_content) return '⏳ El modelo está procesando tu consulta. Por favor intenta de nuevo.';
+}
+// Case 3: Simple {text:"..."} or {response:"..."} wrapper
+if(obj.text) return obj.text;
+if(obj.response) return obj.response;
+if(obj.message) return typeof obj.message === 'string' ? obj.message : JSON.stringify(obj.message);
+// Case 4: Pollinations error
+if(obj.error) return '⚠️ Error del servicio: ' + obj.error;
+}catch(e){
+// Not valid JSON, just return as text
+}
+}
+// Filter out Pollinations deprecation warnings
+if(text.includes('IMPORTANT NOTICE') && text.includes('deprecated')){
+const lines = text.split('\n');
+const clean = lines.filter(l =>
+!l.includes('IMPORTANT NOTICE') &&
+!l.includes('deprecated') &&
+!l.includes('migrate') &&
+!l.includes('enter.pollinations') &&
+!l.includes('Anonymous requests') &&
+!l.trim().startsWith('⚠')
+);
+text = clean.join('\n').trim();
+if(!text) return '⏳ El servicio no generó respuesta. Por favor intenta de nuevo.';
+}
+return text;
 }
 
 // ====== CHAT ======
@@ -463,7 +512,9 @@ const url = 'https://text.pollinations.ai/'
 + '&seed=' + seed
 + '&private=true';
 const res = await fetch(url);
-const reply = await res.text();
+const raw = await res.text();
+const reply = extractReplyText(raw);
+if(!reply) throw new Error('empty response');
 chatHistory.push({role:'assistant',content:reply});
 typingEl.remove();
 addMsg('bot',formatMsg(reply));
