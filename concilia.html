@@ -466,7 +466,7 @@ if(obj.message) return typeof obj.message === 'string' ? obj.message : '';
 if(obj.error) return '⚠️ Error del servicio: ' + obj.error;
 }catch(e){}
 }
-// Filter out Pollinations deprecation warnings
+// Filter Pollinations deprecation warnings
 if(text.includes('IMPORTANT NOTICE') && text.includes('deprecated')){
 const lines = text.split('\n');
 const clean = lines.filter(l =>
@@ -477,26 +477,11 @@ const clean = lines.filter(l =>
 text = clean.join('\n').trim();
 }
 
-// 1. Try to extract from the strict [RESPUESTA] tags if the model used them properly
-const strictMatch = text.match(/\[RESPUESTA\]([\s\S]*?)\[\/RESPUESTA\]/i);
-if(strictMatch && strictMatch[1].trim().length > 20){
-return strictMatch[1].trim();
+// Global regex extraction just in case the model outputs plain text with labels directly
+const globalMatch = text.match(/\[RESPUESTA\]([\s\S]*?)(\[\/RESPUESTA\]|$)/i);
+if(globalMatch && globalMatch[1].trim()){
+text = globalMatch[1].trim();
 }
-
-// 2. If it just appended the tag or failed to use it, strip the stray tags
-text = text.replace(/\[\/?RESPUESTA\]/gi, '').trim();
-
-// 3. Heuristic Filter: the model leaks English "Chain of Thought" paragraphs before the Spanish answer.
-// We chop the text by paragraphs and destroy any paragraph that looks like English AI reasoning.
-const englishGarbage = /\b(The user|User says|We need to|They want|We should|Provide|Also mention|Must not|So produce|Let's produce|Remember:|explicit instruction|This means a|We must|Should include|Ok, produce|Let's craft|internal reasoning|must be in Spanish)\b/i;
-
-const paragraphs = text.split(/\n/);
-const cleanedParagraphs = paragraphs.filter(p => {
-// Keep the paragraph if it DOES NOT match the english garbage regex
-return !englishGarbage.test(p);
-});
-
-text = cleanedParagraphs.join('\n').trim();
 
 return text;
 }
