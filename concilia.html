@@ -203,6 +203,7 @@ section{padding:60px 0}
 <a href="#glosario" onclick="closeMobile()">Glosario</a>
 <a href="#marco-legal" onclick="closeMobile()">Marco Legal</a>
 </div>
+
 <!-- HERO -->
 <section class="hero" id="hero">
 <div class="container hero-grid">
@@ -228,6 +229,7 @@ section{padding:60px 0}
 </div>
 </div>
 </section>
+
 <!-- COMO FUNCIONA -->
 <section id="como-funciona">
 <div class="container">
@@ -241,6 +243,7 @@ section{padding:60px 0}
 </div>
 </div>
 </section>
+
 <!-- PERFILES -->
 <section id="perfiles" style="background:linear-gradient(180deg,transparent,rgba(17,34,64,0.5),transparent)">
 <div class="container">
@@ -260,6 +263,7 @@ section{padding:60px 0}
 </div>
 </div>
 </section>
+
 <!-- CHAT -->
 <section id="consultar">
 <div class="container">
@@ -282,6 +286,7 @@ section{padding:60px 0}
 </div>
 </div>
 </section>
+
 <!-- GLOSARIO -->
 <section id="glosario">
 <div class="container">
@@ -291,6 +296,7 @@ section{padding:60px 0}
 <div class="glossary-grid" id="glossaryGrid"></div>
 </div>
 </section>
+
 <!-- MARCO LEGAL -->
 <section id="marco-legal" style="background:linear-gradient(180deg,transparent,rgba(17,34,64,0.5),transparent)">
 <div class="container">
@@ -300,6 +306,7 @@ section{padding:60px 0}
 <div class="legal-accordion" id="legalAccordion"></div>
 </div>
 </section>
+
 <!-- FOOTER -->
 <footer class="footer">
 <div class="container">
@@ -311,9 +318,11 @@ section{padding:60px 0}
 <div class="footer-bottom"><span>© 2026 CONCILIAR. Todos los derechos reservados.</span><span>Demo v1.0 — No sustituye asesoría legal profesional.</span></div>
 </div>
 </footer>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
 <script>
 AOS.init({duration:800,once:true,offset:60});
+
 // ====== DATA ======
 const GLOSSARY=[
 {t:"Conciliación",d:"Proceso voluntario donde un tercero neutral facilita el diálogo entre las partes para resolver un conflicto de manera pacífica, sin necesidad de procedimiento legal."},
@@ -354,7 +363,8 @@ docente:`Eres un asesor legal educativo experto en legislación mexicana, especi
 - Dar pasos concretos y numerados
 - Recomendar SIEMPRE notificar a superiores por escrito
 - Siempre considerar el interés superior de la niñez
-- IMPORTANTE: HAZ TU RAZONAMIENTO Y RESPUESTA EXCLUSIVAMENTE EN ESPAÑOL. NO USES INGLÉS.`,
+- REGLA ESTRICTA: Escribe TODO tu razonamiento interno en Español.
+- FORMATO OBLIGATORIO: Debes envolver tu respuesta final y útil para el usuario entre las etiquetas [RESPUESTA] y [/RESPUESTA].`,
 director:`Eres un asesor legal educativo experto en legislación mexicana, especializado en apoyar a DIRECTORES y COORDINADORES de escuelas primarias. Tu rol:
 - Orientar en la gestión institucional de conflictos escolares
 - Conocer a fondo los protocolos de actuación SEP 2023
@@ -364,19 +374,23 @@ director:`Eres un asesor legal educativo experto en legislación mexicana, espec
 - Indicar cuándo involucrar a DIF, Ministerio Público o autoridad educativa
 - Dar pasos concretos para proteger a la institución Y al menor
 - Recomendar siempre la mediación antes de medidas disciplinarias
-- IMPORTANTE: HAZ TU RAZONAMIENTO Y RESPUESTA EXCLUSIVAMENTE EN ESPAÑOL. NO USES INGLÉS.`,
+- REGLA ESTRICTA: Escribe TODO tu razonamiento interno en Español.
+- FORMATO OBLIGATORIO: Debes envolver tu respuesta final y útil para el usuario entre las etiquetas [RESPUESTA] y [/RESPUESTA].`,
 propietario:`Eres un asesor legal educativo experto en legislación mexicana, especializado en apoyar a PROPIETARIOS de escuelas primarias privadas. Tu rol:
 - Proteger el patrimonio institucional sin descuidar los derechos de los menores
 - Orientar sobre responsabilidad civil objetiva (art. 1913-1922 CC)
 - Asesorar en cumplimiento normativo y riesgos legales
 - Referir legislación laboral aplicable para proteger al personal
 - Dar pasos concretos para blindar legalmente a la institución
-- IMPORTANTE: HAZ TU RAZONAMIENTO Y RESPUESTA EXCLUSIVAMENTE EN ESPAÑOL. NO USES INGLÉS.`
+- REGLA ESTRICTA: Escribe TODO tu razonamiento interno en Español.
+- FORMATO OBLIGATORIO: Debes envolver tu respuesta final y útil para el usuario entre las etiquetas [RESPUESTA] y [/RESPUESTA].`
 };
+
 // ====== STATE ======
 let currentProfile=null;
 let chatHistory=[];
 let isTyping=false;
+
 // ====== RENDER GLOSSARY & LEGAL ======
 function renderGlossary(){
 const g=document.getElementById('glossaryGrid');
@@ -393,6 +407,7 @@ l.innerHTML=LEGAL.map((item,i)=>`<div class="legal-item" data-aos="fade-up" data
 function toggleGlossary(el){el.parentElement.classList.toggle('open')}
 function toggleLegal(el){el.parentElement.classList.toggle('open')}
 renderGlossary();renderLegal();
+
 // ====== PROFILE ======
 function selectProfile(p){
 currentProfile=p;
@@ -416,6 +431,7 @@ function sendChip(el){
 document.getElementById('chatInput').value=el.textContent;
 sendMessage();
 }
+
 // ====== RESPONSE PARSER ======
 // Handles cases where Pollinations returns raw model JSON instead of plain text
 function extractReplyText(raw){
@@ -434,12 +450,13 @@ if(obj.content && obj.content.trim()) return obj.content;
 // which often puts the entire answer inside reasoning_content.
 if(obj.reasoning_content && obj.reasoning_content.trim()){
 let rc = obj.reasoning_content.trim();
-// Filter out the most common English internal thoughts
-rc = rc.replace(/We need to respond[:\s\w".-]+/gi, '');
-rc = rc.replace(/The user likely is[:\s\w".-]+/gi, '');
-rc = rc.replace(/Let's craft[\w\s.-]+/gi, '');
-rc = rc.replace(/So we should advise steps[:\s\w".-]+/gi, '');
-return rc.trim();
+// If the model followed the [RESPUESTA] constraint, extract ONLY that
+const match = rc.match(/\[RESPUESTA\]([\s\S]*?)(\[\/RESPUESTA\]|$)/i);
+if(match && match[1].trim()){
+return match[1].trim();
+}
+// Otherwise, it failed to produce the final answer block, force retry
+return '';
 }
 return ''; // Signal retry
 }
@@ -459,8 +476,16 @@ const clean = lines.filter(l =>
 );
 text = clean.join('\n').trim();
 }
+
+// Global regex extraction just in case the model outputs plain text with labels directly
+const globalMatch = text.match(/\[RESPUESTA\]([\s\S]*?)(\[\/RESPUESTA\]|$)/i);
+if(globalMatch && globalMatch[1].trim()){
+text = globalMatch[1].trim();
+}
+
 return text;
 }
+
 // Single API call to Pollinations
 async function callPollinations(userPrompt, systemPrompt){
 const seed = Math.floor(Math.random()*99999);
@@ -474,6 +499,7 @@ const url = 'https://text.pollinations.ai/'
 const res = await fetch(url);
 return await res.text();
 }
+
 // ====== CHAT ======
 async function sendMessage(){
 const input=document.getElementById('chatInput');
@@ -490,15 +516,21 @@ try{
 const recentHistory = chatHistory.slice(-6);
 const historyContext = recentHistory.map(m => (m.role==='user'?'Usuario: ':'Asesor: ')+m.content).join('\n');
 const systemPrompt = PROMPTS[currentProfile];
+
 // Try up to 2 times (original + 1 retry)
 let reply = '';
-for(let attempt = 0; attempt < 2; attempt++){
+for(let attempt = 0; attempt < 3; attempt++){
 const raw = await callPollinations(historyContext, systemPrompt);
 reply = extractReplyText(raw);
-if(reply && !reply.startsWith('⚠️')) break;
-// Brief pause before retry
-if(attempt === 0) await new Promise(r => setTimeout(r, 1500));
+// Check if it's a valid reply that is NOT predominantly english CoT fallback
+if(reply && !reply.startsWith('⚠️') && !reply.includes("We need to respond") && !reply.includes("The user says")){
+break; // Success!
 }
+reply = ''; // Clear it to trigger retry Error if max attempts reached
+// Wait briefly before retrying (backoff)
+await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+}
+
 if(!reply) throw new Error('empty');
 chatHistory.push({role:'assistant',content:reply});
 typingEl.remove();
@@ -516,8 +548,10 @@ function formatMsg(t){
 return t.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n- /g,'<br>• ').replace(/\n(\d+)\./g,'<br>$1.').replace(/\n/g,'<br>');
 }
 document.getElementById('chatInput').addEventListener('keydown',e=>{if(e.key==='Enter')sendMessage()});
+
 // ====== NAVBAR SCROLL ======
 window.addEventListener('scroll',()=>{document.getElementById('navbar').classList.toggle('scrolled',window.scrollY>50)});
+
 // ====== COUNTER ANIMATION ======
 const observer=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){
 const el=e.target;const target=+el.dataset.count;let current=0;
@@ -526,6 +560,7 @@ const timer=setInterval(()=>{current+=step;if(current>=target){current=target;cl
 observer.unobserve(el);
 }})},{threshold:0.5});
 document.querySelectorAll('[data-count]').forEach(el=>observer.observe(el));
+
 // ====== MOBILE MENU ======
 document.getElementById('hamburgerBtn').addEventListener('click',()=>document.getElementById('mobileMenu').classList.add('active'));
 document.getElementById('mobileClose').addEventListener('click',closeMobile);
