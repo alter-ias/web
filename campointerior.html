@@ -9,18 +9,17 @@
     <link rel="stylesheet" href="https://unpkg.com/aos@next/dist/aos.css" />
     
     <style>
+        /* ================= VARIABLES Y PALETA IRIDISCENTE ================= */
         :root {
-            --primary: #122b46; /* Azul profundo */
-            --secondary: #568bbd; /* Azul intermedio, un poco más fuerte para legibilidad */
-            --bg-page: #e8eff5; /* Gris-azulado de contraste */
-            --bg-light: #f2f6fa; /* Gris super claro para transiciones */
+            --primary: #122b46; /* Azul profundo para máxima legibilidad */
+            --secondary: #568bbd; /* Azul intermedio */
             --white: #ffffff;
             --whatsapp: #25d366;
             
-            /* Sombras firmes */
-            --shadow-box: 0 8px 24px rgba(18, 43, 70, 0.12);
-            --shadow-hover: 0 15px 35px rgba(18, 43, 70, 0.2);
-            --border-soft: 1px solid rgba(18, 43, 70, 0.08);
+            /* Glassmorphism (Cristal) */
+            --glass-bg: rgba(255, 255, 255, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --shadow-glass: 0 15px 35px rgba(18, 43, 70, 0.08);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -29,250 +28,181 @@
             font-family: 'Montserrat', sans-serif;
             line-height: 1.8;
             color: var(--primary);
-            background-color: var(--bg-page);
+            /* El fondo real ahora es el canvas interactivo */
+            background-color: #fdfbf7; 
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
+        /* ================= FONDO IRIDISCENTE (MALLA DE FLUJO) ================= */
+        #watercolor-canvas {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -2; overflow: hidden; background: #fdfbf7;
+        }
+
+        /* Malla invisible donde ocurre el flujo */
+        #flow-grid {
+            position: absolute; top: -10%; left: -10%; width: 120%; height: 120%;
+            display: grid; grid-template-columns: repeat(20, 1fr); grid-template-rows: repeat(20, 1fr);
+            filter: blur(50px);
+        }
+        
+        .grid-cell {
+            background-color: rgba(255,255,255,0); transition: background-color 0.8s ease-out;
+            border-radius: 50%;
+        }
+
+        /* Manchas iridiscentes */
+        #liquid-blobs {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            filter: blur(80px); mix-blend-mode: multiply; will-change: transform;
+        }
+        
+        .blob {
+            position: absolute; border-radius: 50%; opacity: 0.6;
+            transition: transform 0.6s ease-out;
+        }
+        /* Colores iridiscentes: Cian, Rosa pastel, Lavanda */
+        .blob1 { width: 55vw; height: 55vw; background: #a8edea; top: -10%; left: -10%; }
+        .blob2 { width: 65vw; height: 65vw; background: #fed6e3; bottom: -10%; right: -10%; }
+        .blob3 { width: 50vw; height: 50vw; background: #e0c3fc; top: 30%; left: 40%; }
+
+        /* ================= TIPOGRAFÍA Y ESTRUCTURA ================= */
         h1, h2, h3, h4 { color: var(--primary); font-weight: 800; line-height: 1.3; }
         p { margin-bottom: 15px; }
         .text-center { text-align: center; }
 
-        .container { 
-            max-width: 1100px; 
-            margin: 0 auto; 
-            padding: 0 25px; 
-        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 0 25px; position: relative; z-index: 2;}
 
-        /* --- UTILIDADES --- */
-        .bg-white { background-color: var(--white); }
-        .bg-page { background-color: var(--bg-page); }
-        .bg-light { background-color: var(--bg-light); }
-        .bg-dark { background-color: var(--primary); color: var(--white); }
         .highlight { color: var(--secondary); font-weight: 800; }
         
         section { padding: 90px 0; position: relative; }
 
         .section-title {
-            font-size: 2.6rem;
-            margin-bottom: 40px;
-            position: relative;
-            display: inline-block;
-            letter-spacing: -0.5px;
-            text-transform: uppercase;
+            font-size: 2.6rem; margin-bottom: 40px; position: relative;
+            display: inline-block; letter-spacing: -0.5px; text-transform: uppercase;
         }
         
         .section-title::after {
-            content: '';
-            position: absolute;
-            bottom: -15px; left: 50%;
-            transform: translateX(-50%);
-            width: 70px; height: 4px;
-            background: var(--secondary);
+            content: ''; position: absolute; bottom: -15px; left: 50%;
+            transform: translateX(-50%); width: 70px; height: 4px; background: var(--secondary);
         }
 
-        .section-title.left-align::after {
-            left: 0;
-            transform: none;
-        }
+        .section-title.left-align::after { left: 0; transform: none; }
 
-        /* --- HERO VIDEO --- */
+        /* ================= HERO VIDEO ================= */
         .hero-video-section {
-            position: relative;
-            width: 100%;
-            height: 85vh;
-            min-height: 600px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            position: relative; width: 100%; height: 85vh; min-height: 600px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
             overflow: hidden;
-            background-color: var(--bg-page);
+            /* Máscara para que el video se difumine hacia el fondo iridiscente */
+            -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+            mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
         }
 
         .hero-video {
-            position: absolute;
-            top: 50%; left: 50%;
-            min-width: 100%; min-height: 100%;
-            width: auto; height: auto;
-            transform: translate(-50%, -50%);
-            z-index: 0;
-            object-fit: cover;
+            position: absolute; top: 50%; left: 50%;
+            min-width: 100%; min-height: 100%; width: auto; height: auto;
+            transform: translate(-50%, -50%); z-index: 0; object-fit: cover;
         }
 
         .hero-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(to bottom, rgba(255,255,255,0.6) 0%, rgba(232, 239, 245, 1) 98%);
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(253, 251, 247, 0.4) 0%, rgba(253, 251, 247, 0.9) 100%);
             z-index: 1;
         }
 
-        .hero-content {
-            position: relative;
-            z-index: 10;
-            text-align: center;
-            padding-top: 50px;
+        .hero-content { position: relative; z-index: 10; text-align: center; padding-top: 50px; }
+
+        .hero-title { font-size: 4.5rem; letter-spacing: -1px; margin: 10px 0 5px 0; text-transform: uppercase; }
+        .hero-subtitle { font-size: 1.4rem; font-weight: 700; margin-bottom: 20px; }
+
+        /* ================= CAJAS GLASSMORPHISM ================= */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-glass);
+            transition: transform 0.4s ease, box-shadow 0.4s ease;
         }
 
-        .hero-title { 
-            font-size: 4.5rem; 
-            letter-spacing: -1px; 
-            margin: 10px 0 5px 0;
-            text-transform: uppercase;
-        }
-
-        .hero-subtitle { 
-            font-size: 1.4rem; 
-            font-weight: 700;
-            margin-bottom: 20px;
-        }
-
-        /* --- CAJAS DE CONTENIDO (Alto Contraste) --- */
         .content-box {
-            background: var(--white);
             padding: 50px;
-            border-radius: 12px;
-            box-shadow: var(--shadow-box);
             border-left: 6px solid var(--secondary);
             margin: 30px 0;
         }
 
-        /* --- LISTAS PERSONALIZADAS (Sustituto de emojis) --- */
-        .custom-list {
-            list-style: none;
-            padding: 0;
-            margin: 20px 0;
-        }
-
-        .custom-list li {
-            position: relative;
-            padding-left: 30px;
-            margin-bottom: 15px;
-            font-weight: 500;
-        }
-
+        /* --- LISTAS --- */
+        .custom-list { list-style: none; padding: 0; margin: 20px 0; }
+        .custom-list li { position: relative; padding-left: 30px; margin-bottom: 15px; font-weight: 600; }
         .custom-list li::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 8px;
-            width: 12px;
-            height: 12px;
-            background-color: var(--secondary);
-            border-radius: 2px; /* Cuadrado sutil */
+            content: ''; position: absolute; left: 0; top: 8px;
+            width: 12px; height: 12px; background-color: var(--secondary); border-radius: 2px;
         }
 
-        /* --- SISTEMA DE GRIDS --- */
-        .grid-2 {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 40px;
-            margin-top: 40px;
+        /* --- GRIDS --- */
+        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; margin-top: 40px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; margin-top: 40px; }
+
+        .card-training {
+            padding: 45px 30px; text-align: center; height: 100%;
+            display: flex; flex-direction: column; justify-content: center;
         }
-
-        .grid-3 {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 30px;
-            margin-top: 40px;
-        }
-
-        .card {
-            background: var(--white);
-            padding: 45px 30px;
-            border-radius: 12px;
-            box-shadow: var(--shadow-box);
-            border: var(--border-soft);
-            transition: transform 0.3s ease;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .card:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); }
-        .card h3 { font-size: 1.5rem; margin-bottom: 15px; text-transform: uppercase; }
-
-        .card-center { text-align: center; justify-content: center; }
+        .card-training:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(18, 43, 70, 0.12); }
+        .card-training h3 { font-size: 1.5rem; margin-bottom: 15px; text-transform: uppercase; }
 
         /* --- FRASE CITA --- */
         .quote-block {
-            font-size: 2.2rem;
-            font-weight: 800;
-            font-style: italic;
-            text-align: center;
-            line-height: 1.4;
-            max-width: 900px;
-            margin: 0 auto;
+            font-size: 2.2rem; font-weight: 800; font-style: italic;
+            text-align: center; line-height: 1.4; max-width: 900px; margin: 0 auto;
         }
 
-        /* --- DETALLES DE EVENTO Y CTA --- */
-        .pricing-card {
-            background: var(--white);
-            padding: 60px;
-            border-radius: 16px;
-            box-shadow: var(--shadow-box);
-            margin-top: 40px;
-            border: 3px solid var(--primary);
-        }
+        /* --- DETALLES Y CTA --- */
+        .pricing-card { padding: 60px; margin-top: 40px; border: 2px solid rgba(255,255,255,0.8); }
 
         .cta-button {
-            display: inline-block;
-            background: var(--primary);
-            color: var(--white);
-            padding: 20px 45px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 800;
-            font-size: 1.1rem;
-            letter-spacing: 2px;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            box-shadow: 0 10px 20px rgba(18, 43, 70, 0.2);
+            display: inline-block; background: var(--primary); color: var(--white);
+            padding: 20px 45px; border-radius: 50px; text-decoration: none;
+            font-weight: 800; font-size: 1.1rem; letter-spacing: 2px;
+            transition: all 0.3s; text-transform: uppercase; box-shadow: 0 10px 20px rgba(18, 43, 70, 0.2);
         }
-
         .cta-button:hover {
-            background: var(--secondary);
-            transform: translateY(-3px);
-            color: white;
+            background: var(--secondary); transform: translateY(-3px); color: white;
             box-shadow: 0 15px 25px rgba(86, 139, 189, 0.4);
         }
 
         .whatsapp-float {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            background: var(--whatsapp);
-            color: white;
-            padding: 16px 28px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4);
-            z-index: 9999;
-            transition: transform 0.3s;
+            position: fixed; bottom: 30px; right: 30px; background: var(--whatsapp);
+            color: white; padding: 16px 28px; border-radius: 50px; text-decoration: none;
+            font-weight: 800; display: flex; align-items: center;
+            box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4); z-index: 9999; transition: transform 0.3s;
         }
         .whatsapp-float:hover { transform: scale(1.05); }
 
-        /* --- MEDIA QUERIES --- */
-        @media (max-width: 992px) {
-            .grid-2 { grid-template-columns: 1fr; gap: 30px; }
-            .grid-3 { grid-template-columns: 1fr; }
-        }
+        footer { padding: 50px 0; text-align: center; margin-top: 50px; }
 
+        /* --- MEDIA QUERIES --- */
+        @media (max-width: 992px) { .grid-2 { grid-template-columns: 1fr; gap: 30px; } .grid-3 { grid-template-columns: 1fr; } }
         @media (max-width: 768px) {
             .hero-video-section { height: 70vh; min-height: 500px; }
-            .hero-title { font-size: 3rem; }
-            .section-title { font-size: 2rem; }
-            .quote-block { font-size: 1.6rem; }
-            .content-box { padding: 30px; }
-            .pricing-card { padding: 30px 20px; }
+            .hero-title { font-size: 3rem; } .section-title { font-size: 2rem; }
+            .quote-block { font-size: 1.6rem; } .content-box { padding: 30px; } .pricing-card { padding: 30px 20px; }
         }
     </style>
 </head>
 <body>
+
+    <div id="watercolor-canvas">
+        <div id="flow-grid"></div>
+        <div id="liquid-blobs">
+            <div class="blob blob1"></div>
+            <div class="blob blob2"></div>
+            <div class="blob blob3"></div>
+        </div>
+    </div>
 
     <div class="hero-video-section">
         <video class="hero-video" autoplay loop muted playsinline>
@@ -291,7 +221,7 @@
             </p>
             
             <div style="margin-top: 30px;" data-aos="fade-up" data-aos-delay="200">
-                <p style="font-weight: 800; font-size: 1.2rem; background: var(--white); display: inline-block; padding: 10px 20px; border-radius: 8px; box-shadow: var(--shadow-box);">
+                <p class="glass-panel" style="font-weight: 800; font-size: 1.2rem; display: inline-block; padding: 15px 25px; margin-bottom:0;">
                     "Reprogramación interna a través del cuerpo, la mente y el corazón"
                 </p>
                 <p style="margin-top: 15px; font-weight: 600;">La dimensión interna del Nivel 1. Una forma distinta de practicar.</p>
@@ -299,7 +229,7 @@
         </div>
     </div>
 
-    <section class="bg-page">
+    <section>
         <div class="container">
             <div class="grid-2" style="align-items: center;">
                 <div data-aos="fade-right">
@@ -314,26 +244,26 @@
                     <p>La mente sigue inestable. Las emociones siguen reaccionando. El cuerpo acumula tensión otra vez.</p>
                 </div>
                 
-                <div class="content-box" data-aos="fade-left" style="margin: 0;">
+                <div class="glass-panel content-box" data-aos="fade-left" style="margin: 0;">
                     <h3 style="font-size: 1.6rem; margin-bottom: 20px;">Entonces aparece una pregunta distinta:</h3>
                     <p style="font-size: 1.2rem; font-style: italic; font-weight: 700; color: var(--secondary);">¿Y si el problema no es la técnica... sino la forma en que estás percibiendo?</p>
-                    <hr style="border:none; border-top: 1px solid #ddd; margin: 20px 0;">
+                    <hr style="border:none; border-top: 1px solid rgba(18, 43, 70, 0.2); margin: 20px 0;">
                     <p>El Maestro <strong>Zhen Qingchuan</strong> presenta una forma poco común de abordar el Nivel 1: <br>no desde el movimiento, sino desde la <strong>reconfiguración de tu sistema interno</strong>.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <section class="bg-white">
+    <section>
         <div class="container">
             <div class="grid-2">
                 <div data-aos="fade-up">
                     <h3 style="color: var(--secondary); text-transform: uppercase; margin-bottom: 10px;">Biohackeo Original</h3>
                     <h2 style="font-size: 2rem; margin-bottom: 20px;">Hoy se habla de biohackear el cuerpo.</h2>
                     <p>Pero en las tradiciones internas, esto siempre ha existido: <strong>la mente modifica el Qi y el Qi reorganiza el cuerpo.</strong></p>
-                    <div style="background: var(--bg-light); padding: 20px; border-radius: 8px; margin-top: 20px;">
-                        <p style="font-weight: 800; letter-spacing: 1px;">YI DAO · QI DAO · XING SUI QI XING</p>
-                        <p style="font-size: 0.9rem;">(La mente guía, el Qi sigue, el cuerpo responde)</p>
+                    <div class="glass-panel" style="padding: 20px; border-radius: 8px; margin-top: 20px;">
+                        <p style="font-weight: 800; letter-spacing: 1px; margin-bottom: 5px;">YI DAO · QI DAO · XING SUI QI XING</p>
+                        <p style="font-size: 0.9rem; margin-bottom: 0;">(La mente guía, el Qi sigue, el cuerpo responde)</p>
                     </div>
                 </div>
 
@@ -349,38 +279,38 @@
                 </div>
             </div>
 
-            <div class="content-box" style="margin-top: 50px;" data-aos="zoom-in">
-                <h3 style="text-align: center; margin-bottom: 20px;">El Nivel 1 — Peng Qi Guan Ding Fa</h3>
-                <p style="text-align: center;">Es el método fundamental del sistema. Pero su esencia no es el movimiento. Es esto:</p>
+            <div class="glass-panel content-box" style="margin-top: 50px; border-left: none; text-align: center;" data-aos="zoom-in">
+                <h3 style="margin-bottom: 20px;">El Nivel 1 — Peng Qi Guan Ding Fa</h3>
+                <p>Es el método fundamental del sistema. Pero su esencia no es el movimiento. Es esto:</p>
                 <div class="grid-3" style="margin-top: 30px;">
-                    <div style="text-align: center;"><span class="highlight" style="font-size: 2rem;">1</span><p>Abrir el cuerpo para intercambiar información con el entorno.</p></div>
-                    <div style="text-align: center;"><span class="highlight" style="font-size: 2rem;">2</span><p>Usar la mente (Yi) para organizar el Qi.</p></div>
-                    <div style="text-align: center;"><span class="highlight" style="font-size: 2rem;">3</span><p>Permitir que el Qi regule el cuerpo.</p></div>
+                    <div><span class="highlight" style="font-size: 2rem;">1</span><p>Abrir el cuerpo para intercambiar información con el entorno.</p></div>
+                    <div><span class="highlight" style="font-size: 2rem;">2</span><p>Usar la mente (Yi) para organizar el Qi.</p></div>
+                    <div><span class="highlight" style="font-size: 2rem;">3</span><p>Permitir que el Qi regule el cuerpo.</p></div>
                 </div>
-                <p style="text-align: center; font-weight: 800; margin-top: 30px; font-size: 1.2rem;">El movimiento es solo el medio.</p>
+                <p style="font-weight: 800; margin-top: 30px; font-size: 1.2rem; margin-bottom: 0;">El movimiento es solo el medio.</p>
             </div>
         </div>
     </section>
 
-    <section class="bg-light">
+    <section>
         <div class="container">
             <h2 class="section-title text-center" style="display: block;" data-aos="fade-up">El error más común</h2>
             
             <div class="grid-2">
-                <div class="card" data-aos="fade-right">
+                <div class="glass-panel card-training" data-aos="fade-right">
                     <h3>Muchos practican así:</h3>
-                    <ul class="custom-list">
+                    <ul class="custom-list" style="text-align: left; display: inline-block; margin: 0 auto;">
                         <li>Siguen la forma.</li>
                         <li>Buscan sensaciones.</li>
                         <li>Repiten la secuencia.</li>
                     </ul>
-                    <p style="font-weight: 700; margin-top: 20px;">Pero el sistema no cambia profundamente.</p>
+                    <p style="font-weight: 700; margin-top: 20px; color: var(--secondary);">Pero el sistema no cambia profundamente.</p>
                 </div>
                 
-                <div class="card" style="background: var(--primary); color: white;" data-aos="fade-left">
+                <div class="glass-panel card-training" style="background: rgba(18, 43, 70, 0.85); color: white; border: none;" data-aos="fade-left">
                     <h3 style="color: white;">¿Por qué? Porque el Qi sigue a la mente.</h3>
                     <p>Y si la mente está: <strong>dispersa, reactiva o emocionalmente inestable</strong>, el Qi también lo estará.</p>
-                    <ul class="custom-list" style="margin-top: 20px;">
+                    <ul class="custom-list" style="text-align: left; display: inline-block; margin: 20px auto 0 auto;">
                         <li style="color: white;">Eso genera estancamientos.</li>
                         <li style="color: white;">Y los estancamientos se convierten en desequilibrios.</li>
                     </ul>
@@ -389,7 +319,7 @@
         </div>
     </section>
 
-    <section class="bg-white">
+    <section>
         <div class="container">
             <h2 class="section-title text-center" style="display: block;" data-aos="fade-up">Aquí entra el corazón</h2>
             
@@ -409,7 +339,7 @@
                 </div>
             </div>
 
-            <div class="content-box" style="margin-top: 50px;" data-aos="fade-up">
+            <div class="glass-panel content-box" style="margin-top: 50px; border-left: none;" data-aos="fade-up">
                 <div class="grid-2" style="margin-top: 0;">
                     <div>
                         <h3 style="color: var(--secondary);">¿Cómo sana el corazón?</h3>
@@ -419,7 +349,7 @@
                             <li>El cerebro deja de reaccionar automáticamente.</li>
                             <li>El cuerpo recibe señales organizadas.</li>
                         </ul>
-                        <p style="font-weight: 700;">El cuerpo deja de sobrevivir y comienza a repararse.</p>
+                        <p style="font-weight: 700; margin-bottom: 0;">El cuerpo deja de sobrevivir y comienza a repararse.</p>
                     </div>
                     <div>
                         <h3 style="color: var(--secondary);">La base de ZhiNeng</h3>
@@ -435,15 +365,17 @@
         </div>
     </section>
 
-    <section class="bg-dark" style="padding: 100px 0;">
+    <section>
         <div class="container">
-            <p class="quote-block" data-aos="zoom-in">
-                "El Qi que nutre no sigue cualquier mente. Sigue una mente estable. Y la estabilidad de la mente depende del <span style="color: var(--secondary); text-transform: uppercase;">corazón</span>."
-            </p>
+            <div class="glass-panel" style="padding: 80px 40px; text-align: center;" data-aos="zoom-in">
+                <p class="quote-block">
+                    "El Qi que nutre no sigue cualquier mente. Sigue una mente estable. Y la estabilidad de la mente depende del <span style="color: var(--secondary); text-transform: uppercase;">corazón</span>."
+                </p>
+            </div>
         </div>
     </section>
 
-    <section class="bg-page">
+    <section>
         <div class="container">
             <div class="text-center" data-aos="fade-up">
                 <h2 class="section-title">El Diferenciador Real</h2>
@@ -451,7 +383,7 @@
             </div>
 
             <div class="grid-2">
-                <div class="card" data-aos="fade-right">
+                <div class="glass-panel card-training" style="text-align: left;" data-aos="fade-right">
                     <h3>Explicación clara</h3>
                     <p>Normalmente percibes: sensaciones, energía, el cuerpo.</p>
                     <p><strong>Aquí comienzas a percibir:</strong></p>
@@ -461,28 +393,28 @@
                         <li>La quietud donde todo aparece.</li>
                     </ul>
                 </div>
-                <div class="card" data-aos="fade-left">
+                <div class="glass-panel card-training" style="text-align: left;" data-aos="fade-left">
                     <h3>Qué cambia</h3>
                     <ul class="custom-list">
                         <li>Dejas de forzar la práctica.</li>
                         <li>El Qi deja de ser algo que persigues.</li>
                         <li>El sistema empieza a organizarse solo.</li>
                     </ul>
-                    <div style="background: var(--bg-page); padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <div style="background: rgba(255,255,255,0.5); padding: 15px; border-radius: 8px; margin-top: 15px;">
                         <p style="font-weight: 700; margin-bottom: 0;">El movimiento ya no es el centro. La percepción lo es todo.</p>
                     </div>
                 </div>
             </div>
 
-            <div class="content-box" style="margin-top: 50px; text-align: center;" data-aos="fade-up">
+            <div class="glass-panel content-box" style="margin-top: 50px; text-align: center; border-left: none;" data-aos="fade-up">
                 <h3 style="text-transform: uppercase; color: var(--secondary);">Biohackeo Real</h3>
                 <p>Hoy el biohackeo busca optimizar el cuerpo y mejorar el rendimiento. Este método hace algo más profundo: <strong>reprograma la relación entre mente, emoción y cuerpo.</strong> Sin tecnología. Sin suplementos. A través de atención, percepción y coherencia interna.</p>
-                <p style="font-size: 1.4rem; font-weight: 800; margin-top: 20px;">"No estás hackeando tu cuerpo desde afuera. Estás reorganizando tu sistema desde dentro."</p>
+                <p style="font-size: 1.4rem; font-weight: 800; margin-top: 20px; margin-bottom: 0;">"No estás hackeando tu cuerpo desde afuera. Estás reorganizando tu sistema desde dentro."</p>
             </div>
         </div>
     </section>
 
-    <section class="bg-white">
+    <section>
         <div class="container">
             <div class="text-center" data-aos="fade-up">
                 <h2 class="section-title">Lo que entrenarás</h2>
@@ -490,45 +422,45 @@
             </div>
             
             <div class="grid-2" style="margin-top: 40px;">
-                <div class="card card-center" data-aos="flip-up" data-aos-delay="0">
+                <div class="glass-panel card-training" data-aos="flip-up" data-aos-delay="0">
                     <h3 class="highlight">1. Cuerpo</h3>
                     <p>Movimiento simple, continuo, sin tensión.</p>
                 </div>
-                <div class="card card-center" data-aos="flip-up" data-aos-delay="100">
+                <div class="glass-panel card-training" data-aos="flip-up" data-aos-delay="100">
                     <h3 class="highlight">2. Mente</h3>
                     <p>Dirección clara sin esfuerzo.</p>
                 </div>
-                <div class="card card-center" data-aos="flip-up" data-aos-delay="200">
+                <div class="glass-panel card-training" data-aos="flip-up" data-aos-delay="200">
                     <h3 class="highlight">3. Corazón</h3>
                     <p>Estabilidad emocional y coherencia.</p>
                 </div>
-                <div class="card card-center" data-aos="flip-up" data-aos-delay="300">
+                <div class="glass-panel card-training" data-aos="flip-up" data-aos-delay="300">
                     <h3 class="highlight">4. Percepción</h3>
                     <p>Capacidad de sentir el espacio donde todo ocurre.</p>
                 </div>
             </div>
 
-            <div class="content-box" style="text-align: center; background: var(--primary); color: white;" data-aos="fade-up">
+            <div class="glass-panel" style="margin-top: 40px; padding: 40px; text-align: center; background: rgba(18, 43, 70, 0.85); color: white; border: none;" data-aos="fade-up">
                 <h3 style="color: white; margin-bottom: 20px;">El Resultado de la Integración</h3>
-                <p>La mente deja de dispersarse • El Qi deja de bloquearse • El cuerpo deja de acumular tensión • La práctica deja de ser repetición</p>
+                <p style="font-weight: 500; margin-bottom: 0; font-size: 1.1rem;">La mente deja de dispersarse • El Qi deja de bloquearse • El cuerpo deja de acumular tensión • La práctica deja de ser repetición</p>
             </div>
         </div>
     </section>
 
-    <section class="bg-light">
+    <section>
         <div class="container">
             <h2 class="section-title text-center" style="display: block;" data-aos="fade-up">¿Para quién es?</h2>
             
             <div class="grid-3">
-                <div class="card card-center" data-aos="fade-up" data-aos-delay="100">
+                <div class="glass-panel card-training" data-aos="fade-up" data-aos-delay="100">
                     <h3>Quienes ya practican</h3>
                     <p>Sentirán que el método cambia completamente.</p>
                 </div>
-                <div class="card card-center" data-aos="fade-up" data-aos-delay="200">
+                <div class="glass-panel card-training" data-aos="fade-up" data-aos-delay="200">
                     <h3>Instructores</h3>
                     <p>Entenderán por qué algunos de sus alumnos no avanzan.</p>
                 </div>
-                <div class="card card-center" data-aos="fade-up" data-aos-delay="300">
+                <div class="glass-panel card-training" data-aos="fade-up" data-aos-delay="300">
                     <h3>Nuevos Practicantes</h3>
                     <p>Comenzarán desde una base correcta (desde la percepción, no la forma).</p>
                 </div>
@@ -536,37 +468,37 @@
         </div>
     </section>
 
-    <section class="bg-white">
+    <section>
         <div class="container text-center">
             <h2 style="font-size: 2rem; max-width: 800px; margin: 0 auto 40px auto; line-height: 1.4;" data-aos="fade-up">
-                Muchos aprenden a mover el Qi. Pocos aprenden a estabilizar la mente. <span class="highlight">Y aún menos aprenden a percibir el espacio donde todo ocurre.</span>
+                Muchos aprenden a mover el Qi. Pocos aprenden a estabilizar la mente. <br><span class="highlight">Y aún menos aprenden a percibir el espacio donde todo ocurre.</span>
             </h2>
             
-            <div class="pricing-card" data-aos="zoom-in">
-                <h3 style="font-size: 2rem; margin-bottom: 10px;">Reserva tu lugar</h3>
-                <p style="font-weight: 600; color: #555;">El Maestro Zhen estará en México por tiempo limitado. Este tipo de entrenamiento no ocurre de forma frecuente.</p>
+            <div class="glass-panel pricing-card" data-aos="zoom-in">
+                <h3 style="font-size: 2.5rem; margin-bottom: 10px;">Reserva tu lugar</h3>
+                <p style="font-weight: 600; color: var(--primary);">El Maestro Zhen estará en México por tiempo limitado. Este tipo de entrenamiento no ocurre de forma frecuente.</p>
                 
                 <div style="margin: 40px 0;">
                     <p style="text-transform: uppercase; letter-spacing: 2px; color: var(--secondary); font-weight: 800; font-size: 1rem;">Inversión</p>
-                    <div style="font-size: 3.5rem; font-weight: 800; color: var(--primary); margin: 10px 0; line-height: 1;">$7,000 <span style="font-size: 1.5rem;">MXN</span></div>
-                    <div style="background: #fff8e1; color: #b78700; padding: 10px 25px; border-radius: 50px; font-weight: 800; font-size: 1rem; display: inline-block;">🎁 10% DE DESCUENTO ANTES DEL 30 DE ABRIL</div>
-                    <p style="font-size: 0.8rem; margin-top: 10px;">*Precios sin IVA.</p>
+                    <div style="font-size: 3.8rem; font-weight: 800; color: var(--primary); margin: 10px 0; line-height: 1;">$7,000 <span style="font-size: 1.5rem;">MXN</span></div>
+                    <div style="background: rgba(255, 255, 255, 0.8); color: #d4a373; padding: 10px 25px; border-radius: 50px; font-weight: 800; font-size: 1rem; display: inline-block; border: 1px solid #d4a373;">🎁 10% DE DESCUENTO ANTES DEL 30 DE ABRIL</div>
+                    <p style="font-size: 0.8rem; margin-top: 10px; opacity: 0.8;">*Precios sin IVA.</p>
                 </div>
 
-                <hr style="border: none; border-top: 2px solid var(--bg-page); margin: 30px 0;">
+                <hr style="border: none; border-top: 1px solid rgba(18, 43, 70, 0.1); margin: 30px 0;">
 
                 <div class="grid-2" style="text-align: left; margin-top: 0; gap: 20px;">
-                    <div style="background: var(--bg-page); padding: 25px; border-radius: 12px;">
+                    <div style="background: rgba(255,255,255,0.4); padding: 25px; border-radius: 12px;">
                         <h4 style="margin-bottom: 10px; color: var(--secondary);">📍 Detalles del Evento</h4>
                         <p><strong>Modalidad:</strong> Presencial en México</p>
-                        <p><strong>Lugar:</strong> Calzada Santa Cruz Cacalco #15, Col. San Joaquín, Alcaldía Miguel Hidalgo, CDMX. (Aula Edith)</p>
+                        <p><strong>Lugar:</strong> Calzada Santa Cruz Cacalco #15, Col. San Joaquín, CDMX. (Aula Edith)</p>
                         <p><strong>Fecha:</strong> 29, 30 y 31 de mayo</p>
                         <p><strong>Horarios:</strong><br>Viernes: 10:00 a 17:00 hrs<br>Sáb y Dom: 9:00 a 18:00 hrs</p>
                         <p style="margin-top: 10px; font-weight: 700;">✔️ Incluye: Comidas y coffee break.</p>
                     </div>
-                    <div style="background: var(--bg-page); padding: 25px; border-radius: 12px;">
+                    <div style="background: rgba(255,255,255,0.4); padding: 25px; border-radius: 12px;">
                         <h4 style="margin-bottom: 10px; color: var(--secondary);">🏠 Hospedaje (Opcional)</h4>
-                        <p>El lugar cuenta con 12 habitaciones dobles extremadamente sencillas.</p>
+                        <p>El lugar cuenta con 12 habitaciones dobles sencillas.</p>
                         <ul class="custom-list">
                             <li>Los cuartos no tienen baño propio.</li>
                             <li>Los baños son comunes.</li>
@@ -583,10 +515,12 @@
         </div>
     </section>
 
-    <footer style="padding: 50px 0; text-align: center; background: var(--bg-light); color: var(--primary);">
+    <footer>
         <div class="container">
-            <p style="font-weight: 800; font-size: 1.2rem;">AUREON</p>
-            <p>Contacto: Indira Plata</p>
+            <p class="glass-panel" style="display: inline-block; padding: 20px 40px; border-radius: 50px;">
+                <span style="font-weight: 800; font-size: 1.2rem; display: block; margin-bottom: 5px;">AUREON</span>
+                Contacto: Indira Plata
+            </p>
         </div>
     </footer>
 
@@ -598,12 +532,76 @@
     </a>
 
     <script src="https://unpkg.com/aos@next/dist/aos.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
     <script>
-        AOS.init({ 
-            duration: 800, 
-            once: true, 
-            offset: 50,
-            disable: 'mobile'
+        // Inicializar AOS
+        AOS.init({ duration: 800, once: true, offset: 50, disable: 'mobile' });
+
+        // ================================================================
+        // FONDO ACUARELA LÍQUIDA INTERACTIVA (GSAP)
+        // ================================================================
+        const grid = document.getElementById('flow-grid');
+        const cells = [];
+        const totalCells = 20 * 20;
+
+        // Crear las células de la malla invisible
+        for (let i = 0; i < totalCells; i++) {
+            const cell = document.createElement('div');
+            cell.classList.add('grid-cell');
+            grid.appendChild(cell);
+            cells.push(cell);
+        }
+
+        // Seguir el cursor para crear flujo
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let flowActive = true; // Activo por defecto para movimiento inicial
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            flowActive = true;
+        });
+        
+        // Soporte táctil
+        document.addEventListener('touchmove', (e) => {
+            mouseX = e.touches[0].clientX;
+            mouseY = e.touches[0].clientY;
+            flowActive = true;
+        }, {passive: true});
+
+        // Loop de renderizado para el flujo
+        gsap.ticker.add(() => {
+            if (!flowActive) return;
+
+            // Movimiento suave de las manchas
+            gsap.to('.blob1', { x: (mouseX - window.innerWidth / 2) * 0.05, y: (mouseY - window.innerHeight / 2) * 0.05, duration: 1.5, ease: "power2.out" });
+            gsap.to('.blob2', { x: (mouseX - window.innerWidth / 2) * -0.04, y: (mouseY - window.innerHeight / 2) * -0.04, duration: 1.5, ease: "power2.out" });
+            gsap.to('.blob3', { x: (mouseX - window.innerWidth / 2) * 0.06, y: (mouseY - window.innerHeight / 2) * 0.06, duration: 1.5, ease: "power2.out" });
+
+            // Efecto de deformación/onda en la malla
+            cells.forEach(cell => {
+                const cellRect = cell.getBoundingClientRect();
+                const cellX = cellRect.left + cellRect.width / 2;
+                const cellY = cellRect.top + cellRect.height / 2;
+                
+                const dx = mouseX - cellX;
+                const dy = mouseY - cellY;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < 300) {
+                    const deformFactor = Math.max(0, 1 - dist / 300);
+                    gsap.set(cell, { 
+                        scale: 1 + deformFactor * 0.6,
+                        // Tinte sutil cian interactivo
+                        backgroundColor: `rgba(168, 237, 234, ${deformFactor * 0.15})` 
+                    });
+                } else {
+                    gsap.set(cell, { scale: 1, backgroundColor: "rgba(255,255,255,0)" });
+                }
+            });
+            flowActive = false; 
         });
     </script>
 </body>
