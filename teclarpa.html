@@ -83,7 +83,6 @@
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
             width: 300px; height: 80px; 
             pointer-events: none;
-            /* Sin fondo ni bordes para ser minimalista */
         }
     </style>
     
@@ -224,7 +223,7 @@
         };
 
         // ==========================================
-        // 2. MOTOR GRÁFICO (RESTAURACIÓN Y MEJORAS)
+        // 2. MOTOR GRÁFICO (CILINDRO METÁLICO CLARO)
         // ==========================================
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x030304);
@@ -238,23 +237,25 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // --- CILINDRO PRINCIPAL (VOLUMEN Y TEXTURA) ---
+        // --- CILINDRO PRINCIPAL (AHORA ES PLATA/ALUMINIO) ---
         const drumGroup = new THREE.Group();
         
         const drumGeo = new THREE.CylinderGeometry(CONFIG.radius, CONFIG.radius, 14, 64);
         drumGeo.rotateZ(Math.PI/2); 
+        
+        // CORRECCIÓN: Color plata claro, altamente metálico y semi-pulido
         const drumMat = new THREE.MeshStandardMaterial({ 
-            color: 0x111111, 
-            roughness: 0.35,  
-            metalness: 0.8   
+            color: 0xa0a0a0,  // Plata claro
+            roughness: 0.35,  // Difumina la luz suavemente
+            metalness: 0.95   // Alta reflectividad metálica
         });
         const drum = new THREE.Mesh(drumGeo, drumMat);
         drumGroup.add(drum);
 
-        // Anillos divisores sutiles
+        // Anillos divisores sutiles (más oscuros para dar contraste)
         for(let i=0; i<CONFIG.tracks; i++) {
             const rGeo = new THREE.TorusGeometry(CONFIG.radius + 0.02, 0.04, 16, 100);
-            const rMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.8 });
+            const rMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 });
             const rMesh = new THREE.Mesh(rGeo, rMat);
             rMesh.rotateY(Math.PI/2);
             rMesh.position.x = ((i / 3) * 6) - 3;
@@ -271,7 +272,8 @@
             const xPos = ((i / 3) * 6) - 3;
             armGroup.position.set(xPos, CONFIG.radius + 1.5, 0);
             
-            const boxMat = new THREE.MeshStandardMaterial({color: 0x222222, metalness: 0.5, roughness: 0.7});
+            // Brazos oscuros para contrastar con el cilindro claro
+            const boxMat = new THREE.MeshStandardMaterial({color: 0x151515, metalness: 0.8, roughness: 0.5});
             const box = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3, 0.3), boxMat);
             
             const bulbGeo = new THREE.SphereGeometry(0.2, 16, 16);
@@ -294,14 +296,14 @@
         scene.add(ambient);
         
         // Luz principal cálida (Da volumen al cilindro)
-        const mainSpot = new THREE.SpotLight(0xffddaa, 1.2);
+        const mainSpot = new THREE.SpotLight(0xffddaa, 1.5);
         mainSpot.position.set(15, 25, 15);
         mainSpot.angle = Math.PI / 4;
         mainSpot.penumbra = 0.5;
         scene.add(mainSpot);
 
-        // Luz de relleno fría opuesta (Contraste)
-        const fillLight = new THREE.PointLight(0x0055ff, 0.8, 50);
+        // Luz de relleno fría opuesta (Reflejo en el metal)
+        const fillLight = new THREE.PointLight(0x0055ff, 1.0, 50);
         fillLight.position.set(-15, -5, 10);
         scene.add(fillLight);
 
@@ -466,7 +468,7 @@
             const buffer = new Uint8Array(AudioEngine.analyser.frequencyBinCount);
             AudioEngine.analyser.getByteTimeDomainData(buffer);
 
-            // Borrar lienzo completo (Sin fondo semi-transparente para mayor limpieza)
+            // Borrar lienzo completo
             cCtx.clearRect(0, 0, w, h);
             
             // Efecto Glow para la línea central
