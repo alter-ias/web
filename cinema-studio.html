@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALTERLAB STUDIO v23 | API Fixed</title>
+    <style>
+        :root {
+            --bg-canvas: #0f1015; --bg-panel: #16171d; --bg-node: #21222c;
+            --border: #2d2f3d; --text-main: #f8f8f2; --text-muted: #8b92a5;
+            --accent-scene: #3498db; --accent-shot: #f39c12; --accent-char: #9b59b6;
+            --accent-loc: #2ecc71; --accent-prop: #e74c3c; --accent-ai: #00d2ff;
+            --select-box: rgba(52, 152, 219, 0.15);
+            --font-ui: 'Inter', 'Segoe UI', sans-serif;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+        body { margin: 0; overflow: hidden; background: var(--bg-canvas); color: var(--text-main); font-family: var(--font-ui); font-size: 10.5px; }
+
+        /* HEADER */
+        header { position: absolute; top: 0; left: 0; width: 100%; height: 36px; background: var(--bg-panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+        .logo { font-weight: 900; letter-spacing: 1px; font-size: 0.85rem; display: flex; align-items: center; gap: 15px;}
+        .logo span { color: var(--accent-shot); }
+        
+        .project-controls { display: flex; align-items: center; gap: 5px; background: #0b0c0f; padding: 3px 6px; border-radius: 4px; border: 1px solid var(--border);}
+        .project-controls select { background: transparent; color: white; border: none; outline: none; font-size: 0.7rem; font-weight: bold; cursor: pointer; max-width: 150px;}
+        .project-controls button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 0 4px; transition: 0.2s;}
+        .project-controls button:hover { color: white; }
+        .project-controls .delete-btn:hover { color: #e74c3c; }
+
+        .ui-btn { background: #333; color: white; border: 1px solid #555; padding: 4px 8px; cursor: pointer; border-radius: 3px; font-weight: bold; transition: 0.2s; font-size: 0.65rem; display: flex; align-items: center; gap: 4px; justify-content: center;}
+        .ui-btn:hover:not(:disabled) { background: var(--text-main); color: #000; }
+        .ui-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ai-btn { background: linear-gradient(45deg, #00d2ff, #3a7bd5); border: none; color: black; }
+        .import-btn { background: #8e44ad; border-color: #9b59b6;}
+
+        /* PANELS */
+        .entity-sidebar { position: absolute; top: 36px; left: 0; width: 220px; height: calc(100vh - 36px); background: var(--bg-panel); border-right: 1px solid var(--border); z-index: 90; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden;}
+        .toolkit-sidebar { position: absolute; top: 36px; right: 0; width: 220px; height: calc(100vh - 36px); background: var(--bg-panel); border-left: 1px solid var(--border); z-index: 90; display: flex; flex-direction: column; overflow-x: hidden;}
+        .panel-header { padding: 8px; background: #0b0c0f; font-weight: bold; font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: center;}
+        
+        .entity-section { padding: 8px; border-bottom: 1px solid var(--border); }
+        .entity-section-title { font-size: 0.65rem; color: var(--text-muted); margin-bottom: 6px; font-weight: bold; text-transform: uppercase; }
+        
+        .entity-input-group { display: flex; gap: 4px; margin-bottom: 6px; align-items: flex-start; width: 100%;}
+        .entity-input-group textarea { flex: 1; padding: 6px; border-radius: 3px; border: 1px solid var(--border); background: #111; color: white; font-size:0.7rem; min-width: 0; height: 50px; resize: vertical; font-family: inherit;}
+        .file-upload-btn { background: #222; border: 1px solid var(--border); color: white; padding: 4px; cursor: pointer; border-radius: 3px; display: flex; align-items: center; justify-content: center; width: 24px; flex-shrink: 0; font-size: 0.7rem;}
+        .add-btn { background: var(--accent-scene); width: 24px; height: 24px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 3px; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s;}
+        .add-btn:hover { background: #2980b9; transform: scale(1.05); }
+
+        .entity-list { display: flex; flex-direction: column; gap: 3px; max-height: 120px; overflow-y: auto;}
+        .entity-pill { padding: 4px; border-radius: 3px; font-size: 0.7rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px; border: 1px solid transparent; transition: 0.2s; }
+        .entity-pill:hover { filter: brightness(1.2); transform: translateX(2px); }
+        .entity-pill img { width: 19px; height: 19px; border-radius: 2px; object-fit: cover; background: #000; cursor: zoom-in; }
+        .entity-pill span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .entity-pill.char { background: rgba(155, 89, 182, 0.15); border-color: rgba(155, 89, 182, 0.5); color: #dcb6f0; }
+        .entity-pill.loc { background: rgba(46, 204, 113, 0.15); border-color: rgba(46, 204, 113, 0.5); color: #a3e4be; }
+        .entity-pill.prop { background: rgba(231, 76, 60, 0.15); border-color: rgba(231, 76, 60, 0.5); color: #f5b7b1; }
+
+        /* AI & TOOLKIT */
+        .ai-panel { padding: 8px; border-bottom: 1px solid var(--border); background: #11141a; }
+        .ai-panel select, .ai-panel input { width: 100%; margin-bottom: 4px; padding: 4px; background: #0b0c0f; color: white; border: 1px solid var(--border); border-radius: 3px; font-size: 0.7rem;}
+        .ai-output { width: 100%; height: 60px; background: #000; border: 1px solid var(--border); color: var(--accent-ai); font-family: monospace; font-size: 0.65rem; padding: 4px; resize: vertical; margin-top: 4px; }
+        
+        .custom-tool-adder { padding: 6px; background: #1a1b22; border-bottom: 1px solid var(--border); }
+        .custom-tool-adder select, .custom-tool-adder input { width: 100%; margin-bottom: 3px; padding: 3px; background: #111; color: white; border: 1px solid var(--border); border-radius: 3px; font-size: 0.7rem;}
+        
+        .toolkit-content { flex: 1; overflow-y: auto; padding: 6px; }
+        .accordion { margin-bottom: 3px; border: 1px solid var(--border); border-radius: 3px; }
+        .acc-btn { width: 100%; text-align: left; background: #1a1b22; border: none; color: white; padding: 6px; font-weight: bold; cursor: pointer; font-size: 0.7rem;}
+        .acc-content { display: none; background: #111; max-height: 200px; overflow-y: auto;}
+        .acc-content.active { display: block; }
+        .tag-item { padding: 5px 8px; font-size: 0.65rem; cursor: pointer; border-bottom: 1px solid #222; color: #bbb;}
+        .tag-item:hover { background: #333; color: white; }
+
+        /* CANVAS */
+        #canvas-wrapper { position: absolute; top: 36px; left: 220px; width: calc(100vw - 440px); height: calc(100vh - 36px); overflow: hidden; cursor: grab; }
+        #canvas-wrapper:active { cursor: grabbing; }
+        #canvas { position: absolute; top: 0; left: 0; width: 15000px; height: 15000px; transform-origin: 0 0; background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 24px 24px; }
+        svg.connections { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        path.link { fill: none; stroke: #666; stroke-width: 1.5px; }
+        path.link.scene-link { stroke: var(--accent-scene); stroke-dasharray: 4,4; stroke-width: 2.5px; }
+        .selection-box { position: absolute; border: 1px solid rgba(52, 152, 219, 0.8); background: var(--select-box); pointer-events: none; z-index: 9999; display: none; }
+
+        .floating-toolbar { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 6px; border-radius: 5px; border: 1px solid var(--border); display: flex; gap: 6px; z-index: 100; backdrop-filter: blur(5px); }
+
+        /* NODES */
+        .node { position: absolute; background: var(--bg-node); border: 2px solid transparent; border-radius: 5px; z-index: 10; box-shadow: 0 3px 8px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+        .node.selected { border-color: #3498db; box-shadow: 0 0 12px rgba(52, 152, 219, 0.4); z-index: 20; }
+        .node-header { padding: 5px 8px; font-weight: bold; font-size: 0.7rem; border-radius: 3px 3px 0 0; display: flex; justify-content: space-between; cursor: pointer; }
+        
+        .node.type-scene { width: 192px; border: 1px solid var(--accent-scene);} 
+        .node.type-scene .node-header { background: var(--accent-scene); color: white; }
+        .node.type-shot { width: 230px; border: 1px solid #444;} 
+        .node.type-shot .node-header { background: var(--accent-shot); color: black; }
+        .node.type-dialogue { width: 154px; border: 1px solid var(--accent-char);} 
+        .node.type-dialogue .node-header { background: var(--accent-char); color: white; }
+        
+        .node.type-entity_link { width: 230px; border: 1px solid #444;} 
+        .node.type-entity_link .node-body { padding: 6px; }
+        .node.type-entity_link textarea { 
+            height: 70px; background: #0b0c0f; border: 1px solid #333; color: #ddd; 
+            resize: vertical; overflow-y: auto; padding: 6px; border-radius: 3px;
+            white-space: pre-wrap; word-wrap: break-word; text-align: justify; line-height: 1.4;
+            font-family: var(--font-ui); outline: none;
+        }
+
+        .node-body { padding: 6px; display: flex; flex-direction: column; gap: 5px; }
+        .node input, .node textarea { width: 100%; background: #0b0c0f; border: 1px solid #444; color: white; padding: 5px; font-family: monospace; font-size: 0.7rem; border-radius: 2px; resize: none; }
+        .node.type-shot textarea { height: 75px; overflow-y: auto; text-align: justify; line-height: 1.3;}
+        .node-tray { min-height: 19px; background: #111; padding: 3px; border-radius: 2px; display: flex; flex-wrap: wrap; gap: 3px; }
+        .prompt-tag { background: #333; font-size: 0.6rem; padding: 2px 3px; border-radius: 2px; border-left: 2px solid var(--accent-shot); display:flex; gap:3px;}
+        .prompt-tag span { cursor:pointer; color:#aaa;} .prompt-tag span:hover{color:red;}
+        
+        .json-export-btn { width: 100%; background: #111; border: 1px dashed var(--accent-shot); color: var(--accent-shot); padding: 3px; border-radius: 2px; font-family: monospace; cursor: pointer; margin-top: 3px; transition: 0.2s; font-size: 0.6rem;}
+        .json-export-btn:hover { background: var(--accent-shot); color: black; }
+        .json-export-en { border-color: var(--accent-ai); color: var(--accent-ai); }
+        .json-export-en:hover { background: var(--accent-ai); color: black; }
+
+        .port { width: 8px; height: 8px; background: #555; border-radius: 50%; position: absolute; border: 2px solid var(--bg-node); z-index: 5; }
+        .port.out { bottom: -4px; left: calc(50% - 4px); } .port.in { top: -4px; left: calc(50% - 4px); }
+        .node.type-scene .port.out { background: var(--accent-scene); }
+
+        #lightbox { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 99999; display: none; align-items: center; justify-content: center; cursor: zoom-out; }
+        #lightbox img { max-width: 90%; max-height: 90%; border-radius: 8px; border: 2px solid #555; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
+
+        /* Modales Unificados */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 99999; display: none; align-items: center; justify-content: center; }
+        .modal-box { background: var(--bg-panel); border: 1px solid var(--border); padding: 20px; border-radius: 8px; width: 550px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+        .modal-box h3 { margin: 0; color: var(--text-main); font-size: 1.2rem; }
+        .modal-box p { font-size: 0.8rem; color: var(--text-muted); margin: 0; line-height: 1.4; }
+        .modal-box textarea { width: 100%; height: 300px; background: #0b0c0f; color: var(--accent-ai); font-family: monospace; font-size: 0.75rem; border: 1px solid var(--border); padding: 10px; border-radius: 4px; resize: none; outline: none;}
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            ALTERLAB <span>v23</span>
+            <div class="project-controls">
+                <select id="proj-selector" onchange="switchProject(this.value)"></select>
+                <button onclick="newProject()" title="Nuevo Proyecto">+</button>
+                <button class="delete-btn" onclick="clearCurrentProject()" title="Eliminar Proyecto Actual">🗑️</button>
+            </div>
+        </div>
+        
+        <div style="font-size: 0.65rem; color: #888;">
+            <b>NAVEGACIÓN:</b> Izq+Arrastrar=Mover | <b>Ctrl+Izq</b>=Selección Múltiple
+        </div>
+        
+        <div style="display:flex; gap: 6px;">
+            <button class="ui-btn import-btn" onclick="openModal('import')">[ 📥 ] Importar</button>
+            <button class="ui-btn" style="background:#27ae60;" onclick="handleExport(false)">[ 📤 ] Exportar ES</button>
+            <button class="ui-btn ai-btn" id="btn-export-en" onclick="handleExport(true)">[ 🤖 ] Traducir EN</button>
+        </div>
+    </header>
+
+    <div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img" src=""></div>
+
+    <div id="io-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="modal-title">Título</h3>
+            <p id="modal-desc">Descripción</p>
+            <textarea id="io-textarea" spellcheck="false"></textarea>
+            <div class="modal-actions" id="modal-actions"></div>
+        </div>
+    </div>
+
+    <div class="entity-sidebar">
+        <div class="panel-header">Entidades</div>
+        <div class="entity-section"><div class="entity-section-title">🌍 Escenarios</div><div class="entity-input-group"><textarea id="input-loc" placeholder="Ej: Taberna Lúgubre - Noche. Paredes de roble..."></textarea><label class="file-upload-btn">🖼️<input type="file" id="file-loc" accept="image/*" style="display:none;"></label><button class="add-btn" onclick="addEntity('loc')">+</button></div><div class="entity-list" id="list-loc"></div></div>
+        <div class="entity-section"><div class="entity-section-title">👤 Personajes</div><div class="entity-input-group"><textarea id="input-char" placeholder="Ej: EL CÍNICO: Gabardina gastada, mirada vacía..."></textarea><label class="file-upload-btn">🖼️<input type="file" id="file-char" accept="image/*" style="display:none;"></label><button class="add-btn" onclick="addEntity('char')">+</button></div><div class="entity-list" id="list-char"></div></div>
+        <div class="entity-section"><div class="entity-section-title">🔪 Objetos (Props)</div><div class="entity-input-group"><textarea id="input-prop" placeholder="Ej: Revólver viejo, pesado y frío..."></textarea><label class="file-upload-btn">🖼️<input type="file" id="file-prop" accept="image/*" style="display:none;"></label><button class="add-btn" onclick="addEntity('prop')">+</button></div><div class="entity-list" id="list-prop"></div></div>
+    </div>
+
+    <div class="toolkit-sidebar">
+        <div class="panel-header" style="color:var(--accent-ai);">🤖 Co-Director IA</div>
+        
+        <div class="ai-panel">
+            <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px;">AUTO-COMPLETAR SECUENCIA:</div>
+            <div style="display:flex; gap:3px;">
+                <input type="number" id="ai-scenes" placeholder="Esc." value="1" min="1" max="5" title="Número de Escenas" style="width: 30%;">
+                <input type="number" id="ai-duration" placeholder="Segs" value="30" min="6" max="120" title="Duración (Shots)" style="width: 30%;">
+                <button class="ui-btn ai-btn" id="btn-gen-script" onclick="generateScript()" style="width: 40%;">Guion</button>
+            </div>
+        </div>
+
+        <div class="ai-panel">
+            <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px;">LLUVIA DE IDEAS CONTEXTUAL:</div>
+            <select id="ai-idea-cat"></select>
+            <button class="ui-btn" id="btn-gen-ideas" onclick="generateIdeas()" style="width:100%;">💡 Inspirar</button>
+            <textarea class="ai-output" id="ai-idea-output" readonly placeholder="La IA analizará el proyecto..."></textarea>
+        </div>
+
+        <div class="panel-header">Monster Toolkit</div>
+        
+        <div class="custom-tool-adder">
+            <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px;">AÑADIR ELEMENTO MANUAL:</div>
+            <select id="custom-tool-cat"></select>
+            <div style="display:flex; gap:3px;">
+                <input type="text" id="custom-tool-val" placeholder="Ej: Filtro rojo">
+                <button class="ui-btn" onclick="addCustomTool()" style="padding: 3px;">Añadir</button>
+            </div>
+        </div>
+
+        <div class="toolkit-content" id="toolkit-container"></div>
+    </div>
+
+    <div id="canvas-wrapper">
+        <div id="canvas"><svg class="connections" id="svg-layer"></svg></div>
+        <div class="selection-box" id="selection-box"></div>
+        <div class="floating-toolbar">
+            <button class="ui-btn" style="border-color: var(--accent-scene);" onclick="createNode('scene')">+ Nueva ESCENA</button>
+            <button class="ui-btn" style="border-color: var(--accent-shot);" onclick="createNode('shot')">+ Añadir SHOT Visual</button>
+            <button class="ui-btn" style="border-color: var(--accent-char);" onclick="createNode('dialogue')">+ Añadir DIÁLOGO</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // SISTEMA DE MULTIPROJECTOS
+        // ==========================================
+        let projectList = JSON.parse(localStorage.getItem('alterlab_proj_list')) || ['Proyecto 1'];
+        let currentProj = localStorage.getItem('alterlab_current_proj') || 'Proyecto 1';
+
+        function initProjects() {
+            if(!projectList.includes(currentProj)) currentProj = projectList[0];
+            const sel = document.getElementById('proj-selector');
+            sel.innerHTML = projectList.map(p => `<option value="${p}" ${p === currentProj ? 'selected' : ''}>${p}</option>`).join('');
+        }
+
+        function switchProject(name) {
+            currentProj = name; localStorage.setItem('alterlab_current_proj', name); location.reload();
+        }
+
+        function newProject() {
+            let name = prompt("Nombre del nuevo proyecto:");
+            if(!name || name.trim() === '') return;
+            if(projectList.includes(name)) return alert("Ese proyecto ya existe.");
+            projectList.push(name); localStorage.setItem('alterlab_proj_list', JSON.stringify(projectList));
+            const emptyState = { entities: { loc: [], char: [], prop: [] }, nodes: [], canvas: { x: -4000, y: -4000, scale: 1 }, selectedNodeIds: [] };
+            localStorage.setItem('alterlab_data_' + name, JSON.stringify(emptyState));
+            switchProject(name);
+        }
+
+        function clearCurrentProject() {
+            if(confirm(`¿Eliminar "${currentProj}" permanentemente?`)) {
+                localStorage.removeItem('alterlab_data_' + currentProj);
+                if(projectList.length > 1) {
+                    projectList = projectList.filter(p => p !== currentProj);
+                    localStorage.setItem('alterlab_proj_list', JSON.stringify(projectList));
+                    switchProject(projectList[0]);
+                } else {
+                    const emptyState = { entities: { loc: [], char: [], prop: [] }, nodes: [], canvas: { x: -4000, y: -4000, scale: 1 }, selectedNodeIds: [] };
+                    localStorage.setItem('alterlab_data_' + currentProj, JSON.stringify(emptyState)); location.reload();
+                }
+            }
+        }
+        function getStorageKey() { return 'alterlab_data_' + currentProj; }
+
+        // ==========================================
+        // ESTADO GLOBAL Y TOOLKIT
+        // ==========================================
+        let toolkitData = [
+            { cat: "Cámaras Digitales", items: ["ARRI Alexa 65", "ARRI Alexa 35", "RED Monstro 8K VV", "Sony VENICE 2", "Blackmagic URSA 12K"] },
+            { cat: "Cámaras Analógicas / Indie", items: ["IMAX 70mm", "Panavision Millennium 35mm", "Arriflex 16mm", "Sony Hi8 (VHS)", "Cámara Térmica FLIR", "Cámara Estenopeica"] },
+            { cat: "Lentes y Encuadre", items: ["Lente Anamórfico (Flares Azules)", "Lente Cooke S4 (Cálido)", "Macro 100mm", "Ojo de Pez 8mm", "Gran Angular 14mm"] },
+            { cat: "Tamaño de Plano", items: ["Extreme Close-Up", "Close-Up", "Medium Shot", "Cowboy Shot", "Wide Shot", "Extreme Wide Shot"] },
+            { cat: "Ángulos y Movimientos", items: ["Eye Level", "Low Angle (Contrapicado)", "High Angle (Picado)", "Dutch Angle (Aberrante)", "Tracking Shot", "Steadicam", "Handheld (Inestable)", "Dolly Zoom"] },
+            { cat: "Estilo Visual", items: ["Cinematic Photorealism", "Cine Negro (B/W)", "Animación 2D Studio Ghibli", "Cyberpunk Distópico", "Steampunk", "Realismo Mágico", "Estilo Cómic"] },
+            { cat: "Iluminación y Color", items: ["Rembrandt Lighting", "High Key", "Low Key (Dramático)", "Teal & Orange", "Neon Noir", "Iluminación Volumétrica"] },
+            { cat: "Diseño Sonoro", items: ["Lluvia Torrencial", "Zumbido Fluorescente", "Synth Drone Oscuro", "Silencio Incomodo", "Latido de Corazón"] }
+        ];
+
+        let appState = { entities: { loc: [], char: [], prop: [] }, nodes: [], canvas: { x: -4000, y: -4000, scale: 1 }, selectedNodeIds: [] };
+
+        function initToolkitUI() {
+            document.getElementById('custom-tool-cat').innerHTML = toolkitData.map(g => `<option value="${g.cat}">${g.cat}</option>`).join('');
+            const aiSelect = document.getElementById('ai-idea-cat');
+            let aiHtml = `<optgroup label="Entidades de la Historia"><option value="Personajes">Personajes</option><option value="Escenarios">Escenarios</option><option value="Objetos">Objetos</option></optgroup><optgroup label="Monster Toolkit">`;
+            toolkitData.forEach(g => { aiHtml += `<option value="tk_${g.cat}">Técnicas: ${g.cat}</option>`; });
+            aiHtml += `</optgroup>`; aiSelect.innerHTML = aiHtml; renderToolkit();
+        }
+
+        function renderToolkit() {
+            document.getElementById('toolkit-container').innerHTML = toolkitData.map(group => `
+                <div class="accordion"><button class="acc-btn" onclick="this.nextElementSibling.classList.toggle('active')">📂 ${group.cat}</button>
+                <div class="acc-content">${group.items.map(item => `<div class="tag-item" onclick="injectToolkitTag('${group.cat}', '${item}')">${item}</div>`).join('')}</div></div>`).join('');
+        }
+
+        function addCustomTool() {
+            const cat = document.getElementById('custom-tool-cat').value; const val = document.getElementById('custom-tool-val').value.trim();
+            if(!val) return; const group = toolkitData.find(g => g.cat === cat);
+            if(group) { group.items.unshift(val); document.getElementById('custom-tool-val').value = ''; renderToolkit(); saveState(); }
+        }
+
+        // ==========================================
+        // 🔄 LÓGICA IA CORREGIDA: URL Pattern Fix + Extractor Robusto
+        // ==========================================
+        
+        // Función auxiliar para extraer contenido útil de respuestas de Pollinations
+        function extractPollinationsContent(rawText) {
+            let text = rawText.trim();
+            
+            // 1. Si es JSON (wrapper de OpenAI), extraer el contenido real
+            if (text.startsWith('{')) {
+                try {
+                    const obj = JSON.parse(text);
+                    if (obj.choices?.[0]?.message?.content) return obj.choices[0].message.content;
+                    if (obj.content && typeof obj.content === 'string') return obj.content;
+                    if (obj.response && typeof obj.response === 'string') return obj.response;
+                    if (obj.text && typeof obj.text === 'string') return obj.text;
+                } catch(e) {}
+            }
+            
+            // 2. Filtrar advertencias de la API gratuita
+            if (text.includes('IMPORTANT NOTICE') || text.includes('deprecated')) {
+                text = text.split('\n')
+                    .filter(l => !l.includes('IMPORTANT NOTICE') 
+                              && !l.includes('deprecated') 
+                              && !l.includes('enter.pollinations')
+                              && !l.trim().startsWith('⚠'))
+                    .join('\n').trim();
+            }
+            
+            return text;
+        }
+
+        // Función base para llamadas a Pollinations (GET con prompt en URL)
+        async function callPollinationsBase(userPrompt, systemPrompt, options = {}) {
+            const { 
+                model = 'openai', 
+                json = false, 
+                seed = Math.floor(Math.random() * 99999),
+                privateMode = true,
+                maxRetries = 4,
+                retryDelay = 1500
+            } = options;
+            
+            // URL pattern correcto: prompt en path, params en query
+            const url = `https://text.pollinations.ai/${encodeURIComponent(userPrompt)}?` +
+                       `system=${encodeURIComponent(systemPrompt)}&` +
+                       `model=${model}&` +
+                       `json=${json}&` +
+                       `seed=${seed}&` +
+                       `private=${privateMode}`;
+            
+            for(let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const res = await fetch(url); // GET request, sin body
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    
+                    const raw = await res.text();
+                    return extractPollinationsContent(raw);
+                    
+                } catch(e) {
+                    console.warn(`Intento ${attempt + 1} fallido:`, e.message);
+                    if (attempt < maxRetries - 1) {
+                        await new Promise(r => setTimeout(r, retryDelay * (attempt + 1)));
+                    }
+                }
+            }
+            throw new Error("No se pudo obtener respuesta válida tras múltiples intentos");
+        }
+
+        // Función específica para respuestas JSON (generador de guiones)
+        async function callPollinationsJSON(prompt, systemPrompt) {
+            const rawText = await callPollinationsBase(prompt, systemPrompt, { json: false });
+            
+            // Extracción agresiva de JSON: encontrar primer { y último }
+            const firstBrace = rawText.indexOf('{');
+            const lastBrace = rawText.lastIndexOf('}');
+            
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                const jsonStr = rawText.substring(firstBrace, lastBrace + 1);
+                try {
+                    return JSON.parse(jsonStr);
+                } catch(e) {
+                    console.warn('JSON parsing failed:', e);
+                }
+            }
+            
+            throw new Error("No se pudo extraer un JSON válido de la respuesta");
+        }
+
+        function getProjectContext() {
+            const locs = appState.entities.loc.map(e => e.name).join(' | ') || "Ninguno";
+            const chars = appState.entities.char.map(e => e.name).join(' | ') || "Ninguno";
+            const props = appState.entities.prop.map(e => e.name).join(' | ') || "Ninguno";
+            const scenes = appState.nodes.filter(n => n.type === 'scene').map(s => s.data.heading).join(', ') || "Ninguna";
+            const actionPreview = appState.nodes.filter(n => n.type === 'shot').map(s => s.data.action).filter(a=>a).join(' ... ').substring(0, 400);
+
+            return `CONTEXTO ACTUAL:\n- Escenarios: [${locs}]\n- Personajes: [${chars}]\n- Objetos (Props): [${props}]\n- Escenas: [${scenes}]\n- Trama desarrollada: "${actionPreview || 'Vacía'}"`;
+        }
+
+        async function generateIdeas() {
+            const btn = document.getElementById('btn-gen-ideas'); 
+            const out = document.getElementById('ai-idea-output'); 
+            const rawCat = document.getElementById('ai-idea-cat').value;
+            const context = getProjectContext(); 
+            let isToolkit = rawCat.startsWith('tk_'); 
+            let catName = isToolkit ? rawCat.replace('tk_', '') : rawCat;
+            
+            let sysPrompt = `Eres un Guionista y Director de Arte experto. Sugiere EXACTAMENTE 3 ideas VISUALES Y NARRATIVAS altamente creativas basadas en el contexto. Usa solo guiones (-). Sin introducciones.`;
+            let userPrompt = `${context}\n\nSugiere 3 ${isToolkit ? 'elementos técnicos de' : 'nuevos'} ${catName} para enriquecer dramáticamente esta visión.`;
+
+            btn.disabled = true; out.value = "Imaginando...";
+            
+            try { 
+                // Usar patrón URL corregido
+                const seed = Math.floor(Math.random() * 99999);
+                const url = `https://text.pollinations.ai/${encodeURIComponent(userPrompt)}?system=${encodeURIComponent(sysPrompt)}&model=openai&private=true&seed=${seed}`;
+                
+                const res = await fetch(url);
+                let text = await res.text();
+                text = extractPollinationsContent(text);
+                
+                // Para formato de lista, buscar primer guión
+                const firstDash = text.indexOf('-');
+                if(firstDash !== -1) text = text.substring(firstDash);
+                
+                out.value = text.trim() || "Sin resultados. Intenta de nuevo.";
+            } catch(e) { 
+                out.value = `Error: ${e.message}`; 
+                console.error('generateIdeas error:', e);
+            }
+            btn.disabled = false;
+        }
+
+        async function generateScript() {
+            const btn = document.getElementById('btn-gen-script'); 
+            const duration = parseInt(document.getElementById('ai-duration').value) || 30;
+            const sceneCount = parseInt(document.getElementById('ai-scenes').value) || 1;
+            const numShots = Math.max(1, Math.round(duration / 6)); 
+            const context = getProjectContext();
+            
+            const sys = `Eres un Guionista y Director de Cine ganador del Óscar, aclamado por tu estilo visual inmersivo y escritura "Show, Don't Tell".
+Genera la continuación (o el inicio) del guion con EXACTAMENTE ${sceneCount} escena(s) y ${numShots} shots totales.
+REGLAS CREATIVAS Y DE CLASIFICACIÓN ESTRICTAS:
+1. "Escenarios": SOLO nombres de lugares físicos y luz/tiempo (Ej: "Taberna olvidada - Noche"). NUNCA describas acciones aquí.
+2. "Personajes": SOLO el Nombre y una línea de actitud o ropa (Ej: "EL CÍNICO: Gabardina empapada, mirada vacía").
+3. "Objetos": SOLO props inanimados físicos (Ej: "Reloj de bolsillo roto"). NUNCA partes del cuerpo (como "manos", "ojos") ni conceptos abstractos.
+4. "Descripción": Literatura cinematográfica pura. Describe texturas, contraluces, micro-acciones y tensión. Nada de verbos básicos.
+RESPONDE ÚNICA Y EXCLUSIVAMENTE CON UN JSON VÁLIDO. ESTRUCTURA EXACTA:
+{
+  "Entidades Globales": { "Escenarios": ["..."], "Personajes": ["..."], "Objetos": ["..."] },
+  "Secuencia": [
+    {
+      "Escena": "INT/EXT. LUGAR - TIEMPO",
+      "Planos (Shots)": [
+        {
+          "Estilo visual": "...",
+          "Escenario": "...",
+          "Personajes": ["..."],
+          "Objetos": ["..."],
+          "Descripción": "Acción poética, cruda y cinematográfica",
+          "Elementos cinematográficos": ["..."],
+          "Diálogos": [{"Personaje": "...", "Linea": "..."}]
+        }
+      ]
+    }
+  ]
+}`;
+            
+            btn.disabled = true; btn.innerText = "Escribiendo...";
+            try {
+                const scriptData = await callPollinationsJSON(`${context}\n\nGenera el JSON del guion ahora.`, sys);
+                buildGraphFromJSON(scriptData, true);
+                btn.innerText = "Generar Guion";
+            } catch (e) { 
+                btn.innerText = "[ ERROR ]";
+                setTimeout(() => { btn.innerText = "Generar Guion"; }, 3000);
+                console.error('generateScript error:', e);
+                alert(`Error en generación: ${e.message}\n\nConsejo: Reduce la complejidad o intenta de nuevo.`);
+            } 
+            finally { btn.disabled = false; }
+        }
+
+        // ==========================================
+        // CONSTRUCTOR DE GRAFOS (Resistente a fallos de IA)
+        // ==========================================
+        function clearWorkspace() {
+            appState.nodes = [];
+            document.querySelectorAll('.node').forEach(n => n.remove());
+            document.getElementById('svg-layer').innerHTML = '';
+        }
+
+        function buildGraphFromJSON(json, append = false) {
+            if (!json) return;
+            
+            const entidades = json["Entidades Globales"] || json["Global Entities"] || {};
+            
+            // Failsafe: Asegurar que todo sea un array
+            let jsonLocs = entidades["Escenarios"] || entidades["Settings"] || entidades["Locations"] || [];
+            if (!Array.isArray(jsonLocs)) jsonLocs = [jsonLocs];
+            
+            let jsonChars = entidades["Personajes"] || entidades["Characters"] || [];
+            if (!Array.isArray(jsonChars)) jsonChars = [jsonChars];
+            
+            let jsonProps = entidades["Objetos"] || entidades["Props"] || entidades["Objects"] || [];
+            if (!Array.isArray(jsonProps)) jsonProps = [jsonProps];
+
+            [jsonLocs, jsonChars, jsonProps].forEach((arr, idx) => {
+                const typeMap = ['loc', 'char', 'prop'];
+                arr.forEach(name => {
+                    if(name && typeof name === 'string' && !appState.entities[typeMap[idx]].find(e => e.name.toLowerCase() === name.toLowerCase()) && !["ninguno", "no especificado", "none", "not specified"].includes(name.toLowerCase().trim())) {
+                        appState.entities[typeMap[idx]].push({ id: `ent_${Date.now()}_${Math.random()}`, name: name.trim(), image: null });
+                    }
+                });
+            });
+            renderEntities();
+
+            let startX = (-appState.canvas.x + document.getElementById('canvas-wrapper').clientWidth/2) / appState.canvas.scale;
+            let startY = (-appState.canvas.y + document.getElementById('canvas-wrapper').clientHeight/2) / appState.canvas.scale;
+
+            if (append && appState.nodes.length > 0) {
+                let maxSceneX = -Infinity;
+                appState.nodes.forEach(n => { if (n.type === 'scene' && n.x > maxSceneX) maxSceneX = n.x; });
+                if(maxSceneX > -Infinity) startX = maxSceneX + 1100;
+            }
+
+            let secuencia = json["Secuencia"] || json["Sequence"] || [];
+            if(!Array.isArray(secuencia)) secuencia = [secuencia];
+
+            secuencia.forEach((scene, sIdx) => {
+                let sceneId = generateId();
+                let sceneX = startX + (sIdx * 1100); 
+                const sceneName = scene["Escena"] || scene["Scene"] || "ESCENA";
+                appState.nodes.push({ id: sceneId, type: 'scene', x: sceneX, y: startY, parentId: null, data: { heading: sceneName } });
+
+                let currentY = startY + 120;
+                let shots = scene["Planos (Shots)"] || scene["Shots"] || scene["Camera Shots"] || [];
+                if(!Array.isArray(shots)) shots = [shots];
+                
+                shots.forEach((shot, shIdx) => {
+                    let shotId = generateId();
+                    let tags = [];
+                    
+                    const style = shot["Estilo visual"] || shot["Visual Style"];
+                    const loc = shot["Escenario"] || shot["Setting"] || shot["Location"];
+                    const action = shot["Descripción"] || shot["Action Description"] || shot["Description"] || "";
+                    
+                    let chars = shot["Personajes"] || shot["Characters"] || shot["Personajes y Objetos"] || shot["Characters & Props"] || [];
+                    if(!Array.isArray(chars)) chars = [chars];
+                    
+                    let props = shot["Objetos"] || shot["Props"] || [];
+                    if(!Array.isArray(props)) props = [props];
+
+                    let cinema = shot["Elementos cinematográficos"] || shot["Cinematography"] || shot["Cinematographic Elements"] || [];
+                    if(!Array.isArray(cinema)) cinema = [cinema];
+                    
+                    let dialogues = shot["Diálogos"] || shot["Dialogue"] || shot["Dialogues"] || [];
+                    if(!Array.isArray(dialogues)) dialogues = []; 
+
+                    if(style && style !== "Por defecto" && style !== "Default") tags.push({cat: "Estilo Visual", val: style});
+                    cinema.forEach(el => tags.push({cat: "Cine", val: el}));
+
+                    let shotX = sceneX;
+                    appState.nodes.push({ id: shotId, type: 'shot', x: shotX, y: currentY, parentId: sceneId, data: { action: action, tags: tags } });
+
+                    let entityOffsetY = currentY;
+                    
+                    if(loc && typeof loc === 'string' && !["ninguno", "no especificado", "none", "not specified"].includes(loc.toLowerCase().trim())) {
+                        let locId = generateId(); 
+                        appState.nodes.push({ id: locId, type: 'entity_link', x: shotX - 320, y: entityOffsetY, parentId: shotId, data: { type: 'loc', name: loc.trim() } }); 
+                        entityOffsetY += 100;
+                    }
+                    
+                    chars.forEach((char) => { 
+                        if(char && typeof char === 'string' && !["ninguno", "none"].includes(char.toLowerCase().trim())) {
+                            let charId = generateId(); 
+                            appState.nodes.push({ id: charId, type: 'entity_link', x: shotX - 320, y: entityOffsetY, parentId: shotId, data: { type: 'char', name: char.trim() } }); 
+                            entityOffsetY += 100; 
+                        }
+                    });
+
+                    props.forEach((prop) => { 
+                        if(prop && typeof prop === 'string' && !["ninguno", "none"].includes(prop.toLowerCase().trim())) {
+                            let propId = generateId(); 
+                            appState.nodes.push({ id: propId, type: 'entity_link', x: shotX - 320, y: entityOffsetY, parentId: shotId, data: { type: 'prop', name: prop.trim() } }); 
+                            entityOffsetY += 100; 
+                        }
+                    });
+                    
+                    dialogues.forEach((diag, dIdx) => { 
+                        if(diag && typeof diag === 'object') {
+                            let diagId = generateId(); 
+                            const cName = diag.Personaje || diag.Character || "";
+                            const cLine = diag.Linea || diag.Line || "";
+                            appState.nodes.push({ id: diagId, type: 'dialogue', x: shotX + 280, y: currentY + (dIdx * 80), parentId: shotId, data: { char: cName, line: cLine } }); 
+                        }
+                    });
+                    
+                    currentY += Math.max(300, (entityOffsetY - currentY) + 40); 
+                });
+            });
+            
+            document.querySelectorAll('.node').forEach(n => n.remove());
+            appState.nodes.forEach(n => renderNode(n));
+            drawSplines();
+            saveState(); 
+        }
+
+        // ==========================================
+        // UI MODAL Y IMPORT/EXPORT
+        // ==========================================
+        function openModal(mode, content = '') {
+            const modal = document.getElementById('io-modal');
+            const title = document.getElementById('modal-title');
+            const desc = document.getElementById('modal-desc');
+            const textarea = document.getElementById('io-textarea');
+            const actions = document.getElementById('modal-actions');
+            
+            modal.style.display = 'flex'; textarea.value = content; textarea.readOnly = false;
+
+            if(mode === 'import') {
+                title.innerText = '📥 Importar Proyecto JSON'; title.style.color = 'var(--accent-scene)';
+                desc.innerText = 'Pega tu código JSON aquí, o sube un archivo.'; textarea.placeholder = '{ "Entidades Globales": ... }';
+                actions.innerHTML = `
+                    <label class="ui-btn" style="background:#444; border:none; cursor:pointer;">
+                        📂 Subir Archivo <input type="file" accept=".json" style="display:none;" onchange="handleFileUpload(event)">
+                    </label>
+                    <button class="ui-btn" style="background:#e74c3c; border:none;" onclick="closeModal()">Cancelar</button>
+                    <button class="ui-btn" style="background:var(--accent-scene); border:none;" onclick="processPastedJSON()">Cargar Datos</button>`;
+            } else if (mode === 'export') {
+                title.innerText = '📤 Exportar JSON'; title.style.color = 'var(--accent-shot)';
+                desc.innerText = 'Copia este código para guardarlo o compartirlo.'; textarea.readOnly = true;
+                actions.innerHTML = `
+                    <button class="ui-btn" style="background:#e74c3c; border:none;" onclick="closeModal()">Cerrar</button>
+                    <button class="ui-btn" style="background:var(--accent-shot); color:black; border:none;" onclick="copyModalText(this)">Copiar al Portapapeles</button>`;
+            }
+        }
+
+        function closeModal() { document.getElementById('io-modal').style.display = 'none'; }
+        function copyModalText(btn) {
+            const txt = document.getElementById('io-textarea'); txt.select(); document.execCommand('copy'); 
+            const orig = btn.innerText; btn.innerText = "¡Copiado!"; setTimeout(() => { btn.innerText = orig; }, 2000);
+        }
+
+        function processPastedJSON() {
+            const text = document.getElementById('io-textarea').value.trim();
+            if(!text) return alert("El campo está vacío.");
+            try {
+                const json = JSON.parse(text); clearWorkspace(); appState.entities = { loc: [], char: [], prop: [] };
+                buildGraphFromJSON(json, false); closeModal();
+            } catch (err) { alert("Error: El texto pegado no es un JSON válido."); console.error(err); }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const json = JSON.parse(e.target.result); clearWorkspace(); appState.entities = { loc: [], char: [], prop: [] };
+                    buildGraphFromJSON(json, false); closeModal();
+                } catch (err) { alert("Error leyendo el archivo JSON."); }
+            };
+            reader.readAsText(file);
+        }
+
+        // ==========================================
+        // EXPORTACIÓN & TRADUCCIÓN FULL EN INGLÉS (CORREGIDO)
+        // ==========================================
+        function compileShotJSON(nodeId) {
+            const shot = appState.nodes.find(n => n.id === nodeId); const childNodes = appState.nodes.filter(n => n.parentId === nodeId);
+            const locs = childNodes.filter(d => d.type === 'entity_link' && d.data.type === 'loc').map(d => d.data.name).join(' | ') || "No especificado";
+            const chars = childNodes.filter(d => d.type === 'entity_link' && d.data.type === 'char').map(d => d.data.name);
+            const props = childNodes.filter(d => d.type === 'entity_link' && d.data.type === 'prop').map(d => d.data.name);
+            const dialogues = childNodes.filter(d => d.type === 'dialogue').map(d => ({ Personaje: d.data.char, Linea: d.data.line }));
+            const estiloOverride = shot.data.tags.find(t => t.cat === 'Estilo Visual'); const cinematografia = shot.data.tags.filter(t => t.cat !== 'Estilo Visual').map(t => t.val);
+            
+            return { "Estilo visual": estiloOverride ? estiloOverride.val : "Por defecto", "Escenario": locs, "Personajes": chars.length > 0 ? chars : ["Ninguno"], "Objetos": props.length > 0 ? props : ["Ninguno"], "Descripción": shot.data.action || "", "Elementos cinematográficos": cinematografia.length > 0 ? cinematografia : [], "Diálogos": dialogues.length > 0 ? dialogues : [] };
+        }
+
+        async function exportShotJSON(nodeId, e, useTranslation) {
+            e.stopPropagation(); const btn = e.target; const originalText = btn.innerText; btn.innerText = "⏳...";
+            let jsonOutput = compileShotJSON(nodeId);
+            try { 
+                if(useTranslation) jsonOutput = await translateJSON(jsonOutput); 
+                openModal('export', JSON.stringify(jsonOutput, null, 2));
+            } catch(err) { btn.innerText = "[ ERROR ]"; alert(err.message);} 
+            finally { btn.innerText = originalText; }
+        }
+
+        async function handleExport(useTranslation = false) {
+            const exportData = {
+                "Entidades Globales": { "Escenarios": appState.entities.loc.map(e => e.name), "Personajes": appState.entities.char.map(e => e.name), "Objetos": appState.entities.prop.map(e => e.name) },
+                "Secuencia": appState.nodes.filter(n => n.type === 'scene').map(scene => ({ "Escena": scene.data.heading, "Planos (Shots)": appState.nodes.filter(n => n.type === 'shot' && n.parentId === scene.id).map(shot => compileShotJSON(shot.id)) }))
+            };
+            const btnId = useTranslation ? 'btn-export-en' : null; if(btnId) { document.getElementById(btnId).disabled = true; document.getElementById(btnId).innerText = "⏳..."; }
+            try { 
+                let finalData = exportData; if(useTranslation) finalData = await translateJSON(exportData); 
+                openModal('export', JSON.stringify(finalData, null, 2));
+            } catch (err) { alert("Hubo un error en la traducción: " + err.message); console.error(err); } 
+            finally { if(btnId) { document.getElementById(btnId).disabled = false; document.getElementById(btnId).innerText = "[ 🤖 ] Traducir EN"; } }
+        }
+
+        async function translateJSON(jsonObj) {
+            const sys = `You are a strict JSON translation API. Translate all string values from Spanish to professional technical filmmaking English.
+Keep the exact same JSON structure. Output ONLY a valid JSON object. Do not output any conversational text or reasoning.
+Map keys EXACTLY to these equivalents:
+- "Entidades Globales" -> "Global Entities"
+- "Escenarios" -> "Settings"
+- "Personajes" -> "Characters"
+- "Objetos" -> "Props"
+- "Secuencia" -> "Sequence"
+- "Escena" -> "Scene"
+- "Planos (Shots)" -> "Shots"
+- "Estilo visual" -> "Visual Style"
+- "Escenario" -> "Setting"
+- "Descripción" -> "Action Description"
+- "Elementos cinematográficos" -> "Cinematography"
+- "Diálogos" -> "Dialogue"
+- "Personaje" -> "Character"
+- "Linea" -> "Line"`;
+
+            const prompt = JSON.stringify(jsonObj);
+            
+            // Retry loop con extracción robusta
+            for(let attempt = 0; attempt < 4; attempt++) {
+                try {
+                    const seed = Math.floor(Math.random() * 99999);
+                    const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?system=${encodeURIComponent(sys)}&model=openai&json=false&seed=${seed}&private=true`;
+                    
+                    const res = await fetch(url);
+                    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+                    
+                    let text = await res.text();
+                    text = extractPollinationsContent(text);
+                    
+                    // Intentar parsear JSON directamente
+                    try {
+                        return JSON.parse(text);
+                    } catch(e) {
+                        // Si falla, buscar JSON dentro del texto
+                        const firstBrace = text.indexOf('{');
+                        const lastBrace = text.lastIndexOf('}');
+                        if(firstBrace !== -1 && lastBrace !== -1) {
+                            const jsonStr = text.substring(firstBrace, lastBrace + 1);
+                            return JSON.parse(jsonStr);
+                        }
+                        throw e;
+                    }
+                } catch(err) {
+                    console.warn(`Translation attempt ${attempt + 1} failed:`, err.message);
+                    if(attempt < 3) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                }
+            }
+            throw new Error("Traducción fallida tras múltiples intentos");
+        }
+
+        // ==========================================
+        // LÓGICA BASE CANVAS Y ARRASTRE MULTIPLE FIJO
+        // ==========================================
+        const wrapper = document.getElementById('canvas-wrapper');
+        const canvas = document.getElementById('canvas');
+        const selectionBox = document.getElementById('selection-box');
+        
+        function saveState() { const stateToSave = { ...appState, selectedNodeIds: [] }; localStorage.setItem(getStorageKey(), JSON.stringify(stateToSave)); }
+
+        let isPanning = false, isSelecting = false, isDraggingNode = false, wasMutated = false;
+        let startX, startY, selStartX, selStartY;
+        let lastMouseX, lastMouseY;
+
+        wrapper.addEventListener('wheel', (e) => {
+            e.preventDefault(); let newScale = Math.min(Math.max(0.2, appState.canvas.scale - (e.deltaY * 0.001)), 3);
+            const rect = wrapper.getBoundingClientRect(); const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+            appState.canvas.x = mouseX - (mouseX - appState.canvas.x) * (newScale / appState.canvas.scale);
+            appState.canvas.y = mouseY - (mouseY - appState.canvas.y) * (newScale / appState.canvas.scale);
+            appState.canvas.scale = newScale; updateCanvasTransform(); saveState(); 
+        });
+
+        wrapper.addEventListener('mousedown', (e) => {
+            if (e.target === wrapper || e.target === canvas || e.target.tagName === 'svg') {
+                if (e.ctrlKey || e.metaKey) {
+                    isSelecting = true; selStartX = e.clientX; selStartY = e.clientY;
+                    selectionBox.style.display = 'block'; selectionBox.style.left = e.clientX + 'px'; selectionBox.style.top = e.clientY + 'px';
+                    selectionBox.style.width = '0px'; selectionBox.style.height = '0px';
+                    if(!e.shiftKey) clearSelection();
+                } else if (e.button === 0) { isPanning = true; startX = e.clientX - appState.canvas.x; startY = e.clientY - appState.canvas.y; clearSelection(); }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isPanning) { appState.canvas.x = e.clientX - startX; appState.canvas.y = e.clientY - startY; updateCanvasTransform(); wasMutated = true; } 
+            else if (isSelecting) {
+                const currentX = e.clientX, currentY = e.clientY;
+                const left = Math.min(selStartX, currentX), top = Math.min(selStartY, currentY), width = Math.abs(currentX - selStartX), height = Math.abs(currentY - selStartY);
+                selectionBox.style.left = left + 'px'; selectionBox.style.top = top + 'px'; selectionBox.style.width = width + 'px'; selectionBox.style.height = height + 'px';
+                
+                const wrapperRect = wrapper.getBoundingClientRect();
+                const boxRect = { left: (left - wrapperRect.left - appState.canvas.x) / appState.canvas.scale, top: (top - wrapperRect.top - appState.canvas.y) / appState.canvas.scale, right: (left + width - wrapperRect.left - appState.canvas.x) / appState.canvas.scale, bottom: (top + height - wrapperRect.top - appState.canvas.y) / appState.canvas.scale };
+
+                appState.nodes.forEach(node => {
+                    const el = document.getElementById(node.id); if (!el) return;
+                    const nodeRight = node.x + el.offsetWidth, nodeBottom = node.y + el.offsetHeight;
+                    if (node.x < boxRect.right && nodeRight > boxRect.left && node.y < boxRect.bottom && nodeBottom > boxRect.top) { if (!appState.selectedNodeIds.includes(node.id)) { appState.selectedNodeIds.push(node.id); el.classList.add('selected'); } } 
+                    else if (!e.shiftKey) { const idx = appState.selectedNodeIds.indexOf(node.id); if(idx > -1) { appState.selectedNodeIds.splice(idx, 1); el.classList.remove('selected'); } }
+                });
+            } else if (isDraggingNode && appState.selectedNodeIds.length > 0) {
+                const dx = (e.clientX - lastMouseX) / appState.canvas.scale, dy = (e.clientY - lastMouseY) / appState.canvas.scale;
+                appState.selectedNodeIds.forEach(id => { const node = appState.nodes.find(n => n.id === id); if(node) { node.x += dx; node.y += dy; document.getElementById(node.id).style.transform = `translate(${node.x}px, ${node.y}px)`; } });
+                lastMouseX = e.clientX; lastMouseY = e.clientY;
+                drawSplines(); wasMutated = true;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isPanning = false; isDraggingNode = false; if (isSelecting) { isSelecting = false; selectionBox.style.display = 'none'; } if (wasMutated) { saveState(); wasMutated = false; }
+        });
+
+        function updateCanvasTransform() { canvas.style.transform = `translate(${appState.canvas.x}px, ${appState.canvas.y}px) scale(${appState.canvas.scale})`; }
+        function openLightbox(e, src) { e.stopPropagation(); document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').style.display = 'flex'; }
+
+        function addEntity(type) {
+            const input = document.getElementById(`input-${type}`); const fileInput = document.getElementById(`file-${type}`);
+            const name = input.value.trim(); if (!name) return alert("Escribe un nombre/descripción.");
+            const processEntity = (base64Img) => { appState.entities[type].push({ id: `ent_${Date.now()}`, name, image: base64Img }); input.value = ''; fileInput.value = ''; renderEntities(); saveState(); };
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => { const canvas = document.createElement('canvas'); const scale = Math.min(300 / img.width, 300 / img.height, 1); canvas.width = img.width * scale; canvas.height = img.height * scale; canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height); processEntity(canvas.toDataURL('image/jpeg', 0.8)); }; 
+                    img.src = e.target.result;
+                }; reader.readAsDataURL(fileInput.files[0]);
+            } else { processEntity(null); }
+        }
+
+        function renderEntities() {
+            ['loc', 'char', 'prop'].forEach(type => {
+                document.getElementById(`list-${type}`).innerHTML = appState.entities[type].map(ent => `
+                    <div class="entity-pill ${type}" onclick="attachEntityToShot('${type}', '${ent.name}')">
+                        ${ent.image ? `<img src="${ent.image}" onclick="openLightbox(event, '${ent.image}')">` : '<div style="width:19px;height:19px;background:#000;border-radius:2px;"></div>'}
+                        <span>${ent.name}</span> <b style="opacity:0.5;">+</b>
+                    </div>`).join('');
+            });
+        }
+
+        function generateId() { return 'node_' + Math.random().toString(36).substr(2, 9); }
+
+        function createNode(type, presetData = null, explicitParent = null) {
+            const spawnX = (-appState.canvas.x + wrapper.clientWidth/2) / appState.canvas.scale, spawnY = (-appState.canvas.y + wrapper.clientHeight/2) / appState.canvas.scale;
+            const node = { id: generateId(), type, x: spawnX, y: spawnY, parentId: explicitParent, data: {} };
+            const activeId = appState.selectedNodeIds[0]; const activeNode = activeId ? appState.nodes.find(n => n.id === activeId) : null;
+
+            if (type === 'scene') { node.data = { heading: 'INT. NUEVA ESCENA - DÍA' }; node.x -= 120; node.y -= 40; } 
+            else if (type === 'shot') { node.data = { action: '', tags: [] }; if (activeNode && activeNode.type === 'scene') { node.parentId = activeNode.id; node.x = activeNode.x; node.y = activeNode.y + 96; } } 
+            else if (type === 'dialogue') { node.data = { char: '', line: '' }; if (activeNode && activeNode.type === 'shot') { node.parentId = activeNode.id; node.x = activeNode.x + 280; node.y = activeNode.y; } } 
+            else if (type === 'entity_link') { node.data = presetData; if (activeNode) { node.parentId = activeNode.id; node.y = activeNode.y + Math.random()*24; node.x = activeNode.x - 300; } }
+
+            appState.nodes.push(node); renderNode(node); selectSingleNode(node.id); drawSplines(); saveState();
+        }
+
+        function renderNode(node) {
+            const el = document.createElement('div'); el.className = `node type-${node.type}`; el.id = node.id;
+            let html = '';
+            if (node.type === 'scene') { html = `<div class="node-header" onmousedown="startNodeDrag('${node.id}', event)">🎬 ESCENA MAESTRA <span onclick="deleteNode('${node.id}')">✕</span></div><div class="port out"></div><div class="node-body"><input type="text" value="${node.data.heading}" oninput="updateNodeData('${node.id}', 'heading', this.value)" onmousedown="event.stopPropagation()"></div>`; } 
+            else if (node.type === 'shot') {
+                html = `<div class="port in"></div><div class="node-header" onmousedown="startNodeDrag('${node.id}', event)">🎥 SHOT VISUAL <span onclick="deleteNode('${node.id}')">✕</span></div><div class="port out"></div><div class="node-body">
+                        <textarea placeholder="Descripción de la acción..." oninput="updateNodeData('${node.id}', 'action', this.value)" onmousedown="event.stopPropagation()">${node.data.action}</textarea>
+                        <div class="node-tray" id="tray-${node.id}"></div>
+                        <div style="display:flex;gap:3px;">
+                            <button class="json-export-btn" onclick="exportShotJSON('${node.id}', event, false)">{ ES }</button>
+                            <button class="json-export-btn json-export-en" onclick="exportShotJSON('${node.id}', event, true)">{ EN } AI</button>
+                        </div></div>`;
+            } else if (node.type === 'dialogue') { html = `<div class="port in"></div><div class="node-header" onmousedown="startNodeDrag('${node.id}', event)">💬 DIÁLOGO <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body"><input type="text" class="char-input" placeholder="Personaje" value="${node.data.char}" oninput="updateNodeData('${node.id}', 'char', this.value)" onmousedown="event.stopPropagation()"><textarea placeholder="Línea de diálogo..." oninput="updateNodeData('${node.id}', 'line', this.value)" onmousedown="event.stopPropagation()">${node.data.line}</textarea></div>`; } 
+            else if (node.type === 'entity_link') {
+                const labels = { char: '👤 PERSONAJE', loc: '🌍 ESCENARIO', prop: '🔪 OBJETO' }; const colors = { char: 'var(--accent-char)', loc: 'var(--accent-loc)', prop: 'var(--accent-prop)' };
+                html = `<div class="port in" style="left: auto; right: -4px; top: calc(50% - 4px);"></div><div class="node-header" style="background:${colors[node.data.type]}; color:white;" onmousedown="startNodeDrag('${node.id}', event)">${labels[node.data.type]} <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body"><textarea placeholder="Descripción de entidad..." oninput="updateNodeData('${node.id}', 'name', this.value)" onmousedown="event.stopPropagation()">${node.data.name}</textarea></div>`;
+            }
+            el.innerHTML = html;
+            el.onmousedown = (e) => { e.stopPropagation(); if(e.ctrlKey || e.metaKey) toggleNodeSelection(node.id); else if (!appState.selectedNodeIds.includes(node.id)) selectSingleNode(node.id); };
+            document.getElementById('canvas').appendChild(el); document.getElementById(node.id).style.transform = `translate(${node.x}px, ${node.y}px)`;
+            if(node.type === 'shot') renderTags(node);
+        }
+
+        function startNodeDrag(id, e) { 
+            if (!appState.selectedNodeIds.includes(id)) selectSingleNode(id); 
+            isDraggingNode = true; lastMouseX = e.clientX; lastMouseY = e.clientY; e.stopPropagation(); 
+        }
+        
+        function selectSingleNode(id) { appState.selectedNodeIds = [id]; document.querySelectorAll('.node').forEach(n => n.classList.remove('selected')); if(id) document.getElementById(id).classList.add('selected'); }
+        function toggleNodeSelection(id) { const idx = appState.selectedNodeIds.indexOf(id); if(idx > -1) { appState.selectedNodeIds.splice(idx, 1); document.getElementById(id).classList.remove('selected'); } else { appState.selectedNodeIds.push(id); document.getElementById(id).classList.add('selected'); } }
+        function clearSelection() { appState.selectedNodeIds = []; document.querySelectorAll('.node').forEach(n => n.classList.remove('selected')); }
+        function deleteNode(id) { appState.nodes = appState.nodes.filter(n => n.id !== id && n.parentId !== id); document.getElementById(id).remove(); document.querySelectorAll('.node').forEach(el => { if(!appState.nodes.find(n => n.id === el.id)) el.remove(); }); drawSplines(); saveState(); }
+        function updateNodeData(id, key, val) { appState.nodes.find(n => n.id === id).data[key] = val; saveState(); }
+
+        function attachEntityToShot(type, name) {
+            if (appState.selectedNodeIds.length !== 1) return alert("Selecciona UN solo nodo SHOT o DIÁLOGO.");
+            const activeNode = appState.nodes.find(n => n.id === appState.selectedNodeIds[0]);
+            if (activeNode.type === 'dialogue' && type === 'char') { activeNode.data.char = name; const charInput = document.querySelector(`#${activeNode.id} .char-input`); if(charInput) charInput.value = name; saveState(); return; }
+            if (activeNode.type !== 'shot') return alert("Las presencias visuales se vinculan a un SHOT.");
+            createNode('entity_link', { type, name }, activeNode.id);
+        }
+
+        function injectToolkitTag(cat, val) {
+            const shots = appState.selectedNodeIds.filter(id => appState.nodes.find(n => n.id === id).type === 'shot');
+            if (shots.length === 0) return alert("Selecciona al menos un nodo SHOT.");
+            shots.forEach(id => { const node = appState.nodes.find(n => n.id === id); node.data.tags.push({ cat, val }); renderTags(node); }); saveState();
+        }
+        function removeTag(id, i) { appState.nodes.find(n => n.id === id).data.tags.splice(i, 1); renderTags(appState.nodes.find(n => n.id === id)); saveState(); }
+        function renderTags(node) { const tray = document.getElementById(`tray-${node.id}`); if(tray) tray.innerHTML = node.data.tags.map((t, i) => `<div class="prompt-tag"><b>${t.cat.split(' ')[0]}:</b> ${t.val.split('(')[0]} <span onclick="removeTag('${node.id}', ${i})">✕</span></div>`).join(''); }
+
+        function drawSplines() {
+            const svg = document.getElementById('svg-layer'); svg.innerHTML = '';
+            appState.nodes.forEach(node => {
+                if (node.parentId) {
+                    const parent = appState.nodes.find(n => n.id === node.parentId);
+                    if (parent) {
+                        const elNode = document.getElementById(node.id), elParent = document.getElementById(parent.id);
+                        if(elNode && elParent) {
+                            let startX = parent.x + (elParent.offsetWidth / 2), startY = parent.y + elParent.offsetHeight, endX = node.x + (elNode.offsetWidth / 2), endY = node.y, curve = 28, pathClass = "link";
+                            if(parent.type === 'scene') pathClass += " scene-link";
+                            if (node.type === 'entity_link') { startX = parent.x; startY = parent.y + 24; endX = node.x + elNode.offsetWidth; endY = node.y + 12; svg.appendChild(createSvgPath(`M ${startX} ${startY} C ${startX - 28} ${startY}, ${endX + 28} ${endY}, ${endX} ${endY}`, "link")); return; }
+                            if (node.type === 'dialogue') { startX = parent.x + elParent.offsetWidth; startY = parent.y + 24; endX = node.x; endY = node.y + 12; svg.appendChild(createSvgPath(`M ${startX} ${startY} C ${startX + 28} ${startY}, ${endX - 28} ${endY}, ${endX} ${endY}`, "link")); return; }
+                            svg.appendChild(createSvgPath(`M ${startX} ${startY} C ${startX} ${startY + curve}, ${endX} ${endY - curve}, ${endX} ${endY}`, pathClass));
+                        }
+                    }
+                }
+            });
+        }
+        function createSvgPath(d, className) { const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("class", className); p.setAttribute("d", d); return p; }
+
+        function initApp() {
+            initProjects();
+            document.getElementById('canvas').innerHTML = '<svg class="connections" id="svg-layer"></svg>';
+            initToolkitUI();
+            
+            const saved = localStorage.getItem(getStorageKey());
+            if (saved) {
+                appState = JSON.parse(saved); renderEntities(); appState.nodes.forEach(n => renderNode(n)); drawSplines(); updateCanvasTransform();
+            } else { createNode('scene'); }
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
