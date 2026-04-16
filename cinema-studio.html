@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALTERLAB STUDIO v23 | API Fixed</title>
+    <title>ALTERLAB STUDIO v23 | API Text-Structured</title>
     <style>
         :root {
             --bg-canvas: #0f1015; --bg-panel: #16171d; --bg-node: #21222c;
@@ -178,19 +178,9 @@
         <div class="panel-header" style="color:var(--accent-ai);">🤖 Co-Director IA</div>
         
         <div class="ai-panel">
-            <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px;">AUTO-COMPLETAR SECUENCIA:</div>
-            <div style="display:flex; gap:3px;">
-                <input type="number" id="ai-scenes" placeholder="Esc." value="1" min="1" max="5" title="Número de Escenas" style="width: 30%;">
-                <input type="number" id="ai-duration" placeholder="Segs" value="30" min="6" max="120" title="Duración (Shots)" style="width: 30%;">
-                <button class="ui-btn ai-btn" id="btn-gen-script" onclick="generateScript()" style="width: 40%;">Guion</button>
-            </div>
-        </div>
-
-        <div class="ai-panel">
-            <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px;">LLUVIA DE IDEAS CONTEXTUAL:</div>
-            <select id="ai-idea-cat"></select>
-            <button class="ui-btn" id="btn-gen-ideas" onclick="generateIdeas()" style="width:100%;">💡 Inspirar</button>
-            <textarea class="ai-output" id="ai-idea-output" readonly placeholder="La IA analizará el proyecto..."></textarea>
+            <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px; text-transform:uppercase;">Asistente Contextual:</div>
+            <button class="ui-btn ai-btn" id="btn-generar" onclick="generateSelectedNode()" style="width: 100%; padding: 8px;">✨ GENERAR IA</button>
+            <div style="font-size:0.60rem; color:#666; margin-top:5px; text-align:center;">Genera entidades en blanco o auto-completa el nodo seleccionado interactuando con su entorno.</div>
         </div>
 
         <div class="panel-header">Monster Toolkit</div>
@@ -213,7 +203,7 @@
         <div class="floating-toolbar">
             <button class="ui-btn" style="border-color: var(--accent-scene);" onclick="createNode('scene')">+ Nueva ESCENA</button>
             <button class="ui-btn" style="border-color: var(--accent-shot);" onclick="createNode('shot')">+ Añadir SHOT Visual</button>
-            <button class="ui-btn" style="border-color: var(--accent-char);" onclick="createNode('dialogue')">+ Añadir DIÁLOGO</button>
+            <button class="ui-btn" style="border-color: #9b59b6;" onclick="createNode('motion')">+ Añadir SHOT MOTION</button>
         </div>
     </div>
 
@@ -277,10 +267,7 @@
 
         function initToolkitUI() {
             document.getElementById('custom-tool-cat').innerHTML = toolkitData.map(g => `<option value="${g.cat}">${g.cat}</option>`).join('');
-            const aiSelect = document.getElementById('ai-idea-cat');
-            let aiHtml = `<optgroup label="Entidades de la Historia"><option value="Personajes">Personajes</option><option value="Escenarios">Escenarios</option><option value="Objetos">Objetos</option></optgroup><optgroup label="Monster Toolkit">`;
-            toolkitData.forEach(g => { aiHtml += `<option value="tk_${g.cat}">Técnicas: ${g.cat}</option>`; });
-            aiHtml += `</optgroup>`; aiSelect.innerHTML = aiHtml; renderToolkit();
+            renderToolkit();
         }
 
         function renderToolkit() {
@@ -296,185 +283,328 @@
         }
 
         // ==========================================
-        // 🔄 LÓGICA IA CORREGIDA: URL Pattern Fix + Extractor Robusto
+        // 🔄 LÓGICA IA - ENFOQUE TEXTO ESTRUCTURADO + PARSEO LOCAL
         // ==========================================
-        
-        // Función auxiliar para extraer contenido útil de respuestas de Pollinations
+
+        // 🔥 Extractor simple para respuestas de Pollinations (solo content)
         function extractPollinationsContent(rawText) {
             let text = rawText.trim();
             
-            // 1. Si es JSON (wrapper de OpenAI), extraer el contenido real
+            // Si es JSON wrapper de OpenAI, extraer content
             if (text.startsWith('{')) {
                 try {
                     const obj = JSON.parse(text);
-                    if (obj.choices?.[0]?.message?.content) return obj.choices[0].message.content;
                     if (obj.content && typeof obj.content === 'string') return obj.content;
-                    if (obj.response && typeof obj.response === 'string') return obj.response;
-                    if (obj.text && typeof obj.text === 'string') return obj.text;
+                    if (obj.choices?.[0]?.message?.content) return obj.choices[0].message.content;
+                    if (obj.response) return obj.response;
+                    if (obj.text) return obj.text;
                 } catch(e) {}
             }
             
-            // 2. Filtrar advertencias de la API gratuita
+            // Filtrar warnings de Pollinations
             if (text.includes('IMPORTANT NOTICE') || text.includes('deprecated')) {
-                text = text.split('\n')
-                    .filter(l => !l.includes('IMPORTANT NOTICE') 
-                              && !l.includes('deprecated') 
-                              && !l.includes('enter.pollinations')
-                              && !l.trim().startsWith('⚠'))
-                    .join('\n').trim();
+                text = text.split('\n').filter(l => 
+                    !l.includes('IMPORTANT NOTICE') && !l.includes('deprecated') && !l.includes('enter.pollinations')
+                ).join('\n').trim();
             }
             
             return text;
         }
 
-        // Función base para llamadas a Pollinations (GET con prompt en URL)
+        // 🔥 Llamada base: Usando POST limpio para evitar errores 502 por longitudes máximas de URL
         async function callPollinationsBase(userPrompt, systemPrompt, options = {}) {
             const { 
                 model = 'openai', 
-                json = false, 
                 seed = Math.floor(Math.random() * 99999),
                 privateMode = true,
-                maxRetries = 4,
+                maxRetries = 3,
                 retryDelay = 1500
             } = options;
             
-            // URL pattern correcto: prompt en path, params en query
-            const url = `https://text.pollinations.ai/${encodeURIComponent(userPrompt)}?` +
-                       `system=${encodeURIComponent(systemPrompt)}&` +
-                       `model=${model}&` +
-                       `json=${json}&` +
-                       `seed=${seed}&` +
-                       `private=${privateMode}`;
-            
             for(let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
-                    const res = await fetch(url); // GET request, sin body
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    // Usamos payload JSON estándar de OpenAI para evitar el error 502 de servidor
+                    const response = await fetch('https://text.pollinations.ai/openai', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            messages: [
+                                { role: 'system', content: systemPrompt },
+                                { role: 'user', content: userPrompt }
+                            ],
+                            model: model,
+                            seed: seed,
+                            jsonMode: false
+                        })
+                    });
                     
-                    const raw = await res.text();
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    
+                    const raw = await response.text();
                     return extractPollinationsContent(raw);
                     
                 } catch(e) {
                     console.warn(`Intento ${attempt + 1} fallido:`, e.message);
-                    if (attempt < maxRetries - 1) {
-                        await new Promise(r => setTimeout(r, retryDelay * (attempt + 1)));
+                    if (attempt < maxRetries - 1) await new Promise(r => setTimeout(r, retryDelay * (attempt + 1)));
+                }
+            }
+            throw new Error("No se pudo obtener respuesta tras múltiples intentos (Error 502/Timeout). Servidor congestionado.");
+        }
+
+        // 🔥 NUEVO: Parser de texto estructurado a JSON de guion
+        function parseStructuredTextToJSON(text) {
+            const result = {
+                "Entidades Globales": { "Escenarios": [], "Personajes": [], "Objetos": [] },
+                "Secuencia": []
+            };
+            
+            // 1. Parsear entidades (también mejorado contra una sola línea gigante)
+            const entitiesMatch = text.match(/###ENTIDADES###([\s\S]*?)(?=###ESCENA###|$)/i);
+            if (entitiesMatch) {
+                const entitiesBlock = entitiesMatch[1];
+                
+                const locMatch = entitiesBlock.match(/Escenarios:\s*([\s\S]*?)(?=Personajes:|Objetos:|$)/i);
+                if (locMatch) {
+                    result["Entidades Globales"]["Escenarios"] = locMatch[1].split('|').map(s => s.trim()).filter(s => s && !["ninguno","none"].includes(s.toLowerCase()));
+                }
+                
+                const charMatch = entitiesBlock.match(/Personajes:\s*([\s\S]*?)(?=Objetos:|$)/i);
+                if (charMatch) {
+                    result["Entidades Globales"]["Personajes"] = charMatch[1].split('|').map(s => s.trim()).filter(s => s && !["ninguno","none"].includes(s.toLowerCase()));
+                }
+                
+                const propMatch = entitiesBlock.match(/Objetos:\s*([\s\S]*?)(?=$)/i);
+                if (propMatch) {
+                    result["Entidades Globales"]["Objetos"] = propMatch[1].split('|').map(s => s.trim()).filter(s => s && !["ninguno","none"].includes(s.toLowerCase()));
+                }
+            }
+            
+            // 2. Parsear escenas y shots
+            const sceneBlocks = text.split(/###ESCENA###/i).filter(b => b.trim());
+            
+            sceneBlocks.forEach(sceneBlock => {
+                const scene = { "Escena": "", "Planos (Shots)": [] };
+                
+                // Título de escena
+                const titleMatch = sceneBlock.match(/Título:\s*([^\n]+)/i);
+                if (titleMatch) scene["Escena"] = titleMatch[1].trim();
+                
+                // Parsear shots (####SHOT####)
+                const shotBlocks = sceneBlock.split(/####SHOT####/i).filter(b => b.trim());
+                
+                shotBlocks.forEach(shotBlock => {
+                    const shot = {};
+                    
+                    const estM = shotBlock.match(/Estilo:\s*([\s\S]*?)(?=Escenario:|Personajes:|Objetos:|Descripción:|Cine:|Diálogo:|$)/i);
+                    if (estM && estM[1].trim()) shot["Estilo visual"] = estM[1].trim();
+                    
+                    const locM = shotBlock.match(/Escenario:\s*([\s\S]*?)(?=Personajes:|Objetos:|Descripción:|Cine:|Diálogo:|$)/i);
+                    if (locM && locM[1].trim()) shot["Escenario"] = locM[1].trim();
+                    
+                    const charM = shotBlock.match(/Personajes:\s*([\s\S]*?)(?=Objetos:|Descripción:|Cine:|Diálogo:|$)/i);
+                    if (charM && charM[1].trim()) {
+                        const chars = charM[1].split('|').map(s => s.trim()).filter(s => s);
+                        if(chars.length) shot["Personajes"] = chars;
                     }
+                    
+                    const objM = shotBlock.match(/Objetos:\s*([\s\S]*?)(?=Descripción:|Cine:|Diálogo:|$)/i);
+                    if (objM && objM[1].trim()) {
+                        const props = objM[1].split('|').map(s => s.trim()).filter(s => s);
+                        if(props.length) shot["Objetos"] = props;
+                    }
+                    
+                    const descM = shotBlock.match(/Descripción:\s*([\s\S]*?)(?=Cine:|Diálogo:|$)/i);
+                    if (descM && descM[1].trim()) shot["Descripción"] = descM[1].trim();
+                    
+                    const cineM = shotBlock.match(/Cine:\s*([\s\S]*?)(?=Diálogo:|$)/i);
+                    if (cineM && cineM[1].trim()) {
+                        const cines = cineM[1].split('|').map(s => s.trim()).filter(s => s);
+                        if(cines.length) shot["Elementos cinematográficos"] = cines;
+                    }
+                    
+                    // Diálogos (maneja múltiples)
+                    const diagMatches = shotBlock.matchAll(/Diálogo:\s*([\s\S]*?)(?=Diálogo:|$)/gi);
+                    const parsedDialogues = [];
+                    for (const m of diagMatches) {
+                        const dlgParts = m[1].split('|');
+                        if (dlgParts.length >= 2) {
+                            parsedDialogues.push({ "Personaje": dlgParts[0].trim(), "Linea": dlgParts.slice(1).join('|').trim() });
+                        }
+                    }
+                    if(parsedDialogues.length > 0) shot["Diálogos"] = parsedDialogues;
+                    
+                    // Solo añadir shot si tiene contenido valioso
+                    if (shot["Descripción"] || shot["Estilo visual"] || shot["Diálogos"]) {
+                        scene["Planos (Shots)"].push(shot);
+                    }
+                });
+                
+                // Solo añadir escena si tiene título o shots
+                if (scene["Escena"] || scene["Planos (Shots)"].length > 0) {
+                    result["Secuencia"].push(scene);
                 }
-            }
-            throw new Error("No se pudo obtener respuesta válida tras múltiples intentos");
+            });
+            
+            return result;
         }
 
-        // Función específica para respuestas JSON (generador de guiones)
-        async function callPollinationsJSON(prompt, systemPrompt) {
-            const rawText = await callPollinationsBase(prompt, systemPrompt, { json: false });
+        // 🔥 Contexto ultra-recortado para generación (max 800 chars)
+        function getProjectContext(maxLength = 800) {
+            const locs = appState.entities.loc.slice(0, 2).map(e => e.name.split(':')[0].trim()).join(' | ') || "Ninguno";
+            const chars = appState.entities.char.slice(0, 2).map(e => e.name.split(':')[0].trim()).join(' | ') || "Ninguno";
+            const props = appState.entities.prop.slice(0, 2).map(e => e.name).join(' | ') || "Ninguno";
+            const scenes = appState.nodes.filter(n => n.type === 'scene').slice(0, 1).map(s => s.data.heading.split('-')[0].trim()).join(', ') || "Ninguna";
+            const lastShot = appState.nodes.filter(n => n.type === 'shot').pop();
+            const actionPreview = lastShot ? (lastShot.data.action || '').substring(0, 80) + '...' : 'Vacía';
             
-            // Extracción agresiva de JSON: encontrar primer { y último }
-            const firstBrace = rawText.indexOf('{');
-            const lastBrace = rawText.lastIndexOf('}');
-            
-            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-                const jsonStr = rawText.substring(firstBrace, lastBrace + 1);
-                try {
-                    return JSON.parse(jsonStr);
-                } catch(e) {
-                    console.warn('JSON parsing failed:', e);
-                }
-            }
-            
-            throw new Error("No se pudo extraer un JSON válido de la respuesta");
+            let context = `CONTEXTO: Escenarios[${locs}] Personajes[${chars}] Props[${props}] ÚltimaEscena[${scenes}] Acción["${actionPreview}"]`;
+            return context.length > maxLength ? context.substring(0, maxLength - 10) + '"' : context;
         }
 
-        function getProjectContext() {
-            const locs = appState.entities.loc.map(e => e.name).join(' | ') || "Ninguno";
-            const chars = appState.entities.char.map(e => e.name).join(' | ') || "Ninguno";
-            const props = appState.entities.prop.map(e => e.name).join(' | ') || "Ninguno";
-            const scenes = appState.nodes.filter(n => n.type === 'scene').map(s => s.data.heading).join(', ') || "Ninguna";
-            const actionPreview = appState.nodes.filter(n => n.type === 'shot').map(s => s.data.action).filter(a=>a).join(' ... ').substring(0, 400);
+        // 🔥 GENERADOR ÚNICO DE ENTIDADES (PANEL IZQUIERDO)
+        async function generateSingleEntity(catName) {
+            const btnLabel = document.querySelector(`.entity-section:has(#input-${catName}) .add-btn`);
+            if (btnLabel) { btnLabel.innerText = '⏳'; btnLabel.disabled = true; }
 
-            return `CONTEXTO ACTUAL:\n- Escenarios: [${locs}]\n- Personajes: [${chars}]\n- Objetos (Props): [${props}]\n- Escenas: [${scenes}]\n- Trama desarrollada: "${actionPreview || 'Vacía'}"`;
-        }
+            const context = getProjectContext(800);
+            
+            const entityRules = {
+                'char': `Sugiere 1 (UN) personaje concreto y físico. Nada abstracto ni poético. Ejemplo: Tomás (Protagonista): Hombre de 40 años, playera gris lisa, pantalones de mezclilla, botas de trabajo.`,
+                'loc': `Sugiere 1 (UN) escenario super concreto. Nada poético. Ejemplo: Cafetería de carretera: Local pequeño con neón parpadeante y suelo de damero.`,
+                'prop': `Sugiere 1 (UN) objeto físico accionable. Nada simbólico. Ejemplo: Maletín con combinación: Contiene documentos confidenciales.`
+            };
+            
+            const sysPrompt = `Eres un guionista aterrizado y directo. ESTÁ PROHIBIDO USAR LENGUAJE POÉTICO (nada de ecos del pasado, sombras del silencio). Solo objetos y hechos reales. OBLIGATORIO: Devuelve SOLO LA RESPUESTA, sin preámbulos, sin guiones iniciales, sin comillas. Un solo párrafo corto.`;
+            const userPrompt = `${context}\n\n${entityRules[catName] || 'Sugiere 1 elemento nuevo físico y real.'}`;
 
-        async function generateIdeas() {
-            const btn = document.getElementById('btn-gen-ideas'); 
-            const out = document.getElementById('ai-idea-output'); 
-            const rawCat = document.getElementById('ai-idea-cat').value;
-            const context = getProjectContext(); 
-            let isToolkit = rawCat.startsWith('tk_'); 
-            let catName = isToolkit ? rawCat.replace('tk_', '') : rawCat;
-            
-            let sysPrompt = `Eres un Guionista y Director de Arte experto. Sugiere EXACTAMENTE 3 ideas VISUALES Y NARRATIVAS altamente creativas basadas en el contexto. Usa solo guiones (-). Sin introducciones.`;
-            let userPrompt = `${context}\n\nSugiere 3 ${isToolkit ? 'elementos técnicos de' : 'nuevos'} ${catName} para enriquecer dramáticamente esta visión.`;
-
-            btn.disabled = true; out.value = "Imaginando...";
-            
-            try { 
-                // Usar patrón URL corregido
-                const seed = Math.floor(Math.random() * 99999);
-                const url = `https://text.pollinations.ai/${encodeURIComponent(userPrompt)}?system=${encodeURIComponent(sysPrompt)}&model=openai&private=true&seed=${seed}`;
-                
-                const res = await fetch(url);
-                let text = await res.text();
-                text = extractPollinationsContent(text);
-                
-                // Para formato de lista, buscar primer guión
-                const firstDash = text.indexOf('-');
-                if(firstDash !== -1) text = text.substring(firstDash);
-                
-                out.value = text.trim() || "Sin resultados. Intenta de nuevo.";
-            } catch(e) { 
-                out.value = `Error: ${e.message}`; 
-                console.error('generateIdeas error:', e);
-            }
-            btn.disabled = false;
-        }
-
-        async function generateScript() {
-            const btn = document.getElementById('btn-gen-script'); 
-            const duration = parseInt(document.getElementById('ai-duration').value) || 30;
-            const sceneCount = parseInt(document.getElementById('ai-scenes').value) || 1;
-            const numShots = Math.max(1, Math.round(duration / 6)); 
-            const context = getProjectContext();
-            
-            const sys = `Eres un Guionista y Director de Cine ganador del Óscar, aclamado por tu estilo visual inmersivo y escritura "Show, Don't Tell".
-Genera la continuación (o el inicio) del guion con EXACTAMENTE ${sceneCount} escena(s) y ${numShots} shots totales.
-REGLAS CREATIVAS Y DE CLASIFICACIÓN ESTRICTAS:
-1. "Escenarios": SOLO nombres de lugares físicos y luz/tiempo (Ej: "Taberna olvidada - Noche"). NUNCA describas acciones aquí.
-2. "Personajes": SOLO el Nombre y una línea de actitud o ropa (Ej: "EL CÍNICO: Gabardina empapada, mirada vacía").
-3. "Objetos": SOLO props inanimados físicos (Ej: "Reloj de bolsillo roto"). NUNCA partes del cuerpo (como "manos", "ojos") ni conceptos abstractos.
-4. "Descripción": Literatura cinematográfica pura. Describe texturas, contraluces, micro-acciones y tensión. Nada de verbos básicos.
-RESPONDE ÚNICA Y EXCLUSIVAMENTE CON UN JSON VÁLIDO. ESTRUCTURA EXACTA:
-{
-  "Entidades Globales": { "Escenarios": ["..."], "Personajes": ["..."], "Objetos": ["..."] },
-  "Secuencia": [
-    {
-      "Escena": "INT/EXT. LUGAR - TIEMPO",
-      "Planos (Shots)": [
-        {
-          "Estilo visual": "...",
-          "Escenario": "...",
-          "Personajes": ["..."],
-          "Objetos": ["..."],
-          "Descripción": "Acción poética, cruda y cinematográfica",
-          "Elementos cinematográficos": ["..."],
-          "Diálogos": [{"Personaje": "...", "Linea": "..."}]
-        }
-      ]
-    }
-  ]
-}`;
-            
-            btn.disabled = true; btn.innerText = "Escribiendo...";
             try {
-                const scriptData = await callPollinationsJSON(`${context}\n\nGenera el JSON del guion ahora.`, sys);
-                buildGraphFromJSON(scriptData, true);
-                btn.innerText = "Generar Guion";
-            } catch (e) { 
-                btn.innerText = "[ ERROR ]";
-                setTimeout(() => { btn.innerText = "Generar Guion"; }, 3000);
-                console.error('generateScript error:', e);
-                alert(`Error en generación: ${e.message}\n\nConsejo: Reduce la complejidad o intenta de nuevo.`);
-            } 
-            finally { btn.disabled = false; }
+                let text = await callPollinationsBase(userPrompt, sysPrompt);
+                if (text) {
+                    text = text.replace(/^-\s*/, '').replace(/[\n\r]/g, ' ').trim();
+                    appState.entities[catName].push({ id: `ent_${Date.now()}`, name: text, image: null }); 
+                    renderEntities(); saveState();
+                }
+            } catch (err) {
+                alert("Error generando entidad: " + err.message);
+            } finally {
+                if (btnLabel) { btnLabel.innerText = '+'; btnLabel.disabled = false; }
+            }
+        }
+
+        // 🔥 MOTOR CONTEXTUAL POR CADA TIPO DE NODO
+        async function generateSelectedNode() {
+            const btn = document.getElementById('btn-generar');
+            
+            if (appState.selectedNodeIds.length !== 1) {
+                return alert("Selecciona exactamente UN nodo del lienzo para auto-completar.");
+            }
+
+            const nodeId = appState.selectedNodeIds[0];
+            const node = appState.nodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            btn.disabled = true;
+            btn.innerText = "⏳ PENSANDO...";
+            const context = getProjectContext(800);
+            
+            try {
+                if (node.type === 'scene') {
+                    const childShots = appState.nodes.filter(n => n.parentId === node.id && n.type === 'shot');
+                    const shotsText = childShots.map(s => s.data.action).join(" | ");
+                    
+                    const sys = "Eres supervisor de guion. Deduce o mejora el encabezado de escena (Scene Heading) basado en la acción física adjunta. Devuelve SOLO EL TÍTULO en formato estándar (INT/EXT. LUGAR - DIA/NOCHE). SIN COMILLAS.";
+                    const user = `Acción contenida:\n${shotsText || 'Aún no hay acción'}\n\nTítulo parcial actual: ${node.data.heading}\n\nMejora el título actual o propón uno realista y seco. NADA POÉTICO.`;
+                    
+                    let newTitle = await callPollinationsBase(user, sys);
+                    newTitle = newTitle.replace(/["\\]/g, '').trim().toUpperCase();
+                    updateNodeData(node.id, 'heading', newTitle);
+                    
+                } else if (node.type === 'shot') {
+                    const parentScene = appState.nodes.find(n => n.id === node.parentId) || { data: { heading: 'Desconocido' } };
+                    const connectedEntities = appState.nodes.filter(n => n.parentId === node.id && n.type === 'entity_link');
+                    const locs = connectedEntities.filter(e => e.data.type === 'loc').map(e => e.data.name).join(", ");
+                    const chars = connectedEntities.filter(e => e.data.type === 'char').map(e => e.data.name).join(", ");
+                    const props = connectedEntities.filter(e => e.data.type === 'prop').map(e => e.data.name).join(", ");
+                    
+                    if (!locs && !chars && !node.data.action) {
+                        throw new Error("Conecta una entidad (Escenario o Personaje) a este plano, o escribe algo inicial para saber qué generar.");
+                    }
+                    
+                    const sys = "Eres un Especialista en Prompts de Imagen (estilo Midjourney, Nano Banana). Genera un prompt hiper-descriptivo y directo en un bloque de texto, separado por comas si es necesario, sin jerga literaria. Enfocate en óptica, sujeto, iluminación, y estética.";
+                    const user = `Contexto Base:\nLugar: ${locs}\nSujetos: ${chars}\nObjetos: ${props}\nModificadores de Cámara/Estilo: ${node.data.tags ? node.data.tags.map(t=>t.val).join(', ') : 'Ninguno'}\n\nAcción o idea inicial proporcionada por usuario: ${node.data.action || 'Vacía'}\n\nGenera el PROMPT DE IMAGEN DEFINITIVO amalgamando estos elementos (max 4-5 líneas). Omitir comillas o introducciones.`;
+                    
+                    let newDesc = await callPollinationsBase(user, sys);
+                    newDesc = newDesc.replace(/["\\]/g, '').trim();
+                    updateNodeData(node.id, 'action', newDesc);
+                    
+                } else if (node.type === 'motion') {
+                    const parentShot = appState.nodes.find(n => n.id === node.parentId);
+                    const visualContext = parentShot ? parentShot.data.action : "Contexto visual ausente.";
+                    
+                    if (node.data.hasDialog && (!node.data.char || node.data.char.trim() === '')) {
+                        throw new Error("Activaste 'Incluir Diálogo'. Escribe el personaje que hablará en el recuadro antes de generar.");
+                    }
+                    
+                    const dialogRule = node.data.hasDialog ? `\n\n[REGLA ESTRICTA: El usuario requiere que el prompt explique que el personaje "${node.data.char}" está hablando. Añade su línea de diálogo hablada usando comillas en la descripción del prompt de video para guiar el lip-sync.]` : '';
+                    
+                    const sys = "Eres un Especialista en Prompts de Video (Sora, Veo 3.1, Runway). Traduce un encuadre estático en una simulación de movimiento (tipo de movimiento de cámara, física de fluidos u objetos, cinemática). Escribe de manera plana y descriptiva. Sin introducciones.";
+                    const user = `Encuadre visual estático base:\n${visualContext}\n\nDesarrollo parcial o guía de movimiento actual proveida: ${node.data.text || 'N/A'}${dialogRule}\n\nEscribe el PROMPT DE VIDEO FINAL.`;
+                    
+                    let newMotion = await callPollinationsBase(user, sys);
+                    newMotion = newMotion.replace(/["\\]/g, '').trim();
+                    updateNodeData(node.id, 'text', newMotion);
+
+                } else if (node.type === 'entity_link') {
+                    const sys = "Eres un analista forense. Expande la descripción físca del elemento dado. Solo detalles fisiológicos, de vestimenta o materiales y desgaste. CERO POESÍA. NADA METAFÓRICO. Un solo párrafo directo.";
+                    const user = `Contexto del Proyecto:\n${context}\n\nMejora el texto de esta entidad:\n${node.data.name}\n\nDevuelve solo la descripción final.`;
+                    
+                    let expandedEnt = await callPollinationsBase(user, sys);
+                    expandedEnt = expandedEnt.replace(/["\\]/g, '').trim();
+                    updateNodeData(node.id, 'name', expandedEnt);
+                }
+                
+                document.querySelectorAll('.node').forEach(n => n.remove());
+                appState.nodes.forEach(n => renderNode(n));
+                drawSplines();
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "✨ GENERAR IA";
+            }
+        }
+
+        async function copyNodeText(id) {
+            const node = appState.nodes.find(n => n.id === id);
+            const text = node.type === 'shot' ? node.data.action : node.data.text;
+            if (!text) return;
+            try { await navigator.clipboard.writeText(text); } 
+            catch(err) { alert("Tu navegador bloqueó el portapapeles, selecciona el texto y cópialo a mano."); }
+        }
+
+        async function translateNodeText(id) {
+            const node = appState.nodes.find(n => n.id === id);
+            const text = node.type === 'shot' ? node.data.action : node.data.text;
+            if (!text) return;
+            
+            const btn = document.querySelector(`#${id} .json-export-en`);
+            if(btn) { btn.innerText = "⏳..."; btn.disabled = true; }
+            
+            try {
+                const sys = "Eres traductor nativo. Traduce el siguiente Prompt textualmente al Inglés para que modelos de IA como Midjourney y Sora lo entiendan mejor. NADA MÁS QUE LA TRADUCCIÓN.";
+                const enText = await callPollinationsBase(`Traduce esto al inglés puro:\n\n${text}`, sys);
+                const cleanResult = enText.replace(/["\\]/g, '').trim();
+                
+                if (node.type === 'shot') updateNodeData(id, 'action', cleanResult);
+                else updateNodeData(id, 'text', cleanResult);
+                
+                document.querySelectorAll('.node').forEach(n => n.remove());
+                appState.nodes.forEach(n => renderNode(n)); 
+                drawSplines();
+            } catch(e) {
+                alert("Error traduciendo: "+e.message);
+                if (btn) { btn.innerText = "🇬🇧 Tr. a EN"; btn.disabled = false; }
+            }
         }
 
         // ==========================================
@@ -486,7 +616,7 @@ RESPONDE ÚNICA Y EXCLUSIVAMENTE CON UN JSON VÁLIDO. ESTRUCTURA EXACTA:
             document.getElementById('svg-layer').innerHTML = '';
         }
 
-        function buildGraphFromJSON(json, append = false) {
+        function buildGraphFromJSON(json, append = false, secPerShot = 7) {
             if (!json) return;
             
             const entidades = json["Entidades Globales"] || json["Global Entities"] || {};
@@ -557,7 +687,8 @@ RESPONDE ÚNICA Y EXCLUSIVAMENTE CON UN JSON VÁLIDO. ESTRUCTURA EXACTA:
                     cinema.forEach(el => tags.push({cat: "Cine", val: el}));
 
                     let shotX = sceneX;
-                    appState.nodes.push({ id: shotId, type: 'shot', x: shotX, y: currentY, parentId: sceneId, data: { action: action, tags: tags } });
+                    const shotDuration = (typeof secPerShot === 'number' && secPerShot > 0) ? secPerShot : 7;
+                    appState.nodes.push({ id: shotId, type: 'shot', x: shotX, y: currentY, parentId: sceneId, data: { action: action, tags: tags, duration: shotDuration } });
 
                     let entityOffsetY = currentY;
                     
@@ -660,17 +791,26 @@ RESPONDE ÚNICA Y EXCLUSIVAMENTE CON UN JSON VÁLIDO. ESTRUCTURA EXACTA:
         }
 
         // ==========================================
-        // EXPORTACIÓN & TRADUCCIÓN FULL EN INGLÉS (CORREGIDO)
+        // EXPORTACIÓN & TRADUCCIÓN (usa el mismo enfoque de texto estructurado si es necesario)
         // ==========================================
         function compileShotJSON(nodeId) {
             const shot = appState.nodes.find(n => n.id === nodeId); const childNodes = appState.nodes.filter(n => n.parentId === nodeId);
-            const locs = childNodes.filter(d => d.type === 'entity_link' && d.data.type === 'loc').map(d => d.data.name).join(' | ') || "No especificado";
+            const locs = childNodes.filter(d => d.type === 'entity_link' && d.data.type === 'loc').map(d => d.data.name).join(' | ');
             const chars = childNodes.filter(d => d.type === 'entity_link' && d.data.type === 'char').map(d => d.data.name);
             const props = childNodes.filter(d => d.type === 'entity_link' && d.data.type === 'prop').map(d => d.data.name);
             const dialogues = childNodes.filter(d => d.type === 'dialogue').map(d => ({ Personaje: d.data.char, Linea: d.data.line }));
             const estiloOverride = shot.data.tags.find(t => t.cat === 'Estilo Visual'); const cinematografia = shot.data.tags.filter(t => t.cat !== 'Estilo Visual').map(t => t.val);
             
-            return { "Estilo visual": estiloOverride ? estiloOverride.val : "Por defecto", "Escenario": locs, "Personajes": chars.length > 0 ? chars : ["Ninguno"], "Objetos": props.length > 0 ? props : ["Ninguno"], "Descripción": shot.data.action || "", "Elementos cinematográficos": cinematografia.length > 0 ? cinematografia : [], "Diálogos": dialogues.length > 0 ? dialogues : [] };
+            const out = {};
+            if (estiloOverride) out["Estilo visual"] = estiloOverride.val;
+            if (locs) out["Escenario"] = locs;
+            if (chars.length > 0) out["Personajes"] = chars;
+            if (props.length > 0) out["Objetos"] = props;
+            if (shot.data.action && shot.data.action.trim()) out["Descripción"] = shot.data.action.trim();
+            if (cinematografia.length > 0) out["Elementos cinematográficos"] = cinematografia;
+            if (dialogues.length > 0) out["Diálogos"] = dialogues;
+            
+            return out;
         }
 
         async function exportShotJSON(nodeId, e, useTranslation) {
@@ -696,62 +836,104 @@ RESPONDE ÚNICA Y EXCLUSIVAMENTE CON UN JSON VÁLIDO. ESTRUCTURA EXACTA:
             finally { if(btnId) { document.getElementById(btnId).disabled = false; document.getElementById(btnId).innerText = "[ 🤖 ] Traducir EN"; } }
         }
 
+        // 🔥 Traducción: lista numerada con chunking — sin JSON directo, parseo 100% local
         async function translateJSON(jsonObj) {
-            const sys = `You are a strict JSON translation API. Translate all string values from Spanish to professional technical filmmaking English.
-Keep the exact same JSON structure. Output ONLY a valid JSON object. Do not output any conversational text or reasoning.
-Map keys EXACTLY to these equivalents:
-- "Entidades Globales" -> "Global Entities"
-- "Escenarios" -> "Settings"
-- "Personajes" -> "Characters"
-- "Objetos" -> "Props"
-- "Secuencia" -> "Sequence"
-- "Escena" -> "Scene"
-- "Planos (Shots)" -> "Shots"
-- "Estilo visual" -> "Visual Style"
-- "Escenario" -> "Setting"
-- "Descripción" -> "Action Description"
-- "Elementos cinematográficos" -> "Cinematography"
-- "Diálogos" -> "Dialogue"
-- "Personaje" -> "Character"
-- "Linea" -> "Line"`;
 
-            const prompt = JSON.stringify(jsonObj);
-            
-            // Retry loop con extracción robusta
-            for(let attempt = 0; attempt < 4; attempt++) {
-                try {
-                    const seed = Math.floor(Math.random() * 99999);
-                    const url = `https://text.pollinations.ai/${encodeURIComponent(prompt)}?system=${encodeURIComponent(sys)}&model=openai&json=false&seed=${seed}&private=true`;
-                    
-                    const res = await fetch(url);
-                    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-                    
-                    let text = await res.text();
-                    text = extractPollinationsContent(text);
-                    
-                    // Intentar parsear JSON directamente
-                    try {
-                        return JSON.parse(text);
-                    } catch(e) {
-                        // Si falla, buscar JSON dentro del texto
-                        const firstBrace = text.indexOf('{');
-                        const lastBrace = text.lastIndexOf('}');
-                        if(firstBrace !== -1 && lastBrace !== -1) {
-                            const jsonStr = text.substring(firstBrace, lastBrace + 1);
-                            return JSON.parse(jsonStr);
-                        }
-                        throw e;
+            // ── PASO 1: Renombrar claves en local (100% sin API) ──
+            const KEY_MAP = {
+                'Entidades Globales': 'Global Entities', 'Escenarios': 'Settings',
+                'Personajes': 'Characters', 'Objetos': 'Props', 'Secuencia': 'Sequence',
+                'Escena': 'Scene', 'Planos (Shots)': 'Shots', 'Estilo visual': 'Visual Style',
+                'Escenario': 'Setting', 'Descripción': 'Action Description',
+                'Elementos cinematográficos': 'Cinematography', 'Diálogos': 'Dialogue',
+                'Personaje': 'Character', 'Linea': 'Line'
+            };
+            function renameKeys(src) {
+                if (Array.isArray(src)) return src.map(renameKeys);
+                if (src && typeof src === 'object') {
+                    const o = {};
+                    for (const [k, v] of Object.entries(src)) o[KEY_MAP[k] || k] = renameKeys(v);
+                    return o;
+                }
+                return src;
+            }
+            const keyRenamed = renameKeys(jsonObj);
+
+            // ── PASO 2: Recopilar todos los strings traducibles (mantener índice) ──
+            const strings = [];   // [{path: ref al objeto, key: clave, value: string}]
+            const refs = [];      // Referencias directas para reescribir
+            function collectStrings(obj) {
+                const skip = ['Ninguno','None','ninguno','none','No especificado','Not specified'];
+                if (Array.isArray(obj)) {
+                    obj.forEach((item, idx) => {
+                        if (typeof item === 'string' && item.trim().length > 0 && !skip.includes(item.trim())) {
+                            strings.push(item.trim());
+                            refs.push({ parent: obj, key: idx });
+                        } else { collectStrings(item); }
+                    });
+                    return;
+                }
+                if (obj && typeof obj === 'object') {
+                    for (const [k, v] of Object.entries(obj)) {
+                        if (typeof v === 'string' && v.trim().length > 0 && !skip.includes(v.trim())) {
+                            strings.push(v.trim());
+                            refs.push({ parent: obj, key: k });
+                        } else { collectStrings(v); }
                     }
-                } catch(err) {
-                    console.warn(`Translation attempt ${attempt + 1} failed:`, err.message);
-                    if(attempt < 3) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                    return;
                 }
             }
-            throw new Error("Traducción fallida tras múltiples intentos");
+            collectStrings(keyRenamed);
+
+            if (strings.length === 0) return keyRenamed; // nada que traducir
+
+            // ── PASO 3: Enviar en chunks de 20 líneas para evitar prompts gigantes ──
+            const CHUNK_SIZE = 20;
+            const sys = `You are a professional Hollywood screenplay translator (Spanish → English). Translate each numbered line precisely. Keep all proper nouns, camera brands, lens names, technical terms, and location names. Return ONLY the numbered translations in the exact format shown. No extra text.
+Format:
+1|original spanish text
+→
+1|translated english text`;
+
+            const allTranslated = new Array(strings.length).fill(null);
+
+            for (let start = 0; start < strings.length; start += CHUNK_SIZE) {
+                const chunkStrings = strings.slice(start, start + CHUNK_SIZE);
+                const numbered = chunkStrings.map((s, i) => `${start + i + 1}|${s}`).join('\n');
+                const userPrompt = `Translate these lines from Spanish to English:\n${numbered}`;
+
+                let translated = null;
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    try {
+                        const rawText = await callPollinationsBase(userPrompt, sys);
+                        if (rawText && rawText.length > 5) { translated = rawText; break; }
+                    } catch(e) {
+                        if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                    }
+                }
+
+                if (translated) {
+                    // Parsear respuesta numerada: "N|texto"
+                    translated.split('\n').forEach(line => {
+                        const m = line.match(/^(\d+)\|(.+)$/);
+                        if (m) {
+                            const idx = parseInt(m[1]) - 1;
+                            if (idx >= 0 && idx < strings.length) allTranslated[idx] = m[2].trim();
+                        }
+                    });
+                }
+            }
+
+            // ── PASO 4: Aplicar traducciones de vuelta al objeto ──
+            refs.forEach((ref, i) => {
+                if (allTranslated[i]) ref.parent[ref.key] = allTranslated[i];
+            });
+
+            return keyRenamed;
         }
 
         // ==========================================
-        // LÓGICA BASE CANVAS Y ARRASTRE MULTIPLE FIJO
+        // LÓGICA BASE CANVAS Y ARRASTRE
         // ==========================================
         const wrapper = document.getElementById('canvas-wrapper');
         const canvas = document.getElementById('canvas');
@@ -815,7 +997,11 @@ Map keys EXACTLY to these equivalents:
 
         function addEntity(type) {
             const input = document.getElementById(`input-${type}`); const fileInput = document.getElementById(`file-${type}`);
-            const name = input.value.trim(); if (!name) return alert("Escribe un nombre/descripción.");
+            const name = input.value.trim(); 
+            if (!name && (!fileInput.files || !fileInput.files[0])) { 
+                generateSingleEntity(type); 
+                return; 
+            }
             const processEntity = (base64Img) => { appState.entities[type].push({ id: `ent_${Date.now()}`, name, image: base64Img }); input.value = ''; fileInput.value = ''; renderEntities(); saveState(); };
 
             if (fileInput.files && fileInput.files[0]) {
@@ -846,8 +1032,8 @@ Map keys EXACTLY to these equivalents:
             const activeId = appState.selectedNodeIds[0]; const activeNode = activeId ? appState.nodes.find(n => n.id === activeId) : null;
 
             if (type === 'scene') { node.data = { heading: 'INT. NUEVA ESCENA - DÍA' }; node.x -= 120; node.y -= 40; } 
-            else if (type === 'shot') { node.data = { action: '', tags: [] }; if (activeNode && activeNode.type === 'scene') { node.parentId = activeNode.id; node.x = activeNode.x; node.y = activeNode.y + 96; } } 
-            else if (type === 'dialogue') { node.data = { char: '', line: '' }; if (activeNode && activeNode.type === 'shot') { node.parentId = activeNode.id; node.x = activeNode.x + 280; node.y = activeNode.y; } } 
+            else if (type === 'shot') { node.data = { action: '', tags: [], duration: 7 }; if (activeNode && activeNode.type === 'scene') { node.parentId = activeNode.id; node.x = activeNode.x; node.y = activeNode.y + 96; } } 
+            else if (type === 'motion') { node.data = { text: '', hasDialog: false, char: '' }; if (activeNode && activeNode.type === 'shot') { node.parentId = activeNode.id; node.x = activeNode.x + 280; node.y = activeNode.y; } } 
             else if (type === 'entity_link') { node.data = presetData; if (activeNode) { node.parentId = activeNode.id; node.y = activeNode.y + Math.random()*24; node.x = activeNode.x - 300; } }
 
             appState.nodes.push(node); renderNode(node); selectSingleNode(node.id); drawSplines(); saveState();
@@ -858,14 +1044,26 @@ Map keys EXACTLY to these equivalents:
             let html = '';
             if (node.type === 'scene') { html = `<div class="node-header" onmousedown="startNodeDrag('${node.id}', event)">🎬 ESCENA MAESTRA <span onclick="deleteNode('${node.id}')">✕</span></div><div class="port out"></div><div class="node-body"><input type="text" value="${node.data.heading}" oninput="updateNodeData('${node.id}', 'heading', this.value)" onmousedown="event.stopPropagation()"></div>`; } 
             else if (node.type === 'shot') {
+                const dur = node.data.duration || 7;
                 html = `<div class="port in"></div><div class="node-header" onmousedown="startNodeDrag('${node.id}', event)">🎥 SHOT VISUAL <span onclick="deleteNode('${node.id}')">✕</span></div><div class="port out"></div><div class="node-body">
-                        <textarea placeholder="Descripción de la acción..." oninput="updateNodeData('${node.id}', 'action', this.value)" onmousedown="event.stopPropagation()">${node.data.action}</textarea>
+                        <textarea placeholder="Prompt de Imagen (Cámara, Sujeto, Estilo...)" oninput="updateNodeData('${node.id}', 'action', this.value)" onmousedown="event.stopPropagation()">${node.data.action}</textarea>
                         <div class="node-tray" id="tray-${node.id}"></div>
-                        <div style="display:flex;gap:3px;">
-                            <button class="json-export-btn" onclick="exportShotJSON('${node.id}', event, false)">{ ES }</button>
-                            <button class="json-export-btn json-export-en" onclick="exportShotJSON('${node.id}', event, true)">{ EN } AI</button>
+                        <div style="display:flex;gap:3px;margin-top:2px;">
+                            <button class="json-export-btn" onclick="copyNodeText('${node.id}')">📋 Copiar</button>
+                            <button class="json-export-btn json-export-en" onclick="translateNodeText('${node.id}')">🇬🇧 Tr. a EN</button>
                         </div></div>`;
-            } else if (node.type === 'dialogue') { html = `<div class="port in"></div><div class="node-header" onmousedown="startNodeDrag('${node.id}', event)">💬 DIÁLOGO <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body"><input type="text" class="char-input" placeholder="Personaje" value="${node.data.char}" oninput="updateNodeData('${node.id}', 'char', this.value)" onmousedown="event.stopPropagation()"><textarea placeholder="Línea de diálogo..." oninput="updateNodeData('${node.id}', 'line', this.value)" onmousedown="event.stopPropagation()">${node.data.line}</textarea></div>`; } 
+            } else if (node.type === 'motion') { 
+                html = `<div class="port in"></div><div class="node-header" style="background:#8e44ad; color:white;" onmousedown="startNodeDrag('${node.id}', event)">📽️ SHOT MOTION <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body">
+                        <div style="font-size:0.65rem; margin-bottom:5px; display:flex; gap:5px; align-items:center;">
+                            <input type="checkbox" id="dlg_${node.id}" ${node.data.hasDialog ? 'checked' : ''} onchange="updateNodeData('${node.id}', 'hasDialog', this.checked); document.getElementById('${node.id}').outerHTML = ''; appState.nodes.forEach(n => {if(n.id === '${node.id}') renderNode(n)});" onmousedown="event.stopPropagation()"> <label for="dlg_${node.id}" style="color:#aaa;">Con Diálogo</label>
+                        </div>
+                        ${node.data.hasDialog ? `<input type="text" class="char-input" placeholder="Nombre de Personaje" value="${node.data.char}" style="margin-bottom:4px;" oninput="updateNodeData('${node.id}', 'char', this.value)" onmousedown="event.stopPropagation()">` : ''}
+                        <textarea placeholder="Prompt de Movimiento Físico / Video..." style="${node.data.hasDialog ? 'height:60px;' : 'height:80px;'}" oninput="updateNodeData('${node.id}', 'text', this.value)" onmousedown="event.stopPropagation()">${node.data.text||''}</textarea>
+                        <div style="display:flex;gap:3px;margin-top:2px;">
+                            <button class="json-export-btn" onclick="copyNodeText('${node.id}')">📋 Copiar</button>
+                            <button class="json-export-btn json-export-en" onclick="translateNodeText('${node.id}')">🇬🇧 Tr. a EN</button>
+                        </div></div>`; 
+            } 
             else if (node.type === 'entity_link') {
                 const labels = { char: '👤 PERSONAJE', loc: '🌍 ESCENARIO', prop: '🔪 OBJETO' }; const colors = { char: 'var(--accent-char)', loc: 'var(--accent-loc)', prop: 'var(--accent-prop)' };
                 html = `<div class="port in" style="left: auto; right: -4px; top: calc(50% - 4px);"></div><div class="node-header" style="background:${colors[node.data.type]}; color:white;" onmousedown="startNodeDrag('${node.id}', event)">${labels[node.data.type]} <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body"><textarea placeholder="Descripción de entidad..." oninput="updateNodeData('${node.id}', 'name', this.value)" onmousedown="event.stopPropagation()">${node.data.name}</textarea></div>`;
@@ -888,10 +1086,10 @@ Map keys EXACTLY to these equivalents:
         function updateNodeData(id, key, val) { appState.nodes.find(n => n.id === id).data[key] = val; saveState(); }
 
         function attachEntityToShot(type, name) {
-            if (appState.selectedNodeIds.length !== 1) return alert("Selecciona UN solo nodo SHOT o DIÁLOGO.");
+            if (appState.selectedNodeIds.length !== 1) return alert("Selecciona UN solo nodo SHOT u otro compatible.");
             const activeNode = appState.nodes.find(n => n.id === appState.selectedNodeIds[0]);
-            if (activeNode.type === 'dialogue' && type === 'char') { activeNode.data.char = name; const charInput = document.querySelector(`#${activeNode.id} .char-input`); if(charInput) charInput.value = name; saveState(); return; }
-            if (activeNode.type !== 'shot') return alert("Las presencias visuales se vinculan a un SHOT.");
+            if (activeNode.type === 'motion' && type === 'char' && activeNode.data.hasDialog) { activeNode.data.char = name; const charInput = document.querySelector(`#${activeNode.id} .char-input`); if(charInput) charInput.value = name; saveState(); return; }
+            if (activeNode.type !== 'shot') return alert("Las presencias visuales se vinculan a un SHOT Visual.");
             createNode('entity_link', { type, name }, activeNode.id);
         }
 
@@ -914,7 +1112,7 @@ Map keys EXACTLY to these equivalents:
                             let startX = parent.x + (elParent.offsetWidth / 2), startY = parent.y + elParent.offsetHeight, endX = node.x + (elNode.offsetWidth / 2), endY = node.y, curve = 28, pathClass = "link";
                             if(parent.type === 'scene') pathClass += " scene-link";
                             if (node.type === 'entity_link') { startX = parent.x; startY = parent.y + 24; endX = node.x + elNode.offsetWidth; endY = node.y + 12; svg.appendChild(createSvgPath(`M ${startX} ${startY} C ${startX - 28} ${startY}, ${endX + 28} ${endY}, ${endX} ${endY}`, "link")); return; }
-                            if (node.type === 'dialogue') { startX = parent.x + elParent.offsetWidth; startY = parent.y + 24; endX = node.x; endY = node.y + 12; svg.appendChild(createSvgPath(`M ${startX} ${startY} C ${startX + 28} ${startY}, ${endX - 28} ${endY}, ${endX} ${endY}`, "link")); return; }
+                            if (node.type === 'motion') { startX = parent.x + elParent.offsetWidth; startY = parent.y + 24; endX = node.x; endY = node.y + 12; svg.appendChild(createSvgPath(`M ${startX} ${startY} C ${startX + 28} ${startY}, ${endX - 28} ${endY}, ${endX} ${endY}`, "link")); return; }
                             svg.appendChild(createSvgPath(`M ${startX} ${startY} C ${startX} ${startY + curve}, ${endX} ${endY - curve}, ${endX} ${endY}`, pathClass));
                         }
                     }
