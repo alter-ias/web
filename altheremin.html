@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <title>Artimotion - Band System (Smart Routing)</title>
+    
+    <link rel="icon" href="data:,">
+
     <style>
         body { margin: 0; overflow: hidden; background: #000; user-select: none; font-family: 'Segoe UI', sans-serif; }
         canvas { display: block; }
@@ -78,15 +81,16 @@
         .lil-gui { --background-color: rgba(5, 5, 10, 0.95); --text-color: #eee; }
     </style>
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1640029074/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1629159505/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/hands.js" crossorigin="anonymous"></script>
 
     <script type="module">
-        import * as THREE from 'https://cdn.skypack.dev/three@0.136.0';
-        import { EffectComposer } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/EffectComposer.js';
-        import { RenderPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/RenderPass.js';
-        import { UnrealBloomPass } from 'https://cdn.skypack.dev/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
+        // FIX: Cambiado cdn.skypack.dev a esm.sh para solucionar el error de CORS
+        import * as THREE from 'https://esm.sh/three@0.136.0';
+        import { EffectComposer } from 'https://esm.sh/three@0.136.0/examples/jsm/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'https://esm.sh/three@0.136.0/examples/jsm/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'https://esm.sh/three@0.136.0/examples/jsm/postprocessing/UnrealBloomPass.js';
         import GUI from 'https://cdn.jsdelivr.net/npm/lil-gui@0.17.0/dist/lil-gui.esm.min.js';
 
         const params = {
@@ -190,7 +194,7 @@
                 this.sustain=false; this.lastChordIdx=-1;
                 this.melOsc=null; this.melGain=null; this.chordOscs=[]; this.chordGain=null;
                 this.chordFilter = null;
-                this.instBus = null; // NUEVO: Bus solo para instrumentos
+                this.instBus = null; 
             }
             init() {
                 if(this.isInit) return;
@@ -304,7 +308,7 @@
                 const p = document.getElementById('pedal-loop');
                 if(this.loopState === 'IDLE' || this.loopState === 'PLAYING') {
                     this.chunks = []; if(this.loopSource) { this.loopSource.stop(); this.loopSource = null; }
-                    this.recorder = new MediaRecorder(this.loopDest.stream); // GRABA DEL BUS DE INSTRUMENTOS
+                    this.recorder = new MediaRecorder(this.loopDest.stream); 
                     this.recorder.ondataavailable = e => this.chunks.push(e.data);
                     this.recorder.start();
                     this.loopState = 'RECORDING'; p.classList.add('recording'); p.classList.remove('active');
@@ -323,7 +327,7 @@
                 this.loopSource = this.ctx.createBufferSource();
                 this.loopSource.buffer = this.loopBuffer;
                 this.loopSource.loop = true;
-                this.loopSource.connect(this.master); // Reproduce al master
+                this.loopSource.connect(this.master); 
                 this.loopSource.start();
                 this.loopState = 'PLAYING';
             }
@@ -441,7 +445,8 @@
             if(!chordActive) audio.handleChords(0,0,false);
         }
 
-        const hands = new Hands({locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+        // FIX: Se actualizó la ruta del locateFile para que coincida con la versión del <head>
+        const hands = new Hands({locateFile:(f)=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1646424915/${f}`});
         hands.setOptions({maxNumHands:2, modelComplexity:1, minDetectionConfidence:0.5});
         hands.onResults(onResults);
         const cam = new Camera(videoElement, {onFrame:async()=>{await hands.send({image:videoElement})}, width:1280, height:720});
