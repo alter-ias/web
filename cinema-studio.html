@@ -243,7 +243,7 @@
         <div class="ai-panel">
             <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px; text-transform:uppercase;">Asistente Contextual:</div>
             <button class="ui-btn ai-btn" id="btn-generar" onclick="generateSelectedNode()" style="width: 100%; padding: 8px;">✨ GENERAR IA</button>
-            <div style="font-size:0.60rem; color:#666; margin-top:5px; text-align:center;">Genera texto nuevo o MEJORA el existente en el nodo seleccionado.</div>
+            <div style="font-size:0.60rem; color:#666; margin-top:5px; text-align:center;">Genera entidades en blanco o auto-completa el nodo seleccionado interactuando con su entorno.</div>
         </div>
 
         <div class="panel-header">Monster Toolkit</div>
@@ -405,6 +405,96 @@
             throw new Error("No se pudo obtener respuesta tras múltiples intentos (Error 502/Timeout). Servidor congestionado.");
         }
 
+        // 🔥 Conservado del Código 1: Parser de texto estructurado a JSON de guion
+        function parseStructuredTextToJSON(text) {
+            const result = {
+                "Entidades Globales": { "Escenarios": [], "Personajes": [], "Objetos": [] },
+                "Secuencia": []
+            };
+            
+            const entitiesMatch = text.match(/###ENTIDADES###([\s\S]*?)(?=###ESCENA###|$)/i);
+            if (entitiesMatch) {
+                const entitiesBlock = entitiesMatch[1];
+                
+                const locMatch = entitiesBlock.match(/Escenarios:\s*([\s\S]*?)(?=Personajes:|Objetos:|$)/i);
+                if (locMatch) {
+                    result["Entidades Globales"]["Escenarios"] = locMatch[1].split('|').map(s => s.trim()).filter(s => s && !["ninguno","none"].includes(s.toLowerCase()));
+                }
+                
+                const charMatch = entitiesBlock.match(/Personajes:\s*([\s\S]*?)(?=Objetos:|$)/i);
+                if (charMatch) {
+                    result["Entidades Globales"]["Personajes"] = charMatch[1].split('|').map(s => s.trim()).filter(s => s && !["ninguno","none"].includes(s.toLowerCase()));
+                }
+                
+                const propMatch = entitiesBlock.match(/Objetos:\s*([\s\S]*?)(?=$)/i);
+                if (propMatch) {
+                    result["Entidades Globales"]["Objetos"] = propMatch[1].split('|').map(s => s.trim()).filter(s => s && !["ninguno","none"].includes(s.toLowerCase()));
+                }
+            }
+            
+            const sceneBlocks = text.split(/###ESCENA###/i).filter(b => b.trim());
+            
+            sceneBlocks.forEach(sceneBlock => {
+                const scene = { "Escena": "", "Planos (Shots)": [] };
+                
+                const titleMatch = sceneBlock.match(/Título:\s*([^\n]+)/i);
+                if (titleMatch) scene["Escena"] = titleMatch[1].trim();
+                
+                const shotBlocks = sceneBlock.split(/####SHOT####/i).filter(b => b.trim());
+                
+                shotBlocks.forEach(shotBlock => {
+                    const shot = {};
+                    
+                    const estM = shotBlock.match(/Estilo:\s*([\s\S]*?)(?=Escenario:|Personajes:|Objetos:|Descripción:|Cine:|Diálogo:|$)/i);
+                    if (estM && estM[1].trim()) shot["Estilo visual"] = estM[1].trim();
+                    
+                    const locM = shotBlock.match(/Escenario:\s*([\s\S]*?)(?=Personajes:|Objetos:|Descripción:|Cine:|Diálogo:|$)/i);
+                    if (locM && locM[1].trim()) shot["Escenario"] = locM[1].trim();
+                    
+                    const charM = shotBlock.match(/Personajes:\s*([\s\S]*?)(?=Objetos:|Descripción:|Cine:|Diálogo:|$)/i);
+                    if (charM && charM[1].trim()) {
+                        const chars = charM[1].split('|').map(s => s.trim()).filter(s => s);
+                        if(chars.length) shot["Personajes"] = chars;
+                    }
+                    
+                    const objM = shotBlock.match(/Objetos:\s*([\s\S]*?)(?=Descripción:|Cine:|Diálogo:|$)/i);
+                    if (objM && objM[1].trim()) {
+                        const props = objM[1].split('|').map(s => s.trim()).filter(s => s);
+                        if(props.length) shot["Objetos"] = props;
+                    }
+                    
+                    const descM = shotBlock.match(/Descripción:\s*([\s\S]*?)(?=Cine:|Diálogo:|$)/i);
+                    if (descM && descM[1].trim()) shot["Descripción"] = descM[1].trim();
+                    
+                    const cineM = shotBlock.match(/Cine:\s*([\s\S]*?)(?=Diálogo:|$)/i);
+                    if (cineM && cineM[1].trim()) {
+                        const cines = cineM[1].split('|').map(s => s.trim()).filter(s => s);
+                        if(cines.length) shot["Elementos cinematográficos"] = cines;
+                    }
+                    
+                    const diagMatches = shotBlock.matchAll(/Diálogo:\s*([\s\S]*?)(?=Diálogo:|$)/gi);
+                    const parsedDialogues = [];
+                    for (const m of diagMatches) {
+                        const dlgParts = m[1].split('|');
+                        if (dlgParts.length >= 2) {
+                            parsedDialogues.push({ "Personaje": dlgParts[0].trim(), "Linea": dlgParts.slice(1).join('|').trim() });
+                        }
+                    }
+                    if(parsedDialogues.length > 0) shot["Diálogos"] = parsedDialogues;
+                    
+                    if (shot["Descripción"] || shot["Estilo visual"] || shot["Diálogos"]) {
+                        scene["Planos (Shots)"].push(shot);
+                    }
+                });
+                
+                if (scene["Escena"] || scene["Planos (Shots)"].length > 0) {
+                    result["Secuencia"].push(scene);
+                }
+            });
+            
+            return result;
+        }
+
         function getProjectContext(maxLength = 800) {
             const locs = appState.entities.loc.slice(0, 2).map(e => e.name.split(':')[0].trim()).join(' | ') || "Ninguno";
             const chars = appState.entities.char.slice(0, 2).map(e => e.name.split(':')[0].trim()).join(' | ') || "Ninguno";
@@ -417,11 +507,41 @@
             return context.length > maxLength ? context.substring(0, maxLength - 10) + '"' : context;
         }
 
-        // 🔥 GENERADOR Y POTENCIADOR DE NODOS (LÓGICA ESTRUCTURAL ACTUALIZADA)
+        // 🔥 Lógica perfecta de Generar Entidades preservada (Del Código 1)
+        async function generateSingleEntity(catName) {
+            const btnLabel = document.querySelector(`.entity-section:has(#input-${catName}) .add-btn`);
+            if (btnLabel) { btnLabel.innerText = '⏳'; btnLabel.disabled = true; }
+
+            const context = getProjectContext(800);
+            
+            const entityRules = {
+                'char': `Sugiere 1 (UN) personaje concreto y físico. Nada abstracto ni poético. Ejemplo: Tomás (Protagonista): Hombre de 40 años, playera gris lisa, pantalones de mezclilla, botas de trabajo.`,
+                'loc': `Sugiere 1 (UN) escenario super concreto. Nada poético. Ejemplo: Cafetería de carretera: Local pequeño con neón parpadeante y suelo de damero.`,
+                'prop': `Sugiere 1 (UN) objeto físico accionable. Nada simbólico. Ejemplo: Maletín con combinación: Contiene documentos confidenciales.`
+            };
+            
+            const sysPrompt = `Eres un guionista aterrizado y directo. ESTÁ PROHIBIDO USAR LENGUAJE POÉTICO (nada de ecos del pasado, sombras del silencio). Solo objetos y hechos reales. OBLIGATORIO: Devuelve SOLO LA RESPUESTA, sin preámbulos, sin guiones iniciales, sin comillas. Un solo párrafo corto.`;
+            const userPrompt = `${context}\n\n${entityRules[catName] || 'Sugiere 1 elemento nuevo físico y real.'}`;
+
+            try {
+                let text = await callPollinationsBase(userPrompt, sysPrompt);
+                if (text) {
+                    text = text.replace(/^-\s*/, '').replace(/[\n\r]/g, ' ').trim();
+                    appState.entities[catName].push({ id: `ent_${Date.now()}`, name: text, image: null }); 
+                    renderEntities(); saveState();
+                }
+            } catch (err) {
+                alert("Error generando entidad: " + err.message);
+            } finally {
+                if (btnLabel) { btnLabel.innerText = '+'; btnLabel.disabled = false; }
+            }
+        }
+
+        // 🔥 Mejor Motor Contextual (Del Código 2)
         async function generateSelectedNode() {
             const btn = document.getElementById('btn-generar');
             if (appState.selectedNodeIds.length !== 1) {
-                return alert("Selecciona exactamente UN nodo del lienzo para auto-completar o mejorar.");
+                return alert("Selecciona exactamente UN nodo del lienzo para auto-completar.");
             }
 
             const nodeId = appState.selectedNodeIds[0];
@@ -436,10 +556,9 @@
                 if (node.type === 'scene') {
                     const childShots = appState.nodes.filter(n => n.parentId === node.id && n.type === 'shot');
                     const shotsText = childShots.map(s => s.data.action).join(" | ");
-                    const isDefault = node.data.heading.includes('NUEVA ESCENA');
                     
-                    const sys = "Eres supervisor de guion. Devuelve SOLO EL TÍTULO en formato estándar (INT/EXT. LUGAR - DIA/NOCHE). SIN COMILLAS ni texto extra. EN ESPAÑOL.";
-                    const user = `Acción en la escena: ${shotsText || 'Aún no hay acción'}\nTítulo actual: ${node.data.heading}\n\n${isDefault ? 'Deduce un título realista basado en la acción.' : 'Mejora y formatea profesionalmente este título manteniéndolo seco y directo.'}`;
+                    const sys = "Eres supervisor de guion. Deduce o mejora el encabezado de escena (Scene Heading) basado en la acción física adjunta. Devuelve SOLO EL TÍTULO en formato estándar (INT/EXT. LUGAR - DIA/NOCHE). SIN COMILLAS.";
+                    const user = `Acción contenida:\n${shotsText || 'Aún no hay acción'}\n\nTítulo parcial actual: ${node.data.heading}\n\nMejora el título actual o propón uno realista y seco. NADA POÉTICO.`;
                     
                     let newTitle = await callPollinationsBase(user, sys);
                     newTitle = newTitle.replace(/["\\]/g, '').trim().toUpperCase();
@@ -452,16 +571,12 @@
                     const chars = connectedEntities.filter(e => e.data.type === 'char').map(e => e.data.name).join(", ");
                     const props = connectedEntities.filter(e => e.data.type === 'prop').map(e => e.data.name).join(", ");
                     
-                    const hasAction = node.data.action && node.data.action.trim() !== "";
-                    
-                    if (!locs && !chars && !hasAction) {
-                        throw new Error("Conecta una entidad (Escenario o Personaje) a este plano, o escribe algo inicial para poder mejorarlo.");
+                    if (!locs && !chars && !node.data.action) {
+                        throw new Error("Conecta una entidad (Escenario o Personaje) a este plano, o escribe algo inicial para saber qué generar.");
                     }
                     
-                    const tagsStr = node.data.tags && node.data.tags.length > 0 ? node.data.tags.map(t=>t.val).join(', ') : 'Ninguno';
-                    
-                    const sys = "Eres un Master Prompt Engineer para IA generativa. Tu objetivo es crear prompts visuales crudos, evocadores y altamente estéticos. ESTRUCTURA OBLIGATORIA: [Sujeto principal y su acción], [Entorno y atmósfera], [Iluminación], [Óptica de cámara/estilo visual]. Escribe frases contundentes separadas por comas. NO narres una historia, describe una fotografía. MÁXIMO 40 PALABRAS. EN ESPAÑOL. SIN COMILLAS.";
-                    const user = `Acción base: "${node.data.action}"\nEscenario: ${locs}\nSujetos: ${chars}\nObjetos: ${props}\nÓptica y Estilo a integrar: ${tagsStr}\n\nEscribe el PROMPT FOTOGRÁFICO DEFINITIVO. Que sea visceral, visualmente rico y estructurado por comas. Integra la óptica de forma natural.`;
+                    const sys = "Eres un Especialista en Prompts de Imagen (estilo Midjourney, Nano Banana). Genera un prompt hiper-descriptivo y directo en un bloque de texto, separado por comas si es necesario, sin jerga literaria. Enfocate en óptica, sujeto, iluminación, y estética.";
+                    const user = `Contexto Base:\nLugar: ${locs}\nSujetos: ${chars}\nObjetos: ${props}\nModificadores de Cámara/Estilo: ${node.data.tags ? node.data.tags.map(t=>t.val).join(', ') : 'Ninguno'}\n\nAcción o idea inicial proporcionada por usuario: ${node.data.action || 'Vacía'}\n\nGenera el PROMPT DE IMAGEN DEFINITIVO amalgamando estos elementos (max 4-5 líneas). Omitir comillas o introducciones.`;
                     
                     let newDesc = await callPollinationsBase(user, sys);
                     newDesc = newDesc.replace(/["\\]/g, '').trim();
@@ -475,19 +590,18 @@
                         throw new Error("Activaste 'Incluir Diálogo'. Escribe el personaje que hablará en el recuadro antes de generar.");
                     }
                     
-                    const dialogRule = node.data.hasDialog ? `\n\nREGLA ESTRICTA: El personaje "${node.data.char}" está hablando. INCLUYE una descripción de su gesto al hablar y añade comillas con su diálogo ("...") para guiar el lip-sync.` : '';
-                    const hasMotion = node.data.text && node.data.text.trim() !== "";
+                    const dialogRule = node.data.hasDialog ? `\n\n[REGLA ESTRICTA: El usuario requiere que el prompt explique que el personaje "${node.data.char}" está hablando. Añade su línea de diálogo hablada usando comillas en la descripción del prompt de video para guiar el lip-sync.]` : '';
                     
-                    const sys = "Eres un Prompt Engineer experto en Sora y Veo. Escribe prompts de movimiento cinemáticos. Describe explícitamente CÓMO se mueve la cámara y CÓMO interactúa la física (luz, partículas, fluidos) con la acción. MÁXIMO 40 PALABRAS. EN ESPAÑOL. SIN COMILLAS.";
-                    const user = `Contexto visual: ${visualContext}\nAcción base: "${node.data.text}"\n${dialogRule}\n\nEscribe el PROMPT DE VIDEO definitivo. Hazlo inmersivo, detallando la textura y la dirección del movimiento en una escena fluida.`;
+                    const sys = "Eres un Especialista en Prompts de Video (Sora, Veo 3.1, Runway). Traduce un encuadre estático en una simulación de movimiento (tipo de movimiento de cámara, física de fluidos u objetos, cinemática). Escribe de manera plana y descriptiva. Sin introducciones.";
+                    const user = `Encuadre visual estático base:\n${visualContext}\n\nDesarrollo parcial o guía de movimiento actual proveida: ${node.data.text || 'N/A'}${dialogRule}\n\nEscribe el PROMPT DE VIDEO FINAL.`;
                     
                     let newMotion = await callPollinationsBase(user, sys);
-                    newMotion = newMotion.replace(/^["\\]|["\\]$/g, '').trim();
+                    newMotion = newMotion.replace(/["\\]/g, '').trim();
                     updateNodeData(node.id, 'text', newMotion);
 
                 } else if (node.type === 'entity_link') {
-                    const sys = "Eres un director de arte forense. Mejora la descripción física del elemento. Solo detalles fisiológicos, vestimenta, texturas o materiales. MÁXIMO 20 PALABRAS. CERO POESÍA. EN ESPAÑOL. SIN COMILLAS.";
-                    const user = `Contexto del Proyecto:\n${context}\n\nElemento actual a mejorar:\n"${node.data.name}"\n\nExpande y detalla cinemáticamente este elemento conservando su esencia original.`;
+                    const sys = "Eres un analista forense. Expande la descripción físca del elemento dado. Solo detalles fisiológicos, de vestimenta o materiales y desgaste. CERO POESÍA. NADA METAFÓRICO. Un solo párrafo directo.";
+                    const user = `Contexto del Proyecto:\n${context}\n\nMejora el texto de esta entidad:\n${node.data.name}\n\nDevuelve solo la descripción final.`;
                     
                     let expandedEnt = await callPollinationsBase(user, sys);
                     expandedEnt = expandedEnt.replace(/["\\]/g, '').trim();
@@ -539,7 +653,7 @@
         }
 
         // ==========================================
-        // CONSTRUCTOR DE GRAFOS
+        // CONSTRUCTOR DE GRAFOS (Resistente a fallos de IA)
         // ==========================================
         function clearWorkspace() {
             appState.nodes = [];
@@ -613,6 +727,7 @@
                     let dialogues = shot["Diálogos"] || shot["Dialogue"] || shot["Dialogues"] || [];
                     if(!Array.isArray(dialogues)) dialogues = []; 
 
+                    // 🔥 Reparación de Nodos de Movimiento (Del Código 2)
                     let motions = shot["Movimiento (Motion)"] || shot["Motion Prompts"] || [];
                     if(!Array.isArray(motions)) motions = [motions];
 
@@ -656,11 +771,13 @@
                         }
                     });
 
+                    // 🔥 Construcción de Nodos de Movimiento con diálogo condicional seguro (Del Código 2)
                     motions.forEach((mot, mIdx) => {
                         if(mot && typeof mot === 'object') {
                             let motId = generateId();
                             const text = mot["Prompt de Movimiento"] || mot["Motion Prompt"] || "";
                             
+                            // Verificar estrictamente si hay un personaje asignado antes de encender el checkbox
                             let char = "";
                             let hasDialog = false;
                             
@@ -756,6 +873,7 @@
             const dialogues = childNodes.filter(d => d.type === 'dialogue').map(d => ({ Personaje: d.data.char, Linea: d.data.line }));
             const estiloOverride = shot.data.tags.find(t => t.cat === 'Estilo Visual'); const cinematografia = shot.data.tags.filter(t => t.cat !== 'Estilo Visual').map(t => t.val);
             
+            // 🔥 Extracción de Movimientos Segura (EXPORT REPARADO del Código 2)
             const motions = childNodes.filter(d => d.type === 'motion').map(d => {
                 let mData = { "Prompt de Movimiento": (d.data.text || "").trim() };
                 if (d.data.hasDialog) {
@@ -1011,7 +1129,7 @@ Format:
                             <button class="json-export-btn json-export-en" onclick="translateNodeText('${node.id}')">🇬🇧 Tr. a EN</button>
                         </div></div>`;
             } else if (node.type === 'motion') { 
-                html = `<div class="port in"></div><div class="node-header" style="background:var(--accent-char); color:white;" onmousedown="startNodeDrag('${node.id}', event)">📽️ SHOT MOTION <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body">
+                html = `<div class="port in"></div><div class="node-header" style="background:#8e44ad; color:white;" onmousedown="startNodeDrag('${node.id}', event)">📽️ SHOT MOTION <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body">
                         <div style="font-size:0.65rem; margin-bottom:5px; display:flex; gap:5px; align-items:center;">
                             <input type="checkbox" id="dlg_${node.id}" ${node.data.hasDialog ? 'checked' : ''} onchange="updateNodeData('${node.id}', 'hasDialog', this.checked); document.getElementById('${node.id}').outerHTML = ''; appState.nodes.forEach(n => {if(n.id === '${node.id}') renderNode(n)});" onmousedown="event.stopPropagation()"> <label for="dlg_${node.id}" style="color:#aaa;">Con Diálogo</label>
                         </div>
