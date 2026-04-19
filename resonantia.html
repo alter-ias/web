@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resonantia Orbitalis</title>
+    <style>
+        :root {
+            --bg: #010108; --primary: #4488ff;
+            --text: #aaccff; --border: rgba(80,140,255,0.25);
+        }
+        body, html { margin:0; padding:0; width:100%; height:100%; background:var(--bg); color:var(--text); font-family:'Courier New',monospace; overflow:hidden; user-select:none; }
+        #canvas-container { position:absolute; top:0; left:0; width:100%; height:100%; z-index:1; }
+        #startScreen {
+            position:absolute; top:0; left:0; width:100%; height:100%;
+            background:#000; z-index:100;
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            transition:opacity 0.6s;
+        }
+        #startScreen h1 { font-size:3.5rem; color:#fff; letter-spacing:12px; font-weight:100; text-shadow:0 0 40px var(--primary); margin-bottom:20px; }
+        #startScreen p  { color:#557; max-width:580px; text-align:center; line-height:1.9; margin-bottom:50px; letter-spacing:1px; }
+        #startScreen p strong { color:var(--text); }
+        .start-btn { background:transparent; color:var(--primary); border:1px solid var(--primary); padding:14px 44px; font-size:1rem; letter-spacing:4px; cursor:pointer; text-transform:uppercase; transition:all .3s; font-family:inherit; }
+        .start-btn:hover { background:rgba(80,140,255,.15); box-shadow:0 0 25px rgba(80,140,255,.5); }
+
+        /* HUD bottom bar */
+        #hud {
+            position:absolute; bottom:22px; left:50%; transform:translateX(-50%);
+            z-index:10; display:flex; gap:20px; align-items:center;
+            background:rgba(4,7,18,.58); backdrop-filter:blur(14px);
+            border:1px solid var(--border); border-radius:10px; padding:13px 28px;
+            box-shadow:0 8px 40px rgba(0,0,0,.8);
+        }
+        .stat { display:flex; flex-direction:column; align-items:center; min-width:60px; }
+        .stat-label { font-size:.6rem; color:#446; letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
+        .stat-val { font-size:1.1rem; font-weight:bold; color:var(--primary); font-family:monospace; text-shadow:0 0 8px var(--primary); }
+        .hdiv { width:1px; height:36px; background:var(--border); }
+
+        /* Lo-fi indicator */
+        #lofi-badge {
+            display:flex; align-items:center; gap:8px; padding:0 4px;
+            font-size:.75rem; letter-spacing:2px; text-transform:uppercase;
+            color:#ff8844; opacity:.35; transition:opacity .4s;
+        }
+        #lofi-badge.active { opacity:1; }
+        #lofi-pulse { width:9px; height:9px; border-radius:50%; background:#ff8844; }
+        #lofi-badge.active #lofi-pulse { animation:blink .6s infinite alternate; }
+        @keyframes blink { from { opacity:.3; } to { opacity:1; } }
+
+        /* Top info */
+        #top-info { position:absolute; top:24px; left:24px; z-index:10; pointer-events:none; }
+        #top-info h1 { margin:0; font-size:1.25rem; letter-spacing:6px; font-weight:300; text-transform:uppercase; color:var(--text); }
+        #top-info p  { margin:5px 0 0; font-size:.68rem; color:#446; letter-spacing:1px; text-transform:uppercase; }
+
+        /* Hint panel */
+        #cursor-hint { position:absolute; top:24px; right:24px; z-index:10; text-align:right; font-size:.68rem; color:#446; letter-spacing:1px; text-transform:uppercase; line-height:1.9; pointer-events:none; }
+
+        /* Pan indicator */
+        #pan-indicator { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:20; color:rgba(80,140,255,.5); font-size:.75rem; letter-spacing:3px; text-transform:uppercase; pointer-events:none; opacity:0; transition:opacity .2s; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+<div id="startScreen">
+    <h1>RESONANTIA ORBITALIS</h1>
+    <p>
+        <strong>Click</strong> to drop a gravity well &nbsp;·&nbsp; <strong>Scroll ↑</strong> to launch a planet at cursor<br>
+        <strong>Scroll ↓</strong> to pull one planet back &nbsp;·&nbsp; <strong>Ctrl+Scroll</strong> to zoom toward cursor<br>
+        <strong>Middle-drag</strong> to pan &nbsp;·&nbsp; <strong>L</strong> to toggle lo-fi beats &nbsp;·&nbsp; <strong>Shift+L</strong> to change pattern
+    </p>
+    <button id="initBtn" class="start-btn">Engage System</button>
+</div>
+
+<div id="canvas-container"></div>
+
+<div id="top-info">
+    <h1>Resonantia Orbitalis</h1>
+    <p>Click=Well &nbsp;·&nbsp; Scroll=Planet &nbsp;·&nbsp; Ctrl+Scroll=Zoom &nbsp;·&nbsp; Mid-drag=Pan &nbsp;·&nbsp; L=Lo-fi</p>
+</div>
+
+<div id="cursor-hint">
+    <div>LEFT CLICK — Gravity Well</div>
+    <div>RIGHT CLICK — Remove Well</div>
+    <div>SCROLL ↑ — Launch planet here</div>
+    <div>SCROLL ↓ — Remove last planet</div>
+    <div>CTRL+SCROLL — Zoom to cursor</div>
+    <div>MIDDLE DRAG — Pan</div>
+    <div>L — Lo-fi on/off &nbsp;·&nbsp; SHIFT+L — Pattern</div>
+    <div>R — Reset view</div>
+</div>
+
+<div id="hud">
+    <div class="stat"><span class="stat-label">Wells</span><span class="stat-val" id="wells-val">0</span></div>
+    <div class="hdiv"></div>
+    <div class="stat"><span class="stat-label">Planets</span><span class="stat-val" id="planets-val">0</span></div>
+    <div class="hdiv"></div>
+    <div class="stat"><span class="stat-label">Resonance</span><span class="stat-val" id="res-val">0.00</span></div>
+    <div class="hdiv"></div>
+    <div class="stat"><span class="stat-label">Harmony</span><span class="stat-val" id="harm-val">–</span></div>
+    <div class="hdiv"></div>
+    <div class="stat"><span class="stat-label">Zoom</span><span class="stat-val" id="zoom-val">1.0×</span></div>
+    <div class="hdiv"></div>
+    <div id="lofi-badge">
+        <div id="lofi-pulse"></div>
+        <span id="lofi-label">LO-FI OFF</span>
+    </div>
+</div>
+
+<div id="pan-indicator">PAN MODE</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  LO-FI DRUM SEQUENCER  (fully synthetic — no file deps)
+// ═══════════════════════════════════════════════════════════════
+class LoFiDrums {
+    constructor(ctx, master) {
+        this.ctx = ctx;
+        this.bpm = 86;
+        this.playing = false;
+        this.step = 0;
+        this.nextTime = 0;
+        this.tick = null;
+        this.patternIdx = 0;
+        this.vinylSrc = null;
+
+        // Drum bus: LP filter (muffled lo-fi) → gain → master
+        this.gain = ctx.createGain(); this.gain.gain.value = 0;
+        this.filter = ctx.createBiquadFilter();
+        this.filter.type = 'lowpass'; this.filter.frequency.value = 4500; this.filter.Q.value = 0.5;
+        this.gain.connect(this.filter); this.filter.connect(master);
+
+        // 16-step patterns  [kick, snare, chat, ohat]
+        this.patterns = [
+            { name:'LOFI-1', // Classic lo-fi hip-hop feel
+              kick:  [1,0,0,0, 0,0,1,0, 1,0,0,0, 0,0,0,0],
+              snare: [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0],
+              chat:  [1,0,1,0, 1,0,1,0, 1,0,1,0, 1,0,1,0],
+              ohat:  [0,0,0,0, 0,0,0,1, 0,0,0,0, 0,0,0,1] },
+            { name:'BOOM-BAP', // Boom bap syncopation
+              kick:  [1,0,0,1, 0,0,1,0, 0,1,0,0, 1,0,0,0],
+              snare: [0,0,0,0, 1,0,0,1, 0,0,0,0, 1,0,1,0],
+              chat:  [1,1,0,1, 1,1,0,1, 1,1,0,1, 1,1,0,1],
+              ohat:  [0,0,0,0, 0,0,1,0, 0,0,0,0, 0,0,1,0] },
+            { name:'HALF-TIME', // Spacious slow groove
+              kick:  [1,0,0,0, 0,0,0,0, 1,0,0,0, 0,0,0,0],
+              snare: [0,0,0,0, 0,0,0,0, 1,0,0,1, 0,0,0,0],
+              chat:  [1,0,1,0, 0,0,1,0, 1,0,1,0, 0,0,1,0],
+              ohat:  [0,0,0,0, 1,0,0,0, 0,0,0,0, 1,0,0,0] },
+            { name:'JAZZY', // Swing / jazz feel
+              kick:  [1,0,0,0, 0,0,1,0, 0,0,0,0, 1,0,0,0],
+              snare: [0,0,1,0, 1,0,0,0, 0,0,1,0, 1,0,0,0],
+              chat:  [1,0,0,1, 0,0,1,0, 1,0,0,1, 0,0,1,0],
+              ohat:  [0,0,1,0, 0,0,0,0, 0,0,1,0, 0,0,0,0] },
+        ];
+    }
+
+    _sd() { return (60 / this.bpm) / 4; } // 16th note duration
+
+    _schedule() {
+        while (this.nextTime < this.ctx.currentTime + 0.12) {
+            this._fire(this.step, this.nextTime);
+            this.nextTime += this._sd();
+            this.step = (this.step + 1) % 16;
+        }
+        this.tick = setTimeout(() => this._schedule(), 30);
+    }
+
+    _fire(s, t) {
+        const p = this.patterns[this.patternIdx];
+        // Add a little human timing feel (±6ms)
+        const humanize = () => (Math.random() - 0.5) * 0.006;
+        if (p.kick[s])  this._kick(t + humanize());
+        if (p.snare[s]) this._snare(t + humanize());
+        if (p.chat[s])  this._hat(t + humanize(), false);
+        if (p.ohat[s])  this._hat(t + humanize(), true);
+    }
+
+    _kick(t) {
+        const osc = this.ctx.createOscillator(), g = this.ctx.createGain();
+        const shaper = this.ctx.createWaveShaper();
+        const c = new Float32Array(256);
+        for (let i = 0; i < 256; i++) { const x = i/128-1; c[i] = x < 0 ? -Math.pow(-x,.7) : Math.pow(x,.7); }
+        shaper.curve = c;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(160, t);
+        osc.frequency.exponentialRampToValueAtTime(38, t + 0.3);
+        g.gain.setValueAtTime(1.0, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+        osc.connect(shaper); shaper.connect(g); g.connect(this.gain);
+        osc.start(t); osc.stop(t + 0.6);
+    }
+
+    _snare(t) {
+        // Noise layer
+        const buf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.18, this.ctx.sampleRate);
+        const d   = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        const ns = this.ctx.createBufferSource(); ns.buffer = buf;
+        const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 0.6;
+        const gn = this.ctx.createGain();
+        gn.gain.setValueAtTime(0.45, t);
+        gn.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+        ns.connect(bp); bp.connect(gn); gn.connect(this.gain);
+        ns.start(t);
+        // Tonal body
+        const osc = this.ctx.createOscillator(); osc.type = 'triangle'; osc.frequency.value = 190;
+        const gb  = this.ctx.createGain();
+        gb.gain.setValueAtTime(0.25, t);
+        gb.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        osc.connect(gb); gb.connect(this.gain);
+        osc.start(t); osc.stop(t + 0.1);
+    }
+
+    _hat(t, open) {
+        const oscs = [6000, 8500, 10100].map(f => {
+            const o = this.ctx.createOscillator(); o.type = 'square'; o.frequency.value = f; return o;
+        });
+        const hp = this.ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7000;
+        const g  = this.ctx.createGain();
+        const dur = open ? 0.28 : 0.045;
+        g.gain.setValueAtTime(open ? 0.11 : 0.08, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        oscs.forEach(o => { o.connect(hp); o.start(t); o.stop(t + dur + 0.02); });
+        hp.connect(g); g.connect(this.gain);
+    }
+
+    _vinyl() {
+        // Sparse crackle noise loop
+        const len = this.ctx.sampleRate * 3;
+        const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const d   = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() > 0.997 ? (Math.random() * 2 - 1) : 0;
+        const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+        const lp  = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2000;
+        const g   = this.ctx.createGain(); g.gain.value = 0.05;
+        src.connect(lp); lp.connect(g); g.connect(this.gain);
+        src.start();
+        this.vinylSrc = src;
+    }
+
+    start() {
+        if (this.playing) return;
+        this.playing = true;
+        this.step = 0;
+        this.nextTime = this.ctx.currentTime + 0.05;
+        this._vinyl();
+        this.gain.gain.setTargetAtTime(0.7, this.ctx.currentTime, 0.4);
+        this._schedule();
+    }
+
+    stop() {
+        if (!this.playing) return;
+        this.playing = false;
+        clearTimeout(this.tick);
+        this.gain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.4);
+        if (this.vinylSrc) try { this.vinylSrc.stop(this.ctx.currentTime + 0.6); } catch(e){}
+    }
+
+    toggle() { this.playing ? this.stop() : this.start(); return this.playing; }
+
+    nextPattern() {
+        this.patternIdx = (this.patternIdx + 1) % this.patterns.length;
+        // Reset step on pattern change to avoid glitches
+        this.step = 0;
+        return this.patterns[this.patternIdx].name;
+    }
+
+    get patternName() { return this.patterns[this.patternIdx].name; }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ORBITAL AUDIO ENGINE
+// ═══════════════════════════════════════════════════════════════
+class OrbitalAudio {
+    constructor() {
+        this.ctx = null; this.master = null; this.reverb = null;
+        this.planets = {}; this.isInit = false;
+        this.lofi = null;
+    }
+
+    init() {
+        if (this.isInit) return;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AC();
+        const comp = this.ctx.createDynamicsCompressor();
+        comp.threshold.value = -18; comp.ratio.value = 4; comp.knee.value = 10;
+        this.master = this.ctx.createGain(); this.master.gain.value = 0.65;
+        this.master.connect(comp); comp.connect(this.ctx.destination);
+        this._buildReverb(4).then(buf => {
+            this.reverb = this.ctx.createConvolver(); this.reverb.buffer = buf;
+            const rg = this.ctx.createGain(); rg.gain.value = 0.42;
+            this.reverb.connect(rg); rg.connect(this.master);
+        });
+        this.lofi = new LoFiDrums(this.ctx, this.master);
+        this.isInit = true;
+    }
+
+    async _buildReverb(dur) {
+        const off = new OfflineAudioContext(2, this.ctx.sampleRate * dur, this.ctx.sampleRate);
+        const buf = off.createBuffer(2, off.length, off.sampleRate);
+        for (let ch = 0; ch < 2; ch++) {
+            const d = buf.getChannelData(ch);
+            for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/d.length, 2.5);
+        }
+        const s = off.createBufferSource(); s.buffer = buf; s.connect(off.destination); s.start();
+        return off.startRendering();
+    }
+
+    _noteFreq(idx) {
+        const penta = [1, 9/8, 5/4, 3/2, 5/3], base = 55;
+        return base * Math.pow(2, Math.floor(idx/5)) * penta[idx%5];
+    }
+
+    addPlanet(id, note) {
+        if (!this.isInit) return;
+        const osc = this.ctx.createOscillator(), g = this.ctx.createGain(), pan = this.ctx.createStereoPanner();
+        osc.type = note%2===0 ? 'sine' : 'triangle';
+        osc.frequency.value = this._noteFreq(note);
+        g.gain.setValueAtTime(0, this.ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.07, this.ctx.currentTime + 1.5);
+        osc.connect(g); g.connect(pan); pan.connect(this.master);
+        if (this.reverb) pan.connect(this.reverb);
+        osc.start();
+        this.planets[id] = { osc, g, pan };
+    }
+
+    removePlanet(id) {
+        const p = this.planets[id]; if (!p) return;
+        p.g.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.8);
+        setTimeout(() => { try { p.osc.stop(); } catch(e){} }, 900);
+        delete this.planets[id];
+    }
+
+    updatePlanet(id, speed, panX) {
+        const p = this.planets[id]; if (!p) return;
+        p.g.gain.setTargetAtTime(Math.min(0.14, 0.03 + speed*0.003), this.ctx.currentTime, 0.15);
+        p.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, panX)), this.ctx.currentTime, 0.1);
+    }
+
+    ping(note) {
+        if (!this.isInit) return;
+        const osc = this.ctx.createOscillator(), g = this.ctx.createGain(), t = this.ctx.currentTime;
+        osc.type = 'sine'; osc.frequency.value = this._noteFreq(note) * 2;
+        g.gain.setValueAtTime(0.17, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 3.5);
+        osc.connect(g); g.connect(this.master);
+        if (this.reverb) g.connect(this.reverb);
+        osc.start(t); osc.stop(t + 4);
+    }
+}
+const audio = new OrbitalAudio();
+
+// ═══════════════════════════════════════════════════════════════
+//  THREE.JS SCENE
+// ═══════════════════════════════════════════════════════════════
+const container = document.getElementById('canvas-container');
+const scene  = new THREE.Scene();
+scene.fog    = new THREE.FogExp2(0x000510, 0.011);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 2000);
+camera.position.set(0, 28, 48);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(devicePixelRatio);
+container.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0x112244, 1));
+
+const starGeo = new THREE.BufferGeometry();
+const sp = new Float32Array(5000*3);
+for (let i = 0; i < sp.length; i++) sp[i] = (Math.random()-.5)*1200;
+starGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ size:.7, color:0x6688aa, transparent:true, opacity:.4 })));
+
+// ═══════════════════════════════════════════════════════════════
+//  CAMERA NAV STATE
+// ═══════════════════════════════════════════════════════════════
+const panTarget  = new THREE.Vector3(0, 0, 0);
+let zoomTarget   = 48, zoomCurrent = 48;
+const ZOOM_MIN   = 7, ZOOM_MAX = 600;
+let isPanning    = false, panLast = { x:0, y:0 };
+let mouseClient  = { x: innerWidth/2, y: innerHeight/2 }; // always track cursor
+
+const raycaster   = new THREE.Raycaster();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+
+function screenToWorld(cx, cy) {
+    const m = new THREE.Vector2((cx/innerWidth)*2-1, -(cy/innerHeight)*2+1);
+    raycaster.setFromCamera(m, camera);
+    const t = new THREE.Vector3();
+    return raycaster.ray.intersectPlane(groundPlane, t) ? t : null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  WELLS
+// ═══════════════════════════════════════════════════════════════
+const G = 60;
+let wells = [];
+function makeGlow(col) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    const cx = cv.getContext('2d');
+    const gr = cx.createRadialGradient(32,32,0,32,32,32);
+    gr.addColorStop(0, `rgba(${col.r*255|0},${col.g*255|0},${col.b*255|0},1)`);
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = gr; cx.fillRect(0,0,64,64);
+    return new THREE.CanvasTexture(cv);
+}
+const wellColors = [
+    new THREE.Color(0x4488ff), new THREE.Color(0xff8844),
+    new THREE.Color(0x44ffcc), new THREE.Color(0xff44aa),
+    new THREE.Color(0xccff44), new THREE.Color(0xaa44ff),
+];
+
+function addWell(x, z) {
+    const id = Math.random().toString(36).substr(2,9);
+    const col = wellColors[wells.length % wellColors.length];
+    const pos = new THREE.Vector3(x, 0, z);
+
+    const mesh = new THREE.Mesh(new THREE.IcosahedronGeometry(.9,2),
+        new THREE.MeshStandardMaterial({ color:col, emissive:col, emissiveIntensity:1.6, wireframe:true }));
+    mesh.position.copy(pos); scene.add(mesh);
+
+    const light = new THREE.PointLight(col, 3, 55);
+    light.position.copy(pos); scene.add(light);
+
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map:makeGlow(col), transparent:true, blending:THREE.AdditiveBlending }));
+    glow.scale.set(15,15,1); glow.position.copy(pos); scene.add(glow);
+
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.5,1.95,60),
+        new THREE.MeshBasicMaterial({ color:col, side:THREE.DoubleSide, transparent:true, opacity:.2 }));
+    ring.rotation.x = -Math.PI/2; ring.position.copy(pos); scene.add(ring);
+
+    wells.push({ id, pos, mesh, light, glow, ring, col });
+    updateHUD();
+}
+
+function removeLastWell() {
+    if (!wells.length) return;
+    const w = wells.pop();
+    [w.mesh, w.light, w.glow, w.ring].forEach(o => scene.remove(o));
+    updateHUD();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PLANETS — spawn at cursor world position
+// ═══════════════════════════════════════════════════════════════
+let planets = [], noteCounter = 0;
+const pColors = [0xffffff,0xaaddff,0xffddaa,0xaaffdd,0xddaaff,0xffaacc,0xffffaa];
+
+function addPlanetAt(wx, wz) {
+    // Give a tiny random initial nudge so it doesn't fall straight in
+    const angle = Math.random() * Math.PI * 2;
+    const nudge = 0.8 + Math.random() * 0.6;
+    const vx = Math.cos(angle) * nudge;
+    const vz = Math.sin(angle) * nudge;
+
+    const id   = Math.random().toString(36).substr(2,9);
+    const note = noteCounter++ % 15;
+    const col  = pColors[planets.length % pColors.length];
+
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(.3+Math.random()*.3,10,10),
+        new THREE.MeshStandardMaterial({ color:col, emissive:col, emissiveIntensity:.6 }));
+    mesh.position.set(wx, 0, wz); scene.add(mesh);
+
+    const trLen = 50, trArr = new Float32Array(trLen*3), trGeo = new THREE.BufferGeometry();
+    trGeo.setAttribute('position', new THREE.BufferAttribute(trArr, 3));
+    const trLine = new THREE.Line(trGeo, new THREE.LineBasicMaterial({ color:col, transparent:true, opacity:.35 }));
+    scene.add(trLine);
+
+    planets.push({ id, note, mesh, trLine, trGeo, trArr, trLen,
+        pos: new THREE.Vector3(wx,0,wz), vel: new THREE.Vector3(vx,0,vz),
+        lastPing:0, frame:0 });
+    audio.addPlanet(id, note);
+    updateHUD();
+}
+
+function removeLastPlanet() {
+    if (!planets.length) return;
+    const p = planets.shift();  // remove oldest
+    scene.remove(p.mesh); scene.remove(p.trLine);
+    audio.removePlanet(p.id);
+    updateHUD();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PHYSICS
+// ═══════════════════════════════════════════════════════════════
+function physicsStep(dt) {
+    let totalRes = 0;
+    const toRemove = [];
+    planets.forEach(p => {
+        const force = new THREE.Vector3();
+        wells.forEach(w => {
+            const diff = new THREE.Vector3().subVectors(w.pos, p.pos);
+            const dist = Math.max(diff.length(), .8);
+            force.addScaledVector(diff.normalize(), G/(dist*dist));
+        });
+        p.vel.addScaledVector(force, dt);
+        p.vel.multiplyScalar(.9995);
+        p.pos.addScaledVector(p.vel, dt);
+        p.mesh.position.copy(p.pos);
+
+        // Trail
+        p.frame++;
+        if (p.frame % 2 === 0) {
+            for (let i = p.trLen-1; i > 0; i--) {
+                p.trArr[i*3]   = p.trArr[(i-1)*3];
+                p.trArr[i*3+1] = p.trArr[(i-1)*3+1];
+                p.trArr[i*3+2] = p.trArr[(i-1)*3+2];
+            }
+            p.trArr[0]=p.pos.x; p.trArr[1]=0; p.trArr[2]=p.pos.z;
+            p.trGeo.attributes.position.needsUpdate = true;
+        }
+
+        const speed = p.vel.length();
+        totalRes += speed;
+        audio.updatePlanet(p.id, speed, (p.pos.x-panTarget.x)/40);
+
+        wells.forEach(w => {
+            if (p.pos.distanceTo(w.pos) < 4 && Date.now()-p.lastPing > 800) {
+                p.lastPing = Date.now();
+                audio.ping(p.note);
+                p.mesh.scale.set(2.5,2.5,2.5);
+            }
+        });
+        if (p.mesh.scale.x > 1) p.mesh.scale.multiplyScalar(.9);
+        if (p.pos.distanceTo(panTarget) > 280) toRemove.push(p);
+    });
+    toRemove.forEach(p => {
+        scene.remove(p.mesh); scene.remove(p.trLine);
+        audio.removePlanet(p.id);
+        planets.splice(planets.indexOf(p), 1);
+    });
+    if (toRemove.length) updateHUD();
+    return totalRes;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  HUD
+// ═══════════════════════════════════════════════════════════════
+function updateHUD() {
+    document.getElementById('wells-val').innerText   = wells.length;
+    document.getElementById('planets-val').innerText = planets.length;
+    const moods = ['–','MONO','DUO','TRIAD','CHORD','DENSE','CHAOS','STORM','MAX'];
+    document.getElementById('harm-val').innerText = moods[Math.min(wells.length, moods.length-1)];
+}
+
+function setLofiUI(on, name='') {
+    const badge = document.getElementById('lofi-badge');
+    const label = document.getElementById('lofi-label');
+    badge.classList.toggle('active', on);
+    label.innerText = on ? `♪ ${name}` : 'LO-FI OFF';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════════════════════════
+
+// Track cursor always
+window.addEventListener('mousemove', e => {
+    mouseClient.x = e.clientX; mouseClient.y = e.clientY;
+    if (isPanning) {
+        const scale = zoomCurrent * 0.0018;
+        panTarget.x -= (e.clientX - panLast.x) * scale;
+        panTarget.z -= (e.clientY - panLast.y) * scale;
+        panLast = { x: e.clientX, y: e.clientY };
+    }
+});
+
+// Middle-mouse pan
+renderer.domElement.addEventListener('mousedown', e => {
+    if (e.button === 1) {
+        e.preventDefault(); isPanning = true;
+        panLast = { x: e.clientX, y: e.clientY };
+        renderer.domElement.style.cursor = 'grabbing';
+        document.getElementById('pan-indicator').style.opacity = '1';
+    }
+});
+window.addEventListener('mouseup', e => {
+    if (e.button === 1) {
+        isPanning = false;
+        renderer.domElement.style.cursor = '';
+        document.getElementById('pan-indicator').style.opacity = '0';
+    }
+});
+renderer.domElement.addEventListener('auxclick', e => e.preventDefault());
+
+// Left click — add well
+renderer.domElement.addEventListener('click', e => {
+    if (!audio.isInit || isPanning || e.button !== 0) return;
+    const p = screenToWorld(e.clientX, e.clientY);
+    if (p) addWell(p.x, p.z);
+});
+
+// Right click — remove well
+renderer.domElement.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    if (audio.isInit) removeLastWell();
+});
+
+// Scroll — planets at cursor / zoom
+window.addEventListener('wheel', e => {
+    if (e.ctrlKey) {
+        e.preventDefault();
+        const oldZ  = zoomTarget;
+        const factor = e.deltaY > 0 ? 1.12 : 0.88;
+        zoomTarget   = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomTarget * factor));
+        // Zoom toward cursor
+        const cw = screenToWorld(mouseClient.x, mouseClient.y);
+        if (cw) {
+            const ratio = 1 - (zoomTarget / oldZ);
+            panTarget.x += (cw.x - panTarget.x) * ratio;
+            panTarget.z += (cw.z - panTarget.z) * ratio;
+        }
+        return;
+    }
+    if (!audio.isInit) return;
+    if (e.deltaY < 0) {
+        // Scroll UP — launch planet at cursor position
+        const cw = screenToWorld(mouseClient.x, mouseClient.y);
+        if (cw && wells.length > 0) addPlanetAt(cw.x, cw.z);
+    } else {
+        // Scroll DOWN — remove one planet gradually
+        removeLastPlanet();
+    }
+}, { passive: false });
+
+// Keyboard
+window.addEventListener('keydown', e => {
+    if (!audio.isInit) return;
+
+    // L — toggle lo-fi drums
+    if (e.key === 'l' || e.key === 'L') {
+        if (e.shiftKey) {
+            // Shift+L: next pattern
+            const name = audio.lofi.nextPattern();
+            if (audio.lofi.playing) setLofiUI(true, name);
+            else setLofiUI(false);
+        } else {
+            const on = audio.lofi.toggle();
+            setLofiUI(on, audio.lofi.patternName);
+        }
+        return;
+    }
+
+    if (e.key === 'p' || e.key === 'P') {
+        const cw = screenToWorld(mouseClient.x, mouseClient.y);
+        if (cw && wells.length > 0) addPlanetAt(cw.x, cw.z);
+    }
+    if (e.key === 'Backspace' || e.key === 'Delete') removeLastWell();
+    if (e.key === 'Escape') { while(planets.length) removeLastPlanet(); }
+    if (e.key === 'r' || e.key === 'R') { panTarget.set(0,0,0); zoomTarget = 48; }
+});
+
+window.addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════════════════════════════
+const clock = new THREE.Clock();
+let started = false;
+
+function animate() {
+    requestAnimationFrame(animate);
+    const dt   = Math.min(clock.getDelta(), 0.05);
+    const time = clock.getElapsedTime();
+
+    if (started) {
+        const res = physicsStep(dt);
+        document.getElementById('res-val').innerText = res.toFixed(2);
+    }
+
+    wells.forEach((w, i) => {
+        w.mesh.rotation.y += 0.8 * dt;
+        w.glow.material.opacity = 0.43 + 0.3 * Math.sin(time * 3 + i);
+    });
+
+    // Camera
+    zoomCurrent += (zoomTarget - zoomCurrent) * Math.min(1, dt * 8);
+    document.getElementById('zoom-val').innerText = (48/zoomCurrent).toFixed(1) + '×';
+
+    const fs = zoomCurrent / 48;
+    const floatX = isPanning ? 0 : Math.sin(time * 0.07) * 6 * fs;
+    camera.position.x = panTarget.x + floatX;
+    camera.position.y = (28 + Math.sin(time * 0.05) * 3) * fs;
+    camera.position.z = panTarget.z + zoomCurrent;
+    camera.lookAt(panTarget);
+
+    renderer.render(scene, camera);
+}
+animate();
+
+document.getElementById('initBtn').addEventListener('click', () => {
+    audio.init();
+    const ss = document.getElementById('startScreen');
+    ss.style.opacity = '0';
+    setTimeout(() => { ss.style.display = 'none'; started = true; }, 600);
+    setTimeout(() => {
+        addWell(0, 0);
+        addPlanetAt(-8, 3); addPlanetAt(6, -5); addPlanetAt(0, -10);
+    }, 700);
+});
+</script>
+</body>
+</html>

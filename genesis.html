@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genesis Cellularis</title>
+    <style>
+        :root {
+            --bg: #010d06; --green: #00ffaa; --amber: #ffaa00;
+            --violet: #bb55ff; --red: #ff3366;
+            --text: #88ddaa; --dim: #2a5540; --border: rgba(0,255,170,.15);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { width: 100%; height: 100%; background: var(--bg); overflow: hidden;
+            font-family: 'Courier New', monospace; color: var(--text); user-select: none; }
+
+        /* CRT scanlines */
+        body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 900;
+            background: repeating-linear-gradient(0, transparent, transparent 3px, rgba(0,0,0,.07) 3px, rgba(0,0,0,.07) 4px); }
+
+        canvas { display: block; position: fixed; inset: 0; }
+
+        /* ── Side panel ── */
+        #panel {
+            position: fixed; top: 0; left: 0; height: 100%; width: 220px; z-index: 10;
+            background: rgba(1,14,8,.82); backdrop-filter: blur(14px);
+            border-right: 1px solid var(--border);
+            padding: 18px 14px; display: flex; flex-direction: column; gap: 14px;
+            pointer-events: none;
+        }
+        #panel h1 { font-size: .9rem; letter-spacing: 5px; font-weight: 300;
+            color: var(--green); text-shadow: 0 0 12px var(--green); text-transform: uppercase; }
+        #panel .sub { font-size: .58rem; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; margin-top: -10px; }
+        .section { display: flex; flex-direction: column; gap: 5px; }
+        .sec-title { font-size: .55rem; color: var(--dim); letter-spacing: 3px; text-transform: uppercase;
+            border-bottom: 1px solid var(--border); padding-bottom: 3px; }
+        .row { display: flex; justify-content: space-between; }
+        .lbl { font-size: .63rem; color: var(--dim); }
+        .val { font-size: .78rem; font-weight: bold; color: var(--green); text-shadow: 0 0 5px var(--green); }
+        .val.a { color: var(--amber); text-shadow: 0 0 5px var(--amber); }
+        .val.v { color: var(--violet); text-shadow: 0 0 5px var(--violet); }
+        .val.r { color: var(--red); text-shadow: 0 0 5px var(--red); }
+
+        .popbar { height: 4px; background: rgba(0,255,170,.1); border-radius: 2px; overflow: hidden; }
+        .popbar-fill { height: 100%; background: linear-gradient(90deg, var(--green), #00aa66);
+            border-radius: 2px; transition: width .4s; }
+
+        #mode-box { padding: 5px 8px; text-align: center; border-radius: 3px; font-size: .7rem;
+            letter-spacing: 2px; font-weight: bold; text-transform: uppercase; transition: all .3s; }
+        .m-prey    { background: rgba(0,255,170,.1); color: var(--green); border: 1px solid var(--green); }
+        .m-hunter  { background: rgba(255,170,0,.1);  color: var(--amber); border: 1px solid var(--amber); }
+        .m-nutrient{ background: rgba(187,85,255,.1); color: var(--violet);border: 1px solid var(--violet); }
+        .m-toxin   { background: rgba(255,51,102,.1); color: var(--red);  border: 1px solid var(--red); }
+
+        .ctrl-list { display: flex; flex-direction: column; gap: 3px; }
+        .ctrl { display: flex; align-items: center; gap: 5px; }
+        .kbd { min-width: 24px; text-align: center; font-size: .55rem; padding: 1px 4px;
+            border: 1px solid var(--dim); border-radius: 2px; color: var(--text); }
+        .cdesc { font-size: .58rem; color: var(--dim); }
+
+        /* Terminal */
+        #term { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+        #term-title { font-size: .55rem; color: var(--dim); letter-spacing: 3px; text-transform: uppercase;
+            border-bottom: 1px solid var(--border); padding-bottom: 3px; margin-bottom: 5px; }
+        #term-log { flex: 1; overflow-y: auto; font-size: .58rem; color: var(--dim); line-height: 1.7; }
+        #term-log::-webkit-scrollbar { width: 2px; }
+        #term-log::-webkit-scrollbar-thumb { background: var(--border); }
+
+        /* Top-right HUD */
+        #hud { position: fixed; top: 16px; right: 16px; z-index: 10;
+            text-align: right; font-size: .62rem; color: var(--dim); line-height: 2;
+            pointer-events: none; }
+        #hud span { color: var(--green); }
+
+        /* Bottom bar */
+        #bar { position: fixed; bottom: 0; left: 220px; right: 0; height: 34px;
+            background: rgba(1,14,8,.82); border-top: 1px solid var(--border);
+            display: flex; align-items: center; gap: 14px; padding: 0 18px;
+            font-size: .58rem; color: var(--dim); z-index: 10; }
+        .bc { color: var(--green); border: 1px solid var(--border);
+            padding: 1px 5px; border-radius: 2px; }
+
+        /* ── Startup screen ── */
+        #startScreen {
+            position: fixed; inset: 0; z-index: 200; background: #000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.7s;
+        }
+        #startScreen h2 { font-size: 3rem; color: #fff; letter-spacing: 14px; font-weight: 100;
+            text-shadow: 0 0 50px var(--green); margin: 0 0 10px; font-family: 'Courier New', monospace; }
+        #startScreen .ss-sub { font-size: .62rem; letter-spacing: 5px; color: var(--dim);
+            text-transform: uppercase; margin-bottom: 28px; }
+        #startScreen p { color: #2a5540; max-width: 500px; text-align: center; line-height: 2.1;
+            font-size: .72rem; letter-spacing: 1px; margin-bottom: 50px; font-family: 'Courier New', monospace; }
+        #startScreen p strong { color: var(--green); }
+        .start-btn { background: transparent; color: var(--green); border: 1px solid var(--green);
+            padding: 13px 44px; font-size: .82rem; letter-spacing: 5px; cursor: pointer;
+            text-transform: uppercase; transition: all .3s; font-family: 'Courier New', monospace; }
+        .start-btn:hover { background: rgba(0,255,170,.1); box-shadow: 0 0 28px rgba(0,255,170,.45); }
+
+        /* Flash overlay */
+        #flash { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+            z-index: 30; font-size: 1.1rem; letter-spacing: 8px; text-transform: uppercase;
+            opacity: 0; pointer-events: none; transition: opacity .1s; font-weight: 300; }
+    </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="panel">
+    <h1>Genesis Cellularis</h1>
+    <div class="sub">Biological Music System</div>
+
+    <div class="section">
+        <div class="sec-title">Population</div>
+        <div class="row"><span class="lbl">Prey</span><span class="val" id="v-prey">0</span></div>
+        <div class="row"><span class="lbl">Phagocytes</span><span class="val a" id="v-hunt">0</span></div>
+        <div class="row"><span class="lbl">Generation</span><span class="val" id="v-gen">0</span></div>
+        <div class="row"><span class="lbl">Mitoses</span><span class="val" id="v-mit">0</span></div>
+        <div class="row"><span class="lbl">Eaten</span><span class="val a" id="v-eat">0</span></div>
+        <div class="popbar"><div class="popbar-fill" id="v-bar" style="width:0%"></div></div>
+    </div>
+
+    <div class="section">
+        <div class="sec-title">Audio</div>
+        <div class="row"><span class="lbl">Voices</span><span class="val" id="v-voices">0</span></div>
+        <div class="row"><span class="lbl">Harmony</span><span class="val" id="v-harm">–</span></div>
+        <div class="row"><span class="lbl">Growth</span><span class="val v" id="v-grow">1.0×</span></div>
+        <div class="row"><span class="lbl">Mitosis</span><span class="val" id="v-mmode">AUTO</span></div>
+    </div>
+
+    <div class="section">
+        <div class="sec-title">Mode</div>
+        <div id="mode-box" class="m-prey">PREY CELL</div>
+    </div>
+
+    <div class="section">
+        <div class="sec-title">Controls</div>
+        <div class="ctrl-list">
+            <div class="ctrl"><span class="kbd">LMB</span><span class="cdesc">Spawn selected</span></div>
+            <div class="ctrl"><span class="kbd">RMB</span><span class="cdesc">Click phagocyte=kill / drag=attract</span></div>
+            <div class="ctrl"><span class="kbd">MID</span><span class="cdesc">Pan view</span></div>
+            <div class="ctrl"><span class="kbd">⌃SCR</span><span class="cdesc">Zoom to cursor</span></div>
+            <div class="ctrl"><span class="kbd">SCR↑</span><span class="cdesc">Nutrient — cells grow faster</span></div>
+            <div class="ctrl"><span class="kbd">SCR↓</span><span class="cdesc">Toxin — shrinks/kills cells</span></div>
+            <div class="ctrl"><span class="kbd">1–4</span><span class="cdesc">Switch mode</span></div>
+            <div class="ctrl"><span class="kbd">F</span><span class="cdesc">Spawn phagocyte at cursor</span></div>
+            <div class="ctrl"><span class="kbd">X</span><span class="cdesc">Kill nearest phagocyte</span></div>
+            <div class="ctrl"><span class="kbd">T</span><span class="cdesc">Arpeggio through all cells</span></div>
+            <div class="ctrl"><span class="kbd">E</span><span class="cdesc">Evolve — all cells grow 3s</span></div>
+            <div class="ctrl"><span class="kbd">M</span><span class="cdesc">Toggle auto-mitosis</span></div>
+            <div class="ctrl"><span class="kbd">SPC</span><span class="cdesc">Pause / resume</span></div>
+            <div class="ctrl"><span class="kbd">R</span><span class="cdesc">Reset biome</span></div>
+        </div>
+    </div>
+
+    <div id="term">
+        <div id="term-title">Bio Terminal</div>
+        <div id="term-log"></div>
+    </div>
+</div>
+
+<div id="hud">
+    ZOOM <span id="h-zoom">1.0×</span><br>
+    TIME <span id="h-time">00:00</span><br>
+    FPS  <span id="h-fps">60</span>
+</div>
+
+<div id="bar">
+    <span><span class="bc">1</span> Prey</span>
+    <span><span class="bc">2</span> Phagocyte</span>
+    <span><span class="bc">3</span> Nutrient (boost growth)</span>
+    <span><span class="bc">4</span> Toxin</span>
+    <span><span class="bc">X</span> Kill hunter</span>
+    <span><span class="bc">T</span> Arpeggio</span>
+    <span><span class="bc">E</span> Evolve (grow 3s)</span>
+    <span><span class="bc">M</span> Mitosis</span>
+    <span><span class="bc">SPACE</span> Pause</span>
+    <span><span class="bc">R</span> Reset</span>
+</div>
+
+<div id="startScreen">
+    <h2>GENESIS CELLULARIS</h2>
+    <div class="ss-sub">Biological Music System</div>
+    <p>
+        A living musical ecosystem. <strong>Cells are born</strong>, grow and divide<br>
+        through <strong>mitosis</strong>. Phagocytes hunt and consume prey —<br>
+        each organism generates a continuous harmonic voice.<br><br>
+        <strong>Click</strong> to spawn · <strong>Scroll ↑</strong> nutrient · <strong>Scroll ↓</strong> toxin · <strong>E</strong> evolve · <strong>T</strong> arpeggio
+    </p>
+    <button id="initBtn" class="start-btn">Inoculate Culture</button>
+</div>
+<div id="flash"></div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+//  CANVAS & VIEW
+// ═══════════════════════════════════════════
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+// View: ox,oy are pixel offsets (pan), scale is zoom
+const view = { ox: 0, oy: 0, scale: 1 };
+
+function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// World ↔ Screen  (world coords are canvas pixels at scale=1, no pan)
+function w2s(wx, wy) {
+    return { x: wx * view.scale + view.ox, y: wy * view.scale + view.oy };
+}
+function s2w(sx, sy) {
+    return { x: (sx - view.ox) / view.scale, y: (sy - view.oy) / view.scale };
+}
+
+// ═══════════════════════════════════════════
+//  AUDIO ENGINE
+// ═══════════════════════════════════════════
+let AC = null, master = null, reverb = null, audioReady = false;
+const voices = {}; // id → { osc, g, pan }
+
+// A minor pentatonic across 3 octaves — perfectly consonant
+const SCALE = [110,130.81,146.83,164.81,196,220,261.63,293.66,329.63,392,440,523.25,587.33,659.25,784,880];
+
+function noteFreq(radius, isHunter) {
+    const r   = Math.max(8, Math.min(52, radius));
+    const t   = (r - 8) / 44;  // 0 = small/high, 1 = large/low
+    const idx = Math.round((1 - t) * (SCALE.length - 1));
+    return isHunter ? SCALE[idx] * 0.667 : SCALE[idx];
+}
+
+async function initAudio() {
+    if (audioReady) return;
+    const ACtx = window.AudioContext || window.webkitAudioContext;
+    AC = new ACtx();
+
+    master = AC.createGain(); master.gain.value = 0.55;
+    const comp = AC.createDynamicsCompressor();
+    comp.threshold.value = -16; comp.ratio.value = 4;
+    master.connect(comp); comp.connect(AC.destination);
+
+    // Build IR reverb
+    const off = new OfflineAudioContext(2, AC.sampleRate * 3, AC.sampleRate);
+    const irBuf = off.createBuffer(2, off.length, off.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+        const d = irBuf.getChannelData(ch);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/d.length,2.8);
+    }
+    const irSrc = off.createBufferSource(); irSrc.buffer = irBuf;
+    irSrc.connect(off.destination); irSrc.start();
+    const irRendered = await off.startRendering();
+    reverb = AC.createConvolver(); reverb.buffer = irRendered;
+    const rg = AC.createGain(); rg.gain.value = 0.35;
+    reverb.connect(rg); rg.connect(master);
+
+    // Sub-bass presence drone (barely audible, creates warmth)
+    const drone = AC.createOscillator(); drone.frequency.value = 55;
+    const dg = AC.createGain(); dg.gain.value = 0.025;
+    drone.connect(dg); dg.connect(master); drone.start();
+
+    audioReady = true;
+}
+
+function addVoice(id, radius, isHunter, sx) {
+    if (!audioReady) return;
+    removeVoice(id, true); // clean up if exists
+
+    const osc = AC.createOscillator();
+    const g   = AC.createGain();
+    const pan = AC.createStereoPanner();
+
+    osc.type = isHunter ? 'triangle' : 'sine';
+    osc.frequency.value = noteFreq(radius, isHunter);
+
+    g.gain.setValueAtTime(0, AC.currentTime);
+    g.gain.linearRampToValueAtTime(isHunter ? 0.055 : 0.045, AC.currentTime + 0.8);
+    pan.pan.value = Math.max(-1, Math.min(1, (sx / canvas.width) * 2 - 1));
+
+    osc.connect(g); g.connect(pan);
+    pan.connect(master);
+    if (reverb) pan.connect(reverb);
+    osc.start();
+    voices[id] = { osc, g, pan, isHunter };
+}
+
+function updateVoice(id, radius, isHunter, sx) {
+    const v = voices[id]; if (!v) return;
+    v.osc.frequency.setTargetAtTime(noteFreq(radius, isHunter), AC.currentTime, 0.2);
+    v.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, (sx/canvas.width)*2-1)), AC.currentTime, 0.12);
+}
+
+function breatheVoice(id, isHunter, intensity) {
+    const v = voices[id]; if (!v) return;
+    const vol = isHunter ? 0.055 : 0.045;
+    v.g.gain.setTargetAtTime(vol * (.35 + intensity * .65), AC.currentTime, 0.06);
+}
+
+function removeVoice(id, immediate = false) {
+    const v = voices[id]; if (!v) return;
+    if (immediate) { try { v.osc.stop(); } catch(e){} }
+    else {
+        v.g.gain.linearRampToValueAtTime(0, AC.currentTime + 0.7);
+        setTimeout(() => { try { v.osc.stop(); } catch(e){} }, 800);
+    }
+    delete voices[id];
+}
+
+// ── One-shot event sounds ──────────────────────────────────────
+function soundBirth(freq) {
+    // Beautiful harmonic bloom: root + fifth + octave, singing-bowl style
+    if (!audioReady) return;
+    const t = AC.currentTime;
+    [freq, freq * 1.5, freq * 2].forEach((f, i) => {
+        const o   = AC.createOscillator();
+        const g   = AC.createGain();
+        const vib = AC.createOscillator(); // soft vibrato
+        const vg  = AC.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        vib.type = 'sine'; vib.frequency.value = 5.2;
+        vg.gain.value = f * 0.007;        // subtle shimmer
+        vib.connect(vg); vg.connect(o.frequency);
+        const vol   = [0.13, 0.07, 0.04][i];
+        const delay = i * 0.1;
+        g.gain.setValueAtTime(0, t + delay);
+        g.gain.linearRampToValueAtTime(vol, t + delay + 0.55);  // slow bloom
+        g.gain.setValueAtTime(vol, t + delay + 1.0);
+        g.gain.exponentialRampToValueAtTime(0.001, t + delay + 4.5); // long tail
+        o.connect(g); g.connect(master); if (reverb) g.connect(reverb);
+        o.start(t + delay); o.stop(t + 6);
+        vib.start(t + delay); vib.stop(t + 6);
+    });
+}
+
+function soundMitosis(freq) {
+    if (!audioReady) return;
+    const t = AC.currentTime;
+    [freq, freq*1.5, freq*2].forEach((f,i) => {
+        const o = AC.createOscillator(), g = AC.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0, t+i*.06); g.gain.linearRampToValueAtTime(.14, t+i*.06+.1);
+        g.gain.exponentialRampToValueAtTime(.001, t+2.5);
+        o.connect(g); g.connect(master); if(reverb) g.connect(reverb);
+        o.start(t); o.stop(t+3);
+    });
+}
+
+function soundEat(freq) {
+    if (!audioReady) return;
+    const t = AC.currentTime;
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(freq*.5,t); o.frequency.exponentialRampToValueAtTime(freq*.1, t+.4);
+    g.gain.setValueAtTime(.7,t); g.gain.exponentialRampToValueAtTime(.001,t+.55);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t+.6);
+    const o2 = AC.createOscillator(), g2 = AC.createGain();
+    o2.type='triangle'; o2.frequency.setValueAtTime(freq,t); o2.frequency.exponentialRampToValueAtTime(freq*.2,t+.9);
+    g2.gain.setValueAtTime(.1,t); g2.gain.exponentialRampToValueAtTime(.001,t+1);
+    o2.connect(g2); g2.connect(master); if(reverb) g2.connect(reverb); o2.start(t); o2.stop(t+1.1);
+}
+
+function soundDeath(freq) {
+    if (!audioReady) return;
+    const t = AC.currentTime;
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type='sine'; o.frequency.setValueAtTime(freq,t); o.frequency.exponentialRampToValueAtTime(freq*.25,t+.9);
+    g.gain.setValueAtTime(.12,t); g.gain.exponentialRampToValueAtTime(.001,t+1);
+    o.connect(g); g.connect(master); if(reverb) g.connect(reverb); o.start(t); o.stop(t+1.1);
+}
+
+function soundArp(freqs) {
+    if (!audioReady || !freqs.length) return;
+    const t = AC.currentTime;
+    [...freqs].sort((a,b)=>a-b).forEach((f,i) => {
+        const o = AC.createOscillator(), g = AC.createGain();
+        o.type='sine'; o.frequency.value=f;
+        const at = t + i*.09;
+        g.gain.setValueAtTime(0,at); g.gain.linearRampToValueAtTime(.16,at+.05);
+        g.gain.exponentialRampToValueAtTime(.001,at+1.3);
+        o.connect(g); g.connect(master); if(reverb) g.connect(reverb); o.start(at); o.stop(at+1.5);
+    });
+}
+
+// ═══════════════════════════════════════════
+//  SIMULATION STATE
+// ═══════════════════════════════════════════
+let cells = [], particles = [], rings = [];
+let paused = false, autoMitosis = true, spawnMode = 'prey', growMult = 1;
+let attracting = false, isPanning = false, panLast = { x:0, y:0 };
+let mouseX = canvas.width/2, mouseY = canvas.height/2;
+let stats = { prey:0, hunt:0, gen:0, mit:0, eat:0 };
+let t0 = Date.now(), frames = 0, fpsT = 0, fpsVal = 60;
+let cellID = 0;
+// rings: expanding circle fx  { x, y, r, maxR, life, color }
+
+const MRAD = 42;   // mitosis radius
+const MAXR = 46;   // max prey radius
+const HRAD = 24;   // hunter base radius
+const MARGIN = 50; // wall margin
+
+// ─── Cell factory ────────────────────────────────────────────
+function makeCell(x, y, type, radius) {
+    return {
+        id: 'c' + cellID++, x, y, type,
+        radius, growRate: 1,
+        vx: (Math.random()-.5)*.5, vy: (Math.random()-.5)*.5,
+        age: 0, phase: Math.random()*Math.PI*2,
+        pspeed: type==='hunter' ? 2.4 : 1.4+Math.random()*.6,
+        alive: true, splitting: false, sfx: 0, gen: 0,
+        target: null,
+        hunger: type==='hunter' ? 100 : Infinity  // hunters starve if they don't eat
+    };
+}
+
+function spawnCell(wx, wy, type='prey', r=12) {
+    if (cells.filter(c=>c.alive).length >= 78) return;
+    const c = makeCell(wx, wy, type, r);
+    cells.push(c);
+    const sx = w2s(wx,wy).x;
+    addVoice(c.id, r, type==='hunter', sx);
+    soundBirth(noteFreq(r, type==='hunter'));
+    termLog(type==='hunter' ? `<span style="color:#ffaa00">▶ phagocyte → (${wx|0},${wy|0})</span>` : `▶ cell → (${wx|0},${wy|0})`);
+}
+
+// ─── Mitosis ──────────────────────────────────────────────────
+function doMitosis(parent) {
+    if (!parent.alive || parent.radius < MRAD || parent.splitting) return;
+    parent.splitting = true;
+    const ang = Math.random()*Math.PI*2;
+    const d   = parent.radius*.7;
+    setTimeout(() => {
+        if (!parent.alive) return;
+        const r = parent.radius * .6;
+        [1,-1].forEach(sign => {
+            const c = makeCell(parent.x + Math.cos(ang)*d*.5*sign, parent.y + Math.sin(ang)*d*.5*sign, 'prey', r);
+            c.vx = Math.cos(ang)*sign*1.4; c.vy = Math.sin(ang)*sign*1.4;
+            c.gen = parent.gen+1;
+            cells.push(c);
+            const sx = w2s(c.x,c.y).x;
+            addVoice(c.id, r, false, sx);
+        });
+        soundMitosis(noteFreq(parent.radius, false));
+        removeVoice(parent.id);
+        parent.alive = false;
+        stats.mit++; stats.gen = Math.max(stats.gen, parent.gen+1);
+        flash('MITOSIS', '#00ffaa');
+        termLog(`mitosis — gen ${parent.gen+1} → 2 daughters`);
+        burst(parent.x, parent.y, 10, '#00ffaa');
+    }, 380);
+}
+
+// ─── Phagocytosis ─────────────────────────────────────────────
+function doEat(hunter, prey) {
+    if (!prey.alive) return;
+    soundEat(noteFreq(prey.radius, false));
+    removeVoice(prey.id);
+    prey.alive = false;
+    hunter.radius = Math.min(HRAD+12, hunter.radius+2.5);
+    stats.eat++;
+    flash('PHAGOCYTOSIS', '#ffaa00');
+    termLog(`<span style="color:#ffaa00">phagocyte consumed cell</span>`);
+    burst(prey.x, prey.y, 8, '#ffaa00');
+}
+
+// ─── Particles ────────────────────────────────────────────────
+function burst(x, y, n, color) {
+    for (let i = 0; i < n; i++) {
+        const a = Math.random()*Math.PI*2, s = 1.5+Math.random()*2.5;
+        particles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s, life: 1, color });
+    }
+}
+
+// ─── Nutrient / Toxin ─────────────────────────────────────────
+function nutrient(wx, wy) {
+    let n=0;
+    cells.forEach(c => {
+        if (!c.alive || c.type==='hunter') return;
+        const d = Math.hypot(c.x-wx, c.y-wy);
+        if (d < 140) { c.growRate = Math.min(3.5, c.growRate+.8); n++; burst(c.x,c.y,3,'#bb55ff'); }
+    });
+    // Expanding ring visual so you can see the effect radius
+    rings.push({ x: wx, y: wy, r: 0, maxR: 140, life: 1, color: '#bb55ff' });
+    burst(wx,wy,8,'#bb55ff');
+    if (n) termLog(`<span style="color:#bb55ff">nutrient → ${n} cells will grow faster</span>`);
+    else    termLog(`<span style="color:#bb55ff">nutrient burst (no cells in range)</span>`);
+}
+
+function toxin(wx, wy) {
+    let n=0;
+    cells.forEach(c => {
+        if (!c.alive || c.type==='hunter') return;
+        const d = Math.hypot(c.x-wx, c.y-wy);
+        if (d < 90) {
+            c.radius = Math.max(5, c.radius-6);
+            if (c.radius <= 6) {
+                soundDeath(noteFreq(c.radius,false));
+                removeVoice(c.id); c.alive=false;
+                termLog(`<span style="color:#ff3366">cell killed by toxin</span>`);
+            }
+            n++;
+        }
+    });
+    burst(wx,wy,9,'#ff3366');
+    if (n) termLog(`toxin → ${n} cells damaged`);
+}
+
+// ─── Evolution ───────────────────────────────────────────────
+function killHunter(h) {
+    if (!h || !h.alive) return;
+    soundDeath(noteFreq(h.radius, true));
+    removeVoice(h.id);
+    h.alive = false;
+    burst(h.x, h.y, 12, '#ffaa00');
+    termLog('<span style="color:#ffaa00">phagocyte eliminated</span>');
+}
+
+function evolve() {
+    flash('EVOLUTION', '#bb55ff');
+    termLog('<span style="color:#bb55ff">evolution pulse — all prey grow fast for 3s</span>');
+    // BUG FIX: was `if(!c.type==='hunter')` which is always false
+    cells.forEach(c => { if (c.alive && c.type !== 'hunter') c.growRate = Math.min(4, c.growRate + 2.5); });
+    soundArp(cells.filter(c=>c.alive&&c.type!=='hunter').map(c=>noteFreq(c.radius,false)));
+    // Big visual ring from center
+    const cx = (canvas.width/2 - view.ox) / view.scale;
+    const cy = (canvas.height/2 - view.oy) / view.scale;
+    rings.push({ x: cx, y: cy, r: 0, maxR: Math.max(canvas.width, canvas.height), life: 1, color: '#bb55ff' });
+    burst(cx, cy, 30, '#bb55ff');
+    setTimeout(()=>cells.forEach(c=>{ if(c.alive && c.growRate>1) c.growRate=Math.max(1,c.growRate-2); }), 3000);
+}
+
+// ═══════════════════════════════════════════
+//  PHYSICS UPDATE
+// ═══════════════════════════════════════════
+function update(dt) {
+    if (paused) return;
+
+    cells.forEach(c => {
+        if (!c.alive) return;
+        c.age += dt;
+        c.phase += c.pspeed * dt;
+        const pulse = (.5 + .5*Math.sin(c.phase));
+        breatheVoice(c.id, c.type==='hunter', pulse);
+
+        // Growth
+        if (c.type !== 'hunter' && c.radius < MAXR)
+            c.radius += dt * c.growRate * growMult * .9;
+        if (c.growRate > 1) c.growRate = Math.max(1, c.growRate - dt*.55);
+
+        // Hunt behaviour
+        if (c.type === 'hunter') {
+            // Hunger — starve if they can't find prey (self-regulating cap)
+            c.hunger -= dt * 1.8;
+            if (c.hunger <= 0) { killHunter(c); termLog('<span style="color:#ffaa00">phagocyte starved</span>'); return; }
+            let near=null, nearD=Infinity;
+            cells.forEach(t => { if(t.alive&&t.type!=='hunter'){ const d=Math.hypot(t.x-c.x,t.y-c.y); if(d<nearD){nearD=d;near=t;} }});
+            c.target=near;
+            if (near) {
+                // Slower chase — gives time to observe Evolve & Mitosis
+                const dx=near.x-c.x, dy=near.y-c.y, len=Math.hypot(dx,dy)||1;
+                c.vx += (dx/len)*1.3*dt*60; c.vy += (dy/len)*1.3*dt*60;
+                c.vx *= .91; c.vy *= .91;
+                // Must overlap significantly to eat
+                if (nearD < c.radius*.65 + near.radius*.45) { doEat(c, near); c.hunger=Math.min(100,c.hunger+45); }
+            } else { c.vx+=(Math.random()-.5)*.1; c.vy+=(Math.random()-.5)*.1; c.vx*=.95; c.vy*=.95; }
+        } else {
+            // Brownian motion
+            c.vx += (Math.random()-.5)*.08; c.vy += (Math.random()-.5)*.08;
+            c.vx *= .97; c.vy *= .97;
+        }
+
+        // Attract field
+        if (attracting) {
+            const wx=s2w(mouseX,mouseY).x, wy=s2w(mouseX,mouseY).y;
+            const dx=wx-c.x, dy=wy-c.y, d=Math.hypot(dx,dy)||1;
+            if (d<200) { c.vx+=dx/d*.4; c.vy+=dy/d*.4; }
+        }
+
+        // Cell repulsion
+        cells.forEach(b => {
+            if (b===c||!b.alive) return;
+            const dx=c.x-b.x, dy=c.y-b.y, d=Math.hypot(dx,dy)||.1;
+            const min=c.radius+b.radius+4;
+            if (d<min) { const f=(min-d)/min*.45; c.vx+=dx/d*f; c.vy+=dy/d*f; }
+        });
+
+        c.x += c.vx*dt*60; c.y += c.vy*dt*60;
+
+        // Wall bounce
+        const W=canvas.width/view.scale, H=(canvas.height-34)/view.scale;
+        if (c.x < c.radius+MARGIN) c.vx += .5;
+        if (c.x > W-c.radius-MARGIN) c.vx -= .5;
+        if (c.y < c.radius+MARGIN) c.vy += .5;
+        if (c.y > H-c.radius-MARGIN) c.vy -= .5;
+
+        // Voice update
+        updateVoice(c.id, c.radius, c.type==='hunter', w2s(c.x,0).x);
+
+        // Auto-mitosis
+        if (autoMitosis && c.type!=='hunter' && c.radius>=MRAD && !c.splitting
+            && cells.filter(x=>x.alive).length < 55) doMitosis(c);
+    });
+
+    // Remove dead cells
+    cells = cells.filter(c => c.alive);
+
+    // Particles
+    particles.forEach(p => { p.x+=p.vx*.8; p.y+=p.vy*.8; p.life-=.022; });
+    particles = particles.filter(p => p.life>0);
+
+    // Rings
+    rings.forEach(r => { r.life -= dt * 0.55; });
+    rings = rings.filter(r => r.life > 0);
+
+    // Stats
+    stats.prey = cells.filter(c=>c.type!=='hunter').length;
+    stats.hunt = cells.filter(c=>c.type==='hunter').length;
+}
+
+// ═══════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════
+function render(t) {
+    const cw=canvas.width, ch=canvas.height;
+    ctx.clearRect(0,0,cw,ch);
+
+    // Background grid
+    ctx.save();
+    ctx.translate(view.ox%60, view.oy%60);
+    ctx.strokeStyle='rgba(0,80,40,.07)'; ctx.lineWidth=1;
+    for(let x=-60;x<cw+60;x+=60){ ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,ch);ctx.stroke(); }
+    for(let y=-60;y<ch+60;y+=60){ ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(cw,y);ctx.stroke(); }
+    ctx.restore();
+
+    // Vignette
+    const vig=ctx.createRadialGradient(cw/2,ch/2,0,cw/2,ch/2,Math.max(cw,ch)*.65);
+    vig.addColorStop(0,'transparent'); vig.addColorStop(1,'rgba(0,0,0,.55)');
+    ctx.fillStyle=vig; ctx.fillRect(0,0,cw,ch);
+
+    // Rings (nutrient/evolve waves)
+    rings.forEach(r => {
+        const s = w2s(r.x, r.y);
+        const rad = (r.maxR * (1 - r.life)) * view.scale;
+        ctx.save();
+        ctx.strokeStyle = r.color + Math.round(r.life * 180).toString(16).padStart(2,'0');
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(s.x, s.y, rad, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.restore();
+    });
+
+    // Particles
+    particles.forEach(p => {
+        const s=w2s(p.x,p.y);
+        ctx.globalAlpha=p.life;
+        ctx.beginPath(); ctx.arc(s.x,s.y,2.5*view.scale,0,Math.PI*2);
+        ctx.fillStyle=p.color; ctx.fill();
+    });
+    ctx.globalAlpha=1;
+
+    // Hunter hunger bar
+    cells.filter(c=>c.alive&&c.type==='hunter').forEach(c => {
+        const s=w2s(c.x,c.y), r=c.radius*view.scale;
+        const pct=c.hunger/100;
+        ctx.save();
+        ctx.fillStyle=`rgba(255,170,0,.2)`;
+        ctx.fillRect(s.x-r, s.y+r+4, r*2, 4);
+        ctx.fillStyle=`rgba(255,${Math.round(170*pct)},0,.8)`;
+        ctx.fillRect(s.x-r, s.y+r+4, r*2*pct, 4);
+        ctx.restore();
+    });
+
+    // Cells — prey first, then hunters
+    const alive = cells.filter(c=>c.alive);
+    const prey   = alive.filter(c=>c.type!=='hunter');
+    const hunters= alive.filter(c=>c.type==='hunter');
+
+    [...prey,...hunters].forEach(c => {
+        const s=w2s(c.x,c.y);
+        const r=c.radius*view.scale;
+        const pulse=(.5+.5*Math.sin(c.phase));
+        const isH=c.type==='hunter';
+
+        // Color
+        const cr = isH ? [255,170,0] : [Math.round(c.age/20*18), 220, Math.round(200*(1-Math.min(1,c.age/20))+55)];
+
+        // Wobble
+        const pts=40, wa=isH?.06:.09, wf=isH?5:4;
+        ctx.beginPath();
+        for(let i=0;i<=pts;i++){
+            const ang=(i/pts)*Math.PI*2;
+            const w=1+wa*Math.sin(ang*wf+t*2+c.phase)+wa*.5*Math.sin(ang*7+t*1.4+c.phase*1.6);
+            const rx=s.x+Math.cos(ang)*r*w, ry=s.y+Math.sin(ang)*r*w;
+            i===0?ctx.moveTo(rx,ry):ctx.lineTo(rx,ry);
+        }
+        ctx.closePath();
+
+        // Fill
+        const gr=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,r*1.2);
+        gr.addColorStop(0,`rgba(${cr},${.22+pulse*.2})`);
+        gr.addColorStop(.6,`rgba(${cr},.1)`);
+        gr.addColorStop(1,`rgba(${cr},0)`);
+        ctx.fillStyle=gr; ctx.fill();
+
+        // Glow stroke
+        ctx.save();
+        ctx.shadowBlur=(8+pulse*18)*view.scale; ctx.shadowColor=`rgba(${cr},.6)`;
+        ctx.strokeStyle=`rgba(${cr},${.5+pulse*.4})`; ctx.lineWidth=isH?2.2:1.6;
+        ctx.stroke(); ctx.restore();
+
+        // Nucleus
+        const nr=r*(isH?.28:.2);
+        const ng=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,nr);
+        ng.addColorStop(0,`rgba(${cr},.85)`); ng.addColorStop(1,`rgba(${cr},.05)`);
+        ctx.beginPath(); ctx.arc(s.x,s.y,nr,0,Math.PI*2);
+        ctx.fillStyle=ng; ctx.fill();
+
+        // Mitosis distortion
+        if (c.splitting) {
+            c.sfx=Math.min(1,c.sfx+.05);
+            ctx.save(); ctx.strokeStyle=`rgba(255,255,255,${.6*(1-c.sfx)})`; ctx.lineWidth=1.8;
+            ctx.beginPath(); ctx.ellipse(s.x,s.y,r*(1+c.sfx*.4),r*(1-c.sfx*.55),0,0,Math.PI*2);
+            ctx.stroke(); ctx.restore();
+        }
+
+        // Hunter lock-on line
+        if (isH && c.target && c.target.alive) {
+            const ts=w2s(c.target.x,c.target.y);
+            ctx.save(); ctx.strokeStyle='rgba(255,170,0,.12)'; ctx.lineWidth=1;
+            ctx.setLineDash([4,8]);
+            ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(ts.x,ts.y); ctx.stroke();
+            ctx.restore();
+        }
+    });
+}
+
+// ═══════════════════════════════════════════
+//  HUD & TERMINAL
+// ═══════════════════════════════════════════
+function updateHUD() {
+    document.getElementById('v-prey').innerText  = stats.prey;
+    document.getElementById('v-hunt').innerText  = stats.hunt;
+    document.getElementById('v-gen').innerText   = stats.gen;
+    document.getElementById('v-mit').innerText   = stats.mit;
+    document.getElementById('v-eat').innerText   = stats.eat;
+    document.getElementById('v-voices').innerText= Object.keys(voices).length;
+    document.getElementById('v-grow').innerText  = growMult.toFixed(1)+'×';
+    document.getElementById('v-mmode').innerText = autoMitosis?'AUTO':'MANUAL';
+    const tot=stats.prey+stats.hunt;
+    document.getElementById('v-bar').style.width = Math.min(100,tot/55*100)+'%';
+    const harms=['–','MONO','DUO','TRIO','QUARTET','ENSEMBLE','CHORUS','MAXIMA'];
+    document.getElementById('v-harm').innerText=harms[Math.min(tot,harms.length-1)];
+}
+
+function log(msg) {
+    const d=document.getElementById('term-log');
+    const now=new Date(); const ts=`${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    d.innerHTML+=`<div><span style="color:#2a4a38">${ts}</span> ${msg}</div>`;
+    while(d.children.length>28) d.removeChild(d.firstChild);
+    d.scrollTop=d.scrollHeight;
+}
+function termLog(m){log(m);}
+
+function flash(text, color='#00ffaa') {
+    const el=document.getElementById('flash');
+    el.style.color=color; el.style.textShadow=`0 0 20px ${color}`; el.innerText=text; el.style.opacity='1';
+    clearTimeout(el._t); el._t=setTimeout(()=>el.style.opacity='0',850);
+}
+
+function setMode(m) {
+    spawnMode=m;
+    const names={prey:'PREY CELL',hunter:'PHAGOCYTE',nutrient:'NUTRIENT',toxin:'TOXIN'};
+    const cls={prey:'m-prey',hunter:'m-hunter',nutrient:'m-nutrient',toxin:'m-toxin'};
+    const b=document.getElementById('mode-box');
+    b.className=''; b.classList.add(cls[m]||'m-prey'); b.innerText=names[m]||m.toUpperCase();
+}
+
+// ═══════════════════════════════════════════
+//  SEED
+// ═══════════════════════════════════════════
+function seed() {
+    const W=canvas.width, H=canvas.height-34;
+    for(let i=0;i<7;i++) {
+        const x=120+Math.random()*(W-240);
+        const y=80+Math.random()*(H-160);
+        spawnCell(x,y,'prey',10+Math.random()*8);
+    }
+}
+
+function resetBiome() {
+    cells.forEach(c=>removeVoice(c.id,true)); cells=[]; particles=[];
+    stats={prey:0,hunt:0,gen:0,mit:0,eat:0};
+    flash('RESET','#ff3366'); termLog('<span style="color:#ff3366">biome reset</span>');
+    setTimeout(seed, 100);
+}
+
+// ═══════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════
+window.addEventListener('mousemove', e => {
+    mouseX=e.clientX; mouseY=e.clientY;
+    if (isPanning) {
+        view.ox+=(e.clientX-panLast.x); view.oy+=(e.clientY-panLast.y);
+        panLast={x:e.clientX,y:e.clientY};
+    }
+});
+
+canvas.addEventListener('mousedown', e => {
+    if (e.button===1){ e.preventDefault(); isPanning=true; panLast={x:e.clientX,y:e.clientY}; }
+    if (e.button===2) {
+        // Right-click: first check if clicking ON a phagocyte to kill it
+        if (audioReady) {
+            const {x,y}=s2w(e.clientX,e.clientY);
+            const hit=cells.find(c=>c.alive&&c.type==='hunter'&&Math.hypot(c.x-x,c.y-y)<c.radius*1.4);
+            if (hit) { killHunter(hit); return; }
+        }
+        attracting=true;
+    }
+});
+window.addEventListener('mouseup', e => {
+    if (e.button===1) isPanning=false;
+    if (e.button===2) attracting=false;
+});
+canvas.addEventListener('contextmenu', e=>e.preventDefault());
+canvas.addEventListener('auxclick', e=>e.preventDefault());
+
+canvas.addEventListener('click', async e => {
+    if (!audioReady) { await initAudio(); seed(); termLog('biome inoculated'); return; }
+    if (isPanning) return;
+    const {x,y}=s2w(e.clientX,e.clientY);
+    if (spawnMode==='prey')     spawnCell(x,y,'prey',10+Math.random()*6);
+    else if(spawnMode==='hunter') spawnCell(x,y,'hunter',HRAD);
+    else if(spawnMode==='nutrient') nutrient(x,y);
+    else if(spawnMode==='toxin')    toxin(x,y);
+});
+
+window.addEventListener('wheel', async e => {
+    if (e.ctrlKey) {
+        e.preventDefault();
+        const f=e.deltaY>0?.88:1.12;
+        const before=s2w(e.clientX,e.clientY);
+        view.scale=Math.max(.25,Math.min(6,view.scale*f));
+        const after=s2w(e.clientX,e.clientY);
+        view.ox+=(after.x-before.x)*view.scale; view.oy+=(after.y-before.y)*view.scale;
+        document.getElementById('h-zoom').innerText=view.scale.toFixed(1)+'×';
+        return;
+    }
+    if (!audioReady) { await initAudio(); seed(); termLog('biome inoculated'); }
+    const {x,y}=s2w(e.clientX,e.clientY);
+    if (e.deltaY<0) nutrient(x,y); else toxin(x,y);
+}, {passive:false});
+
+window.addEventListener('keydown', async e => {
+    if (!audioReady) { await initAudio(); seed(); termLog('biome inoculated'); }
+    const k=e.key.toLowerCase();
+    if(k==='1') setMode('prey');
+    if(k==='2') setMode('hunter');
+    if(k==='3') setMode('nutrient');
+    if(k==='4') setMode('toxin');
+    if(k==='t') { soundArp(cells.filter(c=>c.alive).map(c=>noteFreq(c.radius,c.type==='hunter'))); flash('ARPEGGIO','#00ffaa'); }
+    if(k==='e') evolve();
+    if(k==='m') { autoMitosis=!autoMitosis; flash(autoMitosis?'MITOSIS: AUTO':'MITOSIS: MANUAL', '#00ffaa'); termLog(`auto-mitosis: ${autoMitosis?'ON':'OFF'}`); }
+    if(k==='f') { const{x,y}=s2w(mouseX,mouseY); spawnCell(x,y,'hunter',HRAD); }
+    if(k==='n') { const{x,y}=s2w(mouseX,mouseY); spawnCell(x,y,'prey',10+Math.random()*6); }
+    if(k===' ') { e.preventDefault(); paused=!paused; flash(paused?'PAUSED':'RESUMED'); }
+    if(k==='r') resetBiome();
+    if(k==='+') { growMult=Math.min(4,growMult+.5); termLog(`growth: ${growMult.toFixed(1)}×`); }
+    if(k==='-') { growMult=Math.max(.2,growMult-.5); termLog(`growth: ${growMult.toFixed(1)}×`); }
+    if(k==='x') {
+        // Kill nearest phagocyte to cursor
+        const {x,y}=s2w(mouseX,mouseY);
+        const hunters=cells.filter(c=>c.alive&&c.type==='hunter');
+        if (hunters.length) {
+            const h=hunters.sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
+            killHunter(h);
+        }
+    }
+});
+
+// ═══════════════════════════════════════════
+//  MAIN LOOP (runs immediately — no init gate)
+// ═══════════════════════════════════════════
+let lastT = 0;
+function loop(ts) {
+    requestAnimationFrame(loop);
+    const dt=Math.min((ts-lastT)/1000,.05); lastT=ts;
+
+    update(dt);
+    render(ts/1000);
+    updateHUD();
+
+    // FPS
+    frames++; fpsT+=dt;
+    if(fpsT>=.5){ fpsVal=Math.round(frames/fpsT); frames=0; fpsT=0; }
+    document.getElementById('h-fps').innerText=fpsVal;
+
+    // Clock
+    const el=Math.round((Date.now()-t0)/1000);
+    document.getElementById('h-time').innerText=`${String(el/60|0).padStart(2,'0')}:${String(el%60).padStart(2,'0')}`;
+}
+// ── Startup screen handler ────────────────────────────────────
+document.getElementById('initBtn').addEventListener('click', async () => {
+    const ss = document.getElementById('startScreen');
+    ss.style.opacity = '0';
+    setTimeout(() => ss.style.display = 'none', 700);
+    await initAudio();
+    seed();
+    termLog('biome inoculated — culture active');
+});
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

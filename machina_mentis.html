@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Machina Mentis</title>
+    <style>
+        :root {
+            --bg-color: #050508;
+            --grid-color: rgba(0, 255, 204, 0.05);
+            --panel-bg: rgba(10, 15, 25, 0.6);
+            --border-color: rgba(0, 255, 204, 0.2);
+            --text-main: #0ff;
+            --text-dim: #088;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* The Grid Canvas */
+        #loomCanvas {
+            position: absolute;
+            top: 0; left: 0; z-index: 1;
+            cursor: crosshair;
+        }
+
+        /* Glassmorphic UI Panel */
+        #hud {
+            position: absolute;
+            top: 20px; right: 20px; z-index: 10;
+            width: 320px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 10px rgba(0, 255, 204, 0.1) inset;
+        }
+
+        h1 {
+            font-size: 1.2rem; margin: 0 0 15px 0; border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px; letter-spacing: 2px; text-transform: uppercase;
+        }
+
+        .tool-btn {
+            display: block; width: 100%; margin-bottom: 10px;
+            background: transparent; color: var(--text-dim);
+            border: 1px solid var(--border-color); padding: 10px;
+            text-align: left; font-family: inherit; font-size: 0.9rem;
+            cursor: pointer; transition: all 0.2s; border-radius: 4px;
+        }
+        .tool-btn:hover { background: rgba(0, 255, 204, 0.1); color: var(--text-main); }
+        .tool-btn.active { 
+            background: rgba(0, 255, 204, 0.2); color: #fff; 
+            border-color: #0ff; box-shadow: 0 0 8px rgba(0, 255, 204, 0.5);
+        }
+
+        .color-dot {
+            display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+            margin-right: 10px; box-shadow: 0 0 5px currentColor;
+        }
+
+        #controls {
+            margin-top: 20px;
+            display: flex; justify-content: space-between;
+        }
+        
+        .main-btn {
+            background: rgba(255, 0, 50, 0.2); color: #f03;
+            border: 1px solid #f03; padding: 10px 15px;
+            cursor: pointer; font-family: inherit; font-size: 0.8rem;
+            text-transform: uppercase; border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .main-btn:hover { background: rgba(255, 0, 50, 0.4); box-shadow: 0 0 10px rgba(255,0,50,0.5); color: #fff; }
+
+        .main-btn.play { background: rgba(0, 255, 100, 0.2); color: #0f6; border-color: #0f6; }
+        .main-btn.play:hover { background: rgba(0, 255, 100, 0.4); box-shadow: 0 0 10px rgba(0,255,100,0.5); }
+        
+        #instructions {
+            position: absolute; bottom: 20px; left: 20px; z-index: 10;
+            color: var(--text-dim); font-size: 0.8rem; pointer-events: none;
+            background: rgba(0,0,0,0.5); padding: 10px; border-radius: 4px;
+        }
+        
+        /* Start Overlay */
+        #startScreen {
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            background: #000; z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s;
+        }
+        #startScreen h1 { font-size: 3rem; color: #fff; text-shadow: 0 0 20px #0ff; border:none; margin-bottom:30px; letter-spacing: 10px;}
+        #startScreen p { color: #888; max-width: 600px; text-align: center; margin-bottom: 40px; line-height: 1.5;}
+        
+    </style>
+</head>
+<body>
+
+    <div id="startScreen">
+        <h1>MACHINA MENTIS'S LOOM</h1>
+        <p>A generative neural sequencer. Connect emitter cores to synthesizer nodes to build complex polyrhythms and industrial cyber-beats. The grid is alive.</p>
+        <button id="initAudioBtn" class="main-btn play" style="font-size: 1.2rem; padding: 15px 30px;">INITIALIZE SYS</button>
+    </div>
+
+    <canvas id="loomCanvas"></canvas>
+
+    <div id="hud">
+        <h1>Node Toolset</h1>
+        
+        <button class="tool-btn" data-type="connect"><span class="color-dot" style="color:#aaa;"></span>[LINK] Connect Nodes</button>
+        <button class="tool-btn active" data-type="core"><span class="color-dot" style="color:#fff;"></span>[ADD] Emitter Core (Pulse)</button>
+        <button class="tool-btn" data-type="kick"><span class="color-dot" style="color:#f03;"></span>[ADD] Industrial Kick</button>
+        <button class="tool-btn" data-type="snare"><span class="color-dot" style="color:#0f6;"></span>[ADD] Glitch Snare</button>
+        <button class="tool-btn" data-type="hihat"><span class="color-dot" style="color:#0ff;"></span>[ADD] Cyber Hat</button>
+        <button class="tool-btn" data-type="bass"><span class="color-dot" style="color:#f0f;"></span>[ADD] FM Bass</button>
+        <button class="tool-btn" data-type="delete"><span class="color-dot" style="color:#333;"></span>[DEL] Remove Element</button>
+
+        <div id="controls">
+            <button id="clearBtn" class="main-btn">Purge Grid</button>
+            <button id="bpmBtn" class="main-btn">BPM: 120</button>
+        </div>
+    </div>
+
+    <div id="instructions">
+        CLICK to place nodes. <br>
+        In LINK mode, DRAG from one node to another to connect them.<br>
+        Cores emit pulses every beat. Spacing dictates rhythm.
+    </div>
+
+    <script>
+        // --- AUDIO ENGINE ---
+        class CyberAudio {
+            constructor() {
+                this.ctx = null;
+                this.master = null;
+                this.isInit = false;
+                this.bpm = 120;
+            }
+            init() {
+                if(this.isInit) return;
+                const AC = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AC();
+                this.master = this.ctx.createGain();
+                this.master.gain.value = 0.8;
+                
+                // Reverb/Space
+                const convolver = this.ctx.createConvolver();
+                const reverbTime = 2, tailContext = new OfflineAudioContext(2, this.ctx.sampleRate * reverbTime, this.ctx.sampleRate);
+                for (let i = 0; i < 2; i++) {
+                    const channel = tailContext.createBuffer(1, tailContext.length, tailContext.sampleRate).getChannelData(0);
+                    for (let j = 0; j < tailContext.length; j++) channel[j] = (Math.random() * 2 - 1) * Math.exp(-j / tailContext.sampleRate * 3);
+                }
+                tailContext.startRendering().then(buffer => { 
+                    convolver.buffer = buffer; 
+                    const revGain = this.ctx.createGain(); revGain.gain.value = 0.2;
+                    convolver.connect(revGain); revGain.connect(this.master);
+                });
+
+                // Dry mix
+                const dry = this.ctx.createGain(); dry.gain.value = 0.9;
+                dry.connect(this.master);
+                
+                this.bus = this.ctx.createGain();
+                this.bus.connect(dry);
+                this.bus.connect(convolver);
+                
+                this.master.connect(this.ctx.destination);
+                this.isInit = true;
+            }
+
+            playKick() {
+                if(!this.isInit) return;
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain); gain.connect(this.bus);
+                
+                // Agresive pitch drop
+                osc.frequency.setValueAtTime(250, t);
+                osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.3);
+                
+                // Distortion
+                const dist = this.ctx.createWaveShaper();
+                dist.curve = this.makeDistortionCurve(40);
+                gain.connect(dist); dist.connect(this.bus);
+
+                gain.gain.setValueAtTime(1, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+                osc.start(t); osc.stop(t + 0.3);
+            }
+
+            playSnare() {
+                if(!this.isInit) return;
+                const t = this.ctx.currentTime;
+                // Noise buffer
+                const bufferSize = this.ctx.sampleRate * 0.2;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'highpass'; filter.frequency.value = 1000;
+                
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(1, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+                
+                noise.connect(filter); filter.connect(gain); gain.connect(this.bus);
+                noise.start(t);
+            }
+
+            playHihat() {
+                if(!this.isInit) return;
+                const t = this.ctx.currentTime;
+                const osc1 = this.ctx.createOscillator(); osc1.type = 'square'; osc1.frequency.value = 3000;
+                const osc2 = this.ctx.createOscillator(); osc2.type = 'square'; osc2.frequency.value = 4500;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass'; filter.frequency.value = 8000;
+                
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.01, t + 0.05);
+                
+                osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(this.bus);
+                osc1.start(t); osc2.start(t); osc1.stop(t+0.1); osc2.stop(t+0.1);
+            }
+
+            playBass(freqMultiplier) {
+                if(!this.isInit) return;
+                const t = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator(); osc.type = 'sawtooth';
+                osc.frequency.value = 55 * freqMultiplier;
+                
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass'; 
+                filter.frequency.setValueAtTime(2000, t);
+                filter.frequency.exponentialRampToValueAtTime(100, t + 0.3);
+                
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.6, t);
+                gain.gain.linearRampToValueAtTime(0, t + 0.4);
+                
+                osc.connect(filter); filter.connect(gain); gain.connect(this.bus);
+                osc.start(t); osc.stop(t + 0.4);
+            }
+
+            makeDistortionCurve(amount) {
+                const k = typeof amount === 'number' ? amount : 50,
+                n_samples = 44100, curve = new Float32Array(n_samples), deg = Math.PI / 180;
+                for (let i = 0; i < n_samples; ++i) {
+                    const x = i * 2 / n_samples - 1;
+                    curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+                }
+                return curve;
+            }
+        }
+        const audio = new CyberAudio();
+
+        // --- GRAPHICS ENGINE & LOGIC ---
+        const canvas = document.getElementById('loomCanvas');
+        const ctx = canvas.getContext('2d');
+        let w, h;
+        
+        const NODE_RADIUS = 15;
+        const SPEED = 250; // pixels per second
+        
+        let nodes = [];
+        let connections = [];
+        let sparks = [];
+        
+        let currentMode = 'core';
+        let hoverNode = null;
+        let isLinking = false;
+        let linkStartNode = null;
+        let mouseX = 0, mouseY = 0;
+
+        const colors = {
+            core: '#fff',
+            kick: '#f03',
+            snare: '#0f6',
+            hihat: '#0ff',
+            bass: '#f0f'
+        };
+
+        function resize() {
+            w = canvas.width = window.innerWidth;
+            h = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize); resize();
+
+        // Object classes
+        class Node {
+            constructor(x, y, type) {
+                this.id = Math.random().toString(36).substr(2, 9);
+                this.x = x; this.y = y; this.type = type;
+                this.radius = NODE_RADIUS;
+                this.pulse = 0;
+                // For core, keep track of beat time
+                this.lastPulseTime = 0;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius + this.pulse, 0, Math.PI * 2);
+                ctx.fillStyle = colors[this.type];
+                
+                if(this.type === 'core') {
+                    ctx.shadowBlur = 15 + this.pulse * 2;
+                    ctx.shadowColor = '#fff';
+                } else {
+                    ctx.shadowBlur = 10 + this.pulse;
+                    ctx.shadowColor = colors[this.type];
+                }
+                
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Draw outline if hover
+                if (hoverNode === this) {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                if(this.pulse > 0) this.pulse -= 1;
+            }
+            trigger() {
+                this.pulse = 10;
+                // Play sound based on type
+                if(this.type === 'kick') audio.playKick();
+                else if(this.type === 'snare') audio.playSnare();
+                else if(this.type === 'hihat') audio.playHihat();
+                else if(this.type === 'bass') audio.playBass(1 + (1 - this.y / h) * 2); // Pitch based on Y
+                
+                // Emit sparks to connected paths
+                connections.forEach(c => {
+                    if(c.from === this.id) {
+                        sparks.push(new Spark(this.id, c.to, this.type === 'core' ? '#fff' : colors[this.type]));
+                    }
+                });
+            }
+        }
+
+        class Spark {
+            constructor(fromId, toId, color) {
+                this.fromNode = nodes.find(n => n.id === fromId);
+                this.toNode = nodes.find(n => n.id === toId);
+                this.x = this.fromNode.x;
+                this.y = this.fromNode.y;
+                this.progress = 0;
+                this.color = color;
+                
+                const dx = this.toNode.x - this.fromNode.x;
+                const dy = this.toNode.y - this.fromNode.y;
+                this.distance = Math.sqrt(dx*dx + dy*dy);
+                this.dead = false;
+            }
+            update(dt) {
+                if(this.dead) return;
+                const travelDist = SPEED * dt;
+                this.progress += travelDist / this.distance;
+                
+                if(this.progress >= 1) {
+                    this.progress = 1;
+                    this.x = this.toNode.x;
+                    this.y = this.toNode.y;
+                    this.toNode.trigger();
+                    this.dead = true;
+                } else {
+                    this.x = this.fromNode.x + (this.toNode.x - this.fromNode.x) * this.progress;
+                    this.y = this.fromNode.y + (this.toNode.y - this.fromNode.y) * this.progress;
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // Generate Grid Background
+        function drawGrid(time) {
+            ctx.strokeStyle = 'rgba(0, 255, 204, 0.03)';
+            ctx.lineWidth = 1;
+            const size = 50;
+            const offset = (time * 0.01) % size;
+            
+            ctx.beginPath();
+            for(let x = 0; x < w; x+=size) {
+                ctx.moveTo(x, 0); ctx.lineTo(x, h);
+            }
+            for(let y = offset; y < h; y+=size) {
+                ctx.moveTo(0, y); ctx.lineTo(w, y);
+            }
+            ctx.stroke();
+        }
+
+        let lastTime = performance.now();
+        function loop(time) {
+            requestAnimationFrame(loop);
+            const dt = (time - lastTime) / 1000;
+            lastTime = time;
+
+            ctx.clearRect(0, 0, w, h);
+            drawGrid(time);
+
+            // Trigger Cores based on BPM
+            const beatInterval = 60 / audio.bpm;
+            nodes.forEach(n => {
+                if(n.type === 'core') {
+                    if (time/1000 - n.lastPulseTime > beatInterval) {
+                        n.lastPulseTime = time/1000;
+                        n.trigger(); // Core pulse
+                    }
+                }
+            });
+
+            // Draw Connections
+            ctx.lineWidth = 2;
+            connections.forEach(c => {
+                const n1 = nodes.find(n => n.id === c.from);
+                const n2 = nodes.find(n => n.id === c.to);
+                if(n1 && n2) {
+                    ctx.beginPath();
+                    ctx.moveTo(n1.x, n1.y);
+                    ctx.lineTo(n2.x, n2.y);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.stroke();
+                }
+            });
+
+            // Draw link in progress
+            if(isLinking && linkStartNode) {
+                ctx.beginPath();
+                ctx.moveTo(linkStartNode.x, linkStartNode.y);
+                ctx.lineTo(mouseX, mouseY);
+                ctx.strokeStyle = 'rgba(0, 255, 204, 0.5)';
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Update & Draw Sparks
+            sparks.forEach(s => s.update(dt));
+            sparks = sparks.filter(s => !s.dead);
+            sparks.forEach(s => s.draw());
+
+            // Draw Nodes
+            nodes.forEach(n => n.draw());
+        }
+
+        // Interaction
+        window.addEventListener('mousemove', e => {
+            mouseX = e.clientX; mouseY = e.clientY;
+            hoverNode = null;
+            for(let n of nodes) {
+                const dx = mouseX - n.x; const dy = mouseY - n.y;
+                if(Math.sqrt(dx*dx + dy*dy) < n.radius * 1.5) {
+                    hoverNode = n; break;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousedown', e => {
+            if(!audio.isInit) return; // Prevent before init
+
+            if(currentMode === 'connect') {
+                if(hoverNode) {
+                    isLinking = true;
+                    linkStartNode = hoverNode;
+                }
+            } else if (currentMode === 'delete') {
+                if(hoverNode) {
+                    // Remove connections
+                    connections = connections.filter(c => c.from !== hoverNode.id && c.to !== hoverNode.id);
+                    // Remove node
+                    nodes = nodes.filter(n => n.id !== hoverNode.id);
+                    hoverNode = null;
+                }
+            } else {
+                // Add Node if not hovering and not over UI
+                if(!hoverNode && e.clientX < w - 350) { // rough UI avoidance
+                    nodes.push(new Node(mouseX, mouseY, currentMode));
+                    // Initial pulse logic if it's a core
+                    if(currentMode === 'core') nodes[nodes.length-1].lastPulseTime = performance.now()/1000;
+                }
+            }
+        });
+
+        window.addEventListener('mouseup', e => {
+            if(isLinking && linkStartNode && hoverNode && linkStartNode !== hoverNode) {
+                // Avoid duplicates
+                const exists = connections.find(c => c.from === linkStartNode.id && c.to === hoverNode.id);
+                if(!exists) {
+                    connections.push({from: linkStartNode.id, to: hoverNode.id});
+                }
+            }
+            isLinking = false;
+            linkStartNode = null;
+        });
+
+        // UI Listeners
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentMode = btn.dataset.type;
+                
+                if(currentMode === 'connect' || currentMode === 'delete') canvas.style.cursor = 'crosshair';
+                else canvas.style.cursor = 'default';
+            });
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            nodes = []; connections = []; sparks = [];
+        });
+
+        document.getElementById('bpmBtn').addEventListener('click', () => {
+            audio.bpm = audio.bpm === 120 ? 140 : (audio.bpm === 140 ? 160 : (audio.bpm === 160 ? 90 : 120));
+            document.getElementById('bpmBtn').innerText = `BPM: ${audio.bpm}`;
+        });
+
+        document.getElementById('initAudioBtn').addEventListener('click', () => {
+            audio.init();
+            document.getElementById('startScreen').style.opacity = '0';
+            setTimeout(() => document.getElementById('startScreen').style.display = 'none', 500);
+            
+            // Add some default nodes to demonstrate
+            nodes.push(new Node(w/4, h/2, 'core')); nodes[0].lastPulseTime = performance.now()/1000;
+            nodes.push(new Node(w/2, h/2 - 100, 'kick'));
+            nodes.push(new Node(w/2, h/2 + 100, 'hihat'));
+            nodes.push(new Node(w/2 + 200, h/2 - 100, 'bass'));
+            
+            connections.push({from: nodes[0].id, to: nodes[1].id});
+            connections.push({from: nodes[0].id, to: nodes[2].id});
+            connections.push({from: nodes[1].id, to: nodes[3].id});
+            
+            requestAnimationFrame(loop);
+        });
+
+    </script>
+</body>
+</html>
