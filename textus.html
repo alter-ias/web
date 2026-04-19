@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TEXTUS: Todo es Arte</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <style>
+:root {
+    --bg-dark: #05080f;
+    --panel-bg: rgba(20, 25, 38, 0.6);
+    --border-color: rgba(75, 211, 214, 0.2);
+    --cyan: #4bd3d6;
+    --cyan-glow: rgba(75, 211, 214, 0.4);
+    --text-primary: #ffffff;
+    --text-secondary: #8c9bb0;
+    
+    /* Code Syntax Colors */
+    --code-keyword: #c678dd;
+    --code-func: #61afef;
+    --code-comment: #5c6370;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(75, 211, 214, 0.05) 0%, transparent 20%),
+        radial-gradient(circle at 90% 80%, rgba(198, 120, 221, 0.05) 0%, transparent 20%);
+}
+
+/* NAVBAR */
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 3rem;
+    border-bottom: 1px solid var(--border-color);
+    background: rgba(5, 8, 15, 0.8);
+    backdrop-filter: blur(10px);
+}
+
+.logo {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: 2px;
+}
+.logo-textus {
+    font-weight: 800;
+    color: var(--cyan);
+}
+.logo-subtitle {
+    font-weight: 400;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    margin-left: 0.5rem;
+}
+
+.nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0 1rem;
+    padding-bottom: 0.5rem;
+    letter-spacing: 1px;
+    transition: 0.3s;
+}
+
+.nav-links a:hover, .nav-links a.active {
+    color: var(--cyan);
+    border-bottom: 2px solid var(--cyan);
+}
+
+/* MAIN LAYOUT */
+.master-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem 3rem;
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* HEADER TEJIDO */
+.tejido-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+.tejido-title-area {
+    flex: 1;
+}
+.tejido-title-area h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 2px;
+    margin-bottom: 0.5rem;
+}
+.tejido-title-area p {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+.tejido-title-area span {
+    color: var(--cyan);
+    font-family: monospace;
+}
+
+.btn {
+    padding: 0.6rem 1.2rem;
+    border-radius: 4px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: 0.3s;
+    margin-left: 0.5rem;
+}
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--cyan);
+}
+.btn-outline:hover {
+    background: rgba(75, 211, 214, 0.1);
+}
+.btn-cyan {
+    background: var(--cyan);
+    border: 1px solid var(--cyan);
+    color: #000;
+    box-shadow: 0 0 15px var(--cyan-glow);
+}
+.btn-cyan:hover {
+    box-shadow: 0 0 25px var(--cyan-glow);
+}
+.btn-cyan-small {
+    padding: 0.4rem 0.8rem;
+    background: var(--cyan);
+    border: none;
+    color: #000;
+    font-size: 0.75rem;
+    font-weight: 800;
+    border-radius: 4px;
+}
+
+/* CANVAS & PLAYER */
+.canvas-wrapper {
+    position: relative;
+    width: 100%;
+    height: 45vh;
+    background: #000;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    box-shadow: inset 0 0 50px rgba(0,0,0,0.8);
+}
+#generative-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+.player-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 1rem 2rem;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 200px;
+}
+.slider-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 2px;
+    position: relative;
+}
+.slider-thumb {
+    position: absolute;
+    top: -4px;
+    left: 40%;
+    width: 12px;
+    height: 12px;
+    background: var(--cyan);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--cyan);
+}
+.center-player-btns button {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0 0.5rem;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.center-player-btns button:hover, .center-player-btns button.active {
+    color: var(--cyan);
+}
+.right-player-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--text-secondary);
+}
+
+/* PANELS */
+.inputs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1.5fr;
+    gap: 1.5rem;
+}
+.panel {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    backdrop-filter: blur(5px);
+}
+.panel-header {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.panel-header h3 {
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+.panel-header .dots {
+    color: var(--text-secondary);
+}
+.panel-header .dropdown {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+}
+.panel-content {
+    padding: 1rem;
+    flex: 1;
+}
+
+/* CODE */
+.code-content pre {
+    font-family: 'Consolas', monospace;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    line-height: 1.6;
+}
+.keyword { color: var(--code-keyword); }
+.func { color: var(--code-func); }
+.comment { color: var(--code-comment); font-style: italic; }
+
+/* SOUND */
+.sound-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#audio-visualizer {
+    width: 100%;
+    height: 120px;
+}
+
+/* VISUALS */
+.visual-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 0.8rem;
+}
+.vcard {
+    position: relative;
+    border-radius: 6px;
+    overflow: hidden;
+    aspect-ratio: 16/9;
+    background: #000;
+    border: 1px solid transparent;
+    transition: 0.3s;
+}
+.vcard img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.7;
+    transition: 0.3s;
+}
+.vcard:hover img {
+    opacity: 1;
+}
+.vcard:hover {
+    border-color: var(--cyan);
+    box-shadow: 0 0 15px rgba(75, 211, 214, 0.3);
+}
+.play-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    font-size: 1.2rem;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+}
+.add-new {
+    background: rgba(255,255,255,0.02);
+    border: 1px dashed var(--border-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+}
+.add-new:hover {
+    background: rgba(75, 211, 214, 0.05);
+}
+.plus-icon {
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+}
+
+footer {
+    text-align: center;
+    padding: 1rem;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border-color);
+}
+
+/* MODAL ALTERLAB */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+.modal-content {
+    background: var(--bg-dark);
+    border: 1px solid var(--cyan);
+    padding: 3rem;
+    border-radius: 12px;
+    max-width: 800px;
+    width: 90%;
+    position: relative;
+    box-shadow: 0 0 30px rgba(75, 211, 214, 0.2);
+    text-align: center;
+    transform: translateY(20px);
+    transition: transform 0.3s;
+}
+.modal-overlay.active .modal-content {
+    transform: translateY(0);
+}
+.close-modal {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 2rem;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.close-modal:hover { color: var(--cyan); }
+.modal-title {
+    font-family: 'Outfit', sans-serif;
+    color: var(--cyan);
+    font-size: 2rem;
+    letter-spacing: 2px;
+    margin-bottom: 0.5rem;
+}
+.modal-subtitle {
+    color: var(--text-secondary);
+    margin-bottom: 2.5rem;
+}
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+}
+.project-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-primary);
+    transition: 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.project-card:hover {
+    border-color: var(--cyan);
+    box-shadow: 0 0 15px rgba(75, 211, 214, 0.4);
+    transform: translateY(-5px);
+}
+.project-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+.project-card h4 {
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+/* TOAST NOTIFICATION */
+.toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    background: rgba(20, 25, 38, 0.95);
+    border-left: 4px solid var(--cyan);
+    color: var(--text-primary);
+    padding: 1rem 1.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    max-width: 350px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 999;
+}
+.toast.show {
+    transform: translateX(0);
+}
+
+/* DIRECTORIO LAYOUT */
+.comunidad-grid-top {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr 1.2fr;
+    gap: 1.5rem;
+}
+.map-panel .panel-content { padding: 1rem; }
+.artist-card {
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+    transition: 0.3s;
+}
+.artist-card:hover { border-color: var(--cyan); }
+.artist-card img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-bottom: 0.5rem;
+    border: 2px solid var(--cyan);
+}
+.artist-card h4 {
+    font-size: 0.8rem;
+    margin-bottom: 0.8rem;
+    color: var(--text-primary);
+}
+.btn-group {
+    display: flex;
+    gap: 0.3rem;
+    justify-content: center;
+}
+
+.feed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.feed-item {
+    display: flex;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.feed-item:hover { opacity: 0.8; }
+.feed-bullet {
+    min-width: 8px;
+    height: 8px;
+    background: var(--cyan);
+    border-radius: 50%;
+    margin-top: 0.3rem;
+    box-shadow: 0 0 5px var(--cyan);
+}
+.feed-item h4 { font-size: 0.85rem; color: var(--text-primary); }
+.feed-item p { font-size: 0.75rem; color: var(--text-secondary); margin: 0.2rem 0; }
+.feed-item small { font-size: 0.65rem; color: #5c6370; }
+
+.invites-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.invite-card {
+    background: rgba(0,0,0,0.5);
+    border-left: 3px solid var(--cyan);
+    padding: 1rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+.invite-card p {
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+.invite-card.border-green { border-left-color: #50fa7b; }
+.invite-card.border-purple { border-left-color: #c678dd; }
+
+</style>
+</head>
+<body>
+
+    <!-- Navegación -->
+    <header class="navbar">
+        <div class="logo">
+            <span class="logo-textus">TEXTUS</span><span class="logo-subtitle">: TODO ES ARTE</span>
+        </div>
+    <nav class="nav-links">
+            <a href="index.html" class="active">EL TAPIZ</a>
+            <a href="directorio.html">COMUNIDAD</a>
+        </nav>
+        <div class="nav-actions">
+            <div class="user-avatar"></div>
+        </div>
+    </header>
+
+    <!-- Sección Principal: El Tejido -->
+    <main class="master-container" data-aos="fade-in" data-aos-duration="1200">
+        <div class="tejido-header">
+            <div class="tejido-title-area">
+                <h2>EL TEJIDO EN VIVO: TEXTUS</h2>
+                <p>Nodos activos en redes digitales actvios<br>
+                <span>Colaboradores Activos: 1,432 | Hilos: 5,671k | Bytes de Sonido: 2,109k</span></p>
+            </div>
+            <div class="tejido-controls" style="display:flex; gap:0.5rem; align-items:center;">
+                <button class="btn btn-outline show-prototype-msg">⏸ PAUSAR</button>
+                <button class="btn btn-outline show-prototype-msg">⏪ REBOBINAR</button>
+                <button class="btn btn-cyan show-prototype-msg">COLABORAR</button>
+            </div>
+        </div>
+
+        <!-- Canvas Principal (Arte Generativo) -->
+        <div class="canvas-wrapper">
+            <canvas id="generative-canvas"></canvas>
+            
+            <div class="player-bar">
+                <div class="volume-control">
+                    <span>🔊</span>
+                    <div class="slider-track"><div class="slider-thumb"></div></div>
+                </div>
+                <div class="center-player-btns">
+                    <button class="btn-clean">REPRODUCIR</button>
+                    <button class="btn-clean active">PAUSAR</button>
+                    <button class="btn-clean">REBOBINAR</button>
+                </div>
+                <div class="right-player-controls">
+                    <span>⏮</span><span>▶</span><span>⏭</span>
+                    <button class="btn btn-cyan-small">COLABORAR</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Paneles de Entradas (Inputs) -->
+        <div class="inputs-grid">
+            
+            <!-- Hilos de Código -->
+            <div class="panel code-panel">
+                <div class="panel-header">
+                    <h3>HILOS DE CÓDIGO</h3>
+                    <span class="dots">•••</span>
+                </div>
+                <div class="panel-content code-content">
+                    <pre><code><span class="comment">// Tejido vibrante AlterLab</span>
+<span class="keyword">function</span> <span class="func">weaveTapiz</span>(node) {
+    <span class="keyword">return</span> canvas.render(node.geometry);
+}
+
+<span class="keyword">this</span>.consts = [0.8, 1.2];
+<span class="func">initListener</span>(audioContext) => {
+    <span class="keyword">if</span>(audio.peaks > threshold) {
+        <span class="func">generateThread</span>();
+    }
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- Vibraciones de Sonido -->
+            <div class="panel sound-panel">
+                <div class="panel-header">
+                    <h3>VIBRACIONES DE SONIDO</h3>
+                    <div class="dropdown">Input ˅</div>
+                </div>
+                <div class="panel-content sound-content">
+                    <canvas id="audio-visualizer"></canvas>
+                </div>
+            </div>
+
+            <!-- Transmisiones Visuales -->
+            <div class="panel visual-panel">
+                <div class="panel-header">
+                    <h3>TRANSMISIONES VISUALES</h3>
+                    <span class="dots">•••</span>
+                </div>
+                <div class="panel-content visual-grid">
+                    <div class="vcard show-prototype-msg"><img src="https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=300&q=80" alt="visual 1"><div class="play-icon">▶</div></div>
+                    <div class="vcard show-prototype-msg"><img src="https://images.unsplash.com/photo-1541701494587-cb58502866ab?w=300&q=80" alt="visual 2"><div class="play-icon">▶</div></div>
+                    <div class="vcard show-prototype-msg"><img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=300&q=80" alt="visual 3"><div class="play-icon">▶</div></div>
+                    <div class="vcard show-prototype-msg"><img src="https://images.unsplash.com/photo-1550684376-efcbd6e3f031?w=300&q=80" alt="visual 4"><div class="play-icon">▶</div></div>
+                    <div class="vcard show-prototype-msg"><img src="https://images.unsplash.com/photo-1604871000636-074fa5117945?w=300&q=80" alt="visual 5"><div class="play-icon">▶</div></div>
+                    <div class="vcard add-new show-prototype-msg"><div class="plus-icon">+</div></div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <div style="text-align: center; margin: 2rem 0 1rem 0;">
+        <button class="btn btn-outline" id="btn-alterlab">VER MÁS PROYECTOS DEL COLECTIVO ALTERLAB</button>
+    </div>
+
+    <footer>
+        Prototipo interactivo creado por el Colectivo AlterLab - Artes Guanajuato 2026.
+    </footer>
+
+    <!-- Modal Proyectos AlterLab -->
+    <div id="projects-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="close-modal" id="close-modal">&times;</button>
+            <h2 class="modal-title">COLECTIVO ALTERLAB</h2>
+            <p class="modal-subtitle">Directorio de proyectos e instrumentos web creativos.</p>
+            <div class="projects-grid">
+                <a href="https://www.alterlabgen.lat/vox_aetheris.html" target="_blank" class="project-card">
+                    <div class="project-icon" style="color: var(--cyan);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg></div>
+                    <h4>Vox Aetheris</h4>
+                </a>
+                <a href="https://www.alterlabgen.lat/motus_artis.html" target="_blank" class="project-card">
+                    <div class="project-icon" style="color: var(--cyan);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></div>
+                    <h4>Motus Artis</h4>
+                </a>
+                <a href="https://www.alterlabgen.lat/cylindrus.html" target="_blank" class="project-card">
+                    <div class="project-icon" style="color: var(--cyan);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><circle cx="15" cy="15" r="2"></circle></svg></div>
+                    <h4>Cylindrus Sonitus</h4>
+                </a>
+                <a href="https://www.alterlabgen.lat/genesis.html" target="_blank" class="project-card">
+                    <div class="project-icon" style="color: var(--cyan);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22A10 10 0 1 0 12 2a10 10 0 0 0 0 20z"></path><circle cx="12" cy="12" r="3"></circle><path d="M12 15v3"></path><path d="M9 12H6"></path></svg></div>
+                    <h4>Genesis Cellularis</h4>
+                </a>
+                <a href="https://www.alterlabgen.lat/machina_mentis.html" target="_blank" class="project-card">
+                    <div class="project-icon" style="color: var(--cyan);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"></path><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"></path></svg></div>
+                    <h4>Machina Mentis</h4>
+                </a>
+                <a href="https://www.alterlabgen.lat/resonantia.html" target="_blank" class="project-card">
+                    <div class="project-icon" style="color: var(--cyan);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"></circle><path d="M22 12c0 2.2-4.5 4-10 4S2 14.2 2 12"></path></svg></div>
+                    <h4>Resonantia Orbitalis</h4>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast de Notificación -->
+    <div id="toast-message" class="toast">
+        ⚠️ Funcionalidad inhabilitada. Esto es solo un prototipo interactivo diseñado exclusivamente para evidenciar viabilidad para el FONDO ESTATAL PARA LA CULTURA Y LAS ARTES GUANAJUATO 2026
+    </div>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({ once: true });
+    </script>
+    <script>
+// app.js
+
+document.addEventListener('DOMContentLoaded', () => {
+    initGenerativeWeaving();
+    initAudioVisualizer();
+    initInteractions();
+});
+
+// Main Canvas - Generative Weaving
+function initGenerativeWeaving() {
+    const canvas = document.getElementById('generative-canvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Resize
+    const resize = () => {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+    };
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Threads array
+    const threads = [];
+    const colors = ['#4bd3d6', '#c678dd', '#ffb86c', '#ff5555', '#50fa7b'];
+
+    for (let i = 0; i < 25; i++) {
+        let baseAmp = Math.random() * 50 + 20;
+        let baseSpd = Math.random() * 0.02 + 0.01;
+        threads.push({
+            yBase: Math.random() * canvas.height,
+            amplitude: baseAmp,
+            baseAmplitude: baseAmp,
+            frequency: Math.random() * 0.01 + 0.005,
+            phase: Math.random() * Math.PI * 2,
+            speed: baseSpd,
+            baseSpeed: baseSpd,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            lineWidth: Math.random() * 2 + 0.5
+        });
+    }
+
+    let time = 0;
+
+    // AUDIO & VISUAL INTERACTION
+    let audioCtx = null;
+    canvas.addEventListener('click', () => {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        
+        // Play simple pleasant synth sound
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.type = 'sine';
+        // Pentatonic scale frequency
+        const frequencies = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25];
+        osc.frequency.value = frequencies[Math.floor(Math.random() * frequencies.length)];
+        
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.1);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 1.5);
+        
+        // Visual ripple effect
+        threads.forEach(t => {
+            t.amplitude += 40; 
+            t.speed += 0.05; 
+        });
+    });
+
+    function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        threads.forEach(t => {
+            // Decay states to base
+            if (t.amplitude > t.baseAmplitude) t.amplitude -= 0.5;
+            if (t.speed > t.baseSpeed) t.speed -= 0.001;
+
+            ctx.beginPath();
+            ctx.moveTo(0, t.yBase + Math.sin(time * t.speed + t.phase) * t.amplitude);
+            
+            for (let x = 0; x < canvas.width; x += 10) {
+                // Complex wave simulating weaving
+                let y = t.yBase + 
+                        Math.sin(x * t.frequency + time * t.speed + t.phase) * t.amplitude + 
+                        Math.cos(x * t.frequency * 0.5 - time * t.speed * 1.5) * (t.amplitude * 0.5);
+                ctx.lineTo(x, y);
+            }
+            
+            ctx.strokeStyle = t.color;
+            ctx.lineWidth = t.lineWidth;
+            
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = t.color;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        });
+
+        time += 1;
+        requestAnimationFrame(draw);
+    }
+
+    draw();
+}
+
+// Bottom Canvas - Audio Visualizer (Simulated logic for prototype)
+function initAudioVisualizer() {
+    const canvas = document.getElementById('audio-visualizer') || document.getElementById('audio-visualizer-comunidad');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Resize
+    const resize = () => {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+    };
+    window.addEventListener('resize', resize);
+    resize();
+
+    const bars = 40;
+    let time = 0;
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const barWidth = canvas.width / bars;
+        
+        for (let i = 0; i < bars; i++) {
+            // Simulated audio spectrum data
+            let n = Math.sin(time * 0.1 + i * 0.2) * Math.cos(time * 0.05 - i * 0.1);
+            let height = Math.abs(n) * (canvas.height * 0.6) + 5;
+            
+            // Rainbow gradient effect matching the aesthetic
+            const hue = (i / bars) * 360;
+            ctx.fillStyle = `hsl(${hue}, 80%, 60%)`;
+            
+            // Draw dual mirrored bars
+            let yCenter = canvas.height / 2;
+            
+            ctx.fillRect(i * barWidth + 2, yCenter - height/2, barWidth - 4, height);
+        }
+        
+        time += 1;
+        requestAnimationFrame(draw);
+    }
+
+    draw();
+}
+
+
+// Modal and Toast Interactions
+function initInteractions() {
+    const modal = document.getElementById('projects-modal');
+    const btnAlterLab = document.getElementById('btn-alterlab');
+    const closeBtn = document.getElementById('close-modal');
+    
+    // Modal Open/Close
+    btnAlterLab.addEventListener('click', () => {
+        modal.classList.add('active');
+    });
+    
+    closeBtn.addEventListener('click', () => {
+        modal.classList.remove('active');
+    });
+    
+    // Toast Notification for Prototype items
+    const toast = document.getElementById('toast-message');
+    const mockElements = document.querySelectorAll('.show-prototype-msg');
+    
+    let toastTimeout;
+    
+    mockElements.forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Show toast
+            toast.classList.add('show');
+            
+            // Reset timeout
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 8000);
+        });
+    });
+}
+
+</script>
+</body>
+</html>
