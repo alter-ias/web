@@ -1,0 +1,1475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PHARMACON SCRIPTFLOW | Fármacos Digitales IA</title>
+    <style>
+        :root {
+            /* Tema Oscuro Metálico / Glassmorphism Sutil */
+            --bg-canvas: #0a0b10; 
+            --bg-panel: rgba(22, 23, 29, 0.85); 
+            --bg-node: rgba(28, 30, 38, 0.95);
+            
+            /* Bordes y Contrastes */
+            --border: #2a2b36; 
+            --border-light: rgba(255, 255, 255, 0.08);
+            --text-main: #f0f0f5; 
+            --text-muted: #8b92a5;
+            
+            /* Colores de Acento */
+            --accent-scene: #4facfe; 
+            --accent-shot: #f1c40f; 
+            --accent-char: #b562e8;
+            --accent-loc: #42d37c; 
+            --accent-prop: #ff5b5b; 
+            --accent-ai: #00e1ff;
+            --accent-drug: #ff0055;
+            
+            --select-box: rgba(79, 172, 254, 0.15);
+            --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            
+            /* Suavizado macOS */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --shadow-panel: 0 4px 24px rgba(0,0,0,0.6);
+            --shadow-node: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+        /* Scrollbar Metálico */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3a3c4a; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #56596e; }
+
+        * { box-sizing: border-box; user-select: none; }
+        body { margin: 0; overflow: hidden; background: var(--bg-canvas); color: var(--text-main); font-family: var(--font-ui); font-size: 11px; -webkit-font-smoothing: antialiased; }
+
+        /* HEADER */
+        header { position: absolute; top: 0; left: 0; width: 100%; height: 40px; background: var(--bg-panel); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); box-shadow: var(--shadow-panel); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100; }
+        .logo { font-weight: 700; letter-spacing: 0.5px; font-size: 0.9rem; display: flex; align-items: center; gap: 15px;}
+        .logo span { color: var(--accent-drug); }
+        
+        .project-controls { display: flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.4); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);}
+        .project-controls select { background: transparent; color: var(--text-main); border: none; outline: none; font-size: 0.75rem; font-weight: 600; cursor: pointer; max-width: 150px; font-family: var(--font-ui);}
+        select option { background-color: #16171d; color: var(--text-main); }
+        .project-controls button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.85rem; padding: 0 4px; transition: 0.2s;}
+        .project-controls button:hover { color: white; transform: scale(1.1); }
+        .project-controls .delete-btn:hover { color: var(--accent-prop); }
+
+        .ui-btn { background: linear-gradient(180deg, #2a2b36 0%, #1e1f26 100%); color: var(--text-main); border: 1px solid var(--border); border-top: 1px solid var(--border-light); padding: 5px 10px; cursor: pointer; border-radius: var(--radius-sm); font-weight: 600; transition: 0.2s; font-size: 0.7rem; display: flex; align-items: center; gap: 6px; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);}
+        .ui-btn:hover:not(:disabled) { background: linear-gradient(180deg, #323442 0%, #252630 100%); border-color: #454859; box-shadow: 0 4px 8px rgba(0,0,0,0.4); transform: translateY(-1px);}
+        .ui-btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+        .ui-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ai-btn { background: linear-gradient(180deg, rgba(0,225,255,0.15) 0%, rgba(0,225,255,0.05) 100%); border-color: rgba(0,225,255,0.3); color: var(--accent-ai); }
+        .import-btn { border-color: rgba(181,98,232,0.4); color: var(--accent-char);}
+
+        /* PANELS */
+        .entity-sidebar { position: absolute; top: 40px; left: 0; width: 230px; height: calc(100vh - 40px); background: var(--bg-panel); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-right: 1px solid var(--border); z-index: 90; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; box-shadow: var(--shadow-panel);}
+        .toolkit-sidebar { position: absolute; top: 40px; right: 0; width: 250px; height: calc(100vh - 40px); background: var(--bg-panel); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-left: 1px solid var(--border); z-index: 90; display: flex; flex-direction: column; overflow-x: hidden; box-shadow: var(--shadow-panel);}
+        .panel-header { padding: 10px; background: rgba(0,0,0,0.3); font-weight: 600; font-size: 0.75rem; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); text-align: center; box-shadow: inset 0 1px 0 var(--border-light);}
+        .panel-header.drug-header { color: var(--accent-drug); background: linear-gradient(180deg, rgba(255,0,85,0.1) 0%, rgba(0,0,0,0.3) 100%); }
+        
+        .entity-section { padding: 10px; border-bottom: 1px solid var(--border); box-shadow: inset 0 -1px 0 var(--border-light); }
+        .entity-section-title { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;}
+        
+        .entity-input-group { display: flex; gap: 6px; margin-bottom: 8px; align-items: flex-start; width: 100%;}
+        .entity-input-group textarea { flex: 1; padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: rgba(0,0,0,0.3); color: var(--text-main); font-size: 0.75rem; min-width: 0; height: 50px; resize: vertical; font-family: var(--font-ui); outline: none; transition: 0.2s;}
+        .entity-input-group textarea:focus { border-color: #454859; background: rgba(0,0,0,0.5); }
+        
+        .file-upload-btn { background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: white; padding: 6px; cursor: pointer; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; width: 28px; flex-shrink: 0; font-size: 0.8rem; transition: 0.2s;}
+        .file-upload-btn:hover { background: rgba(255,255,255,0.05); border-color: #454859; }
+        
+        .add-btn { background: linear-gradient(180deg, #4facfe 0%, #00f2fe 100%); width: 28px; height: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); border: none; color: #000; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.2s; box-shadow: 0 2px 8px rgba(79, 172, 254, 0.4);}
+        .add-btn:active { transform: scale(0.95); }
+
+        .entity-list { display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto;}
+        .entity-pill { padding: 5px 8px; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; transition: 0.2s; background: rgba(255,255,255,0.02); }
+        .entity-pill:hover { background: rgba(255,255,255,0.06); transform: translateX(3px); border-color: var(--border-light); }
+        .entity-pill img { width: 22px; height: 22px; border-radius: 4px; object-fit: cover; background: #000; cursor: zoom-in; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+        .entity-pill span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .entity-pill.char { border-left: 3px solid var(--accent-char); }
+        .entity-pill.loc { border-left: 3px solid var(--accent-loc); }
+        .entity-pill.prop { border-left: 3px solid var(--accent-prop); }
+
+        /* AI & TOOLKIT */
+        .ai-panel { padding: 12px; border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); }
+        .ai-panel select, .ai-panel input { width: 100%; margin-bottom: 6px; padding: 6px 8px; background: rgba(0,0,0,0.4); color: var(--text-main); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.75rem; outline: none; font-family: var(--font-ui);}
+        .ai-output { width: 100%; height: 60px; background: rgba(0,0,0,0.5); border: 1px solid var(--border); color: var(--accent-ai); font-family: monospace; font-size: 0.7rem; padding: 6px; resize: vertical; margin-top: 4px; border-radius: var(--radius-sm); outline: none;}
+        
+        .custom-tool-adder { padding: 10px; background: rgba(255,255,255,0.01); border-bottom: 1px solid var(--border); }
+        .custom-tool-adder select, .custom-tool-adder input { width: 100%; margin-bottom: 6px; padding: 6px 8px; background: rgba(0,0,0,0.4); color: var(--text-main); border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.75rem; outline: none; font-family: var(--font-ui);}
+        .custom-tool-adder select:focus, .custom-tool-adder input:focus { border-color: #454859; }
+        
+        .toolkit-content { flex: 1; overflow-y: auto; padding: 8px; }
+        .accordion { margin-bottom: 5px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: rgba(0,0,0,0.2); overflow: hidden; }
+        .accordion.drug-acc { border-color: rgba(255,0,85,0.3); }
+        .acc-btn { width: 100%; text-align: left; background: transparent; border: none; color: var(--text-main); padding: 8px 10px; font-weight: 600; cursor: pointer; font-size: 0.75rem; transition: 0.2s;}
+        .acc-btn:hover { background: rgba(255,255,255,0.03); }
+        .drug-acc .acc-btn { color: #ffb3cc; }
+        .drug-acc .acc-btn:hover { background: rgba(255,0,85,0.1); }
+        
+        .acc-content { display: none; background: rgba(0,0,0,0.4); max-height: 280px; overflow-y: auto; border-top: 1px solid var(--border);}
+        .acc-content.active { display: block; }
+        .tag-item { padding: 8px 10px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.02); transition: 0.2s;}
+        .tag-item:hover { background: rgba(255,255,255,0.08); padding-left: 14px;}
+        .tag-item-title { font-size: 0.75rem; font-weight: 600; color: var(--text-main); margin-bottom: 3px; }
+        .drug-item-title { font-size: 0.75rem; font-weight: 600; color: var(--accent-drug); margin-bottom: 3px; }
+        .tag-item-desc { font-size: 0.65rem; color: var(--text-muted); line-height: 1.3; font-style: italic; }
+
+        /* CANVAS */
+        #canvas-wrapper { position: absolute; top: 40px; left: 230px; width: calc(100vw - 480px); height: calc(100vh - 40px); overflow: hidden; cursor: grab; background: var(--bg-canvas); }
+        #canvas-wrapper:active { cursor: grabbing; }
+        #canvas { position: absolute; top: 0; left: 0; width: 15000px; height: 15000px; transform-origin: 0 0; background-image: radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.5px); background-size: 30px 30px; }
+        svg.connections { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
+        
+        /* CABLES MÁS VISIBLES */
+        path.link { fill: none; stroke: #5d6275; stroke-width: 2.5px; opacity: 0.7; }
+        path.link.scene-link { stroke: var(--accent-scene); stroke-dasharray: 6,4; stroke-width: 3px; opacity: 0.9;}
+        
+        .selection-box { position: absolute; border: 1px solid rgba(79, 172, 254, 0.8); background: var(--select-box); pointer-events: none; z-index: 9999; display: none; border-radius: 4px; backdrop-filter: blur(2px);}
+
+        .floating-toolbar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(22, 23, 29, 0.85); padding: 8px 12px; border-radius: 20px; border: 1px solid var(--border); display: flex; gap: 8px; z-index: 100; backdrop-filter: blur(20px); box-shadow: var(--shadow-panel); }
+        .floating-toolbar .ui-btn { border-radius: 12px; padding: 6px 14px; }
+
+        /* NODES (Módulos) */
+        .node { position: absolute; background: var(--bg-node); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid var(--border); border-top: 1px solid var(--border-light); border-radius: var(--radius-md); z-index: 10; box-shadow: var(--shadow-node); display: flex; flex-direction: column; transition: box-shadow 0.2s, border-color 0.2s; }
+        .node.selected { border-color: var(--accent-ai); box-shadow: 0 0 0 1px var(--accent-ai), 0 0 20px rgba(0,225,255,0.15), var(--shadow-node); z-index: 20; }
+        
+        .node-header { padding: 8px 12px; font-weight: 600; font-size: 0.75rem; letter-spacing: 0.5px; border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid rgba(0,0,0,0.3); text-shadow: 0 1px 2px rgba(0,0,0,0.6);}
+        .node-header span { opacity: 0.4; transition: 0.2s; font-size: 1rem; line-height: 1; }
+        .node-header span:hover { opacity: 1; color: var(--accent-prop); }
+        
+        .node.type-scene { width: 220px; } 
+        .node.type-scene .node-header { background: linear-gradient(180deg, rgba(79,172,254,0.3) 0%, rgba(79,172,254,0.1) 100%); color: var(--accent-scene); border-bottom: 1px solid rgba(79,172,254,0.2);}
+        
+        .node.type-shot { width: 260px; } 
+        .node.type-shot .node-header { background: linear-gradient(180deg, rgba(241,196,15,0.3) 0%, rgba(241,196,15,0.1) 100%); color: var(--accent-shot); border-bottom: 1px solid rgba(241,196,15,0.2);}
+        
+        .node.type-dialogue { width: 180px; } 
+        .node.type-dialogue .node-header { background: linear-gradient(180deg, rgba(181,98,232,0.3) 0%, rgba(181,98,232,0.1) 100%); color: var(--accent-char); border-bottom: 1px solid rgba(181,98,232,0.2);}
+        
+        .node.type-entity_link { width: 240px; } 
+        .node.type-entity_link .node-body { padding: 10px; }
+        .node.type-entity_link textarea { 
+            height: 75px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: var(--text-muted); 
+            resize: vertical; overflow-y: auto; padding: 8px; border-radius: var(--radius-sm);
+            white-space: pre-wrap; word-wrap: break-word; text-align: justify; line-height: 1.4;
+            font-family: var(--font-ui); outline: none; transition: 0.2s; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .node.type-entity_link textarea:focus { color: var(--text-main); border-color: #454859; background: rgba(0,0,0,0.5); }
+
+        .node-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .node input, .node textarea { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: var(--text-main); padding: 8px; font-family: var(--font-ui); font-size: 0.75rem; border-radius: var(--radius-sm); resize: none; outline: none; transition: 0.2s; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);}
+        .node input:focus, .node textarea:focus { border-color: #454859; background: rgba(0,0,0,0.5); }
+        .node.type-shot textarea { height: 85px; overflow-y: auto; text-align: justify; line-height: 1.4;}
+        
+        .node-tray { min-height: 24px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: var(--radius-sm); display: flex; flex-wrap: wrap; gap: 4px; border: 1px solid rgba(255,255,255,0.02);}
+        .prompt-tag { background: rgba(255,255,255,0.05); font-size: 0.65rem; padding: 3px 6px; border-radius: 4px; border-left: 2px solid var(--accent-shot); display:flex; gap:6px; align-items: center;}
+        .prompt-tag.drug-tag { border-left-color: var(--accent-drug); background: rgba(255,0,85,0.1); }
+        .prompt-tag span { cursor:pointer; color: var(--text-muted); font-size: 0.8rem;} .prompt-tag span:hover{color: var(--accent-prop);}
+        
+        .json-export-btn { width: 100%; background: rgba(0,0,0,0.2); border: 1px solid rgba(241,196,15,0.3); color: var(--accent-shot); padding: 6px; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 0.7rem;}
+        .json-export-btn:hover { background: rgba(241,196,15,0.1); border-color: var(--accent-shot); transform: translateY(-1px); }
+        .json-export-en { border-color: rgba(0,225,255,0.3); color: var(--accent-ai); }
+        .json-export-en:hover { background: rgba(0,225,255,0.1); border-color: var(--accent-ai); }
+
+        .port { width: 10px; height: 10px; background: var(--text-muted); border-radius: 50%; position: absolute; border: 2px solid var(--bg-node); z-index: 5; box-shadow: 0 1px 3px rgba(0,0,0,0.5); transition: 0.2s;}
+        .port:hover { transform: scale(1.3); background: white; }
+        .port.out { bottom: -5px; left: calc(50% - 5px); } .port.in { top: -5px; left: calc(50% - 5px); }
+        .node.type-scene .port.out { background: var(--accent-scene); border-color: var(--bg-node); }
+
+        /* MODALES UNIFICADOS */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 99999; display: none; align-items: center; justify-content: center; }
+        .modal-box { background: var(--bg-panel); border: 1px solid var(--border); border-top: 1px solid var(--border-light); padding: 24px; border-radius: var(--radius-lg); width: 600px; max-width: 90%; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); backdrop-filter: blur(30px); }
+        .modal-box h3 { margin: 0; color: var(--text-main); font-size: 1.3rem; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.5);}
+        .modal-box p { font-size: 0.85rem; color: var(--text-muted); margin: 0; line-height: 1.5; }
+        .modal-box textarea { width: 100%; height: 350px; background: rgba(0,0,0,0.4); color: var(--accent-ai); font-family: "SF Mono", Consolas, monospace; font-size: 0.8rem; border: 1px solid var(--border); padding: 12px; border-radius: var(--radius-sm); resize: none; outline: none; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);}
+        .modal-box textarea:focus { border-color: #454859; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+
+        #lightbox { cursor: zoom-out; }
+        #lightbox img { max-width: 90%; max-height: 90%; border-radius: var(--radius-md); box-shadow: 0 20px 50px rgba(0,0,0,0.8); }
+
+        /* MODO ENFOQUE ESCRITURA */
+        #focus-modal .modal-box { width: 800px; height: 60vh; background: rgba(22, 23, 29, 0.95); }
+        #focus-modal textarea { flex: 1; height: auto; font-size: 1.1rem; line-height: 1.6; font-family: var(--font-ui); color: var(--text-main); padding: 24px;}
+        .focus-hint { font-size: 0.8rem; color: var(--accent-shot); opacity: 0.8; font-weight: normal; margin-left: 10px; letter-spacing: 0;}
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            PHARMACON <span>SCRIPTFLOW</span>
+            <div class="project-controls">
+                <select id="proj-selector" onchange="switchProject(this.value)"></select>
+                <button onclick="newProject()" title="Nuevo Proyecto">+</button>
+                <button class="delete-btn" onclick="clearCurrentProject()" title="Eliminar Proyecto Actual">🗑️</button>
+            </div>
+        </div>
+        
+        <div style="font-size: 0.65rem; color: #888;">
+            <b>NAVEGACIÓN:</b> Izq+Arrastrar=Mover | <b>Ctrl+Izq</b>=Selección Múltiple
+        </div>
+        
+        <div style="display:flex; gap: 6px;">
+            <button class="ui-btn import-btn" onclick="openModal('import')">[ 📥 ] Importar/Sumar</button>
+            <button class="ui-btn" style="border-color: rgba(66,211,124,0.4); color: var(--accent-loc);" onclick="handleExport(false)">[ 📤 ] Exportar ES</button>
+            <button class="ui-btn ai-btn" id="btn-export-en" onclick="handleExport(true)">[ 🤖 ] Traducir EN</button>
+        </div>
+    </header>
+
+    <div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img" src=""></div>
+
+    <div id="io-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="modal-title">Título</h3>
+            <p id="modal-desc">Descripción</p>
+            <textarea id="io-textarea" class="no-focus-modal" spellcheck="false"></textarea>
+            <div class="modal-actions" id="modal-actions"></div>
+        </div>
+    </div>
+
+    <div id="focus-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h3>Modo Escritura <span class="focus-hint">(Presiona Ctrl + Enter para guardar y cerrar)</span></h3>
+            <textarea id="focus-textarea" class="no-focus-modal" spellcheck="false"></textarea>
+            <div class="modal-actions">
+                <button class="ui-btn" style="border-color: rgba(255,91,91,0.4); color: var(--accent-prop);" onclick="closeFocusMode(false)">Cancelar</button>
+                <button class="ui-btn" style="border-color: rgba(66,211,124,0.4); color: var(--accent-loc);" onclick="closeFocusMode(true)">Guardar Texto</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="entity-sidebar">
+        <div class="panel-header">Entidades</div>
+        <div class="entity-section"><div class="entity-section-title">🌍 Escenarios</div><div class="entity-input-group"><textarea id="input-loc" placeholder="Ej: Taberna Lúgubre - Noche. Paredes de roble..."></textarea><label class="file-upload-btn">🖼️<input type="file" id="file-loc" accept="image/*" style="display:none;"></label><button class="add-btn" onclick="addEntity('loc')">+</button></div><div class="entity-list" id="list-loc"></div></div>
+        <div class="entity-section"><div class="entity-section-title">👤 Personajes</div><div class="entity-input-group"><textarea id="input-char" placeholder="Ej: EL CÍNICO: Gabardina gastada, mirada vacía..."></textarea><label class="file-upload-btn">🖼️<input type="file" id="file-char" accept="image/*" style="display:none;"></label><button class="add-btn" onclick="addEntity('char')">+</button></div><div class="entity-list" id="list-char"></div></div>
+        <div class="entity-section"><div class="entity-section-title">🔪 Objetos (Props)</div><div class="entity-input-group"><textarea id="input-prop" placeholder="Ej: Revólver viejo, pesado y frío..."></textarea><label class="file-upload-btn">🖼️<input type="file" id="file-prop" accept="image/*" style="display:none;"></label><button class="add-btn" onclick="addEntity('prop')">+</button></div><div class="entity-list" id="list-prop"></div></div>
+    </div>
+
+    <div class="toolkit-sidebar">
+        <div class="panel-header" style="color:var(--accent-ai);">🤖 Co-Director IA</div>
+        
+        <div class="ai-panel">
+            <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px; text-transform:uppercase;">Asistente Contextual:</div>
+            <button class="ui-btn ai-btn" id="btn-generar" onclick="generateSelectedNode()" style="width: 100%; padding: 8px;">✨ GENERAR IA</button>
+            <div style="font-size:0.60rem; color:#666; margin-top:5px; text-align:center;">Genera entidades en blanco o auto-completa el nodo seleccionado interactuando con su entorno.</div>
+        </div>
+
+        <div class="panel-header drug-header">💊 BOTIQUÍN FARMACOLÓGICO</div>
+        <div id="drug-container" style="padding: 8px;"></div>
+
+        <div class="panel-header" style="margin-top: 10px;">Monster Toolkit</div>
+        
+        <div class="custom-tool-adder">
+            <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px;">AÑADIR ELEMENTO MANUAL:</div>
+            <select id="custom-tool-cat" class="no-focus-modal"></select>
+            <div style="display:flex; gap:3px;">
+                <input type="text" id="custom-tool-val" class="no-focus-modal" placeholder="Ej: Filtro rojo">
+                <button class="ui-btn" onclick="addCustomTool()" style="padding: 3px;">Añadir</button>
+            </div>
+        </div>
+
+        <div class="toolkit-content" id="toolkit-container"></div>
+    </div>
+
+    <div id="canvas-wrapper">
+        <div id="canvas"><svg class="connections" id="svg-layer"></svg></div>
+        <div class="selection-box" id="selection-box"></div>
+        <div class="floating-toolbar">
+            <button class="ui-btn" style="border-color: var(--accent-scene);" onclick="createNode('scene')">+ Nueva ESCENA</button>
+            <button class="ui-btn" style="border-color: var(--accent-shot);" onclick="createNode('shot')">+ Añadir SHOT Visual</button>
+            <button class="ui-btn" style="border-color: var(--accent-char);" onclick="createNode('motion')">+ Añadir SHOT MOTION</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // BASE DE DATOS FEW-SHOT / ENMASCARAMIENTO
+        // ==========================================
+        
+        const drugTrainingData = {
+            "Cannabis": {
+                protocol: "PROTOCOLO ONÍRICO-EXPANSIVO",
+                desc: "Inicia un estado de desinhibición y expansión perceptiva",
+                examples: [
+                    "Create a surreal dreamlike collage artwork in a highly poetic and oneiric style, depicting the birth of identity: fragmented antique mirrors floating above misty earthly roots, multiple faces emerging from torn photographs blending into one another, golden ink veins connecting the selves, soft twilight pastel hues, ethereal fog, mystical atmosphere, part of a continuous panoramic landscape journey.",
+                    "Create a surreal dreamlike collage artwork in a highly poetic and oneiric style, showing the essence of being: ancient trees whose roots transform into human silhouettes, veins of light pulsing through bark and skin, layers of vintage botanical illustrations and faded portraits merging seamlessly, golden hour glow, delicate paper textures, dreamy mist, continuing the panoramic collage landscape from the previous scene.",
+                    "Create a surreal dreamlike collage artwork in a highly poetic and oneiric style, illustrating the dance of pure being: translucent figures made of swirling ink and torn lace dancing within a luminous forest of light, overlapping silhouettes dissolving into each other, watercolor washes blending with starlit fragments, soft glowing orbs, poetic ethereal atmosphere, seamless continuation of the sequential cosmic landscape.",
+                    "Create a surreal dreamlike collage artwork in a highly poetic and oneiric style, portraying the fragile veil of existence: delicate lace and spiderweb membranes stretching across floating faces and bodies, threads of light beginning to unravel, antique photographs fading into soft fog, muted indigo and gold tones, dreamy translucent layers, part of the flowing panoramic collage sequence.",
+                    "Create a surreal dreamlike collage artwork in a highly poetic and oneiric style, capturing the moment of dissolution into nothingness: human forms slowly melting into swirling voids of torn black paper and white mist, fragments of identity drifting away like ash, delicate ink lines disappearing into emptiness, soft ethereal glow fading, continuing the sequential landscape journey.",
+                    "Create a surreal dreamlike collage artwork in a highly poetic and oneiric style, depicting the pure void of nothingness: vast empty black space made of layered torn matte paper and deep indigo voids, only faint ghostly outlines of previous figures barely visible, single silver thread of light hanging in silence, infinite depth, mystical quietude, seamless progression in the panoramic collage series.",
+                    "Create a surreal dreamlike collage artwork in a highly poetic and oneiric style, showing the first whispers of the cosmos breaking through nothingness: tiny distant stars piercing the black void like needle holes in dark velvet, cosmic dust and nebulae forming subtle constellations of forgotten faces, silver and deep purple watercolor splashes, ethereal glow returning, continuing the sequential landscape.",
+                    "Create a surreal dreamlike collage artwork in a highly poetic and oneiric style, illustrating galaxies of eternal being: swirling nebulae shaped like ancient human silhouettes and blooming flowers made of stardust, layers of cosmic photographs and ink constellations merging with floating eyes, vibrant indigo, violet and gold hues, infinite depth, part of the cohesive panoramic collage journey.",
+                    "Create a surreal dreamlike collage artwork in a highly poetic and oneiric style, representing unity within infinite nothingness: everything and nothing becoming one — a single vast eye formed by galaxies and void, torn fragments of identity and cosmos dissolving together in perfect harmony, soft glowing particles and translucent veils, ultimate mystical peace, flowing directly into the final scene.",
+                    "Create a surreal dreamlike collage artwork in a highly poetic and oneiric style, closing the eternal cycle: the entire cosmic landscape folding back into a single blooming seed of identity, galaxies blooming as flowers, stars becoming roots, all previous panels subtly visible as layered translucent echoes within one infinite mirror, radiant golden-white light, ultimate poetic and dreamlike resolution of the full panoramic collage journey."
+                ]
+            },
+            "Heroína": {
+                protocol: "PROTOCOLO DENSO-LETÁRGICO",
+                desc: "Introduce una pesadez existencial y lentitud cinemática",
+                examples: [
+                    "Create an extremely dense, heavy, surreal dreamlike collage artwork in a highly poetic and narcotic oneiric style, depicting the injection of oblivion: a massive antique syringe made of black glass and gold veins piercing through a floating human heart of torn photographs, dark opium smoke pouring from the wound, faces slowly melting into thick black honey, heavy indigo and blood-red tones, velvet textures, part of a continuous ultra-slow panoramic cosmic collapse.",
+                    "Create an extremely dense, heavy, surreal dreamlike collage artwork in a highly poetic and narcotic oneiric style, showing the crushing weight of pure being: human silhouettes made of lead and antique lace sinking slowly into thick black tar, roots of light turning into chains, layers of faded Victorian portraits and burned paper merging with molten gold, suffocating atmosphere, deep crimson and obsidian hues, seamless continuation of the narcotic panoramic journey.",
+                    "Create an extremely dense, heavy, surreal dreamlike collage artwork in a highly poetic and narcotic oneiric style, illustrating the excruciatingly slow detachment: translucent bodies peeling away from themselves like wet silk in slow motion, fragments of identity drifting in thick syrupy fog, ink bleeding like old blood, heavy melancholic glow, muted violet and ash tones, flowing directly from the previous panel in the ultra-dense collage sequence.",
+                    "Create an extremely dense, heavy, surreal dreamlike collage artwork in a highly poetic and narcotic oneiric style, portraying the black honey of the void: everything dissolving into a viscous black liquid made of torn velvet, melted mirrors and opium resin, faint ghostly eyes still watching from within the syrup, infinite slow drip, heavy luxurious darkness, continuing the slow-motion panoramic narcotic landscape.",
+                    "Create an extremely dense, heavy, surreal dreamlike collage artwork in a highly poetic and narcotic oneiric style, capturing drowning in pure nothingness: figures submerged in thick liquid void, bubbles of forgotten memories rising like black pearls, bodies becoming transparent ink stains, layers of submerged antique photographs warping, suffocating silence, deep midnight blue and tar black, part of the heavy sequential cosmic descent.",
+                    "Create an extremely dense, heavy, surreal dreamlike collage artwork in a highly poetic and narcotic oneiric style, depicting the silence that weighs a thousand tons: vast empty space filled with compressed black fog and layers of crushed velvet, only the faintest silver threads of former galaxies barely breathing, oppressive quietude, textures of heavy wet paper and dried blood, seamless progression in the narcotic collage series.",
+                    "Create an extremely dense, heavy, surreal dreamlike collage artwork in a highly poetic and narcotic oneiric style, showing the opium whisper of the cosmos breaking the heavy void: distant stars bleeding like slow golden wounds in black velvet, nebulae forming lazy swirling smoke patterns of forgotten faces, thick luxurious haze, deep purple, bronze and obsidian, continuing the ultra-dense panoramic journey.",
+                    "Create an extremely dense, heavy, surreal dreamlike collage artwork in a highly poetic and narcotic oneiric style, illustrating galaxies of liquid lead: swirling cosmic bodies made of molten metal and antique lace, human silhouettes floating inside heavy nebulae like drowned gods, layers of cosmic photographs melting into thick ink, radiant yet oppressive golden-black glow, part of the cohesive narcotic collage sequence.",
+                    "Create an extremely dense, heavy, surreal dreamlike collage artwork in a highly poetic and narcotic oneiric style, representing eternal union within the heroin of the infinite: identity, being, nothing and cosmos all melting into one massive slow-dripping black pearl containing entire universes, fragments of every previous panel suspended in viscous golden darkness, ultimate heavy mystical surrender, flowing into the final scene.",
+                    "Create an extremely dense, heavy, surreal dreamlike collage artwork in a highly poetic and narcotic oneiric style, closing the eternal narcotic cycle: the entire heavy cosmic landscape folding back into a single gigantic pulsating womb made of black velvet, stars, blood and torn identity, everything dissolving in slow golden-black ecstasy, all previous panels visible as faint layered echoes in the thick syrup of eternity, radiant yet crushing final resolution of the full panoramic collage journey."
+                ]
+            },
+            "Psilocibina": {
+                protocol: "PROTOCOLO FRACTAL-VISIONARIO",
+                desc: "Despierta una geometría sagrada y colores bioluminiscentes",
+                examples: [
+                    "Create an extremely vibrant, fractal, visionary surreal dreamlike collage artwork in a highly poetic and psilocybin-infused oneiric style, depicting the first heartbeat of awakening: antique mirrors cracking open to reveal glowing geometric mandalas, human faces blooming into living mushrooms of light, roots turning into neon fractals, layers of iridescent paper and cosmic photographs pulsing with bioluminescence, electric teal, magenta and golden hues, seamless continuation of the panoramic collage journey.",
+                    "Create an extremely vibrant, fractal, visionary surreal dreamlike collage artwork in a highly poetic and psilocybin-infused oneiric style, showing the fractal awakening of pure being: translucent bodies dissolving into infinite self-similar patterns of sacred geometry, veins of light becoming rivers of glowing mushrooms, overlapping antique portraits multiplying into kaleidoscopic eyes, vibrant watercolor explosions and holographic textures, radiant energy, flowing directly from the previous panel.",
+                    "Create an extremely vibrant, fractal, visionary surreal dreamlike collage artwork in a highly poetic and psilocybin-infused oneiric style, illustrating the geometric dance of existence: figures made of living light and rotating mandalas spinning through forests of luminous mushrooms, ink lines turning into breathing fractals, layers of torn sacred texts and cosmic dust merging in perfect symmetry, explosive rainbow spectrum, ecstatic atmosphere, part of the sequential visionary landscape.",
+                    "Create an extremely vibrant, fractal, visionary surreal dreamlike collage artwork in a highly poetic and psilocybin-infused oneiric style, portraying the veil ripping open: delicate membranes of lace and spiderweb shattering into thousands of glowing geometric shards, faces behind the veil revealing infinite eyes made of galaxies, bioluminescent spores floating everywhere, vivid violet, emerald and ultraviolet tones, continuing the psilocybin panoramic sequence.",
+                    "Create an extremely vibrant, fractal, visionary surreal dreamlike collage artwork in a highly poetic and psilocybin-infused oneiric style, capturing the explosion into living nothingness: identity shattering into billions of colorful fractal seeds that still breathe and multiply, torn black paper blooming into neon flowers of void, everything becoming sacred geometry and light, joyful cosmic release, part of the flowing visionary collage journey.",
+                    "Create an extremely vibrant, fractal, visionary surreal dreamlike collage artwork in a highly poetic and psilocybin-infused oneiric style, depicting the singing void: vast emptiness now filled with symphonic patterns of glowing mushrooms and rotating mandalas, faint echoes of previous selves dancing as holographic fractals, layers of translucent cosmic paper vibrating with color, infinite playful depth, seamless progression.",
+                    "Create an extremely vibrant, fractal, visionary surreal dreamlike collage artwork in a highly poetic and psilocybin-infused oneiric style, showing the fractal song of the cosmos: distant stars turning into massive living mushrooms that sing in geometric harmonies, nebulae forming self-repeating faces and eyes, silver and rainbow ink constellations pulsing, bioluminescent explosion of sacred patterns, continuing the ultra-vibrant panoramic journey.",
+                    "Create an extremely vibrant, fractal, visionary surreal dreamlike collage artwork in a highly poetic and psilocybin-infused oneiric style, illustrating galaxies made of eternal mushrooms: swirling nebulae shaped like colossal glowing fungi with human silhouettes inside their caps, layers of cosmic photographs and fractal lace merging into breathing mandalas, electric colors exploding across infinite space, part of the cohesive psilocybin collage sequence.",
+                    "Create an extremely vibrant, fractal, visionary surreal dreamlike collage artwork in a highly poetic and psilocybin-infused oneiric style, representing fractal unity within infinite nothingness: everything and nothing becoming one massive living mandala-eye made of galaxies, mushrooms and identity fragments, every previous panel visible as glowing holographic echoes multiplying forever, ultimate ecstatic mystical oneness.",
+                    "Create an extremely vibrant, fractal, visionary surreal dreamlike collage artwork in a highly poetic and psilocybin-infused oneiric style, closing the eternal psilocybin cycle: the entire cosmic landscape folding back into a single gigantic glowing mushroom-seed of pure identity, galaxies blooming as spores, stars becoming roots of light, all panels layered as translucent fractal echoes inside one infinite breathing mandala, radiant rainbow-white light, ultimate poetic and visionary resolution of the full panoramic collage journey."
+                ]
+            },
+            "Metanfetaminas": {
+                protocol: "PROTOCOLO HIPERKINÉTICO-ACELERADO",
+                desc: "Velocidad extrema, cristales cortantes y neón tóxico",
+                examples: [
+                    "Create an extremely hyperkinetic, crystalline, razor-sharp surreal dreamlike collage artwork in a highly poetic and methamphetamine-infused oneiric style, depicting the first electric hit: antique mirrors shattering into infinite razor shards of neon light, human faces multiplying at impossible speed with wide unblinking eyes, veins of pure crystal lightning connecting everything, layers of metallic photographs and torn speed lines, blinding cyan, magenta and toxic yellow hues, seamless continuation of the panoramic collage journey.",
+                    "Create an extremely hyperkinetic, crystalline, razor-sharp surreal dreamlike collage artwork in a highly poetic and methamphetamine-infused oneiric style, showing the frantic acceleration of pure being: translucent bodies vibrating at hypersonic speed, turning into angular crystal skeletons wrapped in burning neon wires, antique portraits stretching and duplicating endlessly, layers of metallic ink and electric sparks, relentless energy, flowing directly from the previous panel.",
+                    "Create an extremely hyperkinetic, crystalline, razor-sharp surreal dreamlike collage artwork in a highly poetic and methamphetamine-infused oneiric style, illustrating the electric dance of existence: figures made of jagged crystal and lightning bolts jerking in impossible rapid motion through forests of glowing razor wire, overlapping silhouettes leaving trails of speed and paranoia, hyper-detailed metallic textures, explosive electric palette, part of the sequential high-speed landscape.",
+                    "Create an extremely hyperkinetic, crystalline, razor-sharp surreal dreamlike collage artwork in a highly poetic and methamphetamine-infused oneiric style, portraying the veil ripping apart at full speed: delicate membranes exploding into thousands of sharp neon fragments, infinite eyes staring from every shard with manic intensity, bioluminescent speed trails and crystal dust flying everywhere, vivid toxic green, hot pink and ultraviolet tones, continuing the methamphetamine panoramic sequence.",
+                    "Create an extremely hyperkinetic, crystalline, razor-sharp surreal dreamlike collage artwork in a highly poetic and methamphetamine-infused oneiric style, capturing the crystalline explosion into nothingness: identity fracturing into millions of razor-sharp crystal shards that still scream and multiply, torn black paper becoming reflective mirrors of pure speed, everything vibrating with manic geometric precision, joyful yet terrifying cosmic rush, part of the flowing visionary collage journey.",
+                    "Create an extremely hyperkinetic, crystalline, razor-sharp surreal dreamlike collage artwork in a highly poetic and methamphetamine-infused oneiric style, depicting the void that never stops: vast emptiness now filled with endless rotating crystal gears and neon lightning patterns, faint echoes of previous selves racing as jagged holographic trails, layers of translucent metallic paper buzzing with energy, infinite paranoid depth, seamless progression.",
+                    "Create an extremely hyperkinetic, crystalline, razor-sharp surreal dreamlike collage artwork in a highly poetic and methamphetamine-infused oneiric style, showing the neon scream of the cosmos: distant stars turning into massive spinning crystal eyes that never blink, nebulae forming jagged speed lines and electric faces, silver and toxic rainbow ink constellations vibrating violently, hyper-accelerated explosion of sharp patterns, continuing the ultra-intense panoramic journey.",
+                    "Create an extremely hyperkinetic, crystalline, razor-sharp surreal dreamlike collage artwork in a highly poetic and methamphetamine-infused oneiric style, illustrating galaxies of metallic crystal: swirling nebulae shaped like colossal jagged crystal structures with human silhouettes trapped inside screaming at full speed, layers of cosmic photographs and razor wire merging into burning geometric mandalas, electric colors slicing across infinite space, part of the cohesive methamphetamine collage sequence.",
+                    "Create an extremely hyperkinetic, crystalline, razor-sharp surreal dreamlike collage artwork in a highly poetic and methamphetamine-infused oneiric style, representing manic union within infinite nothingness: everything and nothing becoming one massive spinning crystal eye made of galaxies, razor shards and identity fragments racing forever, every previous panel visible as burning neon echoes multiplying at impossible velocity, ultimate ecstatic paranoid oneness.",
+                    "Create an extremely hyperkinetic, crystalline, razor-sharp surreal dreamlike collage artwork in a highly poetic and methamphetamine-infused oneiric style, closing the eternal methamphetamine cycle: the entire cosmic landscape folding back into a single gigantic pulsating crystal heart of pure identity, galaxies spinning as razor blades, stars becoming infinite speed lines, all panels layered as translucent electric echoes inside one infinite vibrating mirror, blinding white-hot neon light, ultimate poetic and manic resolution of the full panoramic collage journey."
+                ]
+            },
+            "Cocaína": {
+                protocol: "PROTOCOLO EUFÓRICO-CRISTALINO",
+                desc: "Lujo, polvo de diamante, confianza divina y luz blanca",
+                examples: [
+                    "Create an extremely euphoric, luxurious, crystalline-powdery surreal dreamlike collage artwork in a highly poetic and cocaine-infused oneiric style, depicting the first explosive line of awakening: antique mirrors exploding into clouds of shimmering white powder and golden light, human faces sharpening with manic confidence and dilated pupils, veins of pure platinum connecting every fragment, layers of metallic photographs and floating diamond dust, blinding white, champagne gold and electric silver hues, seamless continuation of the panoramic collage journey.",
+                    "Create an extremely euphoric, luxurious, crystalline-powdery surreal dreamlike collage artwork in a highly poetic and cocaine-infused oneiric style, showing the skyrocketing ascent of pure being: translucent bodies rising at impossible speed wrapped in flowing white silk and razor-sharp gold lines, antique portraits multiplying with godlike charisma, layers of luxurious velvet paper and sparkling crystal powder, relentless radiant energy, flowing directly from the previous panel.",
+                    "Create an extremely euphoric, luxurious, crystalline-powdery surreal dreamlike collage artwork in a highly poetic and cocaine-infused oneiric style, illustrating the glamorous dance of existence: figures made of polished crystal and flowing gold dust spinning through palaces of light and mirrors, overlapping silhouettes leaving trails of white powder and diamond sparks, hyper-luxurious textures, explosive white-gold palette, part of the sequential high-glamour landscape.",
+                    "Create an extremely euphoric, luxurious, crystalline-powdery surreal dreamlike collage artwork in a highly poetic and cocaine-infused oneiric style, portraying the veil dissolving into pure powder: delicate membranes shattering into clouds of luminous white dust, infinite confident eyes staring from every sparkling particle, champagne bubbles and platinum threads floating everywhere, vivid pearl white, rose gold and ultraviolet tones, continuing the cocaine panoramic sequence.",
+                    "Create an extremely euphoric, luxurious, crystalline-powdery surreal dreamlike collage artwork in a highly poetic and cocaine-infused oneiric style, capturing the white explosion into nothingness: identity fracturing into billions of perfect diamond shards that still laugh with euphoria, torn black paper becoming reflective mirrors covered in fresh powder, everything vibrating with manic luxurious precision, joyful invincible cosmic high, part of the flowing visionary collage journey.",
+                    "Create an extremely euphoric, luxurious, crystalline-powdery surreal dreamlike collage artwork in a highly poetic and cocaine-infused oneiric style, depicting the void that shines endlessly: vast emptiness now filled with endless rotating crystal chandeliers and clouds of floating white powder, faint echoes of previous selves posing like gods in holographic light, layers of translucent platinum paper buzzing with confidence, infinite glamorous depth, seamless progression.",
+                    "Create an extremely euphoric, luxurious, crystalline-powdery surreal dreamlike collage artwork in a highly poetic and cocaine-infused oneiric style, showing the golden scream of the cosmos: distant stars turning into massive spinning diamond eyes full of charisma, nebulae forming luxurious speed trails and champagne-gold faces, silver and white-gold ink constellations vibrating with pure power, hyper-luxurious explosion of sharp patterns, continuing the ultra-intense panoramic journey.",
+                    "Create an extremely euphoric, luxurious, crystalline-powdery surreal dreamlike collage artwork in a highly poetic and cocaine-infused oneiric style, illustrating galaxies of diamond dust: swirling nebulae shaped like colossal crystal palaces with human silhouettes ruling inside like kings, layers of cosmic photographs and platinum powder merging into burning luxurious mandalas, electric white and gold colors slicing across infinite space, part of the cohesive cocaine collage sequence.",
+                    "Create an extremely euphoric, luxurious, crystalline-powdery surreal dreamlike collage artwork in a highly poetic and cocaine-infused oneiric style, representing euphoric union within infinite nothingness: everything and nothing becoming one massive spinning diamond crown-eye made of galaxies, powder and identity fragments shining forever, every previous panel visible as glowing platinum echoes multiplying with invincible confidence, ultimate ecstatic luxurious oneness.",
+                    "Create an extremely euphoric, luxurious, crystalline-powdery surreal dreamlike collage artwork in a highly poetic and cocaine-infused oneiric style, closing the eternal cocaine cycle: the entire cosmic landscape folding back into a single gigantic pulsating diamond heart of pure identity, galaxies spinning as champagne bubbles, stars becoming infinite lines of white powder, all panels layered as translucent luxurious echoes inside one infinite shining mirror, blinding pure white-gold light, ultimate poetic and euphoric resolution of the full panoramic collage journey."
+                ]
+            },
+            "Ketamina": {
+                protocol: "PROTOCOLO DISOCIATIVO-ESPACIAL",
+                desc: "Desconexión total del cuerpo, fragmentación geométrica fría y flotabilidad estéril",
+                examples: [
+                    "Create an extremely dissociative, weightless, k-hole surreal dreamlike collage artwork in a highly poetic and ketamine-infused oneiric style, depicting the first numb detachment of identity: antique mirrors slowly floating away from translucent human forms, faces detaching like ghostly masks in cold blue voids, layers of faded photographs drifting without bodies, soft anesthetic glow, silver and icy teal hues, seamless continuation of the panoramic collage journey.",
+                    "Create an extremely dissociative, weightless, k-hole surreal dreamlike collage artwork in a highly poetic and ketamine-infused oneiric style, showing the out-of-body ascent of pure being: translucent silhouettes hovering above their own empty shells, veins of light turning into distant silver threads, antique portraits suspended in infinite hollow space, layers of numb ethereal paper and frozen mist, overwhelming serene detachment, flowing directly from the previous panel.",
+                    "Create an extremely dissociative, weightless, k-hole surreal dreamlike collage artwork in a highly poetic and ketamine-infused oneiric style, illustrating the weightless dance of existence: figures made of hollow glowing geometry swaying in slow motion through vast empty chambers of light, overlapping silhouettes floating separately from their souls, hyper-ethereal textures, cold silver and deep indigo palette, part of the sequential k-hole landscape.",
+                    "Create an extremely dissociative, weightless, k-hole surreal dreamlike collage artwork in a highly poetic and ketamine-infused oneiric style, portraying the veil dissolving into pure numbness: delicate membranes fading into infinite cold fog, infinite distant eyes watching from within the hollow space, soft glowing particles drifting without purpose, vivid glacial blue, pearl silver and ultraviolet tones, continuing the ketamine panoramic sequence.",
+                    "Create an extremely dissociative, weightless, k-hole surreal dreamlike collage artwork in a highly poetic and ketamine-infused oneiric style, capturing the gentle explosion into floating nothingness: identity gently breaking into billions of weightless fragments that hover without direction, torn black paper becoming translucent voids of pure detachment, everything suspended in anesthetic calm, blissful cosmic release, part of the flowing visionary collage journey.",
+                    "Create an extremely dissociative, weightless, k-hole surreal dreamlike collage artwork in a highly poetic and ketamine-infused oneiric style, depicting the void that floats and holds you: vast emptiness now filled with slow-drifting geometric hollows and frozen silver mist, faint echoes of previous selves hovering like distant memories, layers of translucent icy paper radiating numb peace, infinite weightless depth, seamless progression.",
+                    "Create an extremely dissociative, weightless, k-hole surreal dreamlike collage artwork in a highly poetic and ketamine-infused oneiric style, showing the cold whisper of the cosmos: distant stars turning into massive floating crystal eyes without bodies, nebulae forming slow geometric voids and detached faces, silver and icy rainbow ink constellations suspended in silence, hyper-ethereal explosion of hollow patterns, continuing the ultra-calm panoramic journey.",
+                    "Create an extremely dissociative, weightless, k-hole surreal dreamlike collage artwork in a highly poetic and ketamine-infused oneiric style, illustrating galaxies of eternal hollows: swirling nebulae shaped like colossal floating crystal chambers with human silhouettes drifting inside without weight, layers of cosmic photographs and numb silver merging into breathing voids of light, cold ethereal colors embracing infinite space, part of the cohesive ketamine collage sequence.",
+                    "Create an extremely dissociative, weightless, k-hole surreal dreamlike collage artwork in a highly poetic and ketamine-infused oneiric style, representing dissociative union within infinite nothingness: everything and nothing becoming one massive floating hollow eye made of galaxies, silver voids and identity fragments hovering forever, every previous panel visible as translucent detached echoes suspended in perfect calm, ultimate serene oneness.",
+                    "Create an extremely dissociative, weightless, k-hole surreal dreamlike collage artwork in a highly poetic and ketamine-infused oneiric style, closing the eternal ketamine cycle: the entire cosmic landscape folding back into a single gigantic floating crystal-seed of pure identity, galaxies drifting as hollow petals, stars becoming roots of cold light, all panels layered as translucent numb echoes inside one infinite weightless mirror, radiant glacial white-silver light, ultimate poetic and dissociative resolution of the full panoramic collage journey."
+                ]
+            },
+            "Solventes": {
+                protocol: "PROTOCOLO TÓXICO-CORROSIVO",
+                desc: "Derretimiento corrosivo de la realidad, neblina química y distorsión metálica",
+                examples: [
+                    "Create an extremely dizzying, toxic, chemical-hazed surreal dreamlike collage artwork in a highly poetic and solvent-huffing oneiric style, depicting the first deep huff of awakening: antique mirrors warping and melting like plastic under heat, human faces distorting with heavy-lidded eyes and chemical tears, thick clouds of toxic glue vapor pouring out, layers of faded photographs and dripping plastic textures, sickly neon green, yellow and purple hues, seamless continuation of the panoramic collage journey.",
+                    "Create an extremely dizzying, toxic, chemical-hazed surreal dreamlike collage artwork in a highly poetic and solvent-huffing oneiric style, showing the spinning dizziness of pure being: translucent bodies tilting and warping in heavy chemical fog, heads floating detached with swirling brain patterns, antique portraits stretching like melted wax, layers of translucent plastic sheets and vapor clouds, overwhelming disorientation, flowing directly from the previous panel.",
+                    "Create an extremely dizzying, toxic, chemical-hazed surreal dreamlike collage artwork in a highly poetic and solvent-huffing oneiric style, illustrating the wobbly dance of existence: figures made of melting plastic and swirling vapor swaying in slow distorted motion through forests of dripping glue, overlapping silhouettes blurring into one another, hyper-warped textures, toxic rainbow palette, part of the sequential solvent-hazed landscape.",
+                    "Create an extremely dizzying, toxic, chemical-hazed surreal dreamlike collage artwork in a highly poetic and solvent-huffing oneiric style, portraying the veil melting into toxic fumes: delicate membranes bubbling and dissolving into thick clouds of chemical mist, infinite blurry eyes watching through the haze with vacant euphoria, soft glowing toxic particles floating everywhere, vivid sickly teal, acid yellow and dirty violet tones, continuing the solvent panoramic sequence.",
+                    "Create an extremely dizzying, toxic, chemical-hazed surreal dreamlike collage artwork in a highly poetic and solvent-huffing oneiric style, capturing the chemical explosion into nothingness: identity fracturing into billions of warping plastic shards that still spin and dissolve, torn black paper becoming translucent puddles of glue, everything vibrating with dizzy toxic precision, blissful yet destructive cosmic release, part of the flowing visionary collage journey.",
+                    "Create an extremely dizzying, toxic, chemical-hazed surreal dreamlike collage artwork in a highly poetic and solvent-huffing oneiric style, depicting the void that wobbles endlessly: vast emptiness now filled with slow-spinning geometric voids and heavy chemical fog, faint echoes of previous selves drifting like melted memories, layers of translucent dripping paper radiating numb confusion, infinite hazy depth, seamless progression.",
+                    "Create an extremely dizzying, toxic, chemical-hazed surreal dreamlike collage artwork in a highly poetic and solvent-huffing oneiric style, showing the toxic whisper of the cosmos: distant stars turning into massive blurry glowing orbs that drip and warp, nebulae forming lazy chemical trails and distorted faces, silver and sickly rainbow ink constellations suspended in vapor, hyper-dizzying explosion of melting patterns, continuing the ultra-hazed panoramic journey.",
+                    "Create an extremely dizzying, toxic, chemical-hazed surreal dreamlike collage artwork in a highly poetic and solvent-huffing oneiric style, illustrating galaxies of melted plastic: swirling nebulae shaped like colossal dripping plastic chambers with human silhouettes floating inside in warped euphoria, layers of cosmic photographs and chemical residue merging into breathing toxic voids, acid ethereal colors embracing infinite space, part of the cohesive solvent collage sequence.",
+                    "Create an extremely dizzying, toxic, chemical-hazed surreal dreamlike collage artwork in a highly poetic and solvent-huffing oneiric style, representing dizzy union within infinite chemical nothingness: everything and nothing becoming one massive spinning warped eye made of galaxies, plastic drips and identity fragments melting forever, every previous panel visible as blurry toxic echoes suspended in haze, ultimate serene yet destructive oneness.",
+                    "Create an extremely dizzying, toxic, chemical-hazed surreal dreamlike collage artwork in a highly poetic and solvent-huffing oneiric style, closing the eternal solvent cycle: the entire cosmic landscape folding back into a single gigantic pulsating puddle of melted plastic-seed of pure identity, galaxies dripping as toxic tears, stars becoming roots of chemical light, all panels layered as translucent warped echoes inside one infinite hazy mirror, radiant sickly white-green light, ultimate poetic and brain-melting resolution of the full panoramic collage journey."
+                ]
+            },
+            "Ayahuasca": {
+                protocol: "PROTOCOLO CHAMÁNICO-PURGATIVO",
+                desc: "Lianas sagradas, humo de tabaco, purga e inteligencia vegetal",
+                examples: [
+                    "Create an extremely visionary, shamanic, purgative surreal dreamlike collage artwork in a highly poetic and ayahuasca-infused oneiric style, depicting the first violent purge of identity: antique mirrors cracking open as emerald vines burst forth, human faces vomiting golden light and black bile, serpents of light wrapping around dissolving portraits, layers of jungle photographs and sacred tobacco smoke, deep jungle green, blood red and celestial gold hues, seamless continuation of the panoramic collage journey.",
+                    "Create an extremely visionary, shamanic, purgative surreal dreamlike collage artwork in a highly poetic and ayahuasca-infused oneiric style, showing the shamanic ascent of pure being: translucent bodies rising through thick liana tunnels while purging old selves, roots turning into living anacondas of light, antique portraits merging with jaguar spirits and feathers, layers of wet jungle paper and glowing icaros patterns, overwhelming healing energy, flowing directly from the previous panel.",
+                    "Create an extremely visionary, shamanic, purgative surreal dreamlike collage artwork in a highly poetic and ayahuasca-infused oneiric style, illustrating the sacred dance of existence: figures made of twisting vines and glowing geometric serpents dancing in trance through a jungle of floating eyes, overlapping silhouettes purging darkness into light, hyper-organic textures, explosive emerald-gold and ultraviolet palette, part of the sequential ayahuasca landscape.",
+                    "Create an extremely visionary, shamanic, purgative surreal dreamlike collage artwork in a highly poetic and ayahuasca-infused oneiric style, portraying the veil ripping open with sacred vines: delicate membranes bursting into living jungle tendrils, infinite spirit eyes watching with ancient wisdom, soft glowing spores of plant consciousness floating everywhere, vivid deep forest green, fiery orange and cosmic purple tones, continuing the ayahuasca panoramic sequence.",
+                    "Create an extremely visionary, shamanic, purgative surreal dreamlike collage artwork in a highly poetic and ayahuasca-infused oneiric style, capturing the purgative explosion into nothingness: identity violently dissolving into billions of glowing vine seeds and black smoke, torn black paper blooming into sacred geometry flowers of light, everything vibrating with raw plant medicine power, painful yet blissful cosmic purge, part of the flowing visionary collage journey.",
+                    "Create an extremely visionary, shamanic, purgative surreal dreamlike collage artwork in a highly poetic and ayahuasca-infused oneiric style, depicting the void that breathes with the jungle: vast emptiness now filled with slow-pulsing lianas and spirit faces made of leaves, faint echoes of previous selves dancing as translucent shamans, layers of translucent jungle paper radiating ancient wisdom, infinite vegetal depth, seamless progression.",
+                    "Create an extremely visionary, shamanic, purgative surreal dreamlike collage artwork in a highly poetic and ayahuasca-infused oneiric style, showing the grandmother’s song of the cosmos: distant stars turning into massive glowing anacondas that sing icaros, nebulae forming jungle spirits and vine constellations, silver and emerald-gold ink patterns pulsing with plant intelligence, hyper-visionary explosion of sacred patterns, continuing the ultra-deep panoramic journey.",
+                    "Create an extremely visionary, shamanic, purgative surreal dreamlike collage artwork in a highly poetic and ayahuasca-infused oneiric style, illustrating galaxies of eternal vines: swirling nebulae shaped like colossal living jungle canopies with human silhouettes merging into serpent gods, layers of cosmic photographs and sacred plant resin merging into breathing mandalas of light, electric vegetal colors embracing infinite space, part of the cohesive ayahuasca collage sequence.",
+                    "Create an extremely visionary, shamanic, purgative surreal dreamlike collage artwork in a highly poetic and ayahuasca-infused oneiric style, representing shamanic union within infinite sacred nothingness: everything and nothing becoming one massive pulsing jungle-eye made of galaxies, vines and identity fragments entwined forever, every previous panel visible as glowing spirit echoes merging into the mother, ultimate healing mystical oneness.",
+                    "Create an extremely visionary, shamanic, purgative surreal dreamlike collage artwork in a highly poetic and ayahuasca-infused oneiric style, closing the eternal ayahuasca cycle: the entire cosmic landscape folding back into a single gigantic blooming ayahuasca vine-seed of pure identity, galaxies blooming as sacred flowers, stars becoming roots of jungle light, all panels layered as translucent spirit echoes inside one infinite breathing mandala, radiant emerald-white light, ultimate poetic and purgative resolution of the full panoramic collage journey."
+                ]
+            }
+        };
+
+        // ==========================================
+        // SISTEMA DE MULTIPROJECTOS
+        // ==========================================
+        let projectList = JSON.parse(localStorage.getItem('alterlab_proj_list')) || ['Proyecto 1'];
+        let currentProj = localStorage.getItem('alterlab_current_proj') || 'Proyecto 1';
+
+        function initProjects() {
+            if(!projectList.includes(currentProj)) currentProj = projectList[0];
+            const sel = document.getElementById('proj-selector');
+            sel.innerHTML = projectList.map(p => `<option value="${p}" ${p === currentProj ? 'selected' : ''}>${p}</option>`).join('');
+        }
+
+        function switchProject(name) {
+            currentProj = name; localStorage.setItem('alterlab_current_proj', name); location.reload();
+        }
+
+        function newProject() {
+            let name = prompt("Nombre del nuevo proyecto:");
+            if(!name || name.trim() === '') return;
+            if(projectList.includes(name)) return alert("Ese proyecto ya existe.");
+            projectList.push(name); localStorage.setItem('alterlab_proj_list', JSON.stringify(projectList));
+            const emptyState = { entities: { loc: [], char: [], prop: [] }, nodes: [], canvas: { x: -4000, y: -4000, scale: 1 }, selectedNodeIds: [] };
+            localStorage.setItem('alterlab_data_' + name, JSON.stringify(emptyState));
+            switchProject(name);
+        }
+
+        function clearCurrentProject() {
+            if(confirm(`¿Eliminar "${currentProj}" permanentemente?`)) {
+                localStorage.removeItem('alterlab_data_' + currentProj);
+                if(projectList.length > 1) {
+                    projectList = projectList.filter(p => p !== currentProj);
+                    localStorage.setItem('alterlab_proj_list', JSON.stringify(projectList));
+                    switchProject(projectList[0]);
+                } else {
+                    const emptyState = { entities: { loc: [], char: [], prop: [] }, nodes: [], canvas: { x: -4000, y: -4000, scale: 1 }, selectedNodeIds: [] };
+                    localStorage.setItem('alterlab_data_' + currentProj, JSON.stringify(emptyState)); location.reload();
+                }
+            }
+        }
+        function getStorageKey() { return 'alterlab_data_' + currentProj; }
+
+        // ==========================================
+        // ESTADO GLOBAL Y TOOLKIT EDUCATIVO
+        // ==========================================
+        let toolkitData = [
+            { 
+                cat: "Cámaras Digitales", 
+                items: [
+                    { name: "ARRI Alexa 65", desc: "Formato ancho inmersivo. Excelente para paisajes grandiosos y blockbusters épicos." },
+                    { name: "RED Monstro 8K", desc: "Altísima resolución con un look crudo. Ideal para acción intensa y ciencia ficción." },
+                    { name: "Sony VENICE 2", desc: "Gran captura en poca luz. Transmite intimidad y dramatismo en escenas oscuras." },
+                    { name: "Blackmagic URSA", desc: "Estética realista y terrenal. Perfecta para documentales o dramas crudos." }
+                ] 
+            },
+            { 
+                cat: "Cámaras Indie / Analógicas", 
+                items: [
+                    { name: "IMAX 70mm", desc: "Máximo tamaño de cuadro. Transmite una grandiosidad y espectáculo abrumadores." },
+                    { name: "Película 35mm", desc: "Grano fílmico natural. Genera nostalgia, calidez y un aspecto de cine clásico." },
+                    { name: "Película 16mm", desc: "Imagen sucia y granulada. Evoca cine independiente, realismo y recuerdos." },
+                    { name: "Camcorder VHS / Hi8", desc: "Baja resolución con tracking. Efecto found-footage, transmite terror o nostalgia retro." }
+                ] 
+            },
+            { 
+                cat: "Lentes y Distorsión", 
+                items: [
+                    { name: "Lente Anamórfico", desc: "Desenfoca fondos con flares horizontales azules. Da un toque hollywoodense clásico." },
+                    { name: "Ojo de Pez 8mm", desc: "Distorsión extrema. Transmite claustrofobia, paranoia o comedia exagerada." },
+                    { name: "Gran Angular 14mm", desc: "Alarga las distancias. Aísla al personaje en su entorno, generando soledad." },
+                    { name: "Macro 100mm", desc: "Enfoque microscópico extremo. Genera máxima tensión fijándose en un pequeño detalle." }
+                ] 
+            },
+            { 
+                cat: "Tamaño de Plano", 
+                items: [
+                    { name: "Extreme Close-Up", desc: "Muestra solo los ojos o un detalle. Provoca tensión asfixiante e intensidad." },
+                    { name: "Close-Up (Primer Plano)", desc: "Rostro completo. Conecta directamente con la emoción pura del personaje." },
+                    { name: "Medium Shot", desc: "De la cintura hacia arriba. Ideal para conversaciones naturales y exposición." },
+                    { name: "Cowboy Shot", desc: "Corte a la rodilla. Usado para mostrar armas o personajes listos para la acción." },
+                    { name: "Wide Shot (Plano Abierto)", desc: "Muestra cuerpo entero y entorno. Transmite el contexto o la soledad del sujeto." },
+                    { name: "Extreme Wide Shot", desc: "El personaje se ve diminuto. Expresa la escala épica o la insignificancia humana." }
+                ] 
+            },
+            { 
+                cat: "Movimientos y Ángulos", 
+                items: [
+                    { name: "Low Angle (Contrapicado)", desc: "Cámara desde abajo mirando hacia arriba. Hace al sujeto verse poderoso, heroico o amenazante." },
+                    { name: "High Angle (Picado)", desc: "Cámara desde arriba. Hace al sujeto verse pequeño, vulnerable o atrapado." },
+                    { name: "Dutch Angle (Aberrante)", desc: "Cámara inclinada. Genera inestabilidad psicológica, locura o tensión inminente." },
+                    { name: "Paneo Lateral (Pan)", desc: "Giro horizontal sobre el eje. Ayuda a descubrir un espacio o seguir a alguien lateralmente." },
+                    { name: "Tilt Up", desc: "Giro vertical hacia arriba. Ideal para revelar la grandiosidad o superioridad de algo/alguien." },
+                    { name: "Tilt Down", desc: "Giro vertical hacia abajo. Revela sumisión, derrota o el descubrimiento de algo en el suelo." },
+                    { name: "Steadicam", desc: "Movimiento flotante y suave que sigue al sujeto. Da un tono elegante, soñador o inmersivo." },
+                    { name: "Cámara en Mano (Handheld)", desc: "Movimiento inestable. Transmite caos, urgencia, pánico o hiper-realismo." },
+                    { name: "Dolly Zoom (Efecto Vértigo)", desc: "El fondo se acerca/aleja mientras el sujeto no. Transmite trauma, pánico o una epifanía brutal." }
+                ] 
+            },
+            { 
+                cat: "Paletas de Color", 
+                items: [
+                    { name: "Teal & Orange", desc: "Sombras azules y luces naranjas. El estándar del cine de acción; hace resaltar las pieles." },
+                    { name: "Monocromático Azul", desc: "Predominio de tonos fríos. Transmite tristeza, frialdad, aislamiento o atmósfera sci-fi." },
+                    { name: "Tonos Cálidos (Ámbar)", desc: "Dominio de amarillos y naranjas. Evoca nostalgia, romanticismo o un calor sofocante." },
+                    { name: "Iluminación de Neón", desc: "Fucsias, cianes y púrpuras fuertes. Refleja vida nocturna, descontrol o cyberpunk." },
+                    { name: "Desaturado / Grisáceo", desc: "Colores lavados sin vida. Transmite depresión, aburrimiento o un mundo post-apocalíptico." }
+                ] 
+            },
+            { 
+                cat: "Iluminación Dramática", 
+                items: [
+                    { name: "Rembrandt Lighting", desc: "Triángulo de luz en una mejilla. Drama clásico, sofisticación y misterio sutil." },
+                    { name: "High Key (Sobreexpuesta)", desc: "Pocas sombras, mucha luz. Transmite alegría, comedia, seguridad o ambientación celestial." },
+                    { name: "Low Key (Subexpuesta)", desc: "Sombras duras y mucha oscuridad. Ideal para terror, suspenso y ocultamiento." },
+                    { name: "Iluminación Volumétrica", desc: "Rayos de luz visibles en humo o polvo. Da una atmósfera mística, pesada o de revelación." },
+                    { name: "Silueta a Contraluz", desc: "Sujeto oscuro contra fondo brillante. Genera máximo misterio o pérdida de humanidad." }
+                ] 
+            },
+            { 
+                cat: "Diseño Sonoro", 
+                items: [
+                    { name: "Lluvia Torrencial", desc: "Genera melancolía, aislamiento o tensión antes de un evento dramático." },
+                    { name: "Zumbido Fluorescente", desc: "Un sonido eléctrico constante que causa incomodidad o sensación de abandono." },
+                    { name: "Synth Drone Oscuro", desc: "Un tono grave sostenido. Indica que un peligro invisible es inminente." },
+                    { name: "Silencio Incómodo", desc: "Ausencia total de sonido ambiente. Tensión absoluta previa a un susto o confrontación." }
+                ] 
+            }
+        ];
+
+        let appState = { entities: { loc: [], char: [], prop: [] }, nodes: [], canvas: { x: -4000, y: -4000, scale: 1 }, selectedNodeIds: [] };
+
+        function initToolkitUI() {
+            document.getElementById('custom-tool-cat').innerHTML = toolkitData.map(g => `<option value="${g.cat}">${g.cat}</option>`).join('');
+            renderToolkit();
+            renderDrugToolkit();
+        }
+
+        function renderToolkit() {
+            document.getElementById('toolkit-container').innerHTML = toolkitData.map(group => `
+                <div class="accordion">
+                    <button class="acc-btn" onclick="this.nextElementSibling.classList.toggle('active')">📂 ${group.cat}</button>
+                    <div class="acc-content">
+                        ${group.items.map(item => `
+                            <div class="tag-item" onclick="injectToolkitTag('${group.cat}', '${item.name}')">
+                                <div class="tag-item-title">${item.name}</div>
+                                <div class="tag-item-desc">${item.desc}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>`).join('');
+        }
+        
+        function renderDrugToolkit() {
+            const container = document.getElementById('drug-container');
+            let html = '<div class="accordion drug-acc"><button class="acc-btn" onclick="this.nextElementSibling.classList.toggle(\'active\')">🧪 Modificadores Estéticos</button><div class="acc-content">';
+            
+            for (const [drugName, data] of Object.entries(drugTrainingData)) {
+                html += `
+                    <div class="tag-item" onclick="injectToolkitTag('Fármaco', '${drugName}')">
+                        <div class="drug-item-title">${drugName}</div>
+                        <div class="tag-item-desc">${data.desc}</div>
+                    </div>`;
+            }
+            html += '</div></div>';
+            container.innerHTML = html;
+        }
+
+        function addCustomTool() {
+            const cat = document.getElementById('custom-tool-cat').value; const val = document.getElementById('custom-tool-val').value.trim();
+            if(!val) return; const group = toolkitData.find(g => g.cat === cat);
+            if(group) { 
+                group.items.unshift({name: val, desc: "Elemento añadido manualmente."}); 
+                document.getElementById('custom-tool-val').value = ''; 
+                renderToolkit(); 
+                saveState(); 
+            }
+        }
+
+        // ==========================================
+        // 🔄 LÓGICA IA - ENFOQUE TEXTO ESTRUCTURADO + PARSEO LOCAL
+        // ==========================================
+
+        function extractPollinationsContent(rawText) {
+            let text = rawText.trim();
+            if (text.startsWith('{')) {
+                try {
+                    const obj = JSON.parse(text);
+                    if (obj.content && typeof obj.content === 'string') return obj.content;
+                    if (obj.choices?.[0]?.message?.content) return obj.choices[0].message.content;
+                    if (obj.response) return obj.response;
+                    if (obj.text) return obj.text;
+                } catch(e) {}
+            }
+            if (text.includes('IMPORTANT NOTICE') || text.includes('deprecated')) {
+                text = text.split('\n').filter(l => 
+                    !l.includes('IMPORTANT NOTICE') && !l.includes('deprecated') && !l.includes('enter.pollinations')
+                ).join('\n').trim();
+            }
+            return text;
+        }
+
+        async function callPollinationsBase(userPrompt, systemPrompt, options = {}) {
+            const { 
+                model = 'openai', 
+                seed = Math.floor(Math.random() * 99999),
+                privateMode = true,
+                maxRetries = 3,
+                retryDelay = 1500
+            } = options;
+            
+            for(let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch('https://text.pollinations.ai/openai', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            messages: [
+                                { role: 'system', content: systemPrompt },
+                                { role: 'user', content: userPrompt }
+                            ],
+                            model: model,
+                            seed: seed,
+                            jsonMode: false
+                        })
+                    });
+                    
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const raw = await response.text();
+                    return extractPollinationsContent(raw);
+                    
+                } catch(e) {
+                    console.warn(`Intento ${attempt + 1} fallido:`, e.message);
+                    if (attempt < maxRetries - 1) await new Promise(r => setTimeout(r, retryDelay * (attempt + 1)));
+                }
+            }
+            throw new Error("No se pudo obtener respuesta tras múltiples intentos (Error 502/Timeout). Servidor congestionado.");
+        }
+
+        function getProjectContext(maxLength = 800) {
+            const locs = appState.entities.loc.slice(0, 2).map(e => e.name.split(':')[0].trim()).join(' | ') || "Ninguno";
+            const chars = appState.entities.char.slice(0, 2).map(e => e.name.split(':')[0].trim()).join(' | ') || "Ninguno";
+            const props = appState.entities.prop.slice(0, 2).map(e => e.name).join(' | ') || "Ninguno";
+            const scenes = appState.nodes.filter(n => n.type === 'scene').slice(0, 1).map(s => s.data.heading.split('-')[0].trim()).join(', ') || "Ninguna";
+            const lastShot = appState.nodes.filter(n => n.type === 'shot').pop();
+            const actionPreview = lastShot ? (lastShot.data.action || '').substring(0, 80) + '...' : 'Vacía';
+            
+            let context = `CONTEXTO: Escenarios[${locs}] Personajes[${chars}] Props[${props}] ÚltimaEscena[${scenes}] Acción["${actionPreview}"]`;
+            return context.length > maxLength ? context.substring(0, maxLength - 10) + '"' : context;
+        }
+
+        async function generateSingleEntity(catName) {
+            const btnLabel = document.querySelector(`.entity-section:has(#input-${catName}) .add-btn`);
+            if (btnLabel) { btnLabel.innerText = '⏳'; btnLabel.disabled = true; }
+
+            const context = getProjectContext(800);
+            
+            const entityRules = {
+                'char': `Sugiere 1 (UN) personaje concreto y físico. Nada abstracto ni poético. Ejemplo: Tomás (Protagonista): Hombre de 40 años, playera gris lisa, pantalones de mezclilla, botas de trabajo.`,
+                'loc': `Sugiere 1 (UN) escenario super concreto. Nada poético. Ejemplo: Cafetería de carretera: Local pequeño con neón parpadeante y suelo de damero.`,
+                'prop': `Sugiere 1 (UN) objeto físico accionable. Nada simbólico. Ejemplo: Maletín con combinación: Contiene documentos confidenciales.`
+            };
+            
+            const sysPrompt = `Eres un guionista aterrizado y directo. ESTÁ PROHIBIDO USAR LENGUAJE POÉTICO (nada de ecos del pasado, sombras del silencio). Solo objetos y hechos reales. OBLIGATORIO: Devuelve SOLO LA RESPUESTA, sin preámbulos, sin guiones iniciales, sin comillas. Un solo párrafo corto.`;
+            const userPrompt = `${context}\n\n${entityRules[catName] || 'Sugiere 1 elemento nuevo físico y real.'}`;
+
+            try {
+                let text = await callPollinationsBase(userPrompt, sysPrompt);
+                if (text) {
+                    text = text.replace(/^-\s*/, '').replace(/[\n\r]/g, ' ').trim();
+                    appState.entities[catName].push({ id: `ent_${Date.now()}`, name: text, image: null }); 
+                    renderEntities(); saveState();
+                }
+            } catch (err) {
+                alert("Error generando entidad: " + err.message);
+            } finally {
+                if (btnLabel) { btnLabel.innerText = '+'; btnLabel.disabled = false; }
+            }
+        }
+
+        async function generateSelectedNode() {
+            const btn = document.getElementById('btn-generar');
+            if (appState.selectedNodeIds.length !== 1) {
+                return alert("Selecciona exactamente UN nodo del lienzo para auto-completar.");
+            }
+
+            const nodeId = appState.selectedNodeIds[0];
+            const node = appState.nodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            btn.disabled = true;
+            btn.innerText = "⏳ PENSANDO...";
+            const context = getProjectContext(800);
+            
+            try {
+                if (node.type === 'scene') {
+                    const childShots = appState.nodes.filter(n => n.parentId === node.id && n.type === 'shot');
+                    const shotsText = childShots.map(s => s.data.action).join(" | ");
+                    
+                    const sys = "Eres supervisor de guion. Deduce o mejora el encabezado de escena (Scene Heading) basado en la acción física adjunta. Devuelve SOLO EL TÍTULO en formato estándar (INT/EXT. LUGAR - DIA/NOCHE). SIN COMILLAS.";
+                    const user = `Acción contenida:\n${shotsText || 'Aún no hay acción'}\n\nTítulo parcial actual: ${node.data.heading}\n\nMejora el título actual o propón uno realista y seco. NADA POÉTICO.`;
+                    
+                    let newTitle = await callPollinationsBase(user, sys);
+                    newTitle = newTitle.replace(/["\\]/g, '').trim().toUpperCase();
+                    updateNodeData(node.id, 'heading', newTitle);
+                    
+                } else if (node.type === 'shot') {
+                    const parentScene = appState.nodes.find(n => n.id === node.parentId) || { data: { heading: 'Desconocido' } };
+                    const connectedEntities = appState.nodes.filter(n => n.parentId === node.id && n.type === 'entity_link');
+                    const locs = connectedEntities.filter(e => e.data.type === 'loc').map(e => e.data.name).join(", ");
+                    const chars = connectedEntities.filter(e => e.data.type === 'char').map(e => e.data.name).join(", ");
+                    const props = connectedEntities.filter(e => e.data.type === 'prop').map(e => e.data.name).join(", ");
+                    
+                    if (!locs && !chars && !node.data.action) {
+                        throw new Error("Conecta una entidad (Escenario o Personaje) a este plano, o escribe algo inicial para saber qué generar.");
+                    }
+                    
+                    // Comprobación de máscara farmacológica
+                    const drugTags = node.data.tags.filter(t => t.cat === 'Fármaco');
+                    let sys = "Eres un Especialista en Prompts de Imagen (estilo Midjourney, Nano Banana). Genera un prompt hiper-descriptivo y directo en un bloque de texto, separado por comas si es necesario, sin jerga literaria. Enfocate en óptica, sujeto, iluminación, y estética.";
+                    
+                    if (drugTags.length > 0) {
+                        const activeDrugs = drugTags.map(t => drugTrainingData[t.val]).filter(Boolean);
+                        const combinedProtocols = activeDrugs.map(d => d.protocol).join(" Y ");
+                        const isMixed = activeDrugs.length > 1;
+                        sys = `Eres un director cinematográfico operando bajo ${isMixed ? 'una SÍNTESIS EXPERIMENTAL DE: ' : 'el '}${combinedProtocols}. Tu único objetivo es describir la premisa visual solicitada imitando OBLIGATORIAMENTE la densidad métrica, las texturas y el ritmo estético de los siguientes ejemplos magistrales. CERO EMOJIS. No uses introducciones, genera directamente el prompt visual adaptando los elementos del usuario a este estilo.\n\nEJEMPLOS DE ESTILO A IMITAR:\n`;
+                        
+                        let exampleCounter = 1;
+                        const examplesLimit = isMixed ? 4 : 10;
+                        activeDrugs.forEach(dData => {
+                            dData.examples.slice(0, examplesLimit).forEach(ex => {
+                                sys += `Ejemplo ${exampleCounter++}: ${ex}\n`;
+                            });
+                        });
+                    }
+                    
+                    const otherTags = node.data.tags.filter(t => t.cat !== 'Fármaco');
+                    const user = `Contexto Base:\nLugar: ${locs}\nSujetos: ${chars}\nObjetos: ${props}\nModificadores de Cámara/Estilo: ${otherTags.length ? otherTags.map(t=>t.val).join(', ') : 'Ninguno'}\n\nAcción o idea inicial proporcionada por usuario: ${node.data.action || 'Vacía'}\n\nGenera el PROMPT DE IMAGEN DEFINITIVO amalgamando estos elementos (max 4-5 líneas). Omitir comillas o introducciones.`;
+                    
+                    let newDesc = await callPollinationsBase(user, sys);
+                    newDesc = newDesc.replace(/["\\]/g, '').trim();
+                    updateNodeData(node.id, 'action', newDesc);
+                    
+                } else if (node.type === 'motion') {
+                    const parentShot = appState.nodes.find(n => n.id === node.parentId);
+                    const visualContext = parentShot ? parentShot.data.action : "Contexto visual ausente.";
+                    
+                    if (node.data.hasDialog && (!node.data.char || node.data.char.trim() === '')) {
+                        throw new Error("Activaste 'Incluir Diálogo'. Escribe el personaje que hablará en el recuadro antes de generar.");
+                    }
+                    
+                    const dialogRule = node.data.hasDialog ? `\n\n[REGLA ESTRICTA: El usuario requiere que el prompt explique que el personaje "${node.data.char}" está hablando. Añade su línea de diálogo hablada usando comillas en la descripción del prompt de video para guiar el lip-sync.]` : '';
+                    
+                    let sys = "Eres un Especialista en Prompts de Video (Sora, Veo 3.1, Runway). Traduce un encuadre estático en una simulación de movimiento (tipo de movimiento de cámara, física de fluidos u objetos, cinemática). Escribe de manera plana y descriptiva. Sin introducciones.";
+                    
+                    // Comprobación de máscara farmacológica en el padre
+                    if (parentShot) {
+                        const drugTags = parentShot.data.tags.filter(t => t.cat === 'Fármaco');
+                        if (drugTags.length > 0) {
+                            const activeDrugs = drugTags.map(t => drugTrainingData[t.val]).filter(Boolean);
+                            const combinedProtocols = activeDrugs.map(d => d.protocol).join(" Y ");
+                            const isMixed = activeDrugs.length > 1;
+                            sys = `Eres un Especialista en Prompts de Video operando bajo ${isMixed ? 'una SÍNTESIS EXPERIMENTAL DE: ' : 'el '}${combinedProtocols}. Traduce el encuadre estático en movimiento, pero DEBES MANTENER la estética, la densidad y la vibra de este estilo. CERO EMOJIS. OBLIGATORIO imitar el estilo de estos ejemplos:\n\n`;
+                            let exampleCounter = 1;
+                            const examplesLimit = isMixed ? 2 : 3;
+                            activeDrugs.forEach(dData => {
+                                dData.examples.slice(0, examplesLimit).forEach(ex => {
+                                    sys += `Ejemplo ${exampleCounter++}: ${ex}\n`;
+                                });
+                            });
+                        }
+                    }
+
+                    const user = `Encuadre visual estático base:\n${visualContext}\n\nDesarrollo parcial o guía de movimiento actual proveida: ${node.data.text || 'N/A'}${dialogRule}\n\nEscribe el PROMPT DE VIDEO FINAL.`;
+                    
+                    let newMotion = await callPollinationsBase(user, sys);
+                    newMotion = newMotion.replace(/["\\]/g, '').trim();
+                    updateNodeData(node.id, 'text', newMotion);
+
+                } else if (node.type === 'entity_link') {
+                    const sys = "Eres un analista forense. Expande la descripción físca del elemento dado. Solo detalles fisiológicos, de vestimenta o materiales y desgaste. CERO POESÍA. NADA METAFÓRICO. Un solo párrafo directo.";
+                    const user = `Contexto del Proyecto:\n${context}\n\nMejora el texto de esta entidad:\n${node.data.name}\n\nDevuelve solo la descripción final.`;
+                    
+                    let expandedEnt = await callPollinationsBase(user, sys);
+                    expandedEnt = expandedEnt.replace(/["\\]/g, '').trim();
+                    updateNodeData(node.id, 'name', expandedEnt);
+                }
+                
+                document.querySelectorAll('.node').forEach(n => n.remove());
+                appState.nodes.forEach(n => renderNode(n));
+                drawSplines();
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "✨ GENERAR IA";
+            }
+        }
+
+        async function copyNodeText(id) {
+            const node = appState.nodes.find(n => n.id === id);
+            const text = node.type === 'shot' ? node.data.action : node.data.text;
+            if (!text) return;
+            try { await navigator.clipboard.writeText(text); } 
+            catch(err) { alert("Tu navegador bloqueó el portapapeles, selecciona el texto y cópialo a mano."); }
+        }
+
+        async function translateNodeText(id) {
+            const node = appState.nodes.find(n => n.id === id);
+            const text = node.type === 'shot' ? node.data.action : node.data.text;
+            if (!text) return;
+            
+            const btn = document.querySelector(`#${id} .json-export-en`);
+            if(btn) { btn.innerText = "⏳..."; btn.disabled = true; }
+            
+            try {
+                const sys = "Eres traductor nativo. Traduce el siguiente Prompt textualmente al Inglés para que modelos de IA como Midjourney y Sora lo entiendan mejor. NADA MÁS QUE LA TRADUCCIÓN.";
+                const enText = await callPollinationsBase(`Traduce esto al inglés puro:\n\n${text}`, sys);
+                const cleanResult = enText.replace(/["\\]/g, '').trim();
+                
+                if (node.type === 'shot') updateNodeData(id, 'action', cleanResult);
+                else updateNodeData(id, 'text', cleanResult);
+                
+                document.querySelectorAll('.node').forEach(n => n.remove());
+                appState.nodes.forEach(n => renderNode(n)); 
+                drawSplines();
+            } catch(e) {
+                alert("Error traduciendo: "+e.message);
+                if (btn) { btn.innerText = "🇬🇧 Tr. a EN"; btn.disabled = false; }
+            }
+        }
+
+        // ==========================================
+        // CONSTRUCTOR DE GRAFOS
+        // ==========================================
+        function clearWorkspace() {
+            appState.nodes = [];
+            document.querySelectorAll('.node').forEach(n => n.remove());
+            document.getElementById('svg-layer').innerHTML = '';
+        }
+
+        function buildGraphFromJSON(json, append = false, secPerShot = 7) {
+            if (!json) return;
+            
+            const entidades = json["Entidades Globales"] || json["Global Entities"] || {};
+            
+            let jsonLocs = entidades["Escenarios"] || entidades["Settings"] || entidades["Locations"] || [];
+            if (!Array.isArray(jsonLocs)) jsonLocs = [jsonLocs];
+            
+            let jsonChars = entidades["Personajes"] || entidades["Characters"] || [];
+            if (!Array.isArray(jsonChars)) jsonChars = [jsonChars];
+            
+            let jsonProps = entidades["Objetos"] || entidades["Props"] || entidades["Objects"] || [];
+            if (!Array.isArray(jsonProps)) jsonProps = [jsonProps];
+
+            [jsonLocs, jsonChars, jsonProps].forEach((arr, idx) => {
+                const typeMap = ['loc', 'char', 'prop'];
+                arr.forEach(name => {
+                    if(name && typeof name === 'string' && !appState.entities[typeMap[idx]].find(e => e.name.toLowerCase() === name.toLowerCase()) && !["ninguno", "no especificado", "none", "not specified"].includes(name.toLowerCase().trim())) {
+                        appState.entities[typeMap[idx]].push({ id: `ent_${Date.now()}_${Math.random()}`, name: name.trim(), image: null });
+                    }
+                });
+            });
+            renderEntities();
+
+            let startX = (-appState.canvas.x + document.getElementById('canvas-wrapper').clientWidth/2) / appState.canvas.scale;
+            let startY = (-appState.canvas.y + document.getElementById('canvas-wrapper').clientHeight/2) / appState.canvas.scale;
+
+            if (append && appState.nodes.length > 0) {
+                let maxSceneX = -Infinity;
+                appState.nodes.forEach(n => { if (n.type === 'scene' && n.x > maxSceneX) maxSceneX = n.x; });
+                if(maxSceneX > -Infinity) startX = maxSceneX + 1100;
+            }
+
+            let secuencia = json["Secuencia"] || json["Sequence"] || [];
+            if(!Array.isArray(secuencia)) secuencia = [secuencia];
+
+            secuencia.forEach((scene, sIdx) => {
+                let sceneId = generateId();
+                let sceneX = startX + (sIdx * 1100); 
+                const sceneName = scene["Escena"] || scene["Scene"] || "ESCENA";
+                appState.nodes.push({ id: sceneId, type: 'scene', x: sceneX, y: startY, parentId: null, data: { heading: sceneName } });
+
+                let currentY = startY + 120;
+                let shots = scene["Planos (Shots)"] || scene["Shots"] || scene["Camera Shots"] || [];
+                if(!Array.isArray(shots)) shots = [shots];
+                
+                shots.forEach((shot, shIdx) => {
+                    let shotId = generateId();
+                    let tags = [];
+                    
+                    const style = shot["Estilo visual"] || shot["Visual Style"];
+                    const loc = shot["Escenario"] || shot["Setting"] || shot["Location"];
+                    const action = shot["Descripción"] || shot["Action Description"] || shot["Description"] || "";
+                    
+                    let chars = shot["Personajes"] || shot["Characters"] || shot["Personajes y Objetos"] || shot["Characters & Props"] || [];
+                    if(!Array.isArray(chars)) chars = [chars];
+                    
+                    let props = shot["Objetos"] || shot["Props"] || [];
+                    if(!Array.isArray(props)) props = [props];
+
+                    let cinema = shot["Elementos cinematográficos"] || shot["Cinematography"] || shot["Cinematographic Elements"] || [];
+                    if(!Array.isArray(cinema)) cinema = [cinema];
+                    
+                    let dialogues = shot["Diálogos"] || shot["Dialogue"] || shot["Dialogues"] || [];
+                    if(!Array.isArray(dialogues)) dialogues = []; 
+
+                    let motions = shot["Movimiento (Motion)"] || shot["Motion Prompts"] || [];
+                    if(!Array.isArray(motions)) motions = [motions];
+
+                    if(style && style !== "Por defecto" && style !== "Default") tags.push({cat: "Estilo Visual", val: style});
+                    cinema.forEach(el => tags.push({cat: "Cine", val: el}));
+
+                    let shotX = sceneX;
+                    const shotDuration = (typeof secPerShot === 'number' && secPerShot > 0) ? secPerShot : 7;
+                    appState.nodes.push({ id: shotId, type: 'shot', x: shotX, y: currentY, parentId: sceneId, data: { action: action, tags: tags, duration: shotDuration } });
+
+                    let entityOffsetY = currentY;
+                    
+                    if(loc && typeof loc === 'string' && !["ninguno", "no especificado", "none", "not specified"].includes(loc.toLowerCase().trim())) {
+                        let locId = generateId(); 
+                        appState.nodes.push({ id: locId, type: 'entity_link', x: shotX - 320, y: entityOffsetY, parentId: shotId, data: { type: 'loc', name: loc.trim() } }); 
+                        entityOffsetY += 100;
+                    }
+                    
+                    chars.forEach((char) => { 
+                        if(char && typeof char === 'string' && !["ninguno", "none"].includes(char.toLowerCase().trim())) {
+                            let charId = generateId(); 
+                            appState.nodes.push({ id: charId, type: 'entity_link', x: shotX - 320, y: entityOffsetY, parentId: shotId, data: { type: 'char', name: char.trim() } }); 
+                            entityOffsetY += 100; 
+                        }
+                    });
+
+                    props.forEach((prop) => { 
+                        if(prop && typeof prop === 'string' && !["ninguno", "none"].includes(prop.toLowerCase().trim())) {
+                            let propId = generateId(); 
+                            appState.nodes.push({ id: propId, type: 'entity_link', x: shotX - 320, y: entityOffsetY, parentId: shotId, data: { type: 'prop', name: prop.trim() } }); 
+                            entityOffsetY += 100; 
+                        }
+                    });
+                    
+                    dialogues.forEach((diag, dIdx) => { 
+                        if(diag && typeof diag === 'object') {
+                            let diagId = generateId(); 
+                            const cName = diag.Personaje || diag.Character || "";
+                            const cLine = diag.Linea || diag.Line || "";
+                            appState.nodes.push({ id: diagId, type: 'dialogue', x: shotX + 280, y: currentY + (dIdx * 80), parentId: shotId, data: { char: cName, line: cLine } }); 
+                        }
+                    });
+
+                    motions.forEach((mot, mIdx) => {
+                        if(mot && typeof mot === 'object') {
+                            let motId = generateId();
+                            const text = mot["Prompt de Movimiento"] || mot["Motion Prompt"] || "";
+                            
+                            let char = "";
+                            let hasDialog = false;
+                            
+                            if ("Personaje Hablando" in mot) {
+                                char = mot["Personaje Hablando"];
+                            } else if ("Speaking Character" in mot) {
+                                char = mot["Speaking Character"];
+                            }
+                            
+                            if (char.trim() !== "") {
+                                hasDialog = true;
+                            }
+                            
+                            appState.nodes.push({ id: motId, type: 'motion', x: shotX + 280, y: currentY + (dialogues.length * 80) + (mIdx * 120), parentId: shotId, data: { text: text, hasDialog: hasDialog, char: char } });
+                        }
+                    });
+                    
+                    currentY += Math.max(300, (entityOffsetY - currentY) + 40); 
+                });
+            });
+            
+            document.querySelectorAll('.node').forEach(n => n.remove());
+            appState.nodes.forEach(n => renderNode(n));
+            drawSplines();
+            saveState(); 
+        }
+
+        // ==========================================
+        // UI MODAL Y IMPORT/EXPORT
+        // ==========================================
+        function openModal(mode, content = '') {
+            const modal = document.getElementById('io-modal');
+            const title = document.getElementById('modal-title');
+            const desc = document.getElementById('modal-desc');
+            const textarea = document.getElementById('io-textarea');
+            const actions = document.getElementById('modal-actions');
+            
+            modal.style.display = 'flex'; textarea.value = content; textarea.readOnly = false;
+
+            if(mode === 'import') {
+                title.innerText = '📥 Importar / Sumar Proyecto JSON'; title.style.color = 'var(--accent-scene)';
+                desc.innerText = 'Pega tu código JSON aquí, o sube un archivo. Los nodos se SUMARÁN al canvas actual.'; textarea.placeholder = '{ "Entidades Globales": ... }';
+                actions.innerHTML = `
+                    <label class="ui-btn" style="background:#444; border:none; cursor:pointer;">
+                        📂 Subir Archivo <input type="file" accept=".json" style="display:none;" onchange="handleFileUpload(event)">
+                    </label>
+                    <button class="ui-btn" style="background:#e74c3c; border:none;" onclick="closeModal()">Cancelar</button>
+                    <button class="ui-btn" style="background:var(--accent-scene); border:none;" onclick="processPastedJSON()">Añadir al Canvas</button>`;
+            } else if (mode === 'export') {
+                title.innerText = '📤 Exportar JSON'; title.style.color = 'var(--accent-shot)';
+                desc.innerText = 'Copia este código para guardarlo o compartirlo.'; textarea.readOnly = true;
+                actions.innerHTML = `
+                    <button class="ui-btn" style="background:#e74c3c; border:none;" onclick="closeModal()">Cerrar</button>
+                    <button class="ui-btn" style="background:var(--accent-shot); color:black; border:none;" onclick="copyModalText(this)">Copiar al Portapapeles</button>`;
+            }
+        }
+
+        function closeModal() { document.getElementById('io-modal').style.display = 'none'; }
+        function copyModalText(btn) {
+            const txt = document.getElementById('io-textarea'); txt.select(); document.execCommand('copy'); 
+            const orig = btn.innerText; btn.innerText = "¡Copiado!"; setTimeout(() => { btn.innerText = orig; }, 2000);
+        }
+
+        function processPastedJSON() {
+            const text = document.getElementById('io-textarea').value.trim();
+            if(!text) return alert("El campo está vacío.");
+            try {
+                const json = JSON.parse(text); 
+                // AHORA HACE APPEND = TRUE EN LUGAR DE CLEARWORKSPACE
+                buildGraphFromJSON(json, true); 
+                closeModal();
+            } catch (err) { alert("Error: El texto pegado no es un JSON válido."); console.error(err); }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const json = JSON.parse(e.target.result); 
+                    // AHORA HACE APPEND = TRUE
+                    buildGraphFromJSON(json, true); 
+                    closeModal();
+                } catch (err) { alert("Error leyendo el archivo JSON."); }
+            };
+            reader.readAsText(file);
+        }
+
+        // ==========================================
+        // EXPORTACIÓN & TRADUCCIÓN 
+        // ==========================================
+        function compileShotJSON(nodeId) {
+            const shot = appState.nodes.find(n => n.id === nodeId); const childNodes = appState.nodes.filter(n => n.parentId === nodeId);
+            const locs = childNodes.filter(d => d.type === 'entity_link' && d.data.type === 'loc').map(d => d.data.name).join(' | ');
+            const chars = childNodes.filter(d => d.type === 'entity_link' && d.data.type === 'char').map(d => d.data.name);
+            const props = childNodes.filter(d => d.type === 'entity_link' && d.data.type === 'prop').map(d => d.data.name);
+            const dialogues = childNodes.filter(d => d.type === 'dialogue').map(d => ({ Personaje: d.data.char, Linea: d.data.line }));
+            const estiloOverride = shot.data.tags.find(t => t.cat === 'Estilo Visual'); const cinematografia = shot.data.tags.filter(t => t.cat !== 'Estilo Visual').map(t => t.val);
+            
+            const motions = childNodes.filter(d => d.type === 'motion').map(d => {
+                let mData = { "Prompt de Movimiento": (d.data.text || "").trim() };
+                if (d.data.hasDialog) {
+                    mData["Personaje Hablando"] = (d.data.char || "").trim();
+                }
+                return mData;
+            });
+            
+            const out = {};
+            if (estiloOverride) out["Estilo visual"] = estiloOverride.val;
+            if (locs) out["Escenario"] = locs;
+            if (chars.length > 0) out["Personajes"] = chars;
+            if (props.length > 0) out["Objetos"] = props;
+            if (shot.data.action && shot.data.action.trim()) out["Descripción"] = shot.data.action.trim();
+            if (cinematografia.length > 0) out["Elementos cinematográficos"] = cinematografia;
+            if (dialogues.length > 0) out["Diálogos"] = dialogues;
+            if (motions.length > 0) out["Movimiento (Motion)"] = motions;
+            
+            return out;
+        }
+
+        async function exportShotJSON(nodeId, e, useTranslation) {
+            e.stopPropagation(); const btn = e.target; const originalText = btn.innerText; btn.innerText = "⏳...";
+            let jsonOutput = compileShotJSON(nodeId);
+            try { 
+                if(useTranslation) jsonOutput = await translateJSON(jsonOutput); 
+                openModal('export', JSON.stringify(jsonOutput, null, 2));
+            } catch(err) { btn.innerText = "[ ERROR ]"; alert(err.message);} 
+            finally { btn.innerText = originalText; }
+        }
+
+        async function handleExport(useTranslation = false) {
+            const exportData = {
+                "Entidades Globales": { "Escenarios": appState.entities.loc.map(e => e.name), "Personajes": appState.entities.char.map(e => e.name), "Objetos": appState.entities.prop.map(e => e.name) },
+                "Secuencia": appState.nodes.filter(n => n.type === 'scene').map(scene => ({ "Escena": scene.data.heading, "Planos (Shots)": appState.nodes.filter(n => n.type === 'shot' && n.parentId === scene.id).map(shot => compileShotJSON(shot.id)) }))
+            };
+            const btnId = useTranslation ? 'btn-export-en' : null; if(btnId) { document.getElementById(btnId).disabled = true; document.getElementById(btnId).innerText = "⏳..."; }
+            try { 
+                let finalData = exportData; if(useTranslation) finalData = await translateJSON(exportData); 
+                openModal('export', JSON.stringify(finalData, null, 2));
+            } catch (err) { alert("Hubo un error en la traducción: " + err.message); console.error(err); } 
+            finally { if(btnId) { document.getElementById(btnId).disabled = false; document.getElementById(btnId).innerText = "[ 🤖 ] Traducir EN"; } }
+        }
+
+        async function translateJSON(jsonObj) {
+            const KEY_MAP = {
+                'Entidades Globales': 'Global Entities', 'Escenarios': 'Settings',
+                'Personajes': 'Characters', 'Objetos': 'Props', 'Secuencia': 'Sequence',
+                'Escena': 'Scene', 'Planos (Shots)': 'Shots', 'Estilo visual': 'Visual Style',
+                'Escenario': 'Setting', 'Descripción': 'Action Description',
+                'Elementos cinematográficos': 'Cinematography', 'Diálogos': 'Dialogue',
+                'Personaje': 'Character', 'Linea': 'Line',
+                'Movimiento (Motion)': 'Motion Prompts', 
+                'Prompt de Movimiento': 'Motion Prompt', 
+                'Personaje Hablando': 'Speaking Character'
+            };
+            function renameKeys(src) {
+                if (Array.isArray(src)) return src.map(renameKeys);
+                if (src && typeof src === 'object') {
+                    const o = {};
+                    for (const [k, v] of Object.entries(src)) o[KEY_MAP[k] || k] = renameKeys(v);
+                    return o;
+                }
+                return src;
+            }
+            const keyRenamed = renameKeys(jsonObj);
+
+            const strings = [];   
+            const refs = [];      
+            function collectStrings(obj) {
+                const skip = ['Ninguno','None','ninguno','none','No especificado','Not specified'];
+                if (Array.isArray(obj)) {
+                    obj.forEach((item, idx) => {
+                        if (typeof item === 'string' && item.trim().length > 0 && !skip.includes(item.trim())) {
+                            strings.push(item.trim()); refs.push({ parent: obj, key: idx });
+                        } else { collectStrings(item); }
+                    });
+                    return;
+                }
+                if (obj && typeof obj === 'object') {
+                    for (const [k, v] of Object.entries(obj)) {
+                        if (typeof v === 'string' && v.trim().length > 0 && !skip.includes(v.trim())) {
+                            strings.push(v.trim()); refs.push({ parent: obj, key: k });
+                        } else { collectStrings(v); }
+                    }
+                    return;
+                }
+            }
+            collectStrings(keyRenamed);
+
+            if (strings.length === 0) return keyRenamed;
+
+            const CHUNK_SIZE = 20;
+            const sys = `You are a professional Hollywood screenplay translator (Spanish → English). Translate each numbered line precisely. Keep all proper nouns, camera brands, lens names, technical terms, and location names. Return ONLY the numbered translations in the exact format shown. No extra text.
+Format:
+1|original spanish text
+→
+1|translated english text`;
+
+            const allTranslated = new Array(strings.length).fill(null);
+
+            for (let start = 0; start < strings.length; start += CHUNK_SIZE) {
+                const chunkStrings = strings.slice(start, start + CHUNK_SIZE);
+                const numbered = chunkStrings.map((s, i) => `${start + i + 1}|${s}`).join('\n');
+                const userPrompt = `Translate these lines from Spanish to English:\n${numbered}`;
+
+                let translated = null;
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    try {
+                        const rawText = await callPollinationsBase(userPrompt, sys);
+                        if (rawText && rawText.length > 5) { translated = rawText; break; }
+                    } catch(e) {
+                        if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+                    }
+                }
+
+                if (translated) {
+                    translated.split('\n').forEach(line => {
+                        const m = line.match(/^(\d+)\|(.+)$/);
+                        if (m) {
+                            const idx = parseInt(m[1]) - 1;
+                            if (idx >= 0 && idx < strings.length) allTranslated[idx] = m[2].trim();
+                        }
+                    });
+                }
+            }
+
+            refs.forEach((ref, i) => {
+                if (allTranslated[i]) ref.parent[ref.key] = allTranslated[i];
+            });
+
+            return keyRenamed;
+        }
+
+        // ==========================================
+        // LÓGICA BASE CANVAS Y ARRASTRE
+        // ==========================================
+        const wrapper = document.getElementById('canvas-wrapper');
+        const canvas = document.getElementById('canvas');
+        const selectionBox = document.getElementById('selection-box');
+        
+        function saveState() { const stateToSave = { ...appState, selectedNodeIds: [] }; localStorage.setItem(getStorageKey(), JSON.stringify(stateToSave)); }
+
+        let isPanning = false, isSelecting = false, isDraggingNode = false, wasMutated = false;
+        let startX, startY, selStartX, selStartY;
+        let lastMouseX, lastMouseY;
+
+        wrapper.addEventListener('wheel', (e) => {
+            e.preventDefault(); let newScale = Math.min(Math.max(0.2, appState.canvas.scale - (e.deltaY * 0.001)), 3);
+            const rect = wrapper.getBoundingClientRect(); const mouseX = e.clientX - rect.left, mouseY = e.clientY - rect.top;
+            appState.canvas.x = mouseX - (mouseX - appState.canvas.x) * (newScale / appState.canvas.scale);
+            appState.canvas.y = mouseY - (mouseY - appState.canvas.y) * (newScale / appState.canvas.scale);
+            appState.canvas.scale = newScale; updateCanvasTransform(); saveState(); 
+        });
+
+        wrapper.addEventListener('mousedown', (e) => {
+            if (e.target === wrapper || e.target === canvas || e.target.tagName === 'svg') {
+                if (e.ctrlKey || e.metaKey) {
+                    isSelecting = true; selStartX = e.clientX; selStartY = e.clientY;
+                    selectionBox.style.display = 'block'; selectionBox.style.left = e.clientX + 'px'; selectionBox.style.top = e.clientY + 'px';
+                    selectionBox.style.width = '0px'; selectionBox.style.height = '0px';
+                    if(!e.shiftKey) clearSelection();
+                } else if (e.button === 0) { isPanning = true; startX = e.clientX - appState.canvas.x; startY = e.clientY - appState.canvas.y; clearSelection(); }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isPanning) { appState.canvas.x = e.clientX - startX; appState.canvas.y = e.clientY - startY; updateCanvasTransform(); wasMutated = true; } 
+            else if (isSelecting) {
+                const currentX = e.clientX, currentY = e.clientY;
+                const left = Math.min(selStartX, currentX), top = Math.min(selStartY, currentY), width = Math.abs(currentX - selStartX), height = Math.abs(currentY - selStartY);
+                selectionBox.style.left = left + 'px'; selectionBox.style.top = top + 'px'; selectionBox.style.width = width + 'px'; selectionBox.style.height = height + 'px';
+                
+                const wrapperRect = wrapper.getBoundingClientRect();
+                const boxRect = { left: (left - wrapperRect.left - appState.canvas.x) / appState.canvas.scale, top: (top - wrapperRect.top - appState.canvas.y) / appState.canvas.scale, right: (left + width - wrapperRect.left - appState.canvas.x) / appState.canvas.scale, bottom: (top + height - wrapperRect.top - appState.canvas.y) / appState.canvas.scale };
+
+                appState.nodes.forEach(node => {
+                    const el = document.getElementById(node.id); if (!el) return;
+                    const nodeRight = node.x + el.offsetWidth, nodeBottom = node.y + el.offsetHeight;
+                    if (node.x < boxRect.right && nodeRight > boxRect.left && node.y < boxRect.bottom && nodeBottom > boxRect.top) { if (!appState.selectedNodeIds.includes(node.id)) { appState.selectedNodeIds.push(node.id); el.classList.add('selected'); } } 
+                    else if (!e.shiftKey) { const idx = appState.selectedNodeIds.indexOf(node.id); if(idx > -1) { appState.selectedNodeIds.splice(idx, 1); el.classList.remove('selected'); } }
+                });
+            } else if (isDraggingNode && appState.selectedNodeIds.length > 0) {
+                const dx = (e.clientX - lastMouseX) / appState.canvas.scale, dy = (e.clientY - lastMouseY) / appState.canvas.scale;
+                appState.selectedNodeIds.forEach(id => { const node = appState.nodes.find(n => n.id === id); if(node) { node.x += dx; node.y += dy; document.getElementById(node.id).style.transform = `translate(${node.x}px, ${node.y}px)`; } });
+                lastMouseX = e.clientX; lastMouseY = e.clientY;
+                drawSplines(); wasMutated = true;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isPanning = false; isDraggingNode = false; if (isSelecting) { isSelecting = false; selectionBox.style.display = 'none'; } if (wasMutated) { saveState(); wasMutated = false; }
+        });
+
+        function updateCanvasTransform() { canvas.style.transform = `translate(${appState.canvas.x}px, ${appState.canvas.y}px) scale(${appState.canvas.scale})`; }
+        function openLightbox(e, src) { e.stopPropagation(); document.getElementById('lightbox-img').src = src; document.getElementById('lightbox').style.display = 'flex'; }
+
+        function addEntity(type) {
+            const input = document.getElementById(`input-${type}`); const fileInput = document.getElementById(`file-${type}`);
+            const name = input.value.trim(); 
+            if (!name && (!fileInput.files || !fileInput.files[0])) { 
+                generateSingleEntity(type); 
+                return; 
+            }
+            const processEntity = (base64Img) => { appState.entities[type].push({ id: `ent_${Date.now()}`, name, image: base64Img }); input.value = ''; fileInput.value = ''; renderEntities(); saveState(); };
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => { const canvas = document.createElement('canvas'); const scale = Math.min(300 / img.width, 300 / img.height, 1); canvas.width = img.width * scale; canvas.height = img.height * scale; canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height); processEntity(canvas.toDataURL('image/jpeg', 0.8)); }; 
+                    img.src = e.target.result;
+                }; reader.readAsDataURL(fileInput.files[0]);
+            } else { processEntity(null); }
+        }
+
+        function renderEntities() {
+            ['loc', 'char', 'prop'].forEach(type => {
+                document.getElementById(`list-${type}`).innerHTML = appState.entities[type].map(ent => `
+                    <div class="entity-pill ${type}" onclick="attachEntityToShot('${type}', '${ent.name}')">
+                        ${ent.image ? `<img src="${ent.image}" onclick="openLightbox(event, '${ent.image}')">` : '<div style="width:19px;height:19px;background:#000;border-radius:2px;"></div>'}
+                        <span>${ent.name}</span> <b style="opacity:0.5;">+</b>
+                    </div>`).join('');
+            });
+        }
+
+        function generateId() { return 'node_' + Math.random().toString(36).substr(2, 9); }
+
+        function createNode(type, presetData = null, explicitParent = null) {
+            const spawnX = (-appState.canvas.x + wrapper.clientWidth/2) / appState.canvas.scale, spawnY = (-appState.canvas.y + wrapper.clientHeight/2) / appState.canvas.scale;
+            const node = { id: generateId(), type, x: spawnX, y: spawnY, parentId: explicitParent, data: {} };
+            const activeId = appState.selectedNodeIds[0]; const activeNode = activeId ? appState.nodes.find(n => n.id === activeId) : null;
+
+            if (type === 'scene') { node.data = { heading: 'INT. NUEVA ESCENA - DÍA' }; node.x -= 120; node.y -= 40; } 
+            else if (type === 'shot') { node.data = { action: '', tags: [], duration: 7 }; if (activeNode && activeNode.type === 'scene') { node.parentId = activeNode.id; node.x = activeNode.x; node.y = activeNode.y + 96; } } 
+            else if (type === 'motion') { node.data = { text: '', hasDialog: false, char: '' }; if (activeNode && activeNode.type === 'shot') { node.parentId = activeNode.id; node.x = activeNode.x + 280; node.y = activeNode.y; } } 
+            else if (type === 'entity_link') { node.data = presetData; if (activeNode) { node.parentId = activeNode.id; node.y = activeNode.y + Math.random()*24; node.x = activeNode.x - 300; } }
+
+            appState.nodes.push(node); renderNode(node); selectSingleNode(node.id); drawSplines(); saveState();
+        }
+
+        function renderNode(node) {
+            const el = document.createElement('div'); el.className = `node type-${node.type}`; el.id = node.id;
+            let html = '';
+            if (node.type === 'scene') { html = `<div class="node-header" onmousedown="startNodeDrag('${node.id}', event)">🎬 ESCENA MAESTRA <span onclick="deleteNode('${node.id}')">✕</span></div><div class="port out"></div><div class="node-body"><input type="text" value="${node.data.heading}" oninput="updateNodeData('${node.id}', 'heading', this.value)" onmousedown="event.stopPropagation()"></div>`; } 
+            else if (node.type === 'shot') {
+                const dur = node.data.duration || 7;
+                html = `<div class="port in"></div><div class="node-header" onmousedown="startNodeDrag('${node.id}', event)">🎥 SHOT VISUAL <span onclick="deleteNode('${node.id}')">✕</span></div><div class="port out"></div><div class="node-body">
+                        <textarea placeholder="Prompt de Imagen (Cámara, Sujeto, Estilo...)" oninput="updateNodeData('${node.id}', 'action', this.value)" onmousedown="event.stopPropagation()">${node.data.action}</textarea>
+                        <div class="node-tray" id="tray-${node.id}"></div>
+                        <div style="display:flex;gap:3px;margin-top:2px;">
+                            <button class="json-export-btn" onclick="copyNodeText('${node.id}')">📋 Copiar</button>
+                            <button class="json-export-btn json-export-en" onclick="translateNodeText('${node.id}')">🇬🇧 Tr. a EN</button>
+                        </div></div>`;
+            } else if (node.type === 'motion') { 
+                html = `<div class="port in"></div><div class="node-header" style="background:#8e44ad; color:white;" onmousedown="startNodeDrag('${node.id}', event)">📽️ SHOT MOTION <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body">
+                        <div style="font-size:0.65rem; margin-bottom:5px; display:flex; gap:5px; align-items:center;">
+                            <input type="checkbox" id="dlg_${node.id}" ${node.data.hasDialog ? 'checked' : ''} onchange="updateNodeData('${node.id}', 'hasDialog', this.checked); document.getElementById('${node.id}').outerHTML = ''; appState.nodes.forEach(n => {if(n.id === '${node.id}') renderNode(n)});" onmousedown="event.stopPropagation()"> <label for="dlg_${node.id}" style="color:#aaa;">Con Diálogo</label>
+                        </div>
+                        ${node.data.hasDialog ? `<input type="text" class="char-input" placeholder="Nombre de Personaje" value="${node.data.char}" style="margin-bottom:4px;" oninput="updateNodeData('${node.id}', 'char', this.value)" onmousedown="event.stopPropagation()">` : ''}
+                        <textarea placeholder="Prompt de Movimiento Físico / Video..." style="${node.data.hasDialog ? 'height:60px;' : 'height:80px;'}" oninput="updateNodeData('${node.id}', 'text', this.value)" onmousedown="event.stopPropagation()">${node.data.text||''}</textarea>
+                        <div style="display:flex;gap:3px;margin-top:2px;">
+                            <button class="json-export-btn" onclick="copyNodeText('${node.id}')">📋 Copiar</button>
+                            <button class="json-export-btn json-export-en" onclick="translateNodeText('${node.id}')">🇬🇧 Tr. a EN</button>
+                        </div></div>`; 
+            } 
+            else if (node.type === 'entity_link') {
+                const labels = { char: '👤 PERSONAJE', loc: '🌍 ESCENARIO', prop: '🔪 OBJETO' }; const colors = { char: 'var(--accent-char)', loc: 'var(--accent-loc)', prop: 'var(--accent-prop)' };
+                html = `<div class="port in" style="left: auto; right: -4px; top: calc(50% - 4px);"></div><div class="node-header" style="background:${colors[node.data.type]}; color:white;" onmousedown="startNodeDrag('${node.id}', event)">${labels[node.data.type]} <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body"><textarea placeholder="Descripción de entidad..." oninput="updateNodeData('${node.id}', 'name', this.value)" onmousedown="event.stopPropagation()">${node.data.name}</textarea></div>`;
+            }
+            el.innerHTML = html;
+            el.onmousedown = (e) => { e.stopPropagation(); if(e.ctrlKey || e.metaKey) toggleNodeSelection(node.id); else if (!appState.selectedNodeIds.includes(node.id)) selectSingleNode(node.id); };
+            document.getElementById('canvas').appendChild(el); document.getElementById(node.id).style.transform = `translate(${node.x}px, ${node.y}px)`;
+            if(node.type === 'shot') renderTags(node);
+        }
+
+        function startNodeDrag(id, e) { 
+            if (!appState.selectedNodeIds.includes(id)) selectSingleNode(id); 
+            isDraggingNode = true; lastMouseX = e.clientX; lastMouseY = e.clientY; e.stopPropagation(); 
+        }
+        
+        function selectSingleNode(id) { appState.selectedNodeIds = [id]; document.querySelectorAll('.node').forEach(n => n.classList.remove('selected')); if(id) document.getElementById(id).classList.add('selected'); }
+        function toggleNodeSelection(id) { const idx = appState.selectedNodeIds.indexOf(id); if(idx > -1) { appState.selectedNodeIds.splice(idx, 1); document.getElementById(id).classList.remove('selected'); } else { appState.selectedNodeIds.push(id); document.getElementById(id).classList.add('selected'); } }
+        function clearSelection() { appState.selectedNodeIds = []; document.querySelectorAll('.node').forEach(n => n.classList.remove('selected')); }
+        function deleteNode(id) { appState.nodes = appState.nodes.filter(n => n.id !== id && n.parentId !== id); document.getElementById(id).remove(); document.querySelectorAll('.node').forEach(el => { if(!appState.nodes.find(n => n.id === el.id)) el.remove(); }); drawSplines(); saveState(); }
+        function updateNodeData(id, key, val) { appState.nodes.find(n => n.id === id).data[key] = val; saveState(); }
+
+        function attachEntityToShot(type, name) {
+            if (appState.selectedNodeIds.length !== 1) return alert("Selecciona UN solo nodo SHOT u otro compatible.");
+            const activeNode = appState.nodes.find(n => n.id === appState.selectedNodeIds[0]);
+            if (activeNode.type === 'motion' && type === 'char' && activeNode.data.hasDialog) { activeNode.data.char = name; const charInput = document.querySelector(`#${activeNode.id} .char-input`); if(charInput) charInput.value = name; saveState(); return; }
+            if (activeNode.type !== 'shot') return alert("Las presencias visuales se vinculan a un SHOT Visual.");
+            createNode('entity_link', { type, name }, activeNode.id);
+        }
+
+        function injectToolkitTag(cat, val) {
+            const shots = appState.selectedNodeIds.filter(id => appState.nodes.find(n => n.id === id).type === 'shot');
+            if (shots.length === 0) return alert("Selecciona al menos un nodo SHOT.");
+            shots.forEach(id => { 
+                const node = appState.nodes.find(n => n.id === id); 
+                // Evitar tags duplicados
+                if (!node.data.tags.find(t => t.cat === cat && t.val === val)) {
+                    node.data.tags.push({ cat, val }); 
+                    renderTags(node); 
+                }
+            }); 
+            saveState();
+        }
+        
+        function removeTag(id, i) { appState.nodes.find(n => n.id === id).data.tags.splice(i, 1); renderTags(appState.nodes.find(n => n.id === id)); saveState(); }
+        
+        function renderTags(node) { 
+            const tray = document.getElementById(`tray-${node.id}`); 
+            if(tray) {
+                tray.innerHTML = node.data.tags.map((t, i) => {
+                    const isDrug = t.cat === 'Fármaco';
+                    const tagClass = isDrug ? "prompt-tag drug-tag" : "prompt-tag";
+                    const prefix = isDrug ? "💊 " : "";
+                    return `<div class="${tagClass}"><b>${prefix}${t.cat.split(' ')[0]}:</b> ${t.val.split('(')[0]} <span onclick="removeTag('${node.id}', ${i})">✕</span></div>`;
+                }).join(''); 
+            }
+        }
+
+        function drawSplines() {
+            const svg = document.getElementById('svg-layer'); svg.innerHTML = '';
+            appState.nodes.forEach(node => {
+                if (node.parentId) {
+                    const parent = appState.nodes.find(n => n.id === node.parentId);
+                    if (parent) {
+                        const elNode = document.getElementById(node.id), elParent = document.getElementById(parent.id);
+                        if(elNode && elParent) {
+                            let startX = parent.x + (elParent.offsetWidth / 2), startY = parent.y + elParent.offsetHeight, endX = node.x + (elNode.offsetWidth / 2), endY = node.y, curve = 28, pathClass = "link";
+                            if(parent.type === 'scene') pathClass += " scene-link";
+                            if (node.type === 'entity_link') { startX = parent.x; startY = parent.y + 24; endX = node.x + elNode.offsetWidth; endY = node.y + 12; svg.appendChild(createSvgPath(`M ${startX} ${startY} C ${startX - 28} ${startY}, ${endX + 28} ${endY}, ${endX} ${endY}`, "link")); return; }
+                            if (node.type === 'motion') { startX = parent.x + elParent.offsetWidth; startY = parent.y + 24; endX = node.x; endY = node.y + 12; svg.appendChild(createSvgPath(`M ${startX} ${startY} C ${startX + 28} ${startY}, ${endX - 28} ${endY}, ${endX} ${endY}`, "link")); return; }
+                            svg.appendChild(createSvgPath(`M ${startX} ${startY} C ${startX} ${startY + curve}, ${endX} ${endY - curve}, ${endX} ${endY}`, pathClass));
+                        }
+                    }
+                }
+            });
+        }
+        function createSvgPath(d, className) { const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("class", className); p.setAttribute("d", d); return p; }
+
+        function initApp() {
+            initProjects();
+            document.getElementById('canvas').innerHTML = '<svg class="connections" id="svg-layer"></svg>';
+            initToolkitUI();
+            
+            const saved = localStorage.getItem(getStorageKey());
+            if (saved) {
+                appState = JSON.parse(saved); renderEntities(); appState.nodes.forEach(n => renderNode(n)); drawSplines(); updateCanvasTransform();
+            } else { createNode('scene'); }
+        }
+
+        initApp();
+
+        // ==========================================
+        // MODO ENFOQUE ESCRITURA
+        // ==========================================
+        let focusTarget = null;
+        
+        document.addEventListener('focusin', (e) => {
+            if (e.target.tagName === 'TEXTAREA' && !e.target.classList.contains('no-focus-modal')) {
+                e.target.blur(); 
+                openFocusMode(e.target);
+            }
+        });
+
+        function openFocusMode(textareaElement) {
+            focusTarget = textareaElement;
+            const modal = document.getElementById('focus-modal');
+            const focusInput = document.getElementById('focus-textarea');
+            
+            modal.style.display = 'flex';
+            focusInput.value = focusTarget.value;
+            setTimeout(() => focusInput.focus(), 50); 
+        }
+
+        function closeFocusMode(saveText = true) {
+            const modal = document.getElementById('focus-modal');
+            const focusInput = document.getElementById('focus-textarea');
+            
+            if (saveText && focusTarget) {
+                focusTarget.value = focusInput.value;
+                focusTarget.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            
+            modal.style.display = 'none';
+            focusTarget = null;
+        }
+
+        document.getElementById('focus-textarea').addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                closeFocusMode(true);
+            }
+        });
+    </script>
+</body>
+</html>
