@@ -3,72 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDMusicX - Metrobús Generativo</title>
+    <title>CDMusicX - Realidad y Ritmo</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 
     <style>
-        :root {
-            --bg: #0a0a0a;
-            --text: #e0e0e0;
-            --l1: #ff0000; /* Insurgentes */
-            --l2: #930093; /* Eje 4 Sur */
-            --l3: #00a800; /* Eje 1 Poniente */
-        }
-
-        body, html { 
-            margin: 0; padding: 0; height: 100%; 
-            font-family: 'Courier New', Courier, monospace; 
-            background: var(--bg); color: var(--text); overflow: hidden;
-        }
-
-        #map { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; }
-        
-        /* Ocultar elementos de Leaflet para hacerlo más inmersivo */
+        :root { --bg: #050505; --text: #f0f0f0; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Courier New', Courier, monospace; background: var(--bg); color: var(--text); overflow: hidden; }
+        #map { width: 100vw; height: 100vh; position: absolute; z-index: 1; }
         .leaflet-control-zoom { display: none; }
         .leaflet-container { background: var(--bg) !important; }
 
-        /* Interfaz Flotante (Estilo Train Jazz) */
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; pointer-events: none; /* Deja hacer clic al mapa a través de la UI */
-            display: flex; flex-direction: column; justify-content: space-between;
+            z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
         }
 
-        #top-bar {
-            text-align: center; padding: 20px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
+        #top-bar { text-align: center; padding: 20px; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); pointer-events: auto; }
+        
+        button {
+            background: #fff; color: #000; border: none; padding: 12px 24px; font-size: 1.2em;
+            cursor: pointer; font-weight: bold; text-transform: uppercase; border-radius: 2px; transition: 0.3s;
         }
-
-        #btn-start {
-            pointer-events: auto; background: var(--text); color: var(--bg);
-            border: none; padding: 10px 20px; font-size: 1.2em; font-family: inherit;
-            cursor: pointer; text-transform: uppercase; font-weight: bold;
-            border-radius: 4px; transition: 0.3s;
-        }
-        #btn-start:hover { background: #fff; box-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        button:hover { box-shadow: 0 0 20px rgba(255,255,255,0.8); }
 
         #bottom-panel {
-            background: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.7), transparent);
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 20%, transparent);
             padding: 40px 20px 20px 20px; display: flex; justify-content: space-between; align-items: flex-end;
+            pointer-events: auto;
         }
 
-        .legend { pointer-events: auto; font-size: 0.9em; max-width: 400px; }
-        .legend h1 { margin: 0 0 5px 0; font-size: 1.5em; letter-spacing: 2px; }
-        .legend p { margin: 0 0 15px 0; opacity: 0.7; }
-        
-        .line-info { margin-bottom: 10px; display: flex; align-items: flex-start; gap: 10px; }
-        .color-dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 3px; flex-shrink: 0; }
-        .line-desc { font-size: 0.85em; opacity: 0.9; }
-        .line-desc strong { display: block; margin-bottom: 2px; }
+        .data-box { background: rgba(20,20,20,0.8); border: 1px solid #333; padding: 15px; border-radius: 5px; text-align: right; }
+        .data-value { font-size: 2.5em; font-weight: bold; color: #00ffcc; text-shadow: 0 0 10px #00ffcc; }
+        .data-label { font-size: 0.8em; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
 
-        .counter { font-size: 1.2em; text-align: right; }
-        .counter span { font-size: 2.5em; font-weight: bold; color: var(--l1); display: block; }
+        .legend h1 { margin: 0; font-size: 2em; letter-spacing: 2px; text-transform: uppercase; }
+        .legend h1 span { color: #ff0055; }
+        .status { color: #888; font-size: 0.9em; margin-top: 5px; }
 
-        /* Estilos de marcadores en el mapa */
-        .bus-marker { border-radius: 50%; box-shadow: 0 0 8px currentColor; transition: fill 0.1s; }
+        .bus-marker { border-radius: 50%; box-shadow: 0 0 10px currentColor; }
     </style>
 </head>
 <body>
@@ -77,183 +52,198 @@
 
 <div id="ui-layer">
     <div id="top-bar">
-        <button id="btn-start" onclick="iniciarExperiencia()">Activar CDMusicX</button>
+        <button id="btn-start" onclick="iniciarSistema()">Conectar a CDMusicX</button>
     </div>
 
     <div id="bottom-panel">
         <div class="legend">
-            <h1>CDMusicX</h1>
-            <p>El ritmo de la ciudad en tiempo real.</p>
-            
-            <div class="line-info">
-                <div class="color-dot" style="background: var(--l1); box-shadow: 0 0 8px var(--l1);"></div>
-                <div class="line-desc">
-                    <strong style="color: var(--l1);">Línea 1 (Insurgentes)</strong>
-                    Controla el bajo profundo (Bass Synth). Cada unidad que completa su ruta marca el pulso de la ciudad.
-                </div>
-            </div>
-            <div class="line-info">
-                <div class="color-dot" style="background: var(--l2); box-shadow: 0 0 8px var(--l2);"></div>
-                <div class="line-desc">
-                    <strong style="color: var(--l2);">Línea 2 (Eje 4 Sur)</strong>
-                    Aporta la percusión estilo Beatbox. Cajas de ritmo y hi-hats veloces.
-                </div>
-            </div>
-            <div class="line-info">
-                <div class="color-dot" style="background: var(--l3); box-shadow: 0 0 8px var(--l3);"></div>
-                <div class="line-desc">
-                    <strong style="color: var(--l3);">Línea 3 (Eje 1 Pte)</strong>
-                    Sintetizadores atmosféricos (Pads/Chords). Crea la melodía de fondo.
-                </div>
-            </div>
+            <h1>CDM<span>usic</span>X</h1>
+            <div class="status" id="sys-status">Esperando conexión... Cartografía descargada: 0%</div>
         </div>
 
-        <div class="counter">
-            Unidades Activas
-            <span id="bus-count">0</span>
+        <div style="display: flex; gap: 20px;">
+            <div class="data-box">
+                <div class="data-label">Unidades en Ruta</div>
+                <div class="data-value" id="bus-count">0</div>
+            </div>
+            <div class="data-box">
+                <div class="data-label">Tempo Master (BPM)</div>
+                <div class="data-value" id="bpm-count" style="color: #ff0055; text-shadow: 0 0 10px #ff0055;">0</div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
-    // --- 1. CONFIGURACIÓN DEL MAPA (SIN BANNER DE LEAFLET) ---
-    // attributionControl: false elimina el banner inferior derecho
-    const map = L.map('map', { 
-        attributionControl: false, 
-        zoomControl: false 
-    }).setView([19.41, -99.15], 13);
-    
+    // --- 1. MAPA Y ESTILOS DE LÍNEAS OFICIALES ---
+    const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.40, -99.14], 12);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
-    // --- 2. DEFINICIÓN DE RUTAS (Líneas físicas en el mapa) ---
-    const rutasConfig = {
-        'L1': { color: '#ff0000', start: [19.48, -99.135], end: [19.33, -99.185], name: 'Línea 1' },
-        'L2': { color: '#930093', start: [19.395, -99.06], end: [19.395, -99.175], name: 'Línea 2' },
-        'L3': { color: '#00a800', start: [19.49, -99.145], end: [19.33, -99.155], name: 'Línea 3' }
+    const coloresLineas = {
+        'LÍNEA 1': '#ff0000', 'LÍNEA 2': '#930093', 'LÍNEA 3': '#00a800', 'LÍNEA 4': '#ff8000',
+        'LÍNEA 5': '#0000ff', 'LÍNEA 6': '#ff00ff', 'LÍNEA 7': '#00ff00'
     };
 
-    // Dibujar las líneas en el mapa para mayor claridad visual
-    for (let l in rutasConfig) {
-        L.polyline([rutasConfig[l].start, rutasConfig[l].end], {
-            color: rutasConfig[l].color, weight: 3, opacity: 0.3
-        }).addTo(map);
-    }
-
-    // --- 3. MOTOR DE AUDIO (TONE.JS) ---
-    const reverb = new Tone.Reverb(2).toDestination();
+    let rutasExactas = {}; // Aquí guardaremos las coordenadas para que los autobuses naveguen
     
-    // L1: Bajo profundo
-    const synthBass = new Tone.FMSynth({
-        envelope: { attack: 0.05, decay: 0.3, sustain: 0.1, release: 1 },
-        modulationIndex: 2
-    }).connect(reverb);
-    synthBass.volume.value = -5;
+    // API Oficial Datos Abiertos CDMX
+    const URL_GEOJSON = 'https://datos.cdmx.gob.mx/api/explore/v2.1/catalog/datasets/lineas-de-metrobus/exports/geojson?lang=es&timezone=America%2FMexico_City';
 
-    // L2: Beatbox / Percusión (Hi-hat cerrado)
-    const synthPerc = new Tone.NoiseSynth({
-        noise: { type: 'white' },
-        envelope: { attack: 0.005, decay: 0.1, sustain: 0 }
-    }).toDestination();
-    synthPerc.volume.value = -10;
+    async function descargarCartografia() {
+        document.getElementById('sys-status').innerText = "Descargando trazos oficiales...";
+        try {
+            const response = await fetch(URL_GEOJSON);
+            const data = await response.json();
+            
+            L.geoJSON(data, {
+                style: function (feature) {
+                    const linea = feature.properties.linea;
+                    return { color: coloresLineas[linea] || '#fff', weight: 3, opacity: 0.4 };
+                },
+                onEachFeature: function (feature, layer) {
+                    const linea = feature.properties.linea;
+                    // Extraer coordenadas para que los buses las sigan
+                    if(feature.geometry.type === "LineString") {
+                        if(!rutasExactas[linea]) rutasExactas[linea] = [];
+                        // Invertimos porque GeoJSON es [Lng, Lat] y Leaflet usa [Lat, Lng]
+                        const coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
+                        rutasExactas[linea] = rutasExactas[linea].concat(coords);
+                    }
+                }
+            }).addTo(map);
+            
+            document.getElementById('sys-status').innerText = "Cartografía cargada. Listo para arrancar.";
+        } catch (error) {
+            document.getElementById('sys-status').innerText = "Error cargando mapa oficial. Usando simulación.";
+        }
+    }
+    
+    descargarCartografia();
 
-    // L3: Pad / Chords
-    const synthPad = new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.5, decay: 1, sustain: 0.5, release: 2 }
-    }).connect(reverb);
-    synthPad.volume.value = -12;
+    // --- 2. ORQUESTA TONE.JS (7 INSTRUMENTOS) ---
+    const reverb = new Tone.Reverb(2.5).toDestination();
+    const delay = new Tone.FeedbackDelay("8n", 0.4).connect(reverb);
+    
+    const synths = {
+        'LÍNEA 1': new Tone.MembraneSynth().toDestination(), // Kick (Bombo)
+        'LÍNEA 2': new Tone.NoiseSynth({noise: {type: 'pink'}}).toDestination(), // Snare/Beatbox
+        'LÍNEA 3': new Tone.FMSynth({modulationIndex: 2}).connect(reverb), // Bajo
+        'LÍNEA 4': new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'square'}}).connect(delay), // Chords
+        'LÍNEA 5': new Tone.Synth({oscillator: {type: 'sine'}}).connect(reverb), // Pluck
+        'LÍNEA 6': new Tone.MetalSynth({resonance: 4000}).toDestination(), // Hi-hats
+        'LÍNEA 7': new Tone.AMSynth().connect(delay) // Atmósfera
+    };
+    
+    // Balanceo de volúmenes
+    synths['LÍNEA 1'].volume.value = 0;
+    synths['LÍNEA 2'].volume.value = -10;
+    synths['LÍNEA 3'].volume.value = -5;
+    synths['LÍNEA 4'].volume.value = -15;
+    synths['LÍNEA 6'].volume.value = -15;
 
     let audioIniciado = false;
-    const notasPad = [["C4", "E4", "G4"], ["A3", "C4", "E4"], ["F3", "A3", "C4"]]; // Progresión de acordes
+    let baseBPM = 80;
 
-    async function iniciarExperiencia() {
+    async function iniciarSistema() {
         await Tone.start();
         Tone.Transport.start();
         audioIniciado = true;
+        document.getElementById('top-bar').style.display = 'none';
+        document.getElementById('sys-status').innerText = "Motor Generativo Sincronizado.";
         
-        const btn = document.getElementById('btn-start');
-        btn.innerText = "SISTEMA ACTIVO";
-        btn.style.background = "#00ffcc";
-        btn.style.color = "#000";
-        setTimeout(() => btn.style.display = 'none', 2000); // Ocultar tras activar
-
-        iniciarSimulacionBuses();
+        iniciarFlujoVehicular();
     }
 
-    // --- 4. LÓGICA DE MOVIMIENTO Y SONIDO ---
-    let autobuses = [];
-    const NUM_BUSES = 35; // Cantidad de puntos moviéndose
+    // --- 3. LÓGICA DE TRÁFICO, BPM Y MOVIMIENTO EXACTO ---
+    let unidades = [];
 
-    function iniciarSimulacionBuses() {
-        // Generar autobuses iniciales
-        for(let i = 0; i < NUM_BUSES; i++) {
-            const lineaIds = Object.keys(rutasConfig);
-            const lineaAleatoria = lineaIds[Math.floor(Math.random() * lineaIds.length)];
+    function iniciarFlujoVehicular() {
+        // Simulador de tráfico: Cambia la cantidad de buses aleatoriamente cada 10 segundos
+        actualizarTrafico();
+        setInterval(actualizarTrafico, 10000);
+        animarUnidades();
+    }
+
+    function actualizarTrafico() {
+        // Generamos entre 40 (valle) y 150 (hora pico) unidades
+        const nuevoTotal = Math.floor(Math.random() * 110) + 40; 
+        document.getElementById('bus-count').innerText = nuevoTotal;
+
+        // CALCULAR BPM: 40 buses = 90 BPM. 150 buses = 145 BPM.
+        const nuevoBPM = Math.floor(90 + ((nuevoTotal - 40) * 0.5));
+        Tone.Transport.bpm.rampTo(nuevoBPM, 2); // Rampa suave de 2 segundos
+        document.getElementById('bpm-count').innerText = nuevoBPM;
+
+        // Ajustar el array de unidades en el mapa
+        const lineasDisponibles = Object.keys(rutasExactas);
+        if(lineasDisponibles.length === 0) return; // Si no cargó el mapa, no hacemos nada
+
+        // Si hay menos unidades de las necesarias, las creamos
+        while(unidades.length < nuevoTotal) {
+            const lineaActiva = lineasDisponibles[Math.floor(Math.random() * lineasDisponibles.length)];
+            const ruta = rutasExactas[lineaActiva];
             
-            autobuses.push({
-                id: i,
-                linea: lineaAleatoria,
-                progress: Math.random(), // Posición inicial (0 a 1 en su ruta)
-                speed: (Math.random() * 0.002) + 0.001, // Velocidad a la que viaja
-                direction: Math.random() > 0.5 ? 1 : -1, // Hacia adelante o hacia atrás
-                marker: L.circleMarker([0,0], {
-                    radius: 4,
-                    color: rutasConfig[lineaAleatoria].color,
-                    fillColor: rutasConfig[lineaAleatoria].color,
-                    fillOpacity: 1, weight: 2
+            unidades.push({
+                linea: lineaActiva,
+                ruta: ruta,
+                nodoActual: 0,
+                // Velvetocidad depende del BPM (si van rápido, se mueven más rápido entre nodos)
+                velocidad: Math.floor(Math.random() * 3) + 1, 
+                marker: L.circleMarker(ruta[0], {
+                    radius: 4, color: coloresLineas[lineaActiva], fillOpacity: 1, weight: 1
                 }).addTo(map)
             });
         }
         
-        document.getElementById('bus-count').innerText = NUM_BUSES;
-        animarAutobuses();
+        // Si hay más de las necesarias, las borramos (salen de servicio)
+        while(unidades.length > nuevoTotal) {
+            const busViejo = unidades.pop();
+            map.removeLayer(busViejo.marker);
+        }
     }
 
-    function animarAutobuses() {
-        autobuses.forEach(bus => {
-            const ruta = rutasConfig[bus.linea];
-            
-            // Actualizar progreso a lo largo de la línea
-            bus.progress += (bus.speed * bus.direction);
+    // --- 4. NAVEGACIÓN NODO POR NODO ---
+    function animarUnidades() {
+        unidades.forEach(bus => {
+            // Avanzar al siguiente nodo de la curva real del GeoJSON
+            bus.nodoActual += bus.velocidad;
 
-            // Si llega al final o al principio de la ruta
-            if (bus.progress >= 1 || bus.progress <= 0) {
-                bus.direction *= -1; // Da la vuelta
-                bus.progress = Math.max(0, Math.min(1, bus.progress));
+            // Si llega al final de la ruta real
+            if (bus.nodoActual >= bus.ruta.length - 1) {
+                bus.nodoActual = 0; // Vuelve a empezar
                 
-                // --- GATILLO MUSICAL: Llegada a estación/fin de línea ---
-                if (audioIniciado) {
-                    dispararSonido(bus.linea);
-                    
-                    // Efecto visual: el punto brilla al sonar
-                    bus.marker.setRadius(10);
-                    setTimeout(() => bus.marker.setRadius(4), 200);
-                }
+                // DISPARO MUSICAL
+                if (audioIniciado) dispararSonido(bus.linea);
+                
+                // Efecto visual de rebote
+                bus.marker.setRadius(12);
+                setTimeout(() => bus.marker.setRadius(4), 200);
             }
 
-            // Interpolación lineal para calcular Lat/Lng exacto en la línea
-            const lat = ruta.start[0] + (ruta.end[0] - ruta.start[0]) * bus.progress;
-            const lng = ruta.start[1] + (ruta.end[1] - ruta.start[1]) * bus.progress;
-            
-            bus.marker.setLatLng([lat, lng]);
+            // Actualizar posición en el mapa a la coordenada real
+            if(bus.ruta[bus.nodoActual]) {
+                bus.marker.setLatLng(bus.ruta[bus.nodoActual]);
+            }
         });
 
-        requestAnimationFrame(animarAutobuses); // Loop de animación fluido a 60fps
+        // Esta vez usamos setTimeout en lugar de requestAnimationFrame para no saturar 
+        // el navegador navegando por miles de coordenadas GeoJSON por segundo.
+        setTimeout(animarUnidades, 100); 
     }
 
+    const notasSynth = ["C4", "D4", "F4", "G4", "A4"]; // Pentatónica mayor
+
     function dispararSonido(linea) {
-        // Sincronizamos las notas al tempo usando Tone.Transport
         const tiempo = Tone.now();
         
-        if (linea === 'L1') {
-            synthBass.triggerAttackRelease("C2", "8n", tiempo);
-        } 
-        else if (linea === 'L2') {
-            synthPerc.triggerAttackRelease("16n", tiempo);
-        } 
-        else if (linea === 'L3') {
-            const acordeAleatorio = notasPad[Math.floor(Math.random() * notasPad.length)];
-            synthPad.triggerAttackRelease(acordeAleatorio, "1m", tiempo);
+        switch(linea) {
+            case 'LÍNEA 1': synths[linea].triggerAttackRelease("C1", "8n", tiempo); break;
+            case 'LÍNEA 2': synths[linea].triggerAttackRelease("16n", tiempo); break;
+            case 'LÍNEA 3': synths[linea].triggerAttackRelease("C2", "8n", tiempo); break;
+            case 'LÍNEA 4': synths[linea].triggerAttackRelease(["C4", "E4", "G4"], "4n", tiempo); break;
+            case 'LÍNEA 5': synths[linea].triggerAttackRelease(notasSynth[Math.floor(Math.random()*notasSynth.length)], "8n", tiempo); break;
+            case 'LÍNEA 6': synths[linea].triggerAttackRelease("32n", tiempo); break;
+            case 'LÍNEA 7': synths[linea].triggerAttackRelease("C5", "2n", tiempo); break;
         }
     }
 </script>
