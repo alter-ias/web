@@ -3,249 +3,300 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDMusicX - Realidad y Ritmo</title>
+    <title>Sound Visualizer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 
     <style>
-        :root { --bg: #050505; --text: #f0f0f0; }
-        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Courier New', Courier, monospace; background: var(--bg); color: var(--text); overflow: hidden; }
-        #map { width: 100vw; height: 100vh; position: absolute; z-index: 1; }
-        .leaflet-control-zoom { display: none; }
-        .leaflet-container { background: var(--bg) !important; }
-
-        #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+        :root {
+            --bg-base: #050505; --panel-bg: #0a0a0a; --neon-green: #00ff41; --neon-cyan: #00f0ff;
+            --neon-magenta: #ff003c; --neon-yellow: #f0ff00; --grid-color: rgba(0, 255, 65, 0.05);
+            --ui-accent: var(--neon-cyan);
         }
 
-        #top-bar { text-align: center; padding: 20px; background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent); pointer-events: auto; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-base); color: var(--ui-accent); font-family: 'Share Tech Mono', monospace;
+            height: 100vh; overflow: hidden; display: grid;
+            grid-template-columns: 350px 1fr 300px; grid-template-rows: 60px 1fr 250px;
+            grid-template-areas: "header header header" "sidebar-left main sidebar-right" "sidebar-left bottom bottom";
+            gap: 15px; padding: 15px;
+            background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        .panel { background: var(--panel-bg); border: 1px solid rgba(0, 240, 255, 0.3); position: relative; display: flex; flex-direction: column; overflow: hidden; }
+        .panel-header { background: rgba(0, 240, 255, 0.05); border-bottom: 1px solid rgba(0, 240, 255, 0.3); padding: 5px 15px; font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 2px; text-transform: uppercase; display: flex; justify-content: space-between; }
         
-        button {
-            background: #fff; color: #000; border: none; padding: 12px 24px; font-size: 1.2em;
-            cursor: pointer; font-weight: bold; text-transform: uppercase; border-radius: 2px; transition: 0.3s;
-        }
-        button:hover { box-shadow: 0 0 20px rgba(255,255,255,0.8); }
+        header { grid-area: header; display: flex; justify-content: space-between; align-items: center; border: none; background: transparent; padding: 0 10px; }
+        .logo { font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 900; color: var(--neon-cyan); text-shadow: 0 0 10px var(--neon-cyan); letter-spacing: 4px; }
+        .sys-status { font-size: 1rem; color: var(--neon-green); border: 1px solid var(--neon-green); padding: 5px 15px; }
 
-        #bottom-panel {
-            background: linear-gradient(to top, rgba(0,0,0,0.95) 20%, transparent);
-            padding: 40px 20px 20px 20px; display: flex; justify-content: space-between; align-items: flex-end;
-            pointer-events: auto;
-        }
+        .sidebar-left { grid-area: sidebar-left; }
+        .main-view { grid-area: main; position: relative; cursor: crosshair; }
+        .sidebar-right { grid-area: sidebar-right; }
+        .bottom-view { grid-area: bottom; display: flex; gap: 15px; }
 
-        .data-box { background: rgba(20,20,20,0.8); border: 1px solid #333; padding: 15px; border-radius: 5px; text-align: right; }
-        .data-value { font-size: 2.5em; font-weight: bold; color: #00ffcc; text-shadow: 0 0 10px #00ffcc; }
-        .data-label { font-size: 0.8em; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
+        .sub-panel { flex: 1; border: 1px solid rgba(0, 255, 65, 0.3); display: flex; flex-direction: column; }
+        .sub-panel .panel-header { color: var(--neon-green); border-bottom-color: rgba(0, 255, 65, 0.5); }
 
-        .legend h1 { margin: 0; font-size: 2em; letter-spacing: 2px; text-transform: uppercase; }
-        .legend h1 span { color: #ff0055; }
-        .status { color: #888; font-size: 0.9em; margin-top: 5px; }
+        canvas { width: 100%; height: 100%; display: block; }
+        #map { flex-grow: 1; width: 100%; background: #000; }
+        .leaflet-control-zoom, .leaflet-control-attribution { display: none; }
 
-        .bus-marker { border-radius: 50%; box-shadow: 0 0 10px currentColor; }
+        .btn { background: rgba(0, 240, 255, 0.1); border: 1px solid var(--neon-cyan); color: var(--neon-cyan); font-family: 'Orbitron', sans-serif; font-weight: 700; padding: 15px; cursor: pointer; text-transform: uppercase; font-size: 1rem; transition: all 0.2s; width: 100%; margin-top: 10px; }
+        .btn:hover { background: var(--neon-cyan); color: #000; box-shadow: 0 0 20px var(--neon-cyan); }
+
+        .terminal { padding: 15px; font-size: 0.8rem; color: var(--neon-green); height: 100%; overflow-y: auto; line-height: 1.5; }
+        .terminal p::before { content: "> "; opacity: 0.5; }
+        
+        .controls-layer { padding: 15px; border-top: 1px solid var(--neon-cyan); }
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 10px 0; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 15px; width: 10px; background: var(--ui-accent); cursor: pointer; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 2px; background: rgba(255, 255, 255, 0.2); }
     </style>
 </head>
 <body>
 
-<div id="map"></div>
-
-<div id="ui-layer">
-    <div id="top-bar">
-        <button id="btn-start" onclick="iniciarSistema()">Conectar a CDMusicX</button>
-    </div>
-
-    <div id="bottom-panel">
-        <div class="legend">
-            <h1>CDM<span>usic</span>X</h1>
-            <div class="status" id="sys-status">Esperando conexión... Cartografía descargada: 0%</div>
+    <header>
+        <div>
+            <div style="font-size: 0.8rem; opacity: 0.8;">DATA-DRIVEN AUDIO ENGINE</div>
+            <div class="logo">SOUND VISUALIZER</div>
         </div>
+        <div class="sys-status">STATUS: <span id="status-txt">STANDBY</span></div>
+    </header>
 
-        <div style="display: flex; gap: 20px;">
-            <div class="data-box">
-                <div class="data-label">Unidades en Ruta</div>
-                <div class="data-value" id="bus-count">0</div>
-            </div>
-            <div class="data-box">
-                <div class="data-label">Tempo Master (BPM)</div>
-                <div class="data-value" id="bpm-count" style="color: #ff0055; text-shadow: 0 0 10px #ff0055;">0</div>
+    <div class="panel sidebar-left">
+        <div class="panel-header"><span>GENERADOR: METROBÚS</span></div>
+        <div id="map"></div>
+        <div class="controls-layer">
+            <button class="btn" id="startBtn">INICIAR SISTEMA GLOBAL</button>
+            <div style="margin-top: 15px; font-size: 0.8rem;">
+                <label>INTENSIDAD DEL GLITCH: <span id="glitch-val">0</span>%</label>
+                <input type="range" id="glitchAmt" min="0" max="100" value="0">
             </div>
         </div>
     </div>
-</div>
 
-<script>
-    // --- 1. MAPA Y ESTILOS DE LÍNEAS OFICIALES ---
-    const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.40, -99.14], 12);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
+    <div class="panel main-view" id="mainViewContainer">
+        <div class="panel-header" style="position: absolute; top: 0; width: 100%; z-index: 10; background: rgba(0,0,0,0.5);">
+            <span>ESCENARIO HOLOGRÁFICO [3D RENDER]</span>
+        </div>
+        <canvas id="mainCanvas"></canvas>
+    </div>
 
-    const coloresLineas = {
-        'LÍNEA 1': '#ff0000', 'LÍNEA 2': '#930093', 'LÍNEA 3': '#00a800', 'LÍNEA 4': '#ff8000',
-        'LÍNEA 5': '#0000ff', 'LÍNEA 6': '#ff00ff', 'LÍNEA 7': '#00ff00'
-    };
+    <div class="panel sidebar-right">
+        <div class="panel-header"><span>SYS.LOGS</span></div>
+        <div class="terminal" id="terminal">
+            <p>SISTEMA INICIADO.</p>
+            <p>ESPERANDO INSTRUCCIÓN DE ARRANQUE...</p>
+        </div>
+    </div>
 
-    let rutasExactas = {}; // Aquí guardaremos las coordenadas para que los autobuses naveguen
-    
-    // API Oficial Datos Abiertos CDMX
-    const URL_GEOJSON = 'https://datos.cdmx.gob.mx/api/explore/v2.1/catalog/datasets/lineas-de-metrobus/exports/geojson?lang=es&timezone=America%2FMexico_City';
+    <div class="bottom-view">
+        <div class="panel sub-panel" style="flex: 1.5;">
+            <div class="panel-header"><span>OSCILOSCOPIO DE ONDA</span></div>
+            <canvas id="waveCanvas"></canvas>
+        </div>
+        <div class="panel sub-panel">
+            <div class="panel-header"><span>ANALIZADOR DE ESPECTRO (FFT)</span></div>
+            <canvas id="fftCanvas"></canvas>
+        </div>
+    </div>
 
-    async function descargarCartografia() {
-        document.getElementById('sys-status').innerText = "Descargando trazos oficiales...";
-        try {
-            const response = await fetch(URL_GEOJSON);
-            const data = await response.json();
-            
-            L.geoJSON(data, {
-                style: function (feature) {
-                    const linea = feature.properties.linea;
-                    return { color: coloresLineas[linea] || '#fff', weight: 3, opacity: 0.4 };
-                },
-                onEachFeature: function (feature, layer) {
-                    const linea = feature.properties.linea;
-                    // Extraer coordenadas para que los buses las sigan
-                    if(feature.geometry.type === "LineString") {
-                        if(!rutasExactas[linea]) rutasExactas[linea] = [];
-                        // Invertimos porque GeoJSON es [Lng, Lat] y Leaflet usa [Lat, Lng]
-                        const coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
-                        rutasExactas[linea] = rutasExactas[linea].concat(coords);
-                    }
-                }
-            }).addTo(map);
-            
-            document.getElementById('sys-status').innerText = "Cartografía cargada. Listo para arrancar.";
-        } catch (error) {
-            document.getElementById('sys-status').innerText = "Error cargando mapa oficial. Usando simulación.";
+    <script>
+        // --- 1. LÓGICA DE INTERFAZ Y LOGS ---
+        const log = (msg) => {
+            const term = document.getElementById('terminal');
+            const p = document.createElement('p'); p.textContent = msg;
+            term.appendChild(p); term.scrollTop = term.scrollHeight;
+        };
+
+        const waveCanvas = document.getElementById('waveCanvas');
+        const fftCanvas = document.getElementById('fftCanvas');
+        const wCtx = waveCanvas.getContext('2d');
+        const fCtx = fftCanvas.getContext('2d');
+
+        // --- 2. CONFIGURACIÓN DEL MAPA (LEAFLET) ---
+        const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.43, -99.14], 12);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
+
+        // Rutas simuladas para evitar el error CORS del gobierno
+        const rutasSimuladas = [
+            { id: 'L1', color: '#ff0000', start: [19.48, -99.13], end: [19.33, -99.18] },
+            { id: 'L2', color: '#930093', start: [19.39, -99.06], end: [19.39, -99.17] },
+            { id: 'L3', color: '#00a800', start: [19.49, -99.14], end: [19.33, -99.15] }
+        ];
+
+        rutasSimuladas.forEach(r => L.polyline([r.start, r.end], {color: r.color, opacity: 0.3}).addTo(map));
+
+        // --- 3. CONFIGURACIÓN 3D (THREE.JS) ---
+        const mainCanvas = document.getElementById('mainCanvas');
+        const renderer = new THREE.WebGLRenderer({ canvas: mainCanvas, alpha: true, antialias: true });
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+        camera.position.z = 6;
+
+        scene.add(new THREE.AmbientLight(0x222222));
+        scene.add(new THREE.PointLight(0x00f0ff, 2, 50).position.set(5, 5, 5));
+
+        const particlesGeo = new THREE.BufferGeometry();
+        const particlesCount = 2000;
+        const dustPos = new Float32Array(particlesCount * 3);
+        const dustBase = new Float32Array(particlesCount * 3);
+        for(let i=0; i < particlesCount * 3; i++) {
+            let val = (Math.random() - 0.5) * 15;
+            dustPos[i] = val; dustBase[i] = val;
         }
-    }
-    
-    descargarCartografia();
+        particlesGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+        const particlesMat = new THREE.PointsMaterial({ size: 0.05, color: 0x00f0ff, transparent: true, blending: THREE.AdditiveBlending });
+        const dustSystem = new THREE.Points(particlesGeo, particlesMat);
+        scene.add(dustSystem);
 
-    // --- 2. ORQUESTA TONE.JS (7 INSTRUMENTOS) ---
-    const reverb = new Tone.Reverb(2.5).toDestination();
-    const delay = new Tone.FeedbackDelay("8n", 0.4).connect(reverb);
-    
-    const synths = {
-        'LÍNEA 1': new Tone.MembraneSynth().toDestination(), // Kick (Bombo)
-        'LÍNEA 2': new Tone.NoiseSynth({noise: {type: 'pink'}}).toDestination(), // Snare/Beatbox
-        'LÍNEA 3': new Tone.FMSynth({modulationIndex: 2}).connect(reverb), // Bajo
-        'LÍNEA 4': new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'square'}}).connect(delay), // Chords
-        'LÍNEA 5': new Tone.Synth({oscillator: {type: 'sine'}}).connect(reverb), // Pluck
-        'LÍNEA 6': new Tone.MetalSynth({resonance: 4000}).toDestination(), // Hi-hats
-        'LÍNEA 7': new Tone.AMSynth().connect(delay) // Atmósfera
-    };
-    
-    // Balanceo de volúmenes
-    synths['LÍNEA 1'].volume.value = 0;
-    synths['LÍNEA 2'].volume.value = -10;
-    synths['LÍNEA 3'].volume.value = -5;
-    synths['LÍNEA 4'].volume.value = -15;
-    synths['LÍNEA 6'].volume.value = -15;
+        function resize() {
+            waveCanvas.width = waveCanvas.parentElement.clientWidth; waveCanvas.height = waveCanvas.parentElement.clientHeight - 35;
+            fftCanvas.width = fftCanvas.parentElement.clientWidth; fftCanvas.height = fftCanvas.parentElement.clientHeight - 35;
+            const w = mainCanvas.parentElement.clientWidth; const h = mainCanvas.parentElement.clientHeight;
+            renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+        }
+        window.addEventListener('resize', resize);
+        setTimeout(resize, 100);
 
-    let audioIniciado = false;
-    let baseBPM = 80;
+        // --- 4. AUDIO ENGINE (TONE.JS + WEB AUDIO API NATIVA) ---
+        let analyser, dataArrayFft, dataArrayWave;
+        let audioActivo = false;
 
-    async function iniciarSistema() {
-        await Tone.start();
-        Tone.Transport.start();
-        audioIniciado = true;
-        document.getElementById('top-bar').style.display = 'none';
-        document.getElementById('sys-status').innerText = "Motor Generativo Sincronizado.";
-        
-        iniciarFlujoVehicular();
-    }
+        // Sintetizadores Tone.js
+        const synths = {
+            'L1': new Tone.MembraneSynth().toDestination(), // Kick/Bombo
+            'L2': new Tone.NoiseSynth({noise: {type: 'pink'}}).toDestination(), // Snare/Hihat
+            'L3': new Tone.PolySynth(Tone.Synth).toDestination() // Chords
+        };
+        synths['L1'].volume.value = 5;
+        synths['L2'].volume.value = 0;
+        synths['L3'].volume.value = -5;
 
-    // --- 3. LÓGICA DE TRÁFICO, BPM Y MOVIMIENTO EXACTO ---
-    let unidades = [];
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            if (audioActivo) return;
 
-    function iniciarFlujoVehicular() {
-        // Simulador de tráfico: Cambia la cantidad de buses aleatoriamente cada 10 segundos
-        actualizarTrafico();
-        setInterval(actualizarTrafico, 10000);
-        animarUnidades();
-    }
-
-    function actualizarTrafico() {
-        // Generamos entre 40 (valle) y 150 (hora pico) unidades
-        const nuevoTotal = Math.floor(Math.random() * 110) + 40; 
-        document.getElementById('bus-count').innerText = nuevoTotal;
-
-        // CALCULAR BPM: 40 buses = 90 BPM. 150 buses = 145 BPM.
-        const nuevoBPM = Math.floor(90 + ((nuevoTotal - 40) * 0.5));
-        Tone.Transport.bpm.rampTo(nuevoBPM, 2); // Rampa suave de 2 segundos
-        document.getElementById('bpm-count').innerText = nuevoBPM;
-
-        // Ajustar el array de unidades en el mapa
-        const lineasDisponibles = Object.keys(rutasExactas);
-        if(lineasDisponibles.length === 0) return; // Si no cargó el mapa, no hacemos nada
-
-        // Si hay menos unidades de las necesarias, las creamos
-        while(unidades.length < nuevoTotal) {
-            const lineaActiva = lineasDisponibles[Math.floor(Math.random() * lineasDisponibles.length)];
-            const ruta = rutasExactas[lineaActiva];
+            // 1. Iniciar Tone.js (Requiere clic del usuario)
+            await Tone.start();
+            Tone.Transport.start();
             
-            unidades.push({
-                linea: lineaActiva,
-                ruta: ruta,
-                nodoActual: 0,
-                // Velvetocidad depende del BPM (si van rápido, se mueven más rápido entre nodos)
-                velocidad: Math.floor(Math.random() * 3) + 1, 
-                marker: L.circleMarker(ruta[0], {
-                    radius: 4, color: coloresLineas[lineaActiva], fillOpacity: 1, weight: 1
-                }).addTo(map)
-            });
-        }
-        
-        // Si hay más de las necesarias, las borramos (salen de servicio)
-        while(unidades.length > nuevoTotal) {
-            const busViejo = unidades.pop();
-            map.removeLayer(busViejo.marker);
-        }
-    }
+            // 2. Extraer el contexto de audio crudo de Tone.js para el visualizador
+            const audioCtx = Tone.getContext().rawContext;
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048;
+            
+            // 3. Conectar el master de Tone.js al Analizador del Visualizador
+            Tone.getDestination().connect(analyser);
 
-    // --- 4. NAVEGACIÓN NODO POR NODO ---
-    function animarUnidades() {
-        unidades.forEach(bus => {
-            // Avanzar al siguiente nodo de la curva real del GeoJSON
-            bus.nodoActual += bus.velocidad;
+            dataArrayFft = new Uint8Array(analyser.frequencyBinCount);
+            dataArrayWave = new Uint8Array(analyser.fftSize);
 
-            // Si llega al final de la ruta real
-            if (bus.nodoActual >= bus.ruta.length - 1) {
-                bus.nodoActual = 0; // Vuelve a empezar
-                
-                // DISPARO MUSICAL
-                if (audioIniciado) dispararSonido(bus.linea);
-                
-                // Efecto visual de rebote
-                bus.marker.setRadius(12);
-                setTimeout(() => bus.marker.setRadius(4), 200);
-            }
-
-            // Actualizar posición en el mapa a la coordenada real
-            if(bus.ruta[bus.nodoActual]) {
-                bus.marker.setLatLng(bus.ruta[bus.nodoActual]);
-            }
+            audioActivo = true;
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('status-txt').innerText = "ONLINE - AUDIO TRACKING";
+            log("AudioContext activado. Motor WebGL Sincronizado.");
+            
+            iniciarSimuladorAutobuses();
+            drawVisuals();
         });
 
-        // Esta vez usamos setTimeout en lugar de requestAnimationFrame para no saturar 
-        // el navegador navegando por miles de coordenadas GeoJSON por segundo.
-        setTimeout(animarUnidades, 100); 
-    }
-
-    const notasSynth = ["C4", "D4", "F4", "G4", "A4"]; // Pentatónica mayor
-
-    function dispararSonido(linea) {
-        const tiempo = Tone.now();
-        
-        switch(linea) {
-            case 'LÍNEA 1': synths[linea].triggerAttackRelease("C1", "8n", tiempo); break;
-            case 'LÍNEA 2': synths[linea].triggerAttackRelease("16n", tiempo); break;
-            case 'LÍNEA 3': synths[linea].triggerAttackRelease("C2", "8n", tiempo); break;
-            case 'LÍNEA 4': synths[linea].triggerAttackRelease(["C4", "E4", "G4"], "4n", tiempo); break;
-            case 'LÍNEA 5': synths[linea].triggerAttackRelease(notasSynth[Math.floor(Math.random()*notasSynth.length)], "8n", tiempo); break;
-            case 'LÍNEA 6': synths[linea].triggerAttackRelease("32n", tiempo); break;
-            case 'LÍNEA 7': synths[linea].triggerAttackRelease("C5", "2n", tiempo); break;
+        // --- 5. LÓGICA DE MOVIMIENTO DE AUTOBUSES ---
+        let autobuses = [];
+        function iniciarSimuladorAutobuses() {
+            for(let i=0; i<15; i++) {
+                const ruta = rutasSimuladas[Math.floor(Math.random() * rutasSimuladas.length)];
+                autobuses.push({
+                    id: ruta.id,
+                    progress: Math.random(),
+                    speed: (Math.random() * 0.005) + 0.002,
+                    dir: Math.random() > 0.5 ? 1 : -1,
+                    rutaInfo: ruta,
+                    marker: L.circleMarker([0,0], { radius: 4, color: ruta.color, fillOpacity: 1 }).addTo(map)
+                });
+            }
+            log("15 unidades inyectadas en la red.");
+            animarMapa();
         }
-    }
-</script>
+
+        function animarMapa() {
+            autobuses.forEach(bus => {
+                bus.progress += (bus.speed * bus.dir);
+                if (bus.progress >= 1 || bus.progress <= 0) {
+                    bus.dir *= -1;
+                    dispararSonido(bus.id); // ¡Llegó al extremo, hace ruido!
+                }
+                const lat = bus.rutaInfo.start[0] + (bus.rutaInfo.end[0] - bus.rutaInfo.start[0]) * bus.progress;
+                const lng = bus.rutaInfo.start[1] + (bus.rutaInfo.end[1] - bus.rutaInfo.start[1]) * bus.progress;
+                bus.marker.setLatLng([lat, lng]);
+            });
+            setTimeout(animarMapa, 30);
+        }
+
+        function dispararSonido(linea) {
+            if (!audioActivo) return;
+            const t = Tone.now();
+            if(linea === 'L1') synths['L1'].triggerAttackRelease("C2", "8n", t);
+            if(linea === 'L2') synths['L2'].triggerAttackRelease("16n", t);
+            if(linea === 'L3') synths['L3'].triggerAttackRelease(["C4", "E4", "G4"], "8n", t);
+        }
+
+        // --- 6. RENDERIZADO VISUAL 3D Y CANVASES ---
+        const glitchCtrl = document.getElementById('glitchAmt');
+        
+        glitchCtrl.addEventListener('input', e => {
+            document.getElementById('glitch-val').innerText = e.target.value;
+        });
+
+        function drawVisuals() {
+            requestAnimationFrame(drawVisuals);
+            if(!analyser) return;
+
+            analyser.getByteFrequencyData(dataArrayFft);
+            analyser.getByteTimeDomainData(dataArrayWave);
+
+            let glitchVal = parseInt(glitchCtrl.value) / 100;
+
+            // Dibujar FFT
+            fCtx.fillStyle = '#0a0a0a'; fCtx.fillRect(0, 0, fftCanvas.width, fftCanvas.height);
+            let bars = 64; let barW = fftCanvas.width / bars; let x = 0;
+            for(let i=0; i<bars; i++) {
+                let barH = dataArrayFft[i] * (fftCanvas.height / 255);
+                fCtx.fillStyle = barH > 100 ? '#fff' : '#00f0ff';
+                fCtx.fillRect(x, fftCanvas.height - barH, barW - 2, barH);
+                x += barW;
+            }
+
+            // Dibujar Osciloscopio
+            wCtx.fillStyle = '#0a0a0a'; wCtx.fillRect(0, 0, waveCanvas.width, waveCanvas.height);
+            wCtx.lineWidth = 2; wCtx.beginPath(); wCtx.strokeStyle = '#00ff41';
+            let sliceW = waveCanvas.width * 1.0 / analyser.fftSize; let wx = 0;
+            for(let i=0; i<analyser.fftSize; i++) {
+                let v = dataArrayWave[i] / 128.0; let y = v * waveCanvas.height / 2;
+                if(i === 0) wCtx.moveTo(wx, y); else wCtx.lineTo(wx, y);
+                wx += sliceW;
+            }
+            wCtx.stroke();
+
+            // Animar 3D
+            let sum = 0; for(let i=0; i<dataArrayFft.length; i++) sum += dataArrayFft[i];
+            let avgNorm = (sum / dataArrayFft.length) / 255;
+
+            dustSystem.rotation.y += 0.002 + (avgNorm * 0.05);
+            const pos = dustSystem.geometry.attributes.position;
+            for(let i=0; i<particlesCount*3; i++) {
+                let audioMod = (dataArrayFft[i%100]/255);
+                pos.array[i] = dustBase[i] + (Math.random() - 0.5) * glitchVal * audioMod * 20; 
+            }
+            pos.needsUpdate = true;
+            renderer.render(scene, camera);
+        }
+    </script>
 </body>
 </html>
