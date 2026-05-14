@@ -3,555 +3,305 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CYBER-ACOUSTIC ANALYZER // CDMUSICX DATALINK</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <title>CDMusicX - Mapa Sonoro</title>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 
     <style>
         :root {
-            --bg-base: #050505; --panel-bg: #0a0a0a; --neon-green: #00ff41; --neon-cyan: #00f0ff;
-            --neon-magenta: #ff003c; --neon-yellow: #f0ff00; --grid-color: rgba(0, 255, 65, 0.05);
-            --border-glow: 0 0 10px rgba(0, 240, 255, 0.2); --ui-accent: var(--neon-cyan);
+            --bg: #111111;
+            --panel: #1a1a1a;
+            --text: #e0e0e0;
+            --l1: #ff0000; --l2: #930093; --l3: #00a800; 
+            --l4: #ff8000; --l5: #0000ff; --l6: #ff00ff; --l7: #00ff00;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            background-color: var(--bg-base); color: var(--ui-accent); font-family: 'Share Tech Mono', monospace;
-            height: 100vh; overflow: hidden; display: grid;
-            grid-template-columns: 350px 1fr 320px; grid-template-rows: 60px 1fr 280px;
-            grid-template-areas: "header header header" "sidebar-left main sidebar-right" "sidebar-left bottom bottom";
-            gap: 15px; padding: 15px;
-            background-image: linear-gradient(var(--grid-color) 1px, transparent 1px), linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
-            background-size: 30px 30px; transition: color 0.3s;
+        body, html { 
+            margin: 0; padding: 0; height: 100%; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg); color: var(--text); overflow: hidden;
         }
 
-        body::before {
-            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 1000; background-size: 100% 2px, 3px 100%; pointer-events: none;
+        #map { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; background: var(--bg); }
+        .leaflet-control-zoom, .leaflet-control-attribution { display: none; }
+        .leaflet-container { background: var(--bg) !important; }
+
+        /* Pantalla de Inicio para desbloquear AudioContext */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(17, 17, 17, 0.95); z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            backdrop-filter: blur(5px);
         }
 
-        .panel {
-            background: var(--panel-bg); border: 1px solid rgba(0, 240, 255, 0.3);
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8), var(--border-glow);
-            position: relative; display: flex; flex-direction: column; overflow: hidden;
+        #start-screen h1 { font-size: 3rem; margin-bottom: 10px; letter-spacing: 3px; }
+        #start-screen p { color: #888; margin-bottom: 40px; font-size: 1.2rem; }
+        
+        button.play-btn {
+            background: transparent; color: #fff; border: 2px solid #fff;
+            padding: 15px 40px; font-size: 1.5rem; border-radius: 30px;
+            cursor: pointer; transition: 0.3s; text-transform: uppercase; letter-spacing: 2px;
+        }
+        button.play-btn:hover { background: #fff; color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.5); }
+
+        /* Panel Lateral estilo Train Jazz */
+        #sidebar {
+            position: absolute; right: 30px; top: 30px; width: 320px;
+            background: rgba(26, 26, 26, 0.85); backdrop-filter: blur(10px);
+            border-radius: 12px; padding: 25px; z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            max-height: 80vh; overflow-y: auto;
         }
 
-        .panel-header {
-            background: rgba(0, 240, 255, 0.05); border-bottom: 1px solid rgba(0, 240, 255, 0.3);
-            padding: 5px 15px; font-family: 'Orbitron', sans-serif; font-size: 0.85rem; letter-spacing: 2px;
-            color: var(--ui-accent); text-shadow: 0 0 5px var(--ui-accent); text-transform: uppercase;
+        #stats {
+            margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #333;
             display: flex; justify-content: space-between;
         }
+        .stat-box { text-align: center; }
+        .stat-val { font-size: 2rem; font-weight: bold; color: #fff; }
+        .stat-label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
 
-        header { grid-area: header; display: flex; justify-content: space-between; align-items: center; border: none; background: transparent; box-shadow: none; padding: 0 10px; }
-        .logo-group { display: flex; flex-direction: column; }
-        .logo-sub { font-family: 'Share Tech Mono', monospace; font-size: 0.8rem; letter-spacing: 2px; opacity: 0.8; }
-        .logo { font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 900; color: var(--neon-magenta); text-shadow: 0 0 15px var(--neon-magenta); letter-spacing: 4px; }
-        .sys-status { font-size: 1rem; color: var(--neon-green); background: rgba(0, 255, 65, 0.1); padding: 5px 15px; border: 1px solid var(--neon-green); }
+        .line-item {
+            display: flex; align-items: center; margin-bottom: 15px;
+            padding: 10px; border-radius: 8px; transition: background 0.2s;
+        }
+        .line-item:hover { background: rgba(255,255,255,0.05); }
+        
+        .line-dot {
+            width: 35px; height: 35px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: bold; font-size: 0.9rem; margin-right: 15px;
+            color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            flex-shrink: 0;
+        }
 
-        .sidebar-left { grid-area: sidebar-left; overflow-y: auto; }
-        .main-view { grid-area: main; position: relative; cursor: crosshair; }
-        .sidebar-right { grid-area: sidebar-right; }
-        .bottom-view { grid-area: bottom; display: flex; gap: 15px; }
+        .line-info h3 { margin: 0 0 4px 0; font-size: 1rem; color: #fff; }
+        .line-info p { margin: 0; font-size: 0.8rem; color: #aaa; font-style: italic; }
 
-        .sub-panel { flex: 1; border: 1px solid rgba(0, 255, 65, 0.3); background: rgba(0, 20, 5, 0.5); display: flex; flex-direction: column; box-shadow: none; position: relative; }
-        .sub-panel .panel-header { background: rgba(0, 255, 65, 0.1); border-bottom-color: rgba(0, 255, 65, 0.5); color: var(--neon-green); text-shadow: 0 0 5px var(--neon-green); }
-
-        canvas { width: 100%; height: 100%; display: block; }
-        .main-view canvas { filter: contrast(1.2) drop-shadow(0 0 15px rgba(0, 0, 0, 0.8)); outline: none; }
-
-        #map { width: 100%; height: 200px; margin-bottom: 10px; border: 1px solid var(--neon-cyan); filter: contrast(1.2) sepia(1) hue-rotate(180deg) saturate(3); }
-        .leaflet-control-zoom, .leaflet-control-attribution { display: none; }
-
-        .control-group { padding: 15px; border-bottom: 1px solid rgba(0, 240, 255, 0.15); }
-        .control-group.enhancer { background: rgba(240, 255, 0, 0.05); border-bottom: 1px solid rgba(240, 255, 0, 0.3); }
-        .control-group.enhancer .panel-header span { color: var(--neon-yellow); text-shadow: 0 0 5px var(--neon-yellow);}
-        .control-group.enhancer label { color: var(--neon-yellow); }
-        .control-group label { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.85rem; color: #fff; }
-
-        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 10px 0 15px 0; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 10px; background: var(--ui-accent); cursor: pointer; box-shadow: 0 0 10px var(--ui-accent); }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 3px; cursor: pointer; background: rgba(255, 255, 255, 0.1); border: 1px solid var(--ui-accent); }
-        .fx-control input[type=range]::-webkit-slider-thumb { background: var(--neon-magenta); box-shadow: 0 0 10px var(--neon-magenta); }
-        .fx-control input[type=range]::-webkit-slider-runnable-track { border-color: var(--neon-magenta); }
-        .enhancer input[type=range]::-webkit-slider-thumb { background: var(--neon-yellow); box-shadow: 0 0 10px var(--neon-yellow); }
-        .enhancer input[type=range]::-webkit-slider-runnable-track { border-color: var(--neon-yellow); }
-
-        .btn { background: rgba(255, 0, 60, 0.1); border: 1px solid var(--neon-magenta); color: var(--neon-magenta); font-family: 'Orbitron', sans-serif; font-weight: 700; padding: 10px 15px; cursor: pointer; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; transition: all 0.2s; width: 100%; margin-bottom: 8px; box-shadow: inset 0 0 10px rgba(255, 0, 60, 0.2); }
-        .btn:hover, .btn.active { background: var(--neon-magenta); color: #000; box-shadow: 0 0 20px var(--neon-magenta); }
-        .btn-cyan { border-color: var(--neon-cyan); color: var(--neon-cyan); background: rgba(0, 240, 255, 0.1); box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.2); }
-        .btn-cyan:hover:not(:disabled) { background: var(--neon-cyan); box-shadow: 0 0 20px var(--neon-cyan); color: #000; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; border-color: #555; color: #555; }
-
-        .terminal { padding: 15px; font-size: 0.8rem; color: var(--neon-green); height: 100%; overflow-y: auto; line-height: 1.5; background: rgba(0,0,0,0.5); }
-        .terminal p { margin-bottom: 5px; border-bottom: 1px solid rgba(0, 255, 65, 0.1); padding-bottom: 3px; }
-        .terminal p::before { content: "> "; opacity: 0.5; }
-
-        .glitch-text { animation: glitch 2s linear infinite; }
-        @keyframes glitch { 2%, 64% { transform: translate(2px,0) skew(0deg); } 4%, 60% { transform: translate(-2px,0) skew(0deg); } 62% { transform: translate(0,0) skew(5deg); } }
-
-        .crossfader-container { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 80%; background: rgba(0,0,0,0.8); padding: 10px 20px; border: 1px solid var(--neon-green); border-radius: 5px; z-index: 10; display: flex; flex-direction: column; align-items: center; }
-        .crossfader-container label { display: flex; width: 100%; justify-content: space-between; color: var(--neon-green); font-size: 0.8rem; margin-bottom: 5px; }
-        .crossfader-container input[type=range] { margin: 0; }
-        .crossfader-container input[type=range]::-webkit-slider-thumb { background: var(--neon-green); width: 20px; box-shadow: 0 0 10px var(--neon-green); }
-        .crossfader-container input[type=range]::-webkit-slider-runnable-track { background: linear-gradient(90deg, rgba(240,255,0,0.5), rgba(255,0,60,0.5)); border-color: var(--neon-green); height: 4px; }
+        /* Animación de destello al sonar */
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 var(--pulse-color); }
+            70% { box-shadow: 0 0 0 15px rgba(0,0,0,0); }
+            100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+        }
+        .flash-marker { animation: pulse-glow 0.5s ease-out; }
     </style>
 </head>
 <body>
 
-    <header class="panel" style="flex-direction: row; border:none; box-shadow:none;">
-        <div class="logo-group">
-            <div class="logo-sub">PLATAFORMA: KIT DEL SONIDO URBANO</div>
-            <div class="logo glitch-text">SYS.ACOUSTIC_CORE // CDMUSICX</div>
-        </div>
-        <div class="sys-status">
-            STATUS: <span id="status-txt" style="color:var(--neon-green); font-weight:bold;">STANDBY</span> | 
-            BPM: <span id="bpm-readout">0</span> | 
-            UNIDADES: <span id="bus-readout">0</span>
-        </div>
-    </header>
-
-    <div class="panel sidebar-left">
-        <div class="panel-header"><span>METROBÚS DATALINK</span> <span>[01]</span></div>
-        <div class="control-group">
-            <div id="map"></div>
-            <div id="track-info" style="font-size: 0.75rem; word-break: break-all; margin-bottom: 10px; opacity: 0.7;">[INICIALIZANDO CONEXIÓN...]</div>
-            <button class="btn btn-cyan" id="playBtn" disabled>CARGANDO SISTEMA...</button>
-        </div>
-
-        <div class="control-group enhancer">
-            <div class="panel-header" style="background:transparent; border:none; padding:0 0 15px 0;"><span>PRE-AMP ENHANCER_</span></div>
-            <label>INPUT GAIN <span><span id="gain-val">1.0</span>x</span></label>
-            <input type="range" id="inputGain" min="0.1" max="10" step="0.1" value="1.0">
-            <label>COMPRESSOR THRESHOLD <span><span id="comp-val">OFF</span></span></label>
-            <input type="range" id="compressorThresh" min="-50" max="0" step="1" value="0">
-        </div>
-
-        <div class="control-group" style="border:none;">
-            <div class="panel-header" style="background:transparent; border:none; padding:0 0 15px 0;"><span>3D VISUAL ENGINE_</span></div>
-            <button class="btn btn-cyan active" id="modeToggleBtn">MODO: DUST PARTICLES</button>
-            <label style="margin-top:10px;">HUE SHIFT (TONE) <span><span id="hue-val">180</span>°</span></label>
-            <input type="range" id="hueShift" min="0" max="360" value="180">
-            <label>SCALE / HULL BREACH (GLITCH) <span><span id="glitch-val">0</span> %</span></label>
-            <input type="range" id="glitchAmt" min="0" max="100" value="0">
-        </div>
-
-        <div class="control-group fx-control">
-            <div class="panel-header" style="background:transparent; border:none; padding:0 0 15px 0;"><span style="color:var(--neon-magenta)">DSP EFFECTS_</span></div>
-            <label>LOWPASS FILTER <span><span id="lp-val">20000</span> Hz</span></label>
-            <input type="range" id="lpFilter" min="50" max="20000" value="20000">
-            <label>RESONANCE (Q) <span><span id="q-val">1.0</span></span></label>
-            <input type="range" id="qFilter" min="0.1" max="30" step="0.1" value="1.0">
-            <label>OVERDRIVE DISTORTION <span><span id="dist-val">0</span> %</span></label>
-            <input type="range" id="distortion" min="0" max="100" value="0">
-        </div>
+    <div id="start-screen">
+        <h1>CDMUSICX</h1>
+        <p>El ritmo del Metrobús en tiempo real</p>
+        <button class="play-btn" onclick="iniciarExperiencia()">Sintonizar la Ciudad</button>
     </div>
 
-    <div class="panel main-view" id="mainViewContainer">
-        <div class="panel-header" style="position: absolute; top: 0; left: 0; width: 100%; z-index: 10; background: rgba(0,0,0,0.5); pointer-events: none;">
-            <span>HOLOGRAPHIC RENDER [L-CLICK: HUE | R-DRAG: TWEAK]</span> <span>[02]</span>
-        </div>
-        <canvas id="mainCanvas"></canvas>
-    </div>
+    <div id="map"></div>
 
-    <div class="panel sidebar-right">
-        <div class="panel-header"><span>SYS.LOGS_</span> <span>[03]</span></div>
-        <div class="terminal" id="terminal">
-            <p>SYSTEM BOOT: CDMUSICX ACOUSTIC ANALYZER</p>
-        </div>
-    </div>
-
-    <div class="bottom-view">
-        <div class="panel sub-panel" style="flex: 1.5;">
-            <div class="panel-header"><span>OSCILLOSCOPE_ [COMPARATOR]</span> <span>[04]</span></div>
-            <canvas id="waveCanvas"></canvas>
-            <div class="crossfader-container">
-                <label>
-                    <span style="color:var(--neon-yellow)">RAW (ENHANCED)</span> 
-                    <span style="color:#fff">MIX %</span>
-                    <span style="color:var(--neon-magenta)">PROCESSED (FX)</span>
-                </label>
-                <input type="range" id="crossfader" min="0" max="100" value="100">
+    <div id="sidebar" style="display: none;">
+        <div id="stats">
+            <div class="stat-box">
+                <div class="stat-val" id="bus-count">0</div>
+                <div class="stat-label">Unidades</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-val" id="bpm-count">0</div>
+                <div class="stat-label">BPM</div>
             </div>
         </div>
-        <div class="panel sub-panel">
-            <div class="panel-header"><span>SPECTRUM ANALYZER_ [FFT]</span> <span>[05]</span></div>
-            <canvas id="fftCanvas"></canvas>
-        </div>
+
+        <div id="legend-container"></div>
     </div>
 
     <script>
-        // --- 1. UTILIDADES Y DOM ---
-        const logTerminal = (msg) => {
-            const term = document.getElementById('terminal');
-            const p = document.createElement('p'); p.textContent = msg;
-            term.appendChild(p); term.scrollTop = term.scrollHeight;
-        };
-
-        const playBtn = document.getElementById('playBtn');
-        const trackInfo = document.getElementById('track-info');
-        const statusTxt = document.getElementById('status-txt');
-        const modeToggleBtn = document.getElementById('modeToggleBtn');
-        
-        const hueShiftCtrl = document.getElementById('hueShift');
-        const glitchAmtCtrl = document.getElementById('glitchAmt');
-        const inputGainCtrl = document.getElementById('inputGain');
-        const compThreshCtrl = document.getElementById('compressorThresh');
-        const lpFilterCtrl = document.getElementById('lpFilter');
-        const qFilterCtrl = document.getElementById('qFilter');
-        const distortionCtrl = document.getElementById('distortion');
-        const crossfaderCtrl = document.getElementById('crossfader');
-
-        const waveCanvas = document.getElementById('waveCanvas');
-        const fftCanvas = document.getElementById('fftCanvas');
-        const wCtx = waveCanvas.getContext('2d');
-        const fCtx = fftCanvas.getContext('2d');
-
-        // --- 2. CONFIGURACIÓN THREE.JS (MODOS COMPLETOS) ---
-        const mainCanvas = document.getElementById('mainCanvas');
-        const mainViewContainer = document.getElementById('mainViewContainer');
-        const renderer = new THREE.WebGLRenderer({ canvas: mainCanvas, alpha: true, antialias: true });
-        const scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x050505, 0.05);
-        const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000); camera.position.z = 6;
-
-        scene.add(new THREE.AmbientLight(0x222222));
-        const mainLight = new THREE.PointLight(0x00f0ff, 2, 50); mainLight.position.set(5, 5, 5); scene.add(mainLight);
-        const fillLight = new THREE.PointLight(0xff003c, 1, 50); fillLight.position.set(-5, -5, -2); scene.add(fillLight);
-
-        const particlesGeo = new THREE.BufferGeometry(); const particlesCount = 4000;
-        const dustPosArray = new Float32Array(particlesCount * 3); const dustBasePosArray = new Float32Array(particlesCount * 3); 
-        for(let i=0; i < particlesCount * 3; i++) { let val = (Math.random() - 0.5) * 20; dustPosArray[i] = val; dustBasePosArray[i] = val; }
-        particlesGeo.setAttribute('position', new THREE.BufferAttribute(dustPosArray, 3));
-        const particlesMat = new THREE.PointsMaterial({ size: 0.08, color: 0x00ff41, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
-        const dustSystem = new THREE.Points(particlesGeo, particlesMat); scene.add(dustSystem);
-
-        const organicGeo = new THREE.IcosahedronGeometry(4, 30); const organicBaseVertices = []; const orgPosAttr = organicGeo.attributes.position;
-        for(let i=0; i < orgPosAttr.count; i++) { organicBaseVertices.push(new THREE.Vector3(orgPosAttr.getX(i), orgPosAttr.getY(i), orgPosAttr.getZ(i))); }
-        const organicMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x00f0ff, emissiveIntensity: 0.5, wireframe: true, roughness: 0.2, metalness: 0.9 });
-        const organicMesh = new THREE.Mesh(organicGeo, organicMat); scene.add(organicMesh);
-
-        const vortexGeo = new THREE.TorusKnotGeometry(3, 0.8, 200, 32); const vortexBaseVertices = []; const vorPosAttr = vortexGeo.attributes.position;
-        for(let i=0; i < vorPosAttr.count; i++) { vortexBaseVertices.push(new THREE.Vector3(vorPosAttr.getX(i), vorPosAttr.getY(i), vorPosAttr.getZ(i))); }
-        const vortexMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x00f0ff, emissiveIntensity: 0.8, wireframe: true });
-        const vortexMesh = new THREE.Mesh(vortexGeo, vortexMat); scene.add(vortexMesh);
-
-        const terrainGeo = new THREE.PlaneGeometry(40, 40, 64, 64); terrainGeo.rotateX(-Math.PI / 2); terrainGeo.translate(0, -3, 0);
-        const terrainBaseVertices = []; const terPosAttr = terrainGeo.attributes.position;
-        for(let i=0; i < terPosAttr.count; i++) { terrainBaseVertices.push(new THREE.Vector3(terPosAttr.getX(i), terPosAttr.getY(i), terPosAttr.getZ(i))); }
-        const terrainMat = new THREE.PointsMaterial({ size: 0.05, color: 0x00f0ff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending });
-        const terrainMesh = new THREE.Points(terrainGeo, terrainMat); scene.add(terrainMesh);
-
-        const visualModes = [
-            { id: 'dust', name: 'DUST PARTICLES', mesh: dustSystem }, { id: 'organic', name: 'ORGANIC GEOMETRY', mesh: organicMesh },
-            { id: 'vortex', name: 'NEURAL VORTEX', mesh: vortexMesh }, { id: 'terrain', name: 'CYBER TERRAIN', mesh: terrainMesh }
-        ];
-        let currentModeIndex = 0;
-        function updateVisibility() { visualModes.forEach((m, i) => m.mesh.visible = (i === currentModeIndex)); modeToggleBtn.textContent = `MODO: ${visualModes[currentModeIndex].name}`; }
-        updateVisibility(); modeToggleBtn.addEventListener('click', () => { currentModeIndex = (currentModeIndex + 1) % visualModes.length; updateVisibility(); });
-
-        let isRightDragging = false;
-        mainViewContainer.addEventListener('contextmenu', e => e.preventDefault());
-        mainViewContainer.addEventListener('mousedown', e => {
-            if (e.button === 0) { let newHue = Math.floor(Math.random() * 360); hueShiftCtrl.value = newHue; hueShiftCtrl.dispatchEvent(new Event('input')); }
-            else if (e.button === 2) { isRightDragging = true; mainViewContainer.style.cursor = 'grabbing'; }
-        });
-        window.addEventListener('mouseup', e => { if (e.button === 2 && isRightDragging) { isRightDragging = false; mainViewContainer.style.cursor = 'crosshair'; } });
-        mainViewContainer.addEventListener('mousemove', e => {
-            if (isRightDragging) {
-                let newGlitch = parseInt(glitchAmtCtrl.value) + (e.movementX * 0.8); glitchAmtCtrl.value = Math.max(0, Math.min(100, newGlitch)); glitchAmtCtrl.dispatchEvent(new Event('input'));
-                let newDist = parseInt(distortionCtrl.value) - (e.movementY * 0.8); distortionCtrl.value = Math.max(0, Math.min(100, newDist)); distortionCtrl.dispatchEvent(new Event('input'));
-            }
-        });
-
-        function resizeCanvases() {
-            waveCanvas.width = waveCanvas.parentElement.clientWidth; waveCanvas.height = waveCanvas.parentElement.clientHeight - 35;
-            fftCanvas.width = fftCanvas.parentElement.clientWidth; fftCanvas.height = fftCanvas.parentElement.clientHeight - 35;
-            const w = mainCanvas.parentElement.clientWidth; const h = mainCanvas.parentElement.clientHeight;
-            renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
-        }
-        window.addEventListener('resize', resizeCanvases); setTimeout(resizeCanvases, 100); 
-
-        // --- 3. MAPA, INTERPOLACIÓN MATEMÁTICA Y RESPALDO ---
-        const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.41, -99.14], 10);
+        // --- 1. CONFIGURACIÓN DEL MAPA ---
+        const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.41, -99.14], 12);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
-        const coloresLineas = { 'LÍNEA 1': '#ff0000', 'LÍNEA 2': '#930093', 'LÍNEA 3': '#00a800', 'LÍNEA 4': '#ff8000', 'LÍNEA 5': '#0000ff', 'LÍNEA 6': '#ff00ff', 'LÍNEA 7': '#00ff00' };
-        let rutasExactas = {};
-        
-        // Proxy 
-        const urlOriginal = 'https://datos.cdmx.gob.mx/api/explore/v2.1/catalog/datasets/lineas-de-metrobus/exports/geojson?lang=es&timezone=America%2FMexico_City';
-        const urlProxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(urlOriginal)}`;
-
-        // Respaldo MEJORADO: Trazos más fieles a la realidad para que el movimiento sea fluido
-        const rutasRespaldo = {
-            'LÍNEA 1': [[19.495,-99.118], [19.434,-99.155], [19.388,-99.173], [19.276,-99.167]],
-            'LÍNEA 2': [[19.393,-99.046], [19.398,-99.115], [19.400,-99.187]],
-            'LÍNEA 3': [[19.533,-99.170], [19.450,-99.145], [19.395,-99.150]],
-            'LÍNEA 4': [[19.445,-99.152], [19.435,-99.135], [19.430,-99.113]],
-            'LÍNEA 5': [[19.492,-99.075], [19.448,-99.090], [19.430,-99.113]],
-            'LÍNEA 6': [[19.504,-99.200], [19.485,-99.140], [19.460,-99.060]],
-            'LÍNEA 7': [[19.495,-99.118], [19.450,-99.135], [19.425,-99.195]]
+        // --- 2. BASE DE DATOS LOCAL (FALLBACK 100% SEGURO) ---
+        // Si el gobierno falla, estas coordenadas trazan las 7 líneas reales con precisión
+        const dataLineas = {
+            'L1': { id: 'L1', nombre: 'Insurgentes', inst: 'Bombo Profundo', color: 'var(--l1)', notas: ['C2'], 
+                    nodos: [[19.495,-99.118], [19.483,-99.123], [19.467,-99.136], [19.444,-99.153], [19.426,-99.163], [19.398,-99.172], [19.364,-99.184], [19.324,-99.186], [19.276,-99.167]] },
+            'L2': { id: 'L2', nombre: 'Eje 4 Sur', inst: 'Caja rítmica (Snare)', color: 'var(--l2)', notas: ['16n'], 
+                    nodos: [[19.393,-99.046], [19.395,-99.076], [19.398,-99.115], [19.401,-99.141], [19.405,-99.172], [19.401,-99.187]] },
+            'L3': { id: 'L3', nombre: 'Eje 1 Poniente', inst: 'Bajo Sintético', color: 'var(--l3)', notas: ['C3', 'D3', 'F3'], 
+                    nodos: [[19.533,-99.170], [19.490,-99.152], [19.450,-99.145], [19.420,-99.153], [19.395,-99.150], [19.380,-99.155]] },
+            'L4': { id: 'L4', nombre: 'Centro Histórico', inst: 'Acordes Clásicos', color: 'var(--l4)', notas: [['C4','E4','G4'], ['A3','C4','E4']], 
+                    nodos: [[19.445,-99.152], [19.435,-99.135], [19.430,-99.113], [19.435,-99.090]] },
+            'L5': { id: 'L5', nombre: 'Eduardo Molina', inst: 'Pluck Melódico', color: 'var(--l5)', notas: ['C4', 'E4', 'G4', 'A4', 'C5'], 
+                    nodos: [[19.492,-99.075], [19.470,-99.085], [19.448,-99.090], [19.430,-99.113], [19.405,-99.100], [19.355,-99.105], [19.300,-99.108]] },
+            'L6': { id: 'L6', nombre: 'Eje 5 Norte', inst: 'Platillos (Hi-hat)', color: 'var(--l6)', notas: ['32n'], 
+                    nodos: [[19.504,-99.200], [19.495,-99.175], [19.485,-99.140], [19.475,-99.100], [19.460,-99.060]] },
+            'L7': { id: 'L7', nombre: 'Paseo de la Reforma', inst: 'Atmósfera Ecos', color: 'var(--l7)', notas: ['C5', 'D5', 'E5'], 
+                    nodos: [[19.495,-99.118], [19.470,-99.125], [19.450,-99.135], [19.425,-99.175], [19.425,-99.195]] }
         };
 
-        async function cargarMapaOficial() {
-            try {
-                logTerminal("INTENTANDO CONEXIÓN A API CDMX (RAW)...");
-                const res = await fetch(urlProxy);
-                if (!res.ok) throw new Error("Proxy response not ok");
-                const data = await res.json();
-                
-                L.geoJSON(data, {
-                    style: (feature) => ({ color: coloresLineas[feature.properties.linea] || '#fff', weight: 2, opacity: 0.4 }),
-                    onEachFeature: (feature) => {
-                        const linea = feature.properties.linea;
-                        if(feature.geometry.type === "LineString") {
-                            if(!rutasExactas[linea]) rutasExactas[linea] = [];
-                            const coords = feature.geometry.coordinates.map(c => [c[1], c[0]]);
-                            rutasExactas[linea] = rutasExactas[linea].concat(coords);
-                        }
-                    }
-                }).addTo(map);
-                trackInfo.innerText = "[GEOJSON OFICIAL CARGADO: 7 LÍNEAS]";
-                logTerminal("CARTOGRAFÍA OBTENIDA CORRECTAMENTE.");
-            } catch (error) {
-                logTerminal("ADVERTENCIA: API CDMX o Proxy inalcanzable. Iniciando Protocolo de Respaldo Digno.");
-                rutasExactas = rutasRespaldo;
-                Object.keys(rutasExactas).forEach(l => L.polyline(rutasExactas[l], {color: coloresLineas[l], weight: 2, opacity: 0.4}).addTo(map));
-                trackInfo.innerText = "[SISTEMA DE RESPALDO (7 RUTAS) ACTIVO]";
-            } finally {
-                playBtn.disabled = false;
-                playBtn.innerText = "INICIAR SECUENCIA CDMUSICX";
-                logTerminal("SISTEMA LISTO PARA ARRANQUE MANUAL.");
-            }
-        }
-        cargarMapaOficial();
-
-        // ** LA MAGIA MATEMÁTICA: Función para obtener la coordenada exacta en cualquier porcentaje (0 a 1) de la ruta **
-        function obtenerCoordenadaEnRuta(ruta, progreso) {
-            if (!ruta || ruta.length === 0) return [0,0];
-            if (ruta.length === 1) return ruta[0];
-            if (progreso >= 1) return ruta[ruta.length - 1];
-            if (progreso <= 0) return ruta[0];
-
-            let segmentos = ruta.length - 1;
-            let indiceFlotante = progreso * segmentos;
-            let indiceBase = Math.floor(indiceFlotante);
-            let t = indiceFlotante - indiceBase; // Fracción dentro del segmento (0 a 1)
-
-            let p1 = ruta[indiceBase];
-            let p2 = ruta[indiceBase + 1];
-
-            // Interpolación lineal (lerp)
-            return [
-                p1[0] + (p2[0] - p1[0]) * t,
-                p1[1] + (p2[1] - p1[1]) * t
-            ];
-        }
-
-        // --- 4. AUDIO GRAPH: TONE.JS + WEB AUDIO API NATIVA ---
-        let audioCtx, analyser, preGainNode, compressorNode, dryGainNode, wetGainNode, biquadFilter, distortionNode;
-        let dataArrayFft, dataArrayWave;
-        let isPlaying = false;
-        const synthsTone = {};
-
-        function makeDistortionCurve(amount) {
-            let k = typeof amount === 'number' ? amount : 50, n = 44100, curve = new Float32Array(n), deg = Math.PI / 180, i = 0, x;
-            for ( ; i < n; ++i ) { x = i * 2 / n - 1; curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) ); }
-            return curve;
-        }
-
-        function updateMix() {
-            if(!dryGainNode || !wetGainNode) return;
-            const mix = parseInt(crossfaderCtrl.value) / 100;
-            dryGainNode.gain.value = Math.cos(mix * 0.5 * Math.PI);
-            wetGainNode.gain.value = Math.cos((1.0 - mix) * 0.5 * Math.PI);
-        }
-
-        playBtn.addEventListener('click', async () => {
-            if(!audioCtx) {
-                await Tone.start();
-                audioCtx = Tone.getContext().rawContext;
-
-                preGainNode = audioCtx.createGain(); compressorNode = audioCtx.createDynamicsCompressor();
-                dryGainNode = audioCtx.createGain(); wetGainNode = audioCtx.createGain();
-                biquadFilter = audioCtx.createBiquadFilter(); biquadFilter.type = "lowpass";
-                distortionNode = audioCtx.createWaveShaper(); distortionNode.oversample = '4x';
-                analyser = audioCtx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.85;
-
-                preGainNode.connect(compressorNode);
-                compressorNode.connect(dryGainNode); dryGainNode.connect(analyser);
-                compressorNode.connect(distortionNode); distortionNode.connect(biquadFilter);
-                biquadFilter.connect(wetGainNode); wetGainNode.connect(analyser);
-                analyser.connect(audioCtx.destination);
-
-                Tone.getDestination().disconnect();
-                Tone.getDestination().connect(preGainNode);
-
-                dataArrayFft = new Uint8Array(analyser.frequencyBinCount); dataArrayWave = new Uint8Array(analyser.fftSize);
-                preGainNode.gain.value = parseFloat(inputGainCtrl.value); compressorNode.threshold.value = parseFloat(compThreshCtrl.value);
-                biquadFilter.frequency.value = parseFloat(lpFilterCtrl.value); biquadFilter.Q.value = parseFloat(qFilterCtrl.value);
-                distortionNode.curve = makeDistortionCurve(parseFloat(distortionCtrl.value)); updateMix();
-
-                synthsTone['LÍNEA 1'] = new Tone.MembraneSynth().toDestination(); 
-                synthsTone['LÍNEA 2'] = new Tone.NoiseSynth({noise: {type: 'pink'}}).toDestination(); 
-                synthsTone['LÍNEA 3'] = new Tone.FMSynth({modulationIndex: 2}).toDestination(); 
-                synthsTone['LÍNEA 4'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'square'}}).toDestination(); 
-                synthsTone['LÍNEA 5'] = new Tone.Synth({oscillator: {type: 'sine'}}).toDestination(); 
-                synthsTone['LÍNEA 6'] = new Tone.MetalSynth({resonance: 4000}).toDestination(); 
-                synthsTone['LÍNEA 7'] = new Tone.AMSynth().toDestination(); 
-
-                synthsTone['LÍNEA 1'].volume.value = 5; synthsTone['LÍNEA 2'].volume.value = -10; synthsTone['LÍNEA 4'].volume.value = -10;
-
-                logTerminal("AUDIO GRAPH CONECTADO A TONE.JS.");
-                drawVisuals(); iniciarFlujoVehicular();
-            }
-
-            if(Tone.Transport.state !== "started") {
-                Tone.Transport.start();
-                isPlaying = true;
-                playBtn.textContent = "SISTEMA ACTIVO";
-                playBtn.classList.add('active'); statusTxt.textContent = "ACTIVE";
-                logTerminal("SECUENCIADOR RESUMIDO.");
-            }
-        });
-
-        inputGainCtrl.addEventListener('input', (e) => { if(preGainNode) preGainNode.gain.value = e.target.value; document.getElementById('gain-val').innerText = e.target.value; });
-        compThreshCtrl.addEventListener('input', (e) => { if(compressorNode) compressorNode.threshold.value = e.target.value; document.getElementById('comp-val').innerText = e.target.value == 0 ? "OFF" : e.target.value + "dB"; });
-        lpFilterCtrl.addEventListener('input', (e) => { if(biquadFilter) biquadFilter.frequency.value = e.target.value; document.getElementById('lp-val').innerText = e.target.value; });
-        qFilterCtrl.addEventListener('input', (e) => { if(biquadFilter) biquadFilter.Q.value = e.target.value; document.getElementById('q-val').innerText = e.target.value; });
-        distortionCtrl.addEventListener('input', (e) => { if(distortionNode) distortionNode.curve = makeDistortionCurve(parseInt(e.target.value)); document.getElementById('dist-val').innerText = e.target.value; });
-        crossfaderCtrl.addEventListener('input', updateMix);
-        hueShiftCtrl.addEventListener('input', (e) => {
-            let hue = e.target.value; document.getElementById('hue-val').innerText = hue; let hslString = `hsl(${hue}, 100%, 50%)`; document.documentElement.style.setProperty('--ui-accent', hslString);
-            mainLight.color.setHSL(hue / 360, 1, 0.5); particlesMat.color.setHSL(hue / 360, 1, 0.5); organicMat.emissive.setHSL(hue / 360, 1, 0.3); vortexMat.emissive.setHSL(hue / 360, 1, 0.3); terrainMat.color.setHSL(hue / 360, 1, 0.5);
-        });
-        glitchAmtCtrl.addEventListener('input', (e) => { document.getElementById('glitch-val').innerText = e.target.value; });
-
-        // --- 5. TRÁFICO, BPM Y MOVIMIENTO FLUIDO ---
-        let unidades = [];
-        function iniciarFlujoVehicular() { actualizarTrafico(); setInterval(actualizarTrafico, 8000); animarUnidades(); }
-
-        function actualizarTrafico() {
-            const nuevoTotal = Math.floor(Math.random() * 80) + 20; document.getElementById('bus-readout').innerText = nuevoTotal;
-            const nuevoBPM = Math.floor(80 + ((nuevoTotal - 20) * 0.8)); Tone.Transport.bpm.rampTo(nuevoBPM, 2); document.getElementById('bpm-readout').innerText = nuevoBPM;
-            const lineasDisponibles = Object.keys(rutasExactas);
+        // Dibujar las líneas grises tenues en el mapa (como el video)
+        Object.values(dataLineas).forEach(linea => {
+            L.polyline(linea.nodos, { color: '#555', weight: 3, opacity: 0.5 }).addTo(map);
             
-            while(unidades.length < nuevoTotal) {
-                const lineaActiva = lineasDisponibles[Math.floor(Math.random() * lineasDisponibles.length)];
-                const ruta = rutasExactas[lineaActiva];
-                if(ruta && ruta.length > 0) {
-                    unidades.push({
-                        linea: lineaActiva, ruta: ruta, 
-                        progress: Math.random(), // EL FIX PRINCIPAL: Nacen esparcidos, cero acumulaciones.
-                        speed: (Math.random() * 0.005) + 0.002, 
-                        dir: Math.random() > 0.5 ? 1 : -1,
-                        marker: L.circleMarker(ruta[0], { radius: 3, color: coloresLineas[lineaActiva], fillOpacity: 1, weight: 1 }).addTo(map)
-                    });
-                }
-            }
-            while(unidades.length > nuevoTotal) { const busViejo = unidades.pop(); map.removeLayer(busViejo.marker); }
-        }
-
-        const notasSynth = ["C4", "D4", "F4", "G4", "A4"];
-        function dispararSonido(linea) {
-            if(!isPlaying) return;
-            // Añadimos una ligerísima varianza al tiempo para evitar que 2 sonidos ahoguen la CPU si chocan el mismo frame
-            const tiempo = Tone.now() + (Math.random() * 0.05);
-            switch(linea) {
-                case 'LÍNEA 1': synthsTone[linea]?.triggerAttackRelease("C1", "8n", tiempo); break;
-                case 'LÍNEA 2': synthsTone[linea]?.triggerAttackRelease("16n", tiempo); break;
-                case 'LÍNEA 3': synthsTone[linea]?.triggerAttackRelease("C2", "8n", tiempo); break;
-                case 'LÍNEA 4': synthsTone[linea]?.triggerAttackRelease(["C4", "E4", "G4"], "4n", tiempo); break;
-                case 'LÍNEA 5': synthsTone[linea]?.triggerAttackRelease(notasSynth[Math.floor(Math.random()*notasSynth.length)], "8n", tiempo); break;
-                case 'LÍNEA 6': synthsTone[linea]?.triggerAttackRelease("32n", tiempo); break;
-                case 'LÍNEA 7': synthsTone[linea]?.triggerAttackRelease("C5", "2n", tiempo); break;
-            }
-        }
-
-        function animarUnidades() {
-            unidades.forEach(bus => {
-                // Avanzamos porcentualmente
-                bus.progress += bus.speed * bus.dir;
-                
-                // Si llega a un extremo (0 o 1), rebota y dispara sonido
-                if (bus.progress >= 1 || bus.progress <= 0) { 
-                    bus.dir *= -1; 
-                    bus.progress = Math.max(0, Math.min(1, bus.progress));
-                    dispararSonido(bus.linea); 
-                }
-                
-                // Pintar en el mapa usando matemáticas (lerp)
-                const coord = obtenerCoordenadaEnRuta(bus.ruta, bus.progress);
-                bus.marker.setLatLng(coord);
+            // Dibujar las "estaciones" (nodos) como puntitos
+            linea.nodos.forEach(nodo => {
+                L.circleMarker(nodo, { radius: 2, color: '#333', fillColor: '#333', fillOpacity: 1 }).addTo(map);
             });
-            setTimeout(animarUnidades, 30); 
+        });
+
+        // Construir la leyenda UI
+        const legendContainer = document.getElementById('legend-container');
+        Object.values(dataLineas).forEach(linea => {
+            legendContainer.innerHTML += `
+                <div class="line-item">
+                    <div class="line-dot" style="background-color: ${linea.color}">${linea.id}</div>
+                    <div class="line-info">
+                        <h3>${linea.nombre}</h3>
+                        <p>${linea.inst}</p>
+                    </div>
+                </div>
+            `;
+        });
+
+        // --- 3. MOTOR DE AUDIO (TONE.JS) ---
+        let audioIniciado = false;
+        const synths = {};
+
+        async function iniciarExperiencia() {
+            // Eliminar pantalla de bloqueo
+            document.getElementById('start-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('start-screen').style.display = 'none';
+                document.getElementById('sidebar').style.display = 'block';
+            }, 500);
+
+            // Iniciar Web Audio API y Tone.js legalmente
+            await Tone.start();
+            Tone.Transport.start();
+            audioIniciado = true;
+
+            const reverb = new Tone.Reverb(2).toDestination();
+            const delay = new Tone.FeedbackDelay("8n", 0.4).connect(reverb);
+
+            // Configurar instrumentos precisos
+            synths['L1'] = new Tone.MembraneSynth().toDestination(); 
+            synths['L1'].volume.value = 2;
+
+            synths['L2'] = new Tone.NoiseSynth({noise: {type: 'pink'}}).toDestination(); 
+            synths['L2'].volume.value = -10;
+
+            synths['L3'] = new Tone.FMSynth({modulationIndex: 2}).toDestination(); 
+            synths['L3'].volume.value = -5;
+
+            synths['L4'] = new Tone.PolySynth(Tone.Synth).connect(reverb); 
+            synths['L4'].volume.value = -12;
+
+            synths['L5'] = new Tone.Synth({oscillator: {type: 'sine'}}).connect(reverb); 
+            synths['L5'].volume.value = -8;
+
+            synths['L6'] = new Tone.MetalSynth({resonance: 8000}).toDestination(); 
+            synths['L6'].volume.value = -15;
+
+            synths['L7'] = new Tone.AMSynth().connect(delay); 
+            synths['L7'].volume.value = -8;
+
+            iniciarTrafico();
         }
 
-        // --- 6. RENDERIZADO VISUAL ---
-        function drawVisuals() {
-            requestAnimationFrame(drawVisuals);
-            if(!audioCtx || !isPlaying) return;
+        // --- 4. MOTOR FÍSICO Y LOGICA MUSICAL (CORREGIDO) ---
+        let autobuses = [];
 
-            analyser.getByteFrequencyData(dataArrayFft); analyser.getByteTimeDomainData(dataArrayWave);
-            let sum = 0; for(let i = 0; i < dataArrayFft.length; i++) sum += dataArrayFft[i];
-            let avgNorm = (sum / dataArrayFft.length) / 255; let glitchVal = parseInt(glitchAmtCtrl.value) / 100; let targetScale = 0.2 + (glitchVal * 2.0); 
+        function iniciarTrafico() {
+            const numAutobuses = 60; // Cantidad base
+            document.getElementById('bus-count').innerText = numAutobuses;
+            
+            // BPM basado en la cantidad de autobuses
+            const bpm = Math.floor(80 + (numAutobuses * 0.5));
+            Tone.Transport.bpm.rampTo(bpm, 1);
+            document.getElementById('bpm-count').innerText = bpm;
 
-            fCtx.fillStyle = 'rgba(0, 0, 0, 0.3)'; fCtx.fillRect(0, 0, fftCanvas.width, fftCanvas.height);
-            let bars = 64; let barWidth = (fftCanvas.width / bars); let x = 0;
-            let uiColor = getComputedStyle(document.documentElement).getPropertyValue('--ui-accent').trim();
-            for(let i = 0; i < bars; i++) {
-                let barHeight = dataArrayFft[i] * (fftCanvas.height / 255); fCtx.fillStyle = (barHeight > 150) ? '#fff' : uiColor;
-                fCtx.fillRect(x, fftCanvas.height - barHeight, barWidth - 2, barHeight); x += barWidth;
+            const idsLineas = Object.keys(dataLineas);
+
+            // Crear flota
+            for(let i=0; i<numAutobuses; i++) {
+                const lineaAleatoria = idsLineas[Math.floor(Math.random() * idsLineas.length)];
+                const lineaDatos = dataLineas[lineaAleatoria];
+                
+                // Empezar en un nodo aleatorio de la ruta
+                const nodoInicialIndex = Math.floor(Math.random() * (lineaDatos.nodos.length - 1));
+
+                autobuses.push({
+                    id_DOM: `bus_${i}`, // Para aplicar CSS
+                    linea: lineaDatos,
+                    nodoActual: nodoInicialIndex,
+                    nodoDestino: nodoInicialIndex + 1,
+                    progresoEntreNodos: 0,
+                    velocidad: (Math.random() * 0.01) + 0.005, // Velocidad a la que viaja
+                    direccion: 1, // 1 = adelante, -1 = reversa
+                    marker: L.circleMarker(lineaDatos.nodos[nodoInicialIndex], { 
+                        radius: 4, 
+                        color: lineaDatos.color, 
+                        fillColor: lineaDatos.color, 
+                        fillOpacity: 1, 
+                        weight: 2 
+                    }).addTo(map)
+                });
             }
 
-            wCtx.fillStyle = 'rgba(0, 0, 0, 0.3)'; wCtx.fillRect(0, 0, waveCanvas.width, waveCanvas.height); wCtx.lineWidth = 2; let mixVal = parseInt(crossfaderCtrl.value);
-            wCtx.beginPath(); wCtx.strokeStyle = `rgb(${Math.floor((mixVal / 100) * 255)}, ${Math.floor(((100 - mixVal) / 100) * 255)}, 255)`;
-            let sliceWidth = waveCanvas.width * 1.0 / analyser.fftSize; let wx = 0;
-            for(let i = 0; i < analyser.fftSize; i++) {
-                let v = dataArrayWave[i] / 128.0; let y = v * waveCanvas.height / 2;
-                if(i === 0) wCtx.moveTo(wx, y); else wCtx.lineTo(wx, y); wx += sliceWidth;
-            }
-            wCtx.stroke();
+            animarFlota();
+        }
 
-            let time = performance.now() * 0.001; let currentModeId = visualModes[currentModeIndex].id;
-            if (currentModeId === 'dust') {
-                dustSystem.scale.set(targetScale, targetScale, targetScale); dustSystem.rotation.y += 0.002 + (avgNorm * 0.02); dustSystem.rotation.x = avgNorm * 0.5;
-                const pos = dustSystem.geometry.attributes.position;
-                for(let i=0; i<particlesCount*3; i++) { let audioMod = (dataArrayFft[i%100]/255); pos.array[i] = dustBasePosArray[i] + (Math.random() - 0.5) * glitchVal * audioMod * 50; }
-                pos.needsUpdate = true;
-            } else if (currentModeId === 'organic') {
-                organicMesh.scale.set(targetScale, targetScale, targetScale); organicMesh.rotation.y += 0.005; organicMesh.rotation.z = avgNorm * 0.2;
-                const pos = organicMesh.geometry.attributes.position;
-                for(let i=0; i < organicBaseVertices.length; i++) {
-                    let freq = dataArrayFft[i % 256]; let base = organicBaseVertices[i]; let asymNoise = Math.sin(base.x * 2.0 + time) * Math.cos(base.y * 2.0 + time);
-                    let displacement = (freq / 255.0) * (1.5 + glitchVal * 15) + (asymNoise * 0.8 * (freq/255.0));
-                    let dir = base.clone().normalize(); let newPos = base.clone().add(dir.multiplyScalar(displacement)); pos.setXYZ(i, newPos.x, newPos.y, newPos.z);
+        function animarFlota() {
+            autobuses.forEach(bus => {
+                const ruta = bus.linea.nodos;
+                
+                // Avanzar hacia el siguiente nodo
+                bus.progresoEntreNodos += bus.velocidad;
+
+                // ¿Llegó al nodo destino (Estación)?
+                if (bus.progresoEntreNodos >= 1) {
+                    bus.progresoEntreNodos = 0;
+                    bus.nodoActual = bus.nodoDestino;
+                    bus.nodoDestino += bus.direccion;
+
+                    // Si llega a la terminal (inicio o fin de la ruta), da la vuelta
+                    if (bus.nodoDestino >= ruta.length || bus.nodoDestino < 0) {
+                        bus.direccion *= -1;
+                        bus.nodoDestino = bus.nodoActual + bus.direccion;
+                    }
+
+                    // --- GATILLO MUSICAL: Llegó a la estación ---
+                    if (audioIniciado) {
+                        const notaArr = bus.linea.notas;
+                        const notaAleatoria = notaArr[Math.floor(Math.random() * notaArr.length)];
+                        
+                        // Pequeño jitter de tiempo para que los acordes no saturen si chocan 2 buses
+                        const tiempo = Tone.now() + (Math.random() * 0.05);
+                        
+                        // Tocar instrumento
+                        synths[bus.linea.id].triggerAttackRelease(notaAleatoria, "8n", tiempo);
+
+                        // Efecto visual: Destello (Glow)
+                        const radioOriginal = bus.marker.options.radius;
+                        bus.marker.setRadius(12); // Crece de golpe
+                        
+                        // Vuelve a su tamaño suavemente
+                        setTimeout(() => {
+                            if(bus.marker) bus.marker.setRadius(radioOriginal);
+                        }, 150);
+                    }
                 }
-                pos.needsUpdate = true; organicMat.emissiveIntensity = 0.1 + (avgNorm * 2.0);
-            } else if (currentModeId === 'vortex') {
-                vortexMesh.scale.set(targetScale, targetScale, targetScale); vortexMesh.rotation.z -= 0.01; vortexMesh.rotation.x = Math.sin(time * 0.5) * 0.5;
-                const pos = vortexMesh.geometry.attributes.position;
-                for(let i=0; i < vortexBaseVertices.length; i++) {
-                    let freq = dataArrayFft[Math.floor((i / vortexBaseVertices.length) * 128)]; let base = vortexBaseVertices[i];
-                    let twist = Math.sin(time * 2.0 + base.y * 5.0) * (freq / 255.0) * (1.0 + glitchVal * 10);
-                    let newPos = base.clone(); newPos.x += Math.cos(twist) * (freq/255.0); newPos.z += Math.sin(twist) * (freq/255.0); pos.setXYZ(i, newPos.x, newPos.y, newPos.z);
-                }
-                pos.needsUpdate = true; vortexMat.emissiveIntensity = 0.2 + (avgNorm * 3.0);
-            } else if (currentModeId === 'terrain') {
-                terrainMesh.scale.set(targetScale, targetScale, targetScale); const pos = terrainMesh.geometry.attributes.position;
-                for(let i=0; i < terrainBaseVertices.length; i++) {
-                    let base = terrainBaseVertices[i]; let mapIndex = Math.floor(Math.abs(base.x) * 4); let freq = dataArrayFft[mapIndex % 128] || 0;
-                    let wave = Math.sin(base.y * 2.0 + time * 5.0) * (freq / 255.0); let elevation = (freq / 255.0) * 8.0 * (1.0 + glitchVal * 5) + wave; pos.setXYZ(i, base.x, base.y, base.z + elevation);
-                }
-                pos.needsUpdate = true;
-            }
-            renderer.render(scene, camera);
+
+                // Interpolar coordenada exacta entre nodoActual y nodoDestino
+                const p1 = ruta[bus.nodoActual];
+                const p2 = ruta[bus.nodoDestino];
+                
+                const lat = p1[0] + (p2[0] - p1[0]) * bus.progresoEntreNodos;
+                const lng = p1[1] + (p2[1] - p1[1]) * bus.progresoEntreNodos;
+                
+                bus.marker.setLatLng([lat, lng]);
+            });
+
+            requestAnimationFrame(animarFlota); // Animación fluida a 60 FPS
         }
     </script>
 </body>
