@@ -68,21 +68,21 @@
         .line-text { font-size: 0.65rem; color: #888; }
         .line-text strong { color: #ccc; display: block; margin-bottom: 2px; }
 
-        /* --- ONDITAS DE ATASCO (RIPPLES) --- */
+        /* --- ONDITAS DE ATASCO (RIPPLES) VISIBLES Y PEQUEÑAS --- */
         .ripple-dot {
             width: 100%; height: 100%; border-radius: 50%;
             position: absolute; top: 0; left: 0;
-            border: 1px solid currentColor; /* Siempre visible */
-            animation: pulse-ring 2.5s infinite ease-out;
+            border: 2px solid currentColor;
+            animation: pulse-ring 2s infinite ease-out;
         }
         .ripple-center {
-            width: 6px; height: 6px; background: currentColor; border-radius: 50%;
+            width: 8px; height: 8px; background: currentColor; border-radius: 50%;
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             box-shadow: 0 0 10px currentColor;
         }
         @keyframes pulse-ring {
-            0% { transform: scale(0.8); opacity: 0.8; }
-            100% { transform: scale(2.5); opacity: 0.1; }
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(1.5); opacity: 0.3; } /* Siempre retiene visibilidad */
         }
 
         /* DOCK Y GADGETS */
@@ -203,13 +203,14 @@
             seq.scrollTop = seq.scrollHeight;
         };
 
+        // DESCARGA Y COSTURA DE LÍNEAS COMPLETAS
         async function descargarRedCompleta() {
             try {
                 logConsole('Extrayendo cartografía de <span style="color:#00f0ff">apimetro.dev</span>...');
                 const res = await fetch('https://apimetro.dev/movilidad/mapas/geojsonLinea?sistema=METRO,MB,CBB,TROLE');
                 const geojson = await res.json();
                 
-                logConsole(`Geometrías descargadas. Renderizando ${geojson.features.length} líneas...`);
+                logConsole(`Geometrías descargadas. Cosido de estaciones...`);
                 const legend = document.getElementById('legend-container');
                 let sistemasAgregados = new Set();
 
@@ -233,12 +234,34 @@
                                 </div>`;
                         }
 
+                        // ALGORITMO DE COSTURA: Convierte segmentos cortados en una línea continua y extrae estaciones.
                         if(f.geometry.type === 'MultiLineString') {
+                            let nodosLinea = [];
+                            let esEstacion = [];
+                            
                             f.geometry.coordinates.forEach(tramo => {
-                                if(tramo.length > 2) {
-                                    rutasEstructurales.push({ sys: sys, color: colorReal, nodos: tramo.map(c => [c[1], c[0]]) });
-                                }
+                                tramo.forEach((coord, i) => {
+                                    let isStation = (i === 0 || i === tramo.length - 1);
+                                    let latLng = [coord[1], coord[0]];
+                                    
+                                    if (nodosLinea.length === 0) {
+                                        nodosLinea.push(latLng);
+                                        esEstacion.push(isStation);
+                                    } else {
+                                        let last = nodosLinea[nodosLinea.length - 1];
+                                        if (last[0] === latLng[0] && last[1] === latLng[1]) {
+                                            if (isStation) esEstacion[esEstacion.length - 1] = true;
+                                        } else {
+                                            nodosLinea.push(latLng);
+                                            esEstacion.push(isStation);
+                                        }
+                                    }
+                                });
                             });
+                            
+                            if (nodosLinea.length > 1) {
+                                rutasEstructurales.push({ sys: sys, color: colorReal, nodos: nodosLinea, esEstacion: esEstacion });
+                            }
                         }
                     }
                 }).addTo(map);
@@ -291,8 +314,6 @@
             limiter.threshold.value = -10; limiter.ratio.value = 20;
 
             analyserFFT = audioCtx.createAnalyser(); analyserFFT.fftSize = 512;
-            
-            // FIX: Usamos Tone.Analyser directamente para el waveform, es más estable y fácil de dibujar.
             analyserWave = new Tone.Analyser("waveform", 512);
 
             Tone.getDestination().disconnect(); Tone.getDestination().connect(preGainNode);
@@ -300,14 +321,12 @@
             distortionNode.connect(limiter);
             limiter.connect(analyserFFT); 
             limiter.connect(audioCtx.destination);
-            
-            // Conectamos el osciloscopio al final de la cadena
-            Tone.getDestination().connect(analyserWave);
+            Tone.getDestination().connect(analyserWave); // Waveform nativo conectado al master
 
             const reverb = new Tone.Reverb(4).toDestination();
             const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
 
-            synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -12;
+            synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -14;
             synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5}).toDestination(); synths['BASS'].volume.value = -6;
             synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -10;
             synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).toDestination(); synths['PERC'].volume.value = -18;
@@ -322,12 +341,12 @@
 
             iniciarVisualizador3D();
             
-            setInterval(sincronizarRelojUrbano, 1000); // Reloj actualiza cada segundo visualmente
-            sincronizarRelojUrbano(); // Llamada inicial
+            setInterval(sincronizarRelojUrbano, 1000);
+            sincronizarRelojUrbano();
             animarFisicas();
         }
 
-        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX ---
+        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX AUTÓNOMA ---
         let targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
         let globalSpeedMult = 1.0;
         let globalJamProb = 0.0005;
@@ -362,7 +381,7 @@
                 targets['METRO'] = 160; targets['CBB'] = 50; targets['MB'] = 190; targets['TROLE'] = 80;
                 globalSpeedMult = 0.5; globalJamProb = 0.03;
                 estadoTxt = "HORA PICO (TARDE) / CAOS URBANO";
-            } else { // Noche (21 a 23)
+            } else { // Noche
                 targets['METRO'] = 60; targets['CBB'] = 20; targets['MB'] = 70; targets['TROLE'] = 30;
                 globalSpeedMult = 1.5; globalJamProb = 0.002;
                 estadoTxt = "NOCHE / FLUJO DESCENDENTE";
@@ -408,7 +427,7 @@
         function crearAtascoEspacial(sys, lat, lng, color) {
             const rippleIcon = L.divIcon({
                 className: 'custom-ripple',
-                html: `<div style="color: ${color}; position: relative; width: 30px; height: 30px; margin-left: -15px; margin-top: -15px;">
+                html: `<div style="color: ${color}; position: relative; width: 24px; height: 24px; margin-left: -12px; margin-top: -12px;">
                           <div class="ripple-dot"></div>
                           <div class="ripple-center"></div>
                        </div>`,
@@ -436,7 +455,8 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                velBase: (Math.random() * 0.001) + 0.0005, 
+                // Aumentamos velBase para transitar ágilmente entre los nodos intermedios
+                velBase: (Math.random() * 0.02) + 0.01, 
                 velActual: 0,
                 estado: 'movimiento', 
                 timer: 0,
@@ -448,7 +468,7 @@
             });
         }
 
-        // --- 4. MOTOR FÍSICO (INTERSECCIONES Y CHISPAS CORREGIDAS) ---
+        // --- 4. MOTOR FÍSICO (NUEVA LEY DE 5 SEGS EN ESTACIÓN) ---
         function calcDistancia(lat1, lon1, lat2, lon2) {
             const p = 0.017453292519943295; const c = Math.cos;
             const a = 0.5 - c((lat2 - lat1) * p)/2 + c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p))/2;
@@ -490,7 +510,7 @@
                     for (let atasco of atascosActivos) {
                         if (atasco.sys === bus.rutaObj.sys) {
                             let distKm = calcDistancia(bus.curLat, bus.curLng, atasco.lat, atasco.lng);
-                            if (distKm < 0.3) { // Radio de atasco más local (300m)
+                            if (distKm < 0.3) { 
                                 let localMult = Math.max(0.05, distKm / 0.3); 
                                 if (localMult < jamMultiplier) jamMultiplier = localMult;
                             }
@@ -504,6 +524,7 @@
                         bus.progress = 0;
                         bus.currentIdx = bus.targetIdx; bus.targetIdx += bus.dir;
                         
+                        // Si llega a los extremos reales de la línea completa, invierte ruta
                         if(bus.targetIdx >= bus.nodos.length || bus.targetIdx < 0) { 
                             bus.dir *= -1; bus.targetIdx = bus.currentIdx + bus.dir; 
                         }
@@ -511,20 +532,22 @@
                         bus.startLat = bus.nodos[bus.currentIdx][0]; bus.startLng = bus.nodos[bus.currentIdx][1];
                         bus.targetLat = bus.nodos[bus.targetIdx][0]; bus.targetLng = bus.nodos[bus.targetIdx][1];
                         
-                        bus.estado = 'estacion';
-                        bus.timer = 1500 / Math.max(0.1, globalSpeedMult);
+                        // Evaluar si la nueva coordenada es una ESTACIÓN OFICIAL
+                        if (bus.rutaObj.esEstacion[bus.currentIdx]) {
+                            bus.estado = 'estacion';
+                            // AL MENOS 5 SEGUNDOS REALES (5000 ms) DE PARADA
+                            bus.timer = 5000;
 
-                        if(audioActivo && notasEsteFrame < 3 && bus.rutaObj.sys !== 'METRO') {
-                            notasEsteFrame++;
-                            try {
-                                const escala = progresión[indiceArmonia].escala;
-                                const nota = escala[Math.floor(Math.random() * escala.length)];
-                                synths[bus.rutaObj.sys].triggerAttackRelease(nota, "8n", "+0.05", 0.3); 
-                                
-                                bus.marker.setStyle({ fillColor: '#ffffff', radius: 4 });
-                                setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, radius: 2 }); }, 200);
-                            } catch (e) {
-                                console.warn("Audio ignorado en estación para proteger animación");
+                            if(audioActivo && notasEsteFrame < 3) {
+                                notasEsteFrame++;
+                                try {
+                                    const escala = progresión[indiceArmonia].escala;
+                                    const nota = escala[Math.floor(Math.random() * escala.length)];
+                                    synths[bus.rutaObj.sys].triggerAttackRelease(nota, "8n", "+0.05", 0.3); 
+                                    
+                                    bus.marker.setStyle({ fillColor: '#ffffff', radius: 4 });
+                                    setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, radius: 2 }); }, 200);
+                                } catch (e) {}
                             }
                         }
                     }
@@ -548,13 +571,10 @@
                         if (distKm < 0.05 && !b1.chispaCoolDown && !b2.chispaCoolDown && audioActivo) {
                             
                             let hacenChispa = false;
-                            
-                            // 1. Diferente dirección (se cruzan de frente en la misma o diferente ruta)
                             if (b1.dir !== b2.dir) hacenChispa = true;
-                            // 2. Diferente sistema (se cruzan en una intersección)
                             if (b1.rutaObj.sys !== b2.rutaObj.sys) hacenChispa = true;
 
-                            // Platooning: Mismo sistema, misma dirección -> solo frenan, no hacen chispa.
+                            // Platooning (Misma ruta, misma dirección) no hace chispa, solo estorba
                             if (b1.rutaObj.sys === b2.rutaObj.sys && b1.dir === b2.dir) {
                                 hacenChispa = false;
                                 if(b1.estado === 'estacion' || b1.velActual < b1.velBase) b2.velActual *= 0.5;
@@ -581,9 +601,7 @@
 
                                     b1.chispaCoolDown = true; b2.chispaCoolDown = true;
                                     setTimeout(() => { b1.chispaCoolDown = false; b2.chispaCoolDown = false; }, 2000);
-                                } catch(e) {
-                                    console.warn("Audio ignorado en chispa para proteger animación");
-                                }
+                                } catch(e) {}
                             }
                         }
                     }
@@ -642,7 +660,7 @@
             const organicMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x00f0ff, emissiveIntensity: 0.2, wireframe: true, roughness: 0.2 });
             organicMesh3D = new THREE.Mesh(organicGeo, organicMat); 
             
-            // FIX: Subir el objeto en el eje Y para que quede centrado en la vista del panel
+            // CENTRADO PERFECTO EN EL PANEL Y
             organicMesh3D.position.y = 0.8; 
             scene3D.add(organicMesh3D);
 
@@ -661,7 +679,6 @@
 
             const dataArrayFft = new Uint8Array(analyserFFT.frequencyBinCount); analyserFFT.getByteFrequencyData(dataArrayFft);
             
-            // FIX: Obtener el array correcto desde Tone.Analyser
             let waveData = [];
             if(analyserWave) waveData = analyserWave.getValue();
             
@@ -671,13 +688,14 @@
 
             if(document.getElementById('gadget-wave').classList.contains('active') && waveData.length > 0) {
                 wCtx.clearRect(0, 0, wCanvas.width, wCanvas.height);
-                wCtx.lineWidth = 2; wCtx.beginPath(); wCtx.strokeStyle = `var(--ui-accent)`;
+                wCtx.lineWidth = 2; wCtx.beginPath(); 
+                wCtx.strokeStyle = '#00f0ff'; // CYAN OBLIGATORIO
                 let sliceWidth = wCanvas.width * 1.0 / waveData.length; let wx = 0;
                 
                 for(let i = 0; i < waveData.length; i++) {
-                    // waveData tiene valores de -1.0 a 1.0, lo mapeamos al alto del canvas
-                    let valMapeado = (waveData[i] + 1) / 2;
-                    let y = (1 - valMapeado) * wCanvas.height; 
+                    let val = waveData[i] * 3.0; // Amplificación visual
+                    if (val > 1.0) val = 1.0; if (val < -1.0) val = -1.0; // Clamp
+                    let y = (1 - (val + 1) / 2) * wCanvas.height; 
                     if(i === 0) wCtx.moveTo(wx, y); else wCtx.lineTo(wx, y); wx += sliceWidth;
                 }
                 wCtx.stroke();
