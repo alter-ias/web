@@ -203,21 +203,20 @@
             seq.scrollTop = seq.scrollHeight;
         };
 
-        // Función matemática para medir la distancia real en kilómetros
         function calcDistancia(lat1, lon1, lat2, lon2) {
             const p = 0.017453292519943295; const c = Math.cos;
             const a = 0.5 - c((lat2 - lat1) * p)/2 + c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p))/2;
             return 12742 * Math.asin(Math.sqrt(a)); 
         }
 
-        // DESCARGA Y COSTURA PROFUNDA DE LÍNEAS COMPLETAS
+        // DESCARGA Y COSTURA AGRESIVA DE LÍNEAS
         async function descargarRedCompleta() {
             try {
                 logConsole('Extrayendo cartografía de <span style="color:#00f0ff">apimetro.dev</span>...');
                 const res = await fetch('https://apimetro.dev/movilidad/mapas/geojsonLinea?sistema=METRO,MB,CBB,TROLE');
                 const geojson = await res.json();
                 
-                logConsole(`Geometrías descargadas. Tejiendo rutas completas...`);
+                logConsole(`Geometrías descargadas. Uniendo rutas de extremo a extremo...`);
                 const legend = document.getElementById('legend-container');
                 let sistemasAgregados = new Set();
 
@@ -241,62 +240,65 @@
                                 </div>`;
                         }
 
-                        // ALGORITMO DE COSTURA AVANZADO: Convierte segmentos rotos en una ruta fluida de extremo a extremo
+                        // COSTURA AGRESIVA: Une todos los fragmentos en una sola línea continua
                         if(f.geometry.type === 'MultiLineString' || f.geometry.type === 'LineString') {
                             let tramosRaw = f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates;
                             let segmentos = tramosRaw.map(tramo => tramo.map(c => [c[1], c[0]]));
                             
-                            while (segmentos.length > 0) {
-                                let rutaActual = segmentos.shift();
-                                let creciendo = true;
+                            if (segmentos.length > 0) {
+                                let rutaUnica = segmentos.shift();
                                 
-                                while (creciendo) {
-                                    creciendo = false;
-                                    let inicioRuta = rutaActual[0];
-                                    let finRuta = rutaActual[rutaActual.length - 1];
+                                while (segmentos.length > 0) {
+                                    let bestIdx = -1; let bestReverse = false; let bestDist = Infinity; let appendToStart = false;
+                                    let startP = rutaUnica[0]; let endP = rutaUnica[rutaUnica.length - 1];
 
                                     for (let i = 0; i < segmentos.length; i++) {
                                         let seg = segmentos[i];
-                                        let inicioSeg = seg[0];
-                                        let finSeg = seg[seg.length - 1];
-                                        
-                                        // Tolerancia de ~50 metros para unir puntos en glorietas e intersecciones complejas
-                                        const tol = 0.0005; 
-                                        const sonIguales = (p1, p2) => Math.abs(p1[0]-p2[0]) < tol && Math.abs(p1[1]-p2[1]) < tol;
+                                        let sStart = seg[0]; let sEnd = seg[seg.length - 1];
 
-                                        if (sonIguales(finRuta, inicioSeg)) {
-                                            rutaActual = rutaActual.concat(seg.slice(1));
-                                            segmentos.splice(i, 1); creciendo = true; break;
-                                        } else if (sonIguales(finRuta, finSeg)) {
-                                            rutaActual = rutaActual.concat(seg.slice(0, -1).reverse());
-                                            segmentos.splice(i, 1); creciendo = true; break;
-                                        } else if (sonIguales(inicioRuta, finSeg)) {
-                                            rutaActual = seg.concat(rutaActual.slice(1));
-                                            segmentos.splice(i, 1); creciendo = true; break;
-                                        } else if (sonIguales(inicioRuta, inicioSeg)) {
-                                            rutaActual = seg.slice(1).reverse().concat(rutaActual);
-                                            segmentos.splice(i, 1); creciendo = true; break;
+                                        let d1 = calcDistancia(endP[0], endP[1], sStart[0], sStart[1]);
+                                        let d2 = calcDistancia(endP[0], endP[1], sEnd[0], sEnd[1]);
+                                        let d3 = calcDistancia(startP[0], startP[1], sEnd[0], sEnd[1]);
+                                        let d4 = calcDistancia(startP[0], startP[1], sStart[0], sStart[1]);
+
+                                        let minD = Math.min(d1, d2, d3, d4);
+                                        if (minD < bestDist) {
+                                            bestDist = minD; bestIdx = i;
+                                            if(minD === d1) { appendToStart = false; bestReverse = false; }
+                                            else if(minD === d2) { appendToStart = false; bestReverse = true; }
+                                            else if(minD === d3) { appendToStart = true; bestReverse = false; }
+                                            else if(minD === d4) { appendToStart = true; bestReverse = true; }
                                         }
+                                    }
+
+                                    // Forzamos la unión del segmento más cercano
+                                    let nextSeg = segmentos.splice(bestIdx, 1)[0];
+                                    if (bestReverse) nextSeg.reverse();
+                                    
+                                    // Evitar duplicar el punto de unión
+                                    if (appendToStart) {
+                                        rutaUnica = nextSeg.slice(0, -1).concat(rutaUnica);
+                                    } else {
+                                        rutaUnica = rutaUnica.concat(nextSeg.slice(1));
                                     }
                                 }
                                 
-                                // Si la línea final es válida (ignorar basurita topográfica de la API)
-                                if(rutaActual.length > 5) {
-                                    // GENERACIÓN DE ESTACIONES REALISTAS: Plantar una parada cada ~800 metros
-                                    let esEstacion = new Array(rutaActual.length).fill(false);
-                                    esEstacion[0] = true; // Terminal origen
-                                    esEstacion[rutaActual.length - 1] = true; // Terminal destino
+                                if(rutaUnica.length > 2) {
+                                    // GENERACIÓN DE ESTACIONES: Una estación cada ~800 metros
+                                    let esEstacion = new Array(rutaUnica.length).fill(false);
+                                    esEstacion[0] = true; 
+                                    esEstacion[rutaUnica.length - 1] = true; 
                                     
                                     let distAcumulada = 0;
-                                    for(let i=0; i < rutaActual.length - 1; i++) {
-                                        distAcumulada += calcDistancia(rutaActual[i][0], rutaActual[i][1], rutaActual[i+1][0], rutaActual[i+1][1]);
-                                        if(distAcumulada > 0.8) { // 800 metros reales
+                                    for(let i=0; i < rutaUnica.length - 1; i++) {
+                                        distAcumulada += calcDistancia(rutaUnica[i][0], rutaUnica[i][1], rutaUnica[i+1][0], rutaUnica[i+1][1]);
+                                        if(distAcumulada >= 0.8) { 
                                             esEstacion[i+1] = true;
                                             distAcumulada = 0;
                                         }
                                     }
                                     
-                                    rutasEstructurales.push({ sys: sys, color: colorReal, nodos: rutaActual, esEstacion: esEstacion });
+                                    rutasEstructurales.push({ sys: sys, color: colorReal, nodos: rutaUnica, esEstacion: esEstacion });
                                 }
                             }
                         }
@@ -492,8 +494,8 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                // Velocidad Base Constante Físicamente (Kilómetros por frame)
-                velBase: (Math.random() * 0.0001) + 0.0001, 
+                // Velocidad convertida a kilómetros base por frame
+                velBase: (Math.random() * 0.005) + 0.002, 
                 velActual: 0,
                 estado: 'movimiento', 
                 timer: 0,
@@ -505,8 +507,7 @@
             });
         }
 
-        // --- 4. MOTOR FÍSICO (MOVIMIENTO FLUIDO Y PARADAS DE 5 SEGUNDOS) ---
-
+        // --- 4. MOTOR FÍSICO CINÉTICO CONTINUO ---
         let lastTimeFisicas = performance.now();
         let frameCounter = 0; 
         let notasEsteFrame = 0; 
@@ -549,46 +550,59 @@
                         }
                     }
 
-                    // MOVIMIENTO FLUIDO MATEMÁTICO: Ajustar el porcentaje de progreso basado en la distancia real del tramo
-                    let distTramo = calcDistancia(bus.startLat, bus.startLng, bus.targetLat, bus.targetLng);
-                    if (distTramo < 0.001) distTramo = 0.001; // Protección división por cero
-                    
+                    // MOVIMIENTO CONTINUO: Consumir distancia en km
                     bus.velActual = bus.velBase * globalSpeedMult * jamMultiplier;
-                    let step = bus.velActual / distTramo; // Cuánto % del tramo avanza en este frame
-                    bus.progress += step;
+                    let distanceToMove = bus.velActual;
                     
-                    if (bus.progress >= 1) {
-                        bus.progress = 0;
-                        bus.currentIdx = bus.targetIdx; bus.targetIdx += bus.dir;
+                    while (distanceToMove > 0) {
+                        let distTramo = calcDistancia(bus.startLat, bus.startLng, bus.targetLat, bus.targetLng);
+                        if (distTramo < 0.0001) distTramo = 0.0001; // Protección matemática
                         
-                        // Si llega a los extremos reales de la línea, invierte ruta
-                        if(bus.targetIdx >= bus.nodos.length || bus.targetIdx < 0) { 
-                            bus.dir *= -1; bus.targetIdx = bus.currentIdx + bus.dir; 
-                        }
+                        let distRestante = distTramo * (1 - bus.progress);
                         
-                        bus.startLat = bus.nodos[bus.currentIdx][0]; bus.startLng = bus.nodos[bus.currentIdx][1];
-                        bus.targetLat = bus.nodos[bus.targetIdx][0]; bus.targetLng = bus.nodos[bus.targetIdx][1];
-                        
-                        // EVALUAR ESTACIÓN: Las paradas duran exactamente 5 segundos reales
-                        if (bus.rutaObj.esEstacion[bus.currentIdx]) {
-                            bus.estado = 'estacion';
-                            bus.timer = 5000; 
-
-                            if(audioActivo && notasEsteFrame < 3 && bus.rutaObj.sys !== 'METRO') {
-                                notasEsteFrame++;
-                                try {
-                                    const escala = progresión[indiceArmonia].escala;
-                                    const nota = escala[Math.floor(Math.random() * escala.length)];
-                                    synths[bus.rutaObj.sys].triggerAttackRelease(nota, "8n", "+0.05", 0.3); 
-                                    
-                                    bus.marker.setStyle({ fillColor: '#ffffff', radius: 4 });
-                                    setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, radius: 2 }); }, 200);
-                                } catch (e) { }
+                        if (distanceToMove >= distRestante) {
+                            // Alcanza el nodo actual
+                            distanceToMove -= distRestante;
+                            bus.progress = 0;
+                            bus.currentIdx = bus.targetIdx;
+                            bus.targetIdx += bus.dir;
+                            
+                            // Rebotar en los extremos reales
+                            if(bus.targetIdx >= bus.nodos.length || bus.targetIdx < 0) { 
+                                bus.dir *= -1; 
+                                bus.targetIdx = bus.currentIdx + bus.dir; 
                             }
+                            
+                            bus.startLat = bus.nodos[bus.currentIdx][0]; bus.startLng = bus.nodos[bus.currentIdx][1];
+                            bus.targetLat = bus.nodos[bus.targetIdx][0]; bus.targetLng = bus.nodos[bus.targetIdx][1];
+                            
+                            // Evaluación de estación
+                            if (bus.rutaObj.esEstacion[bus.currentIdx]) {
+                                bus.estado = 'estacion';
+                                bus.timer = 5000; // 5 segundos reales
+
+                                if(audioActivo && notasEsteFrame < 3 && bus.rutaObj.sys !== 'METRO') {
+                                    notasEsteFrame++;
+                                    try {
+                                        const escala = progresión[indiceArmonia].escala;
+                                        const nota = escala[Math.floor(Math.random() * escala.length)];
+                                        synths[bus.rutaObj.sys].triggerAttackRelease(nota, "8n", "+0.05", 0.3); 
+                                        
+                                        bus.marker.setStyle({ fillColor: '#ffffff', radius: 4 });
+                                        setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, radius: 2 }); }, 200);
+                                    } catch (e) { }
+                                }
+                                break; // Detiene el bucle de movimiento de este frame
+                            }
+                        } else {
+                            // Avanza dentro del tramo
+                            bus.progress += distanceToMove / distTramo;
+                            distanceToMove = 0; // Se consumió toda la velocidad
                         }
                     }
                 }
 
+                // Renderizar posición visual interpolada
                 bus.curLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
                 bus.curLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
                 bus.marker.setLatLng([bus.curLat, bus.curLng]);
@@ -695,7 +709,6 @@
             const organicMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x00f0ff, emissiveIntensity: 0.2, wireframe: true, roughness: 0.2 });
             organicMesh3D = new THREE.Mesh(organicGeo, organicMat); 
             
-            // CENTRADO PERFECTO EN EL PANEL Y
             organicMesh3D.position.y = 0.8; 
             scene3D.add(organicMesh3D);
 
@@ -724,12 +737,12 @@
             if(document.getElementById('gadget-wave').classList.contains('active') && waveData.length > 0) {
                 wCtx.clearRect(0, 0, wCanvas.width, wCanvas.height);
                 wCtx.lineWidth = 2; wCtx.beginPath(); 
-                wCtx.strokeStyle = '#00f0ff'; // CYAN OBLIGATORIO
+                wCtx.strokeStyle = '#00f0ff'; 
                 let sliceWidth = wCanvas.width * 1.0 / waveData.length; let wx = 0;
                 
                 for(let i = 0; i < waveData.length; i++) {
-                    let val = waveData[i] * 3.0; // Amplificación visual
-                    if (val > 1.0) val = 1.0; if (val < -1.0) val = -1.0; // Clamp
+                    let val = waveData[i] * 3.0; 
+                    if (val > 1.0) val = 1.0; if (val < -1.0) val = -1.0; 
                     let y = (1 - (val + 1) / 2) * wCanvas.height; 
                     if(i === 0) wCtx.moveTo(wx, y); else wCtx.lineTo(wx, y); wx += sliceWidth;
                 }
