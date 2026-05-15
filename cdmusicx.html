@@ -68,22 +68,13 @@
         .line-text { font-size: 0.65rem; color: #888; }
         .line-text strong { color: #ccc; display: block; margin-bottom: 2px; }
 
-        /* --- ONDITAS DE ATASCO (RIPPLES) VISIBLES Y PEQUEÑAS --- */
         .ripple-dot {
-            width: 100%; height: 100%; border-radius: 50%;
-            position: absolute; top: 0; left: 0;
-            border: 2px solid currentColor; 
-            animation: pulse-ring 2s infinite ease-out;
+            width: 100%; height: 100%; border-radius: 50%; position: absolute; top: 0; left: 0; border: 2px solid currentColor; animation: pulse-ring 2s infinite ease-out;
         }
         .ripple-center {
-            width: 8px; height: 8px; background: currentColor; border-radius: 50%;
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            box-shadow: 0 0 10px currentColor;
+            width: 8px; height: 8px; background: currentColor; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px currentColor;
         }
-        @keyframes pulse-ring {
-            0% { transform: scale(0.5); opacity: 1; }
-            100% { transform: scale(1.5); opacity: 0.3; } 
-        }
+        @keyframes pulse-ring { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(1.5); opacity: 0.3; } }
 
         /* DOCK Y GADGETS */
         #gadget-dock { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; gap: 8px; pointer-events: auto; background: var(--glass-bg); backdrop-filter: blur(20px); border-radius: 20px; padding: 6px; border: 1px solid var(--glass-border); }
@@ -91,8 +82,11 @@
         .dock-btn:hover, .dock-btn.active { background: rgba(0,240,255,0.1); color: var(--ui-accent); }
         .gadget { display: none; position: absolute; z-index: 1000; overflow: hidden; }
         .gadget.active { display: flex; }
-        .gadget-content { flex-grow: 1; position: relative; background: transparent; padding: 15px; display: flex; justify-content: center; align-items: center;}
-        .gadget canvas { width: 100%; height: 100%; display: block; }
+        
+        /* FIX: Contenedores absolutos para mantener el canvas anclado al centro sin importar flexbox */
+        .gadget-content { flex-grow: 1; position: relative; background: transparent; width: 100%; height: calc(100% - 35px); display: block; overflow: hidden; }
+        .gadget canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
+        
         .close-btn { cursor: pointer; color: #666; font-weight: bold; transition: 0.2s; padding: 0 5px;}
         .close-btn:hover { color: var(--neon-magenta); }
 
@@ -101,7 +95,7 @@
         #gadget-fft { bottom: 80px; right: 20px; width: 260px; height: 130px; }
         #gadget-fx { top: 320px; right: 20px; width: 260px; height: auto; }
         
-        .fx-controls { padding: 15px; font-size: 0.65rem; color: #888; }
+        .fx-controls { padding: 15px; font-size: 0.65rem; color: #888; width: 100%; box-sizing: border-box;}
         .fx-controls label { display: flex; justify-content: space-between; margin-bottom: 2px; }
         .fx-controls span { color: var(--ui-accent); }
         input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 6px 0 15px 0; }
@@ -159,15 +153,15 @@
 
     <div id="gadget-3d" class="gadget glass-panel">
         <div class="panel-header"><span>GEOMETRÍA ORGÁNICA</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(1)').click()">×</span></div>
-        <div class="gadget-content" id="c3d-wrapper" style="display: flex; justify-content: center; align-items: center;"><canvas id="canvas-3d"></canvas></div>
+        <div class="gadget-content" id="c3d-wrapper"><canvas id="canvas-3d"></canvas></div>
     </div>
     <div id="gadget-wave" class="gadget glass-panel">
         <div class="panel-header"><span>OSCILOSCOPIO</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(2)').click()">×</span></div>
-        <div class="gadget-content"><canvas id="canvas-wave"></canvas></div>
+        <div class="gadget-content" id="wave-wrapper"><canvas id="canvas-wave"></canvas></div>
     </div>
     <div id="gadget-fft" class="gadget glass-panel">
         <div class="panel-header"><span>ESPECTRO FRECUENCIA</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(3)').click()">×</span></div>
-        <div class="gadget-content"><canvas id="canvas-fft"></canvas></div>
+        <div class="gadget-content" id="fft-wrapper"><canvas id="canvas-fft"></canvas></div>
     </div>
     <div id="gadget-fx" class="gadget glass-panel">
         <div class="panel-header"><span>RUTEO DE EFECTOS</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(4)').click()">×</span></div>
@@ -209,14 +203,13 @@
             return 12742 * Math.asin(Math.sqrt(a)); 
         }
 
-        // DESCARGA Y COSTURA AGRESIVA DE LÍNEAS
         async function descargarRedCompleta() {
             try {
                 logConsole('Extrayendo cartografía de <span style="color:#00f0ff">apimetro.dev</span>...');
                 const res = await fetch('https://apimetro.dev/movilidad/mapas/geojsonLinea?sistema=METRO,MB,CBB,TROLE');
                 const geojson = await res.json();
                 
-                logConsole(`Geometrías descargadas. Uniendo rutas de extremo a extremo...`);
+                logConsole(`Geometrías descargadas. Tejiendo rutas completas...`);
                 const legend = document.getElementById('legend-container');
                 let sistemasAgregados = new Set();
 
@@ -240,7 +233,6 @@
                                 </div>`;
                         }
 
-                        // COSTURA AGRESIVA: Une todos los fragmentos en una sola línea continua
                         if(f.geometry.type === 'MultiLineString' || f.geometry.type === 'LineString') {
                             let tramosRaw = f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates;
                             let segmentos = tramosRaw.map(tramo => tramo.map(c => [c[1], c[0]]));
@@ -271,20 +263,14 @@
                                         }
                                     }
 
-                                    // Forzamos la unión del segmento más cercano
                                     let nextSeg = segmentos.splice(bestIdx, 1)[0];
                                     if (bestReverse) nextSeg.reverse();
                                     
-                                    // Evitar duplicar el punto de unión
-                                    if (appendToStart) {
-                                        rutaUnica = nextSeg.slice(0, -1).concat(rutaUnica);
-                                    } else {
-                                        rutaUnica = rutaUnica.concat(nextSeg.slice(1));
-                                    }
+                                    if (appendToStart) rutaUnica = nextSeg.slice(0, -1).concat(rutaUnica);
+                                    else rutaUnica = rutaUnica.concat(nextSeg.slice(1));
                                 }
                                 
                                 if(rutaUnica.length > 2) {
-                                    // GENERACIÓN DE ESTACIONES: Una estación cada ~800 metros
                                     let esEstacion = new Array(rutaUnica.length).fill(false);
                                     esEstacion[0] = true; 
                                     esEstacion[rutaUnica.length - 1] = true; 
@@ -297,7 +283,6 @@
                                             distAcumulada = 0;
                                         }
                                     }
-                                    
                                     rutasEstructurales.push({ sys: sys, color: colorReal, nodos: rutaUnica, esEstacion: esEstacion });
                                 }
                             }
@@ -353,7 +338,8 @@
             limiter.threshold.value = -10; limiter.ratio.value = 20;
 
             analyserFFT = audioCtx.createAnalyser(); analyserFFT.fftSize = 512;
-            analyserWave = new Tone.Analyser("waveform", 512);
+            // FIX: Búfer del osciloscopio más amplio para ondas más largas y suaves
+            analyserWave = new Tone.Analyser("waveform", 1024);
 
             Tone.getDestination().disconnect(); Tone.getDestination().connect(preGainNode);
             preGainNode.connect(biquadFilter); biquadFilter.connect(distortionNode);
@@ -399,28 +385,28 @@
 
             let estadoTxt = "";
 
-            if (hora >= 0 && hora < 5) { // Madrugada
-                targets['METRO'] = 0; targets['CBB'] = 0; // Suspendidos
-                targets['MB'] = 15; targets['TROLE'] = 10; // Nochebús
+            if (hora >= 0 && hora < 5) { 
+                targets['METRO'] = 0; targets['CBB'] = 0; 
+                targets['MB'] = 15; targets['TROLE'] = 10; 
                 globalSpeedMult = 2.5; globalJamProb = 0.0001;
                 estadoTxt = "MADRUGADA / GUARDIA NOCTURNA";
-            } else if (hora >= 5 && hora < 6) { // Despertar
+            } else if (hora >= 5 && hora < 6) { 
                 targets['METRO'] = 40; targets['CBB'] = 20; targets['MB'] = 50; targets['TROLE'] = 20;
                 globalSpeedMult = 1.8; globalJamProb = 0.001;
                 estadoTxt = "AMANECER / INICIO DE OPERACIONES";
-            } else if (hora >= 6 && hora < 10) { // Pico Mañana
+            } else if (hora >= 6 && hora < 10) { 
                 targets['METRO'] = 150; targets['CBB'] = 50; targets['MB'] = 180; targets['TROLE'] = 70;
                 globalSpeedMult = 0.6; globalJamProb = 0.02; 
                 estadoTxt = "HORA PICO (MAÑANA) / TRÁFICO DENSO";
-            } else if (hora >= 10 && hora < 17) { // Valle
+            } else if (hora >= 10 && hora < 17) { 
                 targets['METRO'] = 80; targets['CBB'] = 30; targets['MB'] = 100; targets['TROLE'] = 40;
                 globalSpeedMult = 1.2; globalJamProb = 0.005;
                 estadoTxt = "HORA VALLE / FLUJO REGULAR";
-            } else if (hora >= 17 && hora < 21) { // Pico Tarde
+            } else if (hora >= 17 && hora < 21) { 
                 targets['METRO'] = 160; targets['CBB'] = 50; targets['MB'] = 190; targets['TROLE'] = 80;
                 globalSpeedMult = 0.5; globalJamProb = 0.03;
                 estadoTxt = "HORA PICO (TARDE) / CAOS URBANO";
-            } else { // Noche
+            } else { 
                 targets['METRO'] = 60; targets['CBB'] = 20; targets['MB'] = 70; targets['TROLE'] = 30;
                 globalSpeedMult = 1.5; globalJamProb = 0.002;
                 estadoTxt = "NOCHE / FLUJO DESCENDENTE";
@@ -482,9 +468,13 @@
             if(rutasPermitidas.length === 0) return;
             const rutaObj = rutasPermitidas[Math.floor(Math.random() * rutasPermitidas.length)];
             
-            const naceEnInicio = Math.random() > 0.5;
-            const idx = naceEnInicio ? 0 : rutaObj.nodos.length - 1;
-            const dir = naceEnInicio ? 1 : -1;
+            // FIX: DISTRIBUCIÓN ALEATORIA A LO LARGO DE TODA LA LÍNEA
+            let idx = Math.floor(Math.random() * rutaObj.nodos.length);
+            if (idx === rutaObj.nodos.length - 1) idx--; // Prevenir desborde
+            
+            let dir = Math.random() > 0.5 ? 1 : -1;
+            if (idx === 0) dir = 1;
+            
             const targetIdx = idx + dir;
 
             unidadesActivas.push({
@@ -494,8 +484,8 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                // Velocidad corregida para volver a la fluidez lenta y melancólica (div por casi 10)
-                velBase: (Math.random() * 0.00004) + 0.000015, 
+                // FIX: VELOCIDAD ORGÁNICA MODERADA
+                velBase: (Math.random() * 0.0003) + 0.0002, 
                 velActual: 0,
                 estado: 'movimiento', 
                 timer: 0,
@@ -507,7 +497,7 @@
             });
         }
 
-        // --- 4. MOTOR FÍSICO CINÉTICO CONTINUO ---
+        // --- 4. MOTOR FÍSICO (PLATOONING Y CHISPAS RESTRINGIDAS) ---
         let lastTimeFisicas = performance.now();
         let frameCounter = 0; 
         let notasEsteFrame = 0; 
@@ -550,24 +540,23 @@
                         }
                     }
 
-                    // MOVIMIENTO CONTINUO: Consumir distancia en km
+                    // Aseguramos que retome su velocidad si no hay tráfico (Platooning lo modifica temporalmente)
                     bus.velActual = bus.velBase * globalSpeedMult * jamMultiplier;
+                    
                     let distanceToMove = bus.velActual;
                     
-                    while (distanceToMove > 0) {
+                    while (distanceToMove > 0 && bus.estado === 'movimiento') {
                         let distTramo = calcDistancia(bus.startLat, bus.startLng, bus.targetLat, bus.targetLng);
-                        if (distTramo < 0.0001) distTramo = 0.0001; // Protección matemática
+                        if (distTramo < 0.0001) distTramo = 0.0001; 
                         
                         let distRestante = distTramo * (1 - bus.progress);
                         
                         if (distanceToMove >= distRestante) {
-                            // Alcanza el nodo actual
                             distanceToMove -= distRestante;
                             bus.progress = 0;
                             bus.currentIdx = bus.targetIdx;
                             bus.targetIdx += bus.dir;
                             
-                            // Rebotar en los extremos reales
                             if(bus.targetIdx >= bus.nodos.length || bus.targetIdx < 0) { 
                                 bus.dir *= -1; 
                                 bus.targetIdx = bus.currentIdx + bus.dir; 
@@ -576,10 +565,9 @@
                             bus.startLat = bus.nodos[bus.currentIdx][0]; bus.startLng = bus.nodos[bus.currentIdx][1];
                             bus.targetLat = bus.nodos[bus.targetIdx][0]; bus.targetLng = bus.nodos[bus.targetIdx][1];
                             
-                            // Evaluación de estación
                             if (bus.rutaObj.esEstacion[bus.currentIdx]) {
                                 bus.estado = 'estacion';
-                                bus.timer = 5000; // 5 segundos reales
+                                bus.timer = 5000; 
 
                                 if(audioActivo && notasEsteFrame < 3 && bus.rutaObj.sys !== 'METRO') {
                                     notasEsteFrame++;
@@ -592,23 +580,21 @@
                                         setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, radius: 2 }); }, 200);
                                     } catch (e) { }
                                 }
-                                break; // Detiene el bucle de movimiento de este frame
+                                break;
                             }
                         } else {
-                            // Avanza dentro del tramo
                             bus.progress += distanceToMove / distTramo;
-                            distanceToMove = 0; // Se consumió toda la velocidad
+                            distanceToMove = 0; 
                         }
                     }
                 }
 
-                // Renderizar posición visual interpolada
                 bus.curLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
                 bus.curLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
                 bus.marker.setLatLng([bus.curLat, bus.curLng]);
             });
 
-            // LÓGICA DE INTERSECCIONES Y CHISPAS
+            // LÓGICA DE INTERSECCIONES Y PLATOONING "SUBWAY"
             frameCounter++;
             if (frameCounter >= 5) {
                 frameCounter = 0;
@@ -618,15 +604,34 @@
                         const b1 = unidadesActivas[i]; const b2 = unidadesActivas[j];
                         const distKm = calcDistancia(b1.curLat, b1.curLng, b2.curLat, b2.curLng);
                         
-                        if (distKm < 0.05 && !b1.chispaCoolDown && !b2.chispaCoolDown && audioActivo) {
+                        // FIX: Sistema SUBWAY, si van en la misma ruta y dirección NO SE REBASAN.
+                        if (b1.rutaObj === b2.rutaObj && b1.dir === b2.dir && distKm < 0.15) {
                             
-                            let hacenChispa = false;
-                            if (b1.dir !== b2.dir) hacenChispa = true;
-                            if (b1.rutaObj.sys !== b2.rutaObj.sys) hacenChispa = true;
+                            // Determinar quién va atrás evaluando el índice o progreso
+                            let behind = b1; let ahead = b2;
+                            if (b1.dir === 1) {
+                                if (b1.currentIdx > b2.currentIdx || (b1.currentIdx === b2.currentIdx && b1.progress > b2.progress)) { behind = b2; ahead = b1; }
+                            } else {
+                                if (b1.currentIdx < b2.currentIdx || (b1.currentIdx === b2.currentIdx && b1.progress > b2.progress)) { behind = b2; ahead = b1; }
+                            }
 
-                            if (b1.rutaObj.sys === b2.rutaObj.sys && b1.dir === b2.dir) {
-                                hacenChispa = false;
-                                if(b1.estado === 'estacion' || b1.velActual < b1.velBase) b2.velActual *= 0.5;
+                            // El que va atrás frena o se detiene. NUNCA hay música aquí.
+                            if (behind.velBase > ahead.velBase) behind.velBase = ahead.velBase; // Iguala velocidad máxima
+                            
+                            if (ahead.estado === 'estacion' || ahead.estado === 'atasco') {
+                                behind.estado = 'atasco';
+                                behind.timer = ahead.timer + 200; // Se queda atascado un poco más que el de adelante
+                            }
+                        }
+                        
+                        // FIX: LÓGICA DE MÚSICA ESTRICTA (Dirección opuesta o Diferente sistema)
+                        else if (distKm < 0.05 && !b1.chispaCoolDown && !b2.chispaCoolDown && audioActivo) {
+                            let hacenChispa = false;
+                            
+                            if (b1.rutaObj.sys !== b2.rutaObj.sys) {
+                                hacenChispa = true; // Cruce de sistemas diferentes
+                            } else if (b1.rutaObj === b2.rutaObj && b1.dir !== b2.dir) {
+                                hacenChispa = true; // Misma ruta, dirección opuesta
                             }
 
                             if (hacenChispa && notasEsteFrame < 5) {
@@ -679,8 +684,14 @@
         const fCanvas = document.getElementById('canvas-fft'); const fCtx = fCanvas.getContext('2d');
 
         function redimensionarCanvases() {
-            if(document.getElementById('gadget-wave').classList.contains('active')) { wCanvas.width = wCanvas.parentElement.clientWidth - 20; wCanvas.height = wCanvas.parentElement.clientHeight - 40; }
-            if(document.getElementById('gadget-fft').classList.contains('active')) { fCanvas.width = fCanvas.parentElement.clientWidth - 20; fCanvas.height = fCanvas.parentElement.clientHeight - 40; }
+            if(document.getElementById('gadget-wave').classList.contains('active')) { 
+                const wrapper = document.getElementById('wave-wrapper');
+                wCanvas.width = wrapper.clientWidth; wCanvas.height = wrapper.clientHeight; 
+            }
+            if(document.getElementById('gadget-fft').classList.contains('active')) { 
+                const wrapper = document.getElementById('fft-wrapper');
+                fCanvas.width = wrapper.clientWidth; fCanvas.height = wrapper.clientHeight; 
+            }
             if(is3DReady && document.getElementById('gadget-3d').classList.contains('active')) {
                 const wrapper = document.getElementById('c3d-wrapper');
                 renderer3D.setSize(wrapper.clientWidth, wrapper.clientHeight);
@@ -709,7 +720,8 @@
             const organicMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x00f0ff, emissiveIntensity: 0.2, wireframe: true, roughness: 0.2 });
             organicMesh3D = new THREE.Mesh(organicGeo, organicMat); 
             
-            organicMesh3D.position.y = 0.8; 
+            // FIX: El Y=0 asegura que esté en el centro perfecto de su contenedor absoluto.
+            organicMesh3D.position.y = 0; 
             scene3D.add(organicMesh3D);
 
             is3DReady = true;
@@ -738,13 +750,29 @@
                 wCtx.clearRect(0, 0, wCanvas.width, wCanvas.height);
                 wCtx.lineWidth = 2; wCtx.beginPath(); 
                 wCtx.strokeStyle = '#00f0ff'; 
-                let sliceWidth = wCanvas.width * 1.0 / waveData.length; let wx = 0;
                 
-                for(let i = 0; i < waveData.length; i++) {
+                // FIX: Dibujo de onda suave usando curvas cuadráticas en lugar de picos agudos
+                let sliceWidth = wCanvas.width * 1.0 / (waveData.length / 2); // Dibujamos solo la mitad del buffer para alargar la onda
+                let wx = 0;
+                
+                for(let i = 0; i < waveData.length / 2; i++) {
                     let val = waveData[i] * 3.0; 
                     if (val > 1.0) val = 1.0; if (val < -1.0) val = -1.0; 
                     let y = (1 - (val + 1) / 2) * wCanvas.height; 
-                    if(i === 0) wCtx.moveTo(wx, y); else wCtx.lineTo(wx, y); wx += sliceWidth;
+                    
+                    if(i === 0) {
+                        wCtx.moveTo(wx, y);
+                    } else {
+                        // Suavizado en la línea
+                        let prevVal = waveData[i-1] * 3.0;
+                        if (prevVal > 1.0) prevVal = 1.0; if (prevVal < -1.0) prevVal = -1.0;
+                        let prevY = (1 - (prevVal + 1) / 2) * wCanvas.height; 
+                        let midX = wx - sliceWidth/2;
+                        let midY = (prevY + y) / 2;
+                        
+                        wCtx.quadraticCurveTo(wx - sliceWidth, prevY, midX, midY);
+                    }
+                    wx += sliceWidth;
                 }
                 wCtx.stroke();
             }
