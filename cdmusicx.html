@@ -72,6 +72,22 @@
         .line-text { font-size: 0.65rem; color: #888; }
         .line-text strong { color: #ccc; display: block; margin-bottom: 2px; }
 
+        /* --- ONDITAS DE ATASCO (RIPPLES) --- */
+        .ripple-dot {
+            width: 100%; height: 100%; border-radius: 50%;
+            position: absolute; top: 0; left: 0;
+            animation: pulse-ring 2s infinite ease-out;
+        }
+        .ripple-center {
+            width: 8px; height: 8px; background: currentColor; border-radius: 50%;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px currentColor;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.5); opacity: 1; border: 2px solid currentColor; }
+            100% { transform: scale(4); opacity: 0; border: 2px solid currentColor; }
+        }
+
         /* DOCK Y GADGETS */
         #gadget-dock { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; gap: 8px; pointer-events: auto; background: var(--glass-bg); backdrop-filter: blur(20px); border-radius: 20px; padding: 6px; border: 1px solid var(--glass-border); }
         .dock-btn { background: transparent; border: none; color: #888; padding: 8px 16px; font-family: 'Share Tech Mono'; font-size: 0.7rem; border-radius: 15px; cursor: pointer; transition: 0.3s; letter-spacing: 1px; }
@@ -140,11 +156,11 @@
             <label>VELOCIDAD GLOBAL <span><span id="val-vel">1.0</span>x</span></label>
             <input type="range" id="ctrl-vel" min="0.1" max="5.0" step="0.1" value="1.0">
             
-            <label>PROBABILIDAD DE ATASCO <span><span id="val-atasco">0.05</span>%</span></label>
+            <label>PROBABILIDAD CUELLOS BOTELLA <span><span id="val-atasco">0.05</span>%</span></label>
             <input type="range" id="ctrl-atasco" min="0" max="5.0" step="0.05" value="0.05">
 
             <button class="interactive-btn" onclick="invertirDirecciones()">[ INVERTIR DIRECCIÓN GLOBAL ]</button>
-            <button class="interactive-btn" onclick="forzarPerturbacion()" style="margin-top: 5px;">[ FORZAR CAOS ]</button>
+            <button class="interactive-btn" onclick="forzarPerturbacion()" style="margin-top: 5px;">[ FORZAR CAOS ESPACIAL ]</button>
         </div>
 
         <div class="legend-container" id="legend-container"></div>
@@ -188,6 +204,7 @@
 
         let rutasEstructurales = []; 
         let unidadesActivas = [];
+        let atascosActivos = []; // Nodos de perturbación espacial
         
         // Estilos e instrumentos por sistema
         const sysConfig = {
@@ -208,7 +225,6 @@
             try {
                 logConsole('Extrayendo cartografía de <span style="color:#00f0ff">apimetro.dev</span>...');
                 
-                // Fetch directo, Apimetro soporta CORS
                 const res = await fetch('https://apimetro.dev/movilidad/mapas/geojsonLinea?sistema=METRO,MB,CBB,TROLE');
                 const geojson = await res.json();
                 
@@ -227,7 +243,6 @@
                         const conf = sysConfig[sys] || sysConfig['MB'];
                         const colorReal = f.properties.color_hex || conf.color;
 
-                        // Leyenda
                         if(!sistemasAgregados.has(sys)) {
                             sistemasAgregados.add(sys);
                             legend.innerHTML += `
@@ -237,7 +252,6 @@
                                 </div>`;
                         }
 
-                        // Guardar nodos para la física
                         if(f.geometry.type === 'MultiLineString') {
                             f.geometry.coordinates.forEach(tramo => {
                                 if(tramo.length > 2) {
@@ -284,7 +298,7 @@
 
             await Tone.start(); 
             Tone.Transport.start(); 
-            Tone.Transport.bpm.value = 60; // Lento y ambiental
+            Tone.Transport.bpm.value = 60; 
             audioActivo = true;
 
             audioCtx = Tone.getContext().rawContext;
@@ -292,7 +306,6 @@
             biquadFilter = audioCtx.createBiquadFilter(); biquadFilter.type = "lowpass";
             distortionNode = audioCtx.createWaveShaper(); distortionNode.oversample = '4x';
             
-            // Limitador para que las miles de colisiones no saturen el audio
             limiter = audioCtx.createDynamicsCompressor();
             limiter.threshold.value = -10; limiter.ratio.value = 20;
 
@@ -308,7 +321,6 @@
             const reverb = new Tone.Reverb(4).toDestination();
             const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
 
-            // INSTRUMENTOS
             synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -12;
             synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5}).toDestination(); synths['BASS'].volume.value = -6;
             synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -10;
@@ -316,7 +328,6 @@
             synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, {resonance: 6000, envelope: {attack: 0.01, decay: 0.5}}).connect(delay); synths['CBB'].volume.value = -15;
             synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 2, envelope: {attack: 0.05, decay: 0.5}}).connect(delay); synths['TROLE'].volume.value = -10;
 
-            // Loop Maestro (El corazón de la ciudad)
             new Tone.Loop(time => {
                 indiceArmonia = (indiceArmonia + 1) % progresión.length;
                 synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes, "1n", time);
@@ -325,7 +336,6 @@
 
             iniciarVisualizador3D();
             
-            // Iniciar ciclo de población
             setInterval(actualizarPoblacion, 5000);
             actualizarPoblacion();
             animarFisicas();
@@ -338,7 +348,6 @@
         let globalSpeedMult = 1.0;
         let globalJamProb = 0.0005;
 
-        // Escuchas de los controles
         document.getElementById('ctrl-nodos').addEventListener('input', function() {
             poblacionManual = true;
             targetTotal = parseInt(this.value);
@@ -350,25 +359,22 @@
             document.getElementById('val-vel').innerText = globalSpeedMult.toFixed(1);
         });
         document.getElementById('ctrl-atasco').addEventListener('input', function() {
-            // Transformamos el % de UI a probabilidad decimal (ej: 0.05% -> 0.0005)
             globalJamProb = parseFloat(this.value) / 100;
             document.getElementById('val-atasco').innerText = parseFloat(this.value).toFixed(2);
         });
 
         function actualizarPoblacion() {
-            if(poblacionManual) return; // Si el usuario ajustó los nodos, pausamos el ciclo circadiano
+            if(poblacionManual) return; 
 
             const hora = new Date().getHours();
             let factorDemanda = 1.0;
 
-            // Curva realista
             if (hora >= 1 && hora <= 4) factorDemanda = 0.1; 
-            else if (hora >= 6 && hora <= 9) factorDemanda = 1.0; // Hora Pico
-            else if (hora >= 10 && hora <= 16) factorDemanda = 0.6; // Valle
-            else if (hora >= 17 && hora <= 20) factorDemanda = 0.9; // Hora Pico Tarde
-            else factorDemanda = 0.3; // Noche
+            else if (hora >= 6 && hora <= 9) factorDemanda = 1.0; 
+            else if (hora >= 10 && hora <= 16) factorDemanda = 0.6; 
+            else if (hora >= 17 && hora <= 20) factorDemanda = 0.9; 
+            else factorDemanda = 0.3; 
 
-            // Ruido aleatorio para que se sienta vivo (+- 10%)
             factorDemanda += (Math.random() * 0.2 - 0.1);
 
             let tMetro = Math.floor(256 * factorDemanda);
@@ -376,10 +382,8 @@
             let tCBB = Math.floor(400 * factorDemanda);
             let tTrole = Math.floor(200 * factorDemanda); 
 
-            // Para evitar saturar el navegador en automático, capeamos la renderización visual a ~400
             targetTotal = Math.min(400, tMetro + tMB + tCBB + tTrole);
             
-            // Actualizamos el slider para que refleje el automático
             document.getElementById('ctrl-nodos').value = targetTotal;
             document.getElementById('val-nodos').innerText = targetTotal;
 
@@ -387,10 +391,7 @@
         }
 
         function ajustarFlota() {
-            // Spawnea nuevas unidades si falta
             while(unidadesActivas.length < targetTotal) spawnUnidad();
-            
-            // Elimina unidades si sobran
             while(unidadesActivas.length > targetTotal) {
                 const bus = unidadesActivas.pop();
                 map.removeLayer(bus.marker);
@@ -415,32 +416,48 @@
 
         function invertirDirecciones() {
             unidadesActivas.forEach(bus => {
-                bus.dir *= -1; // Invierte el sentido numérico
+                bus.dir *= -1; 
                 
-                // Intercambia el nodo actual por el destino
                 let tempIdx = bus.currentIdx;
                 bus.currentIdx = bus.targetIdx;
                 bus.targetIdx = tempIdx;
                 
-                // Actualiza las coordenadas iniciales y finales del segmento interpolado
                 bus.startLat = bus.nodos[bus.currentIdx][0]; 
                 bus.startLng = bus.nodos[bus.currentIdx][1];
                 bus.targetLat = bus.nodos[bus.targetIdx][0]; 
                 bus.targetLng = bus.nodos[bus.targetIdx][1];
                 
-                // Invierte el progreso para que la transición visual sea suave
                 bus.progress = 1 - bus.progress; 
             });
         }
 
-        function forzarPerturbacion() {
-            // Un evento manual que agita el tráfico y la armonía
-            unidadesActivas.forEach(bus => {
-                if(Math.random() > 0.5) {
-                    bus.estado = 'atasco';
-                    bus.timer = Math.random() * 5000 + 2000;
-                }
+        function crearAtascoEspacial(sys, lat, lng, color) {
+            // Icono personalizado con HTML y CSS incrustado para las onditas
+            const rippleIcon = L.divIcon({
+                className: 'custom-ripple',
+                html: `<div style="color: ${color}; position: relative; width: 40px; height: 40px; margin-left: -20px; margin-top: -20px;">
+                          <div class="ripple-dot"></div>
+                          <div class="ripple-center"></div>
+                       </div>`,
+                iconSize: [0, 0]
             });
+            
+            const marker = L.marker([lat, lng], { icon: rippleIcon }).addTo(map);
+            
+            atascosActivos.push({
+                sys: sys, lat: lat, lng: lng, marker: marker,
+                timer: Math.random() * 8000 + 5000 // Dura entre 5 y 13 segundos
+            });
+        }
+
+        function forzarPerturbacion() {
+            // Genera cuellos de botella instantáneos en la posición de varias unidades aleatorias
+            let numAtascos = Math.floor(Math.random() * 3) + 3;
+            for(let i=0; i<numAtascos; i++) {
+                if(unidadesActivas.length === 0) break;
+                let bus = unidadesActivas[Math.floor(Math.random() * unidadesActivas.length)];
+                crearAtascoEspacial(bus.rutaObj.sys, bus.curLat, bus.curLng, bus.rutaObj.color);
+            }
             indiceArmonia = Math.floor(Math.random() * progresión.length);
         }
 
@@ -448,7 +465,6 @@
             const rutaObj = rutasEstructurales[Math.floor(Math.random() * rutasEstructurales.length)];
             if(!rutaObj) return;
             
-            // Las unidades nacen en las terminales (0 o length-1)
             const naceEnInicio = Math.random() > 0.5;
             const idx = naceEnInicio ? 0 : rutaObj.nodos.length - 1;
             const dir = naceEnInicio ? 1 : -1;
@@ -461,10 +477,9 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                // FÍSICA: Velocidades extremadamente lentas y realistas (aprox 10-20 segs entre estaciones)
                 velBase: (Math.random() * 0.001) + 0.0005, 
                 velActual: 0,
-                estado: 'movimiento', // 'movimiento', 'estacion', 'atasco'
+                estado: 'movimiento', // Solo 'movimiento' o 'estacion'
                 timer: 0,
                 chispaCoolDown: false,
                 marker: L.circleMarker(rutaObj.nodos[idx], { 
@@ -474,7 +489,7 @@
             });
         }
 
-        // --- 4. MOTOR FÍSICO (ATASCOS, SEMÁFOROS Y CHISPAS) ---
+        // --- 4. MOTOR FÍSICO (CAMPOS DE GRAVEDAD Y CHISPAS) ---
         function calcDistancia(lat1, lon1, lat2, lon2) {
             const p = 0.017453292519943295; const c = Math.cos;
             const a = 0.5 - c((lat2 - lat1) * p)/2 + c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p))/2;
@@ -483,7 +498,7 @@
 
         let lastTimeFisicas = performance.now();
         let frameCounter = 0; 
-        let notasEsteFrame = 0; // Para no ahogar el Tone.js
+        let notasEsteFrame = 0; 
 
         function animarFisicas() {
             const currentTime = performance.now(); 
@@ -491,34 +506,52 @@
             lastTimeFisicas = currentTime;
             notasEsteFrame = 0;
 
+            // 1. Probabilidad global de generar un nuevo atasco orgánico
+            if (Math.random() < globalJamProb * 0.05 && unidadesActivas.length > 0) {
+                let bus = unidadesActivas[Math.floor(Math.random() * unidadesActivas.length)];
+                crearAtascoEspacial(bus.rutaObj.sys, bus.curLat, bus.curLng, bus.rutaObj.color);
+            }
+
+            // 2. Actualizar vida de los atascos activos
+            for (let i = atascosActivos.length - 1; i >= 0; i--) {
+                atascosActivos[i].timer -= deltaTime;
+                if (atascosActivos[i].timer <= 0) {
+                    map.removeLayer(atascosActivos[i].marker);
+                    atascosActivos.splice(i, 1);
+                }
+            }
+
+            // 3. Procesar movimiento de los nodos interactuando con los campos gravitatorios
             unidadesActivas.forEach(bus => {
-                // Manejo de Estados
-                if (bus.estado === 'estacion' || bus.estado === 'atasco') {
+                if (bus.estado === 'estacion') {
                     bus.timer -= deltaTime;
-                    if (bus.timer <= 0) {
-                        bus.estado = 'movimiento';
-                        bus.velActual = bus.velBase * globalSpeedMult;
-                    }
+                    if (bus.timer <= 0) bus.estado = 'movimiento';
                 }
 
                 if (bus.estado === 'movimiento') {
-                    // Probabilidad de sufrir tráfico / semáforo (Atasco controlado por UI)
-                    if (Math.random() < globalJamProb) {
-                        bus.estado = 'atasco';
-                        bus.timer = Math.random() * 4000 + 2000;
-                        bus.velActual = (bus.velBase * globalSpeedMult) * 0.1; // Se frena al 10%
-                    } else {
-                        bus.velActual = bus.velBase * globalSpeedMult;
+                    // Cálculo de campo de gravedad (atasco)
+                    let jamMultiplier = 1.0;
+                    
+                    for (let atasco of atascosActivos) {
+                        // Solo le afecta si es de la misma ruta/sistema
+                        if (atasco.sys === bus.rutaObj.sys) {
+                            let distKm = calcDistancia(bus.curLat, bus.curLng, atasco.lat, atasco.lng);
+                            // Radio de influencia: 500 metros (0.5 km)
+                            if (distKm < 0.5) { 
+                                // Entre más cerca, menor es el multiplicador (mínimo 5% de velocidad)
+                                let localMult = Math.max(0.05, distKm / 0.5); 
+                                if (localMult < jamMultiplier) jamMultiplier = localMult;
+                            }
+                        }
                     }
 
+                    bus.velActual = bus.velBase * globalSpeedMult * jamMultiplier;
                     bus.progress += bus.velActual;
                     
-                    // Llegada a Estación (Nodo)
                     if (bus.progress >= 1) {
                         bus.progress = 0;
                         bus.currentIdx = bus.targetIdx; bus.targetIdx += bus.dir;
                         
-                        // Si llega a la terminal, rebota
                         if(bus.targetIdx >= bus.nodos.length || bus.targetIdx < 0) { 
                             bus.dir *= -1; bus.targetIdx = bus.currentIdx + bus.dir; 
                         }
@@ -526,18 +559,16 @@
                         bus.startLat = bus.nodos[bus.currentIdx][0]; bus.startLng = bus.nodos[bus.currentIdx][1];
                         bus.targetLat = bus.nodos[bus.targetIdx][0]; bus.targetLng = bus.nodos[bus.targetIdx][1];
                         
-                        // Entra en estado de Estación (Subiendo pasajeros)
                         bus.estado = 'estacion';
-                        bus.timer = 1500 / Math.max(0.1, globalSpeedMult); // Si la simulación va rápido, paran menos tiempo
+                        bus.timer = 1500 / Math.max(0.1, globalSpeedMult);
 
-                        // SONIDO DE ESTACIÓN (Suave)
                         if(audioActivo && notasEsteFrame < 3 && bus.rutaObj.sys !== 'METRO') {
                             notasEsteFrame++;
                             try {
                                 const t = Tone.now() + (Math.random() * 0.05);
                                 const escala = progresión[indiceArmonia].escala;
                                 const nota = escala[Math.floor(Math.random() * escala.length)];
-                                synths[bus.rutaObj.sys].triggerAttackRelease(nota, "8n", t, 0.3); // Velocidad/Volumen bajo
+                                synths[bus.rutaObj.sys].triggerAttackRelease(nota, "8n", t, 0.3); 
                                 
                                 bus.marker.setStyle({ fillColor: '#ffffff', radius: 4 });
                                 setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, radius: 2 }); }, 200);
@@ -546,13 +577,12 @@
                     }
                 }
 
-                // Interpolar coordenadas visuales en el mapa
                 bus.curLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
                 bus.curLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
                 bus.marker.setLatLng([bus.curLat, bus.curLng]);
             });
 
-            // LÓGICA DE INTERSECCIONES Y PLATOONING (Cada 5 frames)
+            // 4. LÓGICA DE INTERSECCIONES E INERCIA DE MASA (Chispas)
             frameCounter++;
             if (frameCounter >= 5) {
                 frameCounter = 0;
@@ -562,13 +592,7 @@
                         const b1 = unidadesActivas[i]; const b2 = unidadesActivas[j];
                         const distKm = calcDistancia(b1.curLat, b1.curLng, b2.curLat, b2.curLng);
                         
-                        // PLATOONING (Tráfico en fila): Si son de la misma ruta y están muy cerca, el de atrás frena.
-                        if (b1.rutaObj.sys === b2.rutaObj.sys && distKm < 0.05) {
-                            if(b1.estado === 'atasco' || b1.estado === 'estacion') b2.estado = 'atasco';
-                            if(b2.estado === 'atasco' || b2.estado === 'estacion') b1.estado = 'atasco';
-                        }
-                        
-                        // CHISPAS (Intersecciones Inter-Sistemas): Cruzan a menos de 100 metros
+                        // Si dos sistemas distintos cruzan a menos de 100m, hacen chispa auditiva
                         if (b1.rutaObj.sys !== b2.rutaObj.sys && distKm < 0.1 && !b1.chispaCoolDown && !b2.chispaCoolDown && audioActivo) {
                             
                             if (notasEsteFrame < 5) {
@@ -577,7 +601,6 @@
                                 const escala = progresión[indiceArmonia].escala;
                                 const nota = escala[Math.floor(Math.random() * escala.length)];
                                 
-                                // Suenan un poco más fuerte
                                 synths[b1.rutaObj.sys].triggerAttackRelease(nota, "16n", t, 0.8);
                                 if (b2.rutaObj.sys === 'MB' || b2.rutaObj.sys === 'TROLE') synths['PERC'].triggerAttackRelease("16n", t, 0.5);
 
@@ -646,7 +669,7 @@
             const organicGeo = new THREE.IcosahedronGeometry(3.5, 40); organicBaseVerts = [];
             for(let i=0; i < organicGeo.attributes.position.count; i++) organicBaseVerts.push(new THREE.Vector3(organicGeo.attributes.position.getX(i), organicGeo.attributes.position.getY(i), organicGeo.attributes.position.getZ(i)));
             
-            const organicMat = new MeshStandardMaterial({ color: 0x111111, emissive: 0x00f0ff, emissiveIntensity: 0.2, wireframe: true, roughness: 0.2 });
+            const organicMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x00f0ff, emissiveIntensity: 0.2, wireframe: true, roughness: 0.2 });
             organicMesh3D = new THREE.Mesh(organicGeo, organicMat); scene3D.add(organicMesh3D);
 
             is3DReady = true;
@@ -664,7 +687,6 @@
 
             const dataArrayFft = new Uint8Array(analyserFFT.frequencyBinCount); analyserFFT.getByteFrequencyData(dataArrayFft);
             
-            // FIX DEFINITIVO OSCILOSCOPIO: Multiplicador visual masivo
             let waveData = [];
             try { waveData = analyserWave.getValue(); } catch(e){}
             
@@ -677,7 +699,6 @@
                 wCtx.lineWidth = 1.5; wCtx.beginPath(); wCtx.strokeStyle = `var(--ui-accent)`;
                 let sliceWidth = wCanvas.width * 1.0 / waveData.length; let wx = 0;
                 for(let i = 0; i < waveData.length; i++) {
-                    // Multiplicamos el valor de la onda por 8 para que se note mucho más en pantalla
                     let valMapeado = (waveData[i] * 8 + 1) / 2;
                     let y = valMapeado * wCanvas.height; 
                     if(i === 0) wCtx.moveTo(wx, y); else wCtx.lineTo(wx, y); wx += sliceWidth;
