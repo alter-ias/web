@@ -3,134 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDMusicX - Sinfonía Urbana CDMX</title>
+    <title>MEXICO CITY BLUES</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <style>
-        :root { --bg: #050505; --text: #e0e0e0; --ui-accent: #00f0ff; }
-        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
+        :root {
+            --bg: #050505; --text: #e0e0e0; --ui-accent: #00f0ff;
+            --neon-green: #00ff41; --neon-magenta: #ff003c; --neon-yellow: #f0ff00;
+        }
 
-        /* --- PANTALLA DIVIDIDA --- */
-        #main-wrapper { display: flex; width: 100vw; height: 100vh; }
-        #map-container { width: 100vw; height: 100vh; position: relative; transition: width 0.7s cubic-bezier(0.25, 1, 0.5, 1); z-index: 2; box-shadow: 5px 0 20px rgba(0,0,0,0.9); }
-        #map { width: 100%; height: 100%; background: var(--bg); }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Share Tech Mono', monospace; background: var(--bg); color: var(--text); overflow: hidden; }
+
+        /* --- MAPA BASE --- */
+        #map { width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; z-index: 1; background: var(--bg); }
         .leaflet-control-zoom, .leaflet-control-attribution { display: none; }
         .leaflet-container { background: var(--bg) !important; }
 
-        #visualizer-container {
-            width: 60vw; height: 100vh; position: absolute; right: 0; top: 0;
-            opacity: 0; pointer-events: none; transition: opacity 0.5s ease-in-out 0.3s;
-            background: #020202; z-index: 1; display: flex; justify-content: center; align-items: center;
-        }
-        #visualizer-canvas { width: 100%; height: 100%; filter: drop-shadow(0 0 15px rgba(0, 240, 255, 0.1)); }
-
-        body.split-mode #map-container { width: 40vw; }
-        body.split-mode #visualizer-container { opacity: 1; pointer-events: auto; }
-
-        /* --- PANTALLA DE INICIO --- */
+        /* --- PANTALLA DE INICIO (MANIFIESTO) --- */
         #start-screen {
             position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(5, 5, 5, 0.95); z-index: 9999;
+            background: rgba(5, 5, 5, 0.90); z-index: 9999;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
-            backdrop-filter: blur(10px); transition: opacity 0.5s;
+            backdrop-filter: blur(15px); transition: opacity 0.8s;
         }
-        #start-screen h1 { font-size: 3.5rem; margin-bottom: 5px; letter-spacing: 4px; font-weight: 800; color: #fff; }
-        #start-screen p { color: #888; margin-bottom: 40px; font-size: 1rem; letter-spacing: 1px; }
+        .title-glitch { font-family: 'Orbitron', sans-serif; font-size: 4.5rem; margin-bottom: 10px; letter-spacing: 5px; font-weight: 900; color: var(--ui-accent); text-shadow: 0 0 20px var(--ui-accent); }
         
+        .manifesto { max-width: 600px; text-align: left; background: rgba(0,240,255,0.05); border-left: 3px solid var(--ui-accent); padding: 25px; margin-bottom: 40px; font-size: 0.9rem; line-height: 1.6; color: #ccc; }
+        .manifesto h3 { color: #fff; margin-top: 0; font-family: 'Orbitron'; letter-spacing: 1px; }
+        .manifesto ul { padding-left: 20px; }
+        .manifesto li { margin-bottom: 8px; }
+        .manifesto strong { color: var(--ui-accent); }
+
         button.play-btn {
-            background: transparent; color: #fff; border: 1px solid #fff; padding: 15px 40px; font-size: 1rem; 
-            border-radius: 30px; cursor: pointer; transition: 0.3s; text-transform: uppercase; letter-spacing: 2px;
+            background: rgba(0, 240, 255, 0.1); color: var(--ui-accent); border: 1px solid var(--ui-accent); padding: 15px 50px; font-size: 1.2rem; font-family: 'Orbitron'; font-weight: 700;
+            border-radius: 4px; cursor: pointer; transition: 0.3s; text-transform: uppercase; letter-spacing: 3px; box-shadow: inset 0 0 10px rgba(0,240,255,0.2);
         }
-        button.play-btn:hover:not(:disabled) { background: #fff; color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.3); }
+        button.play-btn:hover { background: var(--ui-accent); color: #000; box-shadow: 0 0 30px var(--ui-accent); }
 
-        /* --- UI LAYER --- */
-        #ui-layer {
-            position: absolute; top: 30px; left: 30px; z-index: 1000; pointer-events: none;
-            display: flex; flex-direction: column; gap: 20px;
+        /* --- UI COMPONENTES (GLASSMORPHISM) --- */
+        .glass-panel {
+            background: rgba(10, 10, 10, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 240, 255, 0.2); border-radius: 8px; box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+            pointer-events: auto; position: absolute; display: flex; flex-direction: column;
         }
-        body.split-mode #ui-layer { left: 20px; transform: scale(0.9); transform-origin: top left; transition: 0.5s; }
-
-        .panel-box {
-            background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(10px);
-            border-radius: 8px; padding: 25px; border: 1px solid #222; pointer-events: auto;
-            min-width: 280px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        .panel-header {
+            background: rgba(0, 240, 255, 0.1); border-bottom: 1px solid rgba(0, 240, 255, 0.3); padding: 8px 15px;
+            font-family: 'Orbitron', sans-serif; font-size: 0.75rem; letter-spacing: 2px; color: var(--ui-accent); text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;
         }
 
-        .status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.8rem; color: #fff; letter-spacing: 1px; font-weight: bold;}
-        .led { width: 10px; height: 10px; border-radius: 50%; background: #00ff00; box-shadow: 0 0 10px #00ff00; }
-
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-        .stat-val { font-size: 2.5rem; font-weight: bold; color: #fff; line-height: 1; margin-bottom: 5px; }
-        .stat-label { font-size: 0.65rem; color: #666; text-transform: uppercase; letter-spacing: 1px; }
-
-        .btn-3d {
-            background: transparent; border: 1px solid var(--ui-accent); color: var(--ui-accent);
-            width: 100%; padding: 10px; border-radius: 4px; cursor: pointer; text-transform: uppercase;
-            font-size: 0.75rem; letter-spacing: 1px; transition: 0.3s; margin-bottom: 25px;
-        }
-        .btn-3d:hover { background: var(--ui-accent); color: #000; box-shadow: 0 0 10px var(--ui-accent); }
-
-        .line-legend { display: flex; flex-direction: column; gap: 12px; max-height: 40vh; overflow-y: auto;}
-        .line-row { display: flex; align-items: center; gap: 12px; }
-        .line-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 5px currentColor; }
-        .line-text { font-size: 0.8rem; color: #aaa; }
-        .line-text strong { color: #fff; display: block; font-size: 0.85rem; margin-bottom: 2px; }
+        /* --- PANEL LATERAL (INFO MAPA) --- */
+        #main-ui { top: 20px; left: 20px; width: 300px; z-index: 1000; }
+        .status-row { display: flex; align-items: center; gap: 10px; padding: 15px 15px 5px 15px; font-size: 0.8rem; color: #fff; font-weight: bold; }
+        .led { width: 8px; height: 8px; border-radius: 50%; background: #00ff00; box-shadow: 0 0 10px #00ff00; }
         
-        ::-webkit-scrollbar { width: 5px; }
+        .dyn-data { padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .dyn-data div { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.8rem; color: #aaa; }
+        .dyn-data span { color: #fff; font-weight: bold; }
+        
+        .interactive-btn { background: rgba(255,0,60,0.1); border: 1px solid var(--neon-magenta); color: var(--neon-magenta); padding: 5px 10px; cursor: pointer; border-radius: 3px; font-family: 'Share Tech Mono'; transition: 0.2s; font-size: 0.75rem;}
+        .interactive-btn:hover { background: var(--neon-magenta); color: #000; box-shadow: 0 0 10px var(--neon-magenta); }
+
+        .legend-container { padding: 15px; max-height: 250px; overflow-y: auto; }
+        .line-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .line-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 5px currentColor; }
+        .line-text { font-size: 0.7rem; color: #aaa; }
+        .line-text strong { color: #fff; display: block; font-size: 0.8rem; margin-bottom: 2px; }
+
+        /* --- DOCK DE GADGETS (ABAJO) --- */
+        #gadget-dock {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000;
+            display: flex; gap: 10px; pointer-events: auto;
+        }
+        .dock-btn {
+            background: rgba(10,10,10,0.8); border: 1px solid rgba(0, 240, 255, 0.4); color: var(--ui-accent);
+            padding: 10px 20px; font-family: 'Orbitron'; font-size: 0.75rem; border-radius: 20px; cursor: pointer;
+            backdrop-filter: blur(5px); transition: 0.3s;
+        }
+        .dock-btn:hover, .dock-btn.active { background: var(--ui-accent); color: #000; box-shadow: 0 0 15px var(--ui-accent); }
+
+        /* --- GADGETS (PANTALLITAS) --- */
+        .gadget { display: none; position: absolute; z-index: 1000; resize: both; overflow: hidden; }
+        .gadget.active { display: flex; }
+        .gadget-content { flex-grow: 1; position: relative; background: #020202; }
+        .gadget canvas { width: 100%; height: 100%; display: block; }
+        
+        .close-btn { cursor: pointer; color: #fff; font-weight: bold; }
+        .close-btn:hover { color: var(--neon-magenta); }
+
+        /* Posiciones iniciales de los gadgets */
+        #gadget-3d { top: 20px; right: 20px; width: 320px; height: 320px; }
+        #gadget-wave { bottom: 80px; left: 20px; width: 300px; height: 150px; }
+        #gadget-fft { bottom: 80px; right: 20px; width: 300px; height: 150px; }
+        #gadget-fx { top: 20px; right: 360px; width: 280px; height: auto; padding-bottom: 15px; }
+
+        /* Controles FX dentro de la pantallita */
+        .fx-controls { padding: 15px; font-size: 0.75rem; overflow-y: auto; }
+        .fx-controls label { display: flex; justify-content: space-between; margin-bottom: 5px; color: #ccc; }
+        .fx-controls span { color: var(--neon-yellow); }
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 5px 0 15px 0; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 12px; width: 8px; background: var(--ui-accent); cursor: pointer; box-shadow: 0 0 8px var(--ui-accent); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 2px; background: rgba(255, 255, 255, 0.2); }
+        
+        /* Ocultar barras de scroll */
+        ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.3); border-radius: 5px; }
     </style>
 </head>
 <body>
 
     <div id="start-screen">
-        <h1>CDMUSICX</h1>
-        <p>Sinfonía Urbana (Metro + Metrobús + Cablebús)</p>
-        <button class="play-btn" onclick="arrancarSistema()">INICIAR SINFONÍA</button>
+        <div class="title-glitch">MEXICO CITY BLUES</div>
+        
+        <div class="manifesto">
+            <h3>¿Qué hace que esta sea una Sinfonía Urbana?</h3>
+            <p>Al iniciar, la aplicación dibuja la estructura cartográfica basándose en los datos de la red de movilidad. La música responde a un modelo generativo vivo:</p>
+            <ul>
+                <li><strong>Red Múltiple:</strong> Integración completa de las redes del Metro, Metrobús y Cablebús.</li>
+                <li><strong>Progresión Armónica:</strong> Un Loop maestro cambia el acorde base cada 4 compases.</li>
+                <li><strong>Metro (Subterráneo):</strong> Actúa como la columna vertebral; "toca" los acordes profundos (PolySynth y Bajo FM) que marcan el cambio de armonía.</li>
+                <li><strong>Metrobús (Superficie):</strong> Al llegar a una estación, revisa el acorde actual del Metro y elige una nota de esa escala específica para tejer arpegios consonantes.</li>
+                <li><strong>Cablebús (Aéreo):</strong> Añade texturas agudas (Campanas/MetalSynth) flotando en la mezcla.</li>
+            </ul>
+        </div>
+
+        <button class="play-btn" onclick="arrancarSistema()">INICIAR VIAJE</button>
     </div>
 
-    <div id="main-wrapper">
-        <div id="map-container">
-            <div id="map"></div>
-            
-            <div id="ui-layer" style="display: none;">
-                <div class="panel-box">
-                    <div class="status-row"><div class="led"></div> SISTEMA ACTIVO</div>
+    <div id="map"></div>
 
-                    <div class="stat-grid">
-                        <div><div class="stat-val" id="val-buses">0</div><div class="stat-label">Unidades</div></div>
-                        <div><div class="stat-val" id="val-bpm">0</div><div class="stat-label">BPM</div></div>
-                    </div>
-
-                    <button class="btn-3d" id="btn-toggle-3d" onclick="toggleVisualizer()">Expandir Visualizador 3D</button>
-                    <div class="line-legend" id="legend-container"></div>
-                </div>
+    <div id="main-ui" class="glass-panel" style="display: none;">
+        <div class="panel-header"><span>SYS.CORE</span><span>MCB</span></div>
+        <div class="status-row"><div class="led"></div> SINFONÍA ACTIVA</div>
+        
+        <div class="dyn-data">
+            <div><span>POBLACIÓN EN RED:</span> <span>+1,452,034</span></div>
+            <div><span>BPM DEL NÚCLEO:</span> <span id="val-bpm" style="color: var(--neon-magenta);">110</span></div>
+            <div style="align-items: center; margin-top: 15px;">
+                <span>UNIDADES EN SEGUIMIENTO:</span>
+                <button class="interactive-btn" onclick="cambiarUnidades()">[ <span id="val-buses">120</span> ] ↺ RND</button>
             </div>
         </div>
 
-        <div id="visualizer-container">
-            <canvas id="visualizer-canvas"></canvas>
+        <div class="legend-container" id="legend-container"></div>
+    </div>
+
+    <div id="gadget-dock" style="display: none;">
+        <button class="dock-btn" onclick="toggleGadget('gadget-3d', this)">📡 3D CORE</button>
+        <button class="dock-btn" onclick="toggleGadget('gadget-wave', this)">〰️ WAVE</button>
+        <button class="dock-btn" onclick="toggleGadget('gadget-fft', this)">📊 FFT</button>
+        <button class="dock-btn" onclick="toggleGadget('gadget-fx', this)">🎛️ FX</button>
+    </div>
+
+    <div id="gadget-3d" class="gadget glass-panel">
+        <div class="panel-header"><span>3D ENGINE</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(1)').click()">X</span></div>
+        <div class="gadget-content"><canvas id="canvas-3d"></canvas></div>
+    </div>
+
+    <div id="gadget-wave" class="gadget glass-panel">
+        <div class="panel-header"><span>OSCILLOSCOPE</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(2)').click()">X</span></div>
+        <div class="gadget-content"><canvas id="canvas-wave"></canvas></div>
+    </div>
+
+    <div id="gadget-fft" class="gadget glass-panel">
+        <div class="panel-header"><span>SPECTRUM FFT</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(3)').click()">X</span></div>
+        <div class="gadget-content"><canvas id="canvas-fft"></canvas></div>
+    </div>
+
+    <div id="gadget-fx" class="gadget glass-panel">
+        <div class="panel-header"><span>DSP EFFECTS</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(4)').click()">X</span></div>
+        <div class="fx-controls">
+            <label>FILTRO LOWPASS <span><span id="val-lp">20000</span> Hz</span></label>
+            <input type="range" id="ctrl-lp" min="100" max="20000" value="20000">
+
+            <label>DISTORSIÓN <span><span id="val-dist">0</span> %</span></label>
+            <input type="range" id="ctrl-dist" min="0" max="100" value="0">
+
+            <label style="color: var(--neon-magenta); margin-top: 10px;">ANOMALÍA 3D (GLITCH) <span><span id="val-glitch">0</span> %</span></label>
+            <input type="range" id="ctrl-glitch" min="0" max="100" value="0">
         </div>
     </div>
 
     <script>
-        // --- 1. CONFIGURACIÓN DEL MAPA ---
+        // --- 1. CORE MAPA ---
         const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.41, -99.14], 12);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
         let rutasEstructurales = []; 
         let lineasProcesadas = new Set();
+        let unidadesActivas = [];
         
-        // --- 2. MOTOR DE AUDIO Y ARMONÍA (SINFONÍA) ---
-        let audioActivo = false;
-        const synths = {};
-        let analyserNode;
-        
-        // Acordes de la progresión armónica (Ej: Em -> C -> G -> D)
+        // --- 2. SINFONÍA: PROGRESIÓN Y AUDIO GRAPH ---
         const progresión = [
             { acordes: ["E4", "G4", "B4"], escala: ["E4", "F#4", "G4", "A4", "B4", "C5", "D5"], bajo: "E2" },
             { acordes: ["C4", "E4", "G4"], escala: ["C4", "D4", "E4", "F4", "G4", "A4", "B4"], bajo: "C2" },
@@ -138,134 +206,155 @@
             { acordes: ["D4", "F#4", "A4"], escala: ["D4", "E4", "F#4", "G4", "A4", "B4", "C#5"], bajo: "D2" }
         ];
         let indiceArmonia = 0;
+        let audioActivo = false;
+        
+        // Nodos de Audio
+        const synths = {};
+        let audioCtx, analyserFFT, analyserWave;
+        let preGainNode, biquadFilter, distortionNode;
+
+        function makeDistortionCurve(amount) {
+            let k = typeof amount === 'number' ? amount : 50, n = 44100, curve = new Float32Array(n), deg = Math.PI / 180, i = 0, x;
+            for ( ; i < n; ++i ) { x = i * 2 / n - 1; curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) ); }
+            return curve;
+        }
 
         async function arrancarSistema() {
             document.getElementById('start-screen').style.opacity = '0';
-            setTimeout(() => { document.getElementById('start-screen').style.display = 'none'; document.getElementById('ui-layer').style.display = 'flex'; }, 500);
+            setTimeout(() => { 
+                document.getElementById('start-screen').style.display = 'none'; 
+                document.getElementById('main-ui').style.display = 'flex'; 
+                document.getElementById('gadget-dock').style.display = 'flex'; 
+            }, 800);
 
             await Tone.start();
             Tone.Transport.start();
             audioActivo = true;
 
-            analyserNode = new Tone.Analyser("fft", 256);
-            Tone.getDestination().connect(analyserNode);
+            // RECUPERAR EL GRAPH DE EFECTOS
+            audioCtx = Tone.getContext().rawContext;
+            preGainNode = audioCtx.createGain();
+            biquadFilter = audioCtx.createBiquadFilter(); biquadFilter.type = "lowpass";
+            distortionNode = audioCtx.createWaveShaper(); distortionNode.oversample = '4x';
+            
+            analyserFFT = audioCtx.createAnalyser(); analyserFFT.fftSize = 512;
+            analyserWave = audioCtx.createAnalyser(); analyserWave.fftSize = 2048;
 
+            // Cadena: Tone Master -> Filtro -> Distorsión -> Analizadores -> Salida
+            Tone.getDestination().disconnect();
+            Tone.getDestination().connect(preGainNode);
+            preGainNode.connect(biquadFilter);
+            biquadFilter.connect(distortionNode);
+            distortionNode.connect(analyserFFT);
+            distortionNode.connect(analyserWave);
+            distortionNode.connect(audioCtx.destination);
+
+            // Reverbs y Delays
             const reverb = new Tone.Reverb(3).toDestination();
             const delay = new Tone.FeedbackDelay("8n", 0.5).connect(reverb);
 
-            // Instrumentos por Sistema de Transporte
-            // METRO (Sub-Bajo y Acordes masivos)
+            // Instrumentos por Sistema
             synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -8;
-            synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5}).toDestination(); synths['BASS'].volume.value = 0;
-            
-            // METROBÚS (Arpegios y Percusión)
+            synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5}).toDestination(); synths['BASS'].volume.value = -2;
             synths['MB'] = new Tone.Synth({oscillator: {type: 'sine'}}).connect(delay); synths['MB'].volume.value = -5;
-            synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).toDestination(); synths['PERC'].volume.value = -15;
-            
-            // CABLEBÚS (Brillos y atmósferas etéreas en el aire)
-            synths['CBB'] = new Tone.MetalSynth({resonance: 8000, envelope: {attack: 0.01, decay: 1}}).connect(delay); synths['CBB'].volume.value = -10;
+            synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).toDestination(); synths['PERC'].volume.value = -18;
+            synths['CBB'] = new Tone.MetalSynth({resonance: 8000, envelope: {attack: 0.01, decay: 1}}).connect(delay); synths['CBB'].volume.value = -12;
 
-            // Loop Maestro: Cambia la armonía cada 4 compases (El latido de la ciudad)
+            // LOOP MAESTRO
             new Tone.Loop(time => {
                 indiceArmonia = (indiceArmonia + 1) % progresión.length;
-                // El Metro dicta el cambio de acorde
                 synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes, "1n", time);
                 synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "2n", time);
             }, "4m").start(0);
 
             iniciarVisualizador3D();
-            descargarCartografia('METRO', 'Metro (Subterráneo)', 'Acordes Base');
-            descargarCartografia('MB', 'Metrobús (Superficie)', 'Arpegios');
-            descargarCartografia('CBB', 'Cablebús (Aire)', 'Campanas Etéreas');
+            descargarCartografia('METRO', 'Metro', 'Acordes Base');
+            descargarCartografia('MB', 'Metrobús', 'Arpegios Melódicos');
+            descargarCartografia('CBB', 'Cablebús', 'Atmósfera Aérea');
+            
+            drawGadgets(); // Inicia los canvas
         }
 
-        // --- 3. DESCARGA DESDE APIMETRO (MÚLTIPLES SISTEMAS) ---
+        // --- 3. CARTOGRAFÍA APIMETRO ---
         async function descargarCartografia(sistema, nombreVisual, instDesc) {
             try {
                 const res = await fetch(`https://apimetro.dev/movilidad/mapas/geojsonLinea?sistema=${sistema}`);
                 const geojson = await res.json();
                 
                 const legend = document.getElementById('legend-container');
-                let colorBase = sistema === 'METRO' ? '#ffaa00' : (sistema === 'MB' ? '#ff0000' : '#00a8ff'); // Fallback colors
-                let grosor = sistema === 'METRO' ? 4 : (sistema === 'MB' ? 2 : 1.5);
-                let opacidad = sistema === 'METRO' ? 0.3 : 0.6;
+                let colorBase = sistema === 'METRO' ? '#ffaa00' : (sistema === 'MB' ? '#ff0000' : '#00a8ff');
+                let grosor = sistema === 'METRO' ? 3 : (sistema === 'MB' ? 1.5 : 1);
 
-                // Añadir a la leyenda el sistema
                 if(!lineasProcesadas.has(sistema)) {
                     lineasProcesadas.add(sistema);
                     legend.innerHTML += `<div class="line-row"><div class="line-dot" style="background: ${colorBase}; color: ${colorBase};"></div><div class="line-text"><strong>${nombreVisual}</strong>${instDesc}</div></div>`;
                 }
 
                 L.geoJSON(geojson, {
-                    style: function(f) {
-                        return { color: f.properties.color_hex || colorBase, weight: grosor, opacity: opacidad };
-                    },
-                    onEachFeature: function(f) {
+                    style: f => ({ color: f.properties.color_hex || colorBase, weight: grosor, opacity: 0.4 }),
+                    onEachFeature: f => {
                         if(f.geometry.type === 'MultiLineString') {
                             f.geometry.coordinates.forEach(tramo => {
-                                rutasEstructurales.push({
-                                    sistema: sistema,
-                                    color: f.properties.color_hex || colorBase,
-                                    nodos: tramo.map(c => [c[1], c[0]])
-                                });
+                                rutasEstructurales.push({ sistema: sistema, color: f.properties.color_hex || colorBase, nodos: tramo.map(c => [c[1], c[0]]) });
                             });
                         }
                     }
                 }).addTo(map);
 
-                // Reiniciamos el tráfico cada vez que cargamos una red nueva para integrarla
-                if(rutasEstructurales.length > 50) iniciarTraficoGenerativo();
+                // Si ya descargamos suficiente, arrancamos con 120 unidades
+                if(rutasEstructurales.length > 30 && unidadesActivas.length === 0) ajustarFlota(120);
 
-            } catch(e) { console.error(`Error al conectar con Apimetro para ${sistema}:`, e); }
+            } catch(e) { console.log(`Fallo cartografía: ${sistema}`); }
         }
 
-        // --- 4. MOTOR DE TRÁFICO (SINCRONIZADO A LA ARMONÍA) ---
-        let unidadesActivas = [];
+        // --- 4. MOTOR DE TRÁFICO INTERACTIVO ---
+        function cambiarUnidades() {
+            const nuevas = Math.floor(Math.random() * 160) + 40; // Rango 40 a 200
+            ajustarFlota(nuevas);
+        }
 
-        function iniciarTraficoGenerativo() {
-            unidadesActivas = []; // Limpiar antes de regenerar
-            const numBuses = 120; // Más tráfico porque hay más redes
-            document.getElementById('val-buses').innerText = numBuses;
-            const bpm = 110; // BPM constante para la sinfonía
-            Tone.Transport.bpm.value = bpm;
+        function ajustarFlota(numMeta) {
+            document.getElementById('val-buses').innerText = numMeta;
+            // A más unidades, el tempo (BPM) acelera la ciudad
+            const bpm = Math.floor(80 + (numMeta * 0.3));
+            Tone.Transport.bpm.rampTo(bpm, 1);
             document.getElementById('val-bpm').innerText = bpm;
 
-            for(let i=0; i<numBuses; i++) {
+            // Agregar unidades si faltan
+            while(unidadesActivas.length < numMeta) {
                 const rutaObj = rutasEstructurales[Math.floor(Math.random() * rutasEstructurales.length)];
-                if(!rutaObj || rutaObj.nodos.length < 2) continue;
-
+                if(!rutaObj) break;
                 const idx = Math.floor(Math.random() * (rutaObj.nodos.length - 1));
                 
                 unidadesActivas.push({
-                    rutaObj: rutaObj, nodos: rutaObj.nodos,
-                    currentIdx: idx, targetIdx: idx + 1, dir: 1,
-                    startLat: rutaObj.nodos[idx][0], startLng: rutaObj.nodos[idx][1],
-                    targetLat: rutaObj.nodos[idx+1][0], targetLng: rutaObj.nodos[idx+1][1],
-                    progress: Math.random(),
-                    velocidad: (Math.random() * 0.005) + 0.002, 
-                    marker: L.circleMarker(rutaObj.nodos[idx], { 
-                        radius: rutaObj.sistema === 'METRO' ? 4 : (rutaObj.sistema === 'MB' ? 3 : 2), 
-                        color: rutaObj.color, fillColor: rutaObj.color, fillOpacity: 1, weight: 1 
-                    }).addTo(map)
+                    rutaObj: rutaObj, nodos: rutaObj.nodos, currentIdx: idx, targetIdx: idx + 1, dir: 1,
+                    startLat: rutaObj.nodos[idx][0], startLng: rutaObj.nodos[idx][1], targetLat: rutaObj.nodos[idx+1][0], targetLng: rutaObj.nodos[idx+1][1],
+                    progress: Math.random(), velocidad: (Math.random() * 0.006) + 0.002, 
+                    marker: L.circleMarker(rutaObj.nodos[idx], { radius: 2, color: rutaObj.color, fillColor: rutaObj.color, fillOpacity: 1, weight: 1 }).addTo(map)
                 });
             }
+
+            // Quitar unidades si sobran
+            while(unidadesActivas.length > numMeta) {
+                const bus = unidadesActivas.pop();
+                map.removeLayer(bus.marker);
+            }
+
             if(!window.animando) { window.animando = true; animarFisicas(); }
         }
 
-        let lastTime = performance.now();
-
+        let lastTimeFisicas = performance.now();
         function animarFisicas() {
             const currentTime = performance.now();
-            const deltaTime = currentTime - lastTime;
-            lastTime = currentTime;
+            const deltaTime = currentTime - lastTimeFisicas;
+            lastTimeFisicas = currentTime;
 
             unidadesActivas.forEach(bus => {
                 bus.progress += bus.velocidad;
-
                 if (bus.progress >= 1) {
                     bus.progress = 1;
                     
-                    // Disparo Musical Condicionado por el Sistema de Transporte
+                    // GATILLO ARMÓNICO
                     if (audioActivo) {
                         try {
                             const t = Tone.now() + (Math.random() * 0.05);
@@ -274,28 +363,20 @@
                             const notaAleatoria = escalaActual[Math.floor(Math.random() * escalaActual.length)];
 
                             if (sis === 'MB') {
-                                // Metrobús toca la melodía (arpegios) o percusión
                                 if(Math.random() > 0.8) synths['PERC'].triggerAttackRelease("16n", t);
                                 else synths['MB'].triggerAttackRelease(notaAleatoria, "8n", t);
                             } 
-                            else if (sis === 'CBB') {
-                                // Cablebús toca brillos
-                                synths['CBB'].triggerAttackRelease("32n", t);
-                            }
-                            // El METRO no dispara notas individuales al llegar a estación, él marca los acordes base en el Loop maestro.
+                            else if (sis === 'CBB') synths['CBB'].triggerAttackRelease("32n", t);
                             
-                            // Destello visual (excepto el Metro para no saturar)
                             if(sis !== 'METRO') {
-                                bus.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 8 });
-                                setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, color: bus.rutaObj.color, radius: sis === 'MB' ? 3 : 2 }); }, 150);
+                                bus.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 6 });
+                                setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, color: bus.rutaObj.color, radius: 2 }); }, 150);
                             }
                         } catch (e) {}
                     }
 
-                    bus.currentIdx = bus.targetIdx;
-                    bus.targetIdx += bus.dir;
+                    bus.currentIdx = bus.targetIdx; bus.targetIdx += bus.dir;
                     if(bus.targetIdx >= bus.nodos.length || bus.targetIdx < 0) { bus.dir *= -1; bus.targetIdx = bus.currentIdx + bus.dir; }
-                    
                     bus.startLat = bus.nodos[bus.currentIdx][0]; bus.startLng = bus.nodos[bus.currentIdx][1];
                     bus.targetLat = bus.nodos[bus.targetIdx][0]; bus.targetLng = bus.nodos[bus.targetIdx][1];
                     bus.progress = 0;
@@ -305,109 +386,117 @@
                 const curLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
                 bus.marker.setLatLng([curLat, curLng]);
             });
-
             requestAnimationFrame(animarFisicas);
         }
 
-        // --- 5. VISUALIZADOR 3D ---
-        let is3DActive = false;
-        let renderer3D, scene3D, camera3D, organicMesh3D, organicBaseVerts;
-
-        function toggleVisualizer() {
-            is3DActive = !is3DActive;
-            const btn = document.getElementById('btn-toggle-3d');
-            
-            if(is3DActive) {
-                document.body.classList.add('split-mode');
-                btn.innerText = "Cerrar Visualizador 3D";
+        // --- 5. GADGETS Y PANTALLAS FLOTANTES ---
+        function toggleGadget(id, btn) {
+            const el = document.getElementById(id);
+            if(el.classList.contains('active')) {
+                el.classList.remove('active'); btn.classList.remove('active');
             } else {
-                document.body.classList.remove('split-mode');
-                btn.innerText = "Expandir Visualizador 3D";
+                el.classList.add('active'); btn.classList.add('active');
+                redimensionarCanvases(); // Ajustar resolución interna al abrir
             }
-            
-            setTimeout(() => {
-                map.invalidateSize();
-                if(renderer3D) {
-                    const container = document.getElementById('visualizer-container');
-                    renderer3D.setSize(container.clientWidth, container.clientHeight);
-                    camera3D.aspect = container.clientWidth / container.clientHeight;
-                    camera3D.updateProjectionMatrix();
-                }
-            }, 700);
         }
 
-        function iniciarVisualizador3D() {
-            const container = document.getElementById('visualizer-container');
-            const canvas = document.getElementById('visualizer-canvas');
-            renderer3D = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-            
-            const w = document.body.clientWidth * 0.6; 
-            const h = document.body.clientHeight;
-            renderer3D.setSize(w, h);
+        // Controles FX
+        document.getElementById('ctrl-lp').addEventListener('input', e => { biquadFilter.frequency.value = e.target.value; document.getElementById('val-lp').innerText = e.target.value; });
+        document.getElementById('ctrl-dist').addEventListener('input', e => { distortionNode.curve = makeDistortionCurve(parseInt(e.target.value)); document.getElementById('val-dist').innerText = e.target.value; });
+        document.getElementById('ctrl-glitch').addEventListener('input', e => { document.getElementById('val-glitch').innerText = e.target.value; });
 
+        // Canvases 2D
+        const wCanvas = document.getElementById('canvas-wave'); const wCtx = wCanvas.getContext('2d');
+        const fCanvas = document.getElementById('canvas-fft'); const fCtx = fCanvas.getContext('2d');
+
+        function redimensionarCanvases() {
+            if(document.getElementById('gadget-wave').classList.contains('active')) { wCanvas.width = wCanvas.parentElement.clientWidth; wCanvas.height = wCanvas.parentElement.clientHeight; }
+            if(document.getElementById('gadget-fft').classList.contains('active')) { fCanvas.width = fCanvas.parentElement.clientWidth; fCanvas.height = fCanvas.parentElement.clientHeight; }
+            if(is3DReady && document.getElementById('gadget-3d').classList.contains('active')) {
+                const c3d = document.getElementById('canvas-3d');
+                renderer3D.setSize(c3d.parentElement.clientWidth, c3d.parentElement.clientHeight);
+                camera3D.aspect = c3d.parentElement.clientWidth / c3d.parentElement.clientHeight; camera3D.updateProjectionMatrix();
+            }
+        }
+        window.addEventListener('resize', redimensionarCanvases);
+
+        // --- 6. MOTOR 3D Y DIBUJO GLOBAL (Gadgets) ---
+        let is3DReady = false;
+        let renderer3D, scene3D, camera3D, organicMesh3D, organicBaseVerts;
+
+        function iniciarVisualizador3D() {
+            const canvas = document.getElementById('canvas-3d');
+            renderer3D = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
             scene3D = new THREE.Scene();
-            camera3D = new THREE.PerspectiveCamera(60, w / h, 0.1, 1000);
-            camera3D.position.z = 15;
+            camera3D = new THREE.PerspectiveCamera(60, 1, 0.1, 1000); camera3D.position.z = 10;
 
             scene3D.add(new THREE.AmbientLight(0x222222));
             const mainLight = new THREE.PointLight(0x00f0ff, 2, 50); mainLight.position.set(5, 5, 5); scene3D.add(mainLight);
 
-            const organicGeo = new THREE.IcosahedronGeometry(3.5, 40);
-            organicBaseVerts = [];
-            const posAttr = organicGeo.attributes.position;
-            for(let i=0; i < posAttr.count; i++) { organicBaseVerts.push(new THREE.Vector3(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i))); }
+            const organicGeo = new THREE.IcosahedronGeometry(3.5, 40); organicBaseVerts = [];
+            for(let i=0; i < organicGeo.attributes.position.count; i++) organicBaseVerts.push(new THREE.Vector3(organicGeo.attributes.position.getX(i), organicGeo.attributes.position.getY(i), organicGeo.attributes.position.getZ(i)));
             
             const organicMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x00f0ff, emissiveIntensity: 0.2, wireframe: true, roughness: 0.2 });
-            organicMesh3D = new THREE.Mesh(organicGeo, organicMat);
-            scene3D.add(organicMesh3D);
+            organicMesh3D = new THREE.Mesh(organicGeo, organicMat); scene3D.add(organicMesh3D);
 
-            container.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                camera3D.position.z += e.deltaY * 0.01;
-                camera3D.position.z = Math.max(5, Math.min(30, camera3D.position.z));
+            is3DReady = true;
+            
+            // Zoom Wheel en 3D
+            document.getElementById('gadget-3d').addEventListener('wheel', (e) => {
+                e.preventDefault(); camera3D.position.z += e.deltaY * 0.01; camera3D.position.z = Math.max(4, Math.min(20, camera3D.position.z));
             }, { passive: false });
-
-            animar3D();
         }
 
-        function animar3D() {
-            requestAnimationFrame(animar3D);
-            if(!is3DActive || !analyserNode) return;
+        function drawGadgets() {
+            requestAnimationFrame(drawGadgets);
+            if(!audioActivo) return;
 
-            const audioData = analyserNode.getValue();
-            let sum = 0;
-            const freqData = new Uint8Array(256);
+            const dataArrayFft = new Uint8Array(analyserFFT.frequencyBinCount); analyserFFT.getByteFrequencyData(dataArrayFft);
+            const dataArrayWave = new Uint8Array(analyserWave.fftSize); analyserWave.getByteTimeDomainData(dataArrayWave);
             
-            for(let i=0; i<audioData.length; i++) {
-                let val = (audioData[i] + 100) * 2.55; 
-                val = Math.max(0, Math.min(255, val));
-                freqData[i] = val;
-                sum += val;
+            let sum = 0; for(let i=0; i<dataArrayFft.length; i++) sum += dataArrayFft[i];
+            let avgNorm = (sum / dataArrayFft.length) / 255;
+            let glitchVal = parseInt(document.getElementById('ctrl-glitch').value) / 100;
+
+            // DRAW WAVEFORM
+            if(document.getElementById('gadget-wave').classList.contains('active')) {
+                wCtx.fillStyle = '#020202'; wCtx.fillRect(0, 0, wCanvas.width, wCanvas.height);
+                wCtx.lineWidth = 2; wCtx.beginPath(); wCtx.strokeStyle = `var(--ui-accent)`;
+                let sliceWidth = wCanvas.width * 1.0 / analyserWave.fftSize; let wx = 0;
+                for(let i = 0; i < analyserWave.fftSize; i++) {
+                    let v = dataArrayWave[i] / 128.0; let y = v * wCanvas.height / 2;
+                    if(i === 0) wCtx.moveTo(wx, y); else wCtx.lineTo(wx, y); wx += sliceWidth;
+                }
+                wCtx.stroke();
             }
-            let avgNorm = (sum / 256) / 255;
 
-            organicMesh3D.rotation.y += 0.003;
-            organicMesh3D.rotation.z = avgNorm * 0.1;
-            
-            const pos = organicMesh3D.geometry.attributes.position;
-            let time = performance.now() * 0.001;
-
-            for(let i=0; i < organicBaseVerts.length; i++) {
-                let freq = freqData[i % 256];
-                let base = organicBaseVerts[i];
-                let asymNoise = Math.sin(base.x * 2.0 + time) * Math.cos(base.y * 2.0 + time);
-                
-                let displacement = (freq / 255.0) * 1.5 + (asymNoise * 0.5 * (freq/255.0));
-                let dir = base.clone().normalize();
-                let newPos = base.clone().add(dir.multiplyScalar(displacement));
-                
-                pos.setXYZ(i, newPos.x, newPos.y, newPos.z);
+            // DRAW FFT
+            if(document.getElementById('gadget-fft').classList.contains('active')) {
+                fCtx.fillStyle = '#020202'; fCtx.fillRect(0, 0, fCanvas.width, fCanvas.height);
+                let bars = 64; let barWidth = (fCanvas.width / bars); let x = 0;
+                for(let i = 0; i < bars; i++) {
+                    let barHeight = dataArrayFft[i] * (fCanvas.height / 255);
+                    fCtx.fillStyle = (barHeight > 150) ? '#ff003c' : '#00f0ff';
+                    fCtx.fillRect(x, fCanvas.height - barHeight, barWidth - 1, barHeight); x += barWidth;
+                }
             }
-            
-            pos.needsUpdate = true;
-            organicMesh3D.material.emissiveIntensity = 0.1 + (avgNorm * 1.5);
 
-            renderer3D.render(scene3D, camera3D);
+            // DRAW 3D
+            if(is3DReady && document.getElementById('gadget-3d').classList.contains('active')) {
+                organicMesh3D.rotation.y += 0.003; organicMesh3D.rotation.z = avgNorm * 0.1;
+                const pos = organicMesh3D.geometry.attributes.position;
+                let time = performance.now() * 0.001;
+
+                for(let i=0; i < organicBaseVerts.length; i++) {
+                    let freq = dataArrayFft[i % 256]; let base = organicBaseVerts[i];
+                    let asymNoise = Math.sin(base.x * 2.0 + time) * Math.cos(base.y * 2.0 + time);
+                    let displacement = (freq / 255.0) * 1.5 + (asymNoise * 0.5 * (freq/255.0)) + (glitchVal * Math.random());
+                    let dir = base.clone().normalize(); let newPos = base.clone().add(dir.multiplyScalar(displacement));
+                    pos.setXYZ(i, newPos.x, newPos.y, newPos.z);
+                }
+                pos.needsUpdate = true; organicMesh3D.material.emissiveIntensity = 0.1 + (avgNorm * 1.5);
+                renderer3D.render(scene3D, camera3D);
+            }
         }
     </script>
 </body>
