@@ -53,19 +53,15 @@
         .panel-header { padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); font-family: 'Orbitron', sans-serif; font-size: 0.65rem; letter-spacing: 2px; color: #888; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
 
         /* PANEL LATERAL */
-        #main-ui { top: 20px; left: 20px; width: 280px; z-index: 1000; max-height: calc(100vh - 140px); overflow-y: auto; }
-        .real-data-box, .control-box { padding: 15px; font-size: 0.7rem; color: #aaa; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        #main-ui { top: 20px; left: 20px; width: 280px; z-index: 1000; max-height: calc(100vh - 40px); overflow-y: auto; }
+        .real-data-box { padding: 15px; font-size: 0.7rem; color: #aaa; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .real-data-box div { display: flex; justify-content: space-between; margin-bottom: 6px; }
         .real-data-box span { color: #fff; font-family: 'Orbitron'; font-weight: bold;}
         .real-data-box .highlight { color: var(--ui-accent); }
         
-        /* CONTROLES EXTRA */
-        .control-box label { display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 0.65rem; }
-        .control-box label span { color: var(--ui-accent); }
-        
-        .interactive-btn { background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); color: var(--ui-accent); padding: 8px; cursor: pointer; border-radius: 6px; font-family: 'Share Tech Mono'; transition: 0.2s; font-size: 0.7rem; width: 100%; margin-top: 10px; text-transform: uppercase;}
-        .interactive-btn:hover { background: var(--ui-accent); color: #000; box-shadow: 0 0 15px rgba(0, 240, 255, 0.3); }
-        
+        .time-display { font-size: 1.2rem; color: var(--ui-accent); text-align: center; font-family: 'Orbitron'; letter-spacing: 2px; margin-bottom: 10px; text-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
+        .status-text { text-align: center; font-size: 0.6rem; color: #888; margin-bottom: 10px; text-transform: uppercase;}
+
         .legend-container { padding: 15px; }
         .line-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
         .line-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 5px currentColor; }
@@ -76,16 +72,17 @@
         .ripple-dot {
             width: 100%; height: 100%; border-radius: 50%;
             position: absolute; top: 0; left: 0;
-            animation: pulse-ring 2s infinite ease-out;
+            border: 1px solid currentColor; /* Siempre visible */
+            animation: pulse-ring 2.5s infinite ease-out;
         }
         .ripple-center {
-            width: 8px; height: 8px; background: currentColor; border-radius: 50%;
+            width: 6px; height: 6px; background: currentColor; border-radius: 50%;
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            box-shadow: 0 0 15px currentColor;
+            box-shadow: 0 0 10px currentColor;
         }
         @keyframes pulse-ring {
-            0% { transform: scale(0.5); opacity: 1; border: 2px solid currentColor; }
-            100% { transform: scale(4); opacity: 0; border: 2px solid currentColor; }
+            0% { transform: scale(0.8); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0.1; }
         }
 
         /* DOCK Y GADGETS */
@@ -134,10 +131,13 @@
     <div id="map"></div>
 
     <div id="main-ui" class="glass-panel" style="display: none;">
-        <div class="panel-header"><span>MEXICO CITY BLUES</span></div>
+        <div class="panel-header"><span>ESTADO DEL SISTEMA</span></div>
         
         <div class="real-data-box">
-            <div style="color:#888; font-family:'Share Tech Mono'; letter-spacing:1px; font-size:0.6rem; margin-bottom:10px;">SEGUIMIENTO DE FLOTA</div>
+            <div class="time-display" id="clock-display">00:00</div>
+            <div class="status-text" id="status-display">SINCRONIZANDO...</div>
+            
+            <div style="color:#888; font-family:'Share Tech Mono'; letter-spacing:1px; font-size:0.6rem; margin-top:15px; margin-bottom:10px;">SEGUIMIENTO DE FLOTA</div>
             <div>METRO <span><span id="txt-metro">0</span></span></div>
             <div>METROBÚS <span><span id="txt-mb">0</span></span></div>
             <div>CABLEBÚS <span><span id="txt-cbb">0</span></span></div>
@@ -145,22 +145,6 @@
             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #333; font-size:0.75rem;">
                 UNIDADES ACTIVAS <span class="highlight" id="txt-total">0</span>
             </div>
-        </div>
-
-        <div class="control-box">
-            <div style="color:#888; font-family:'Share Tech Mono'; letter-spacing:1px; font-size:0.6rem; margin-bottom:10px;">PARÁMETROS DE SIMULACIÓN</div>
-            
-            <label>NODOS (POBLACIÓN) <span><span id="val-nodos">400</span></span></label>
-            <input type="range" id="ctrl-nodos" min="10" max="1000" value="400">
-            
-            <label>VELOCIDAD GLOBAL <span><span id="val-vel">1.0</span>x</span></label>
-            <input type="range" id="ctrl-vel" min="0.1" max="5.0" step="0.1" value="1.0">
-            
-            <label>PROBABILIDAD CUELLOS BOTELLA <span><span id="val-atasco">0.05</span>%</span></label>
-            <input type="range" id="ctrl-atasco" min="0" max="5.0" step="0.05" value="0.05">
-
-            <button class="interactive-btn" onclick="invertirDirecciones()">[ INVERTIR DIRECCIÓN GLOBAL ]</button>
-            <button class="interactive-btn" onclick="forzarPerturbacion()" style="margin-top: 5px;">[ FORZAR CAOS ESPACIAL ]</button>
         </div>
 
         <div class="legend-container" id="legend-container"></div>
@@ -198,15 +182,14 @@
     </div>
 
     <script>
-        // --- 1. CORE MAPA E INFRAESTRUCTURA (APIMETRO REAL) ---
+        // --- 1. CORE MAPA E INFRAESTRUCTURA ---
         const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.41, -99.14], 12);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
         let rutasEstructurales = []; 
         let unidadesActivas = [];
-        let atascosActivos = []; // Nodos de perturbación espacial
+        let atascosActivos = []; 
         
-        // Estilos e instrumentos por sistema
         const sysConfig = {
             'METRO': { color: '#ff6600', grosor: 3, opacity: 0.3, inst: 'Sub-Bajo / Chords' },
             'MB':    { color: '#ff003c', grosor: 1.5, opacity: 0.5, inst: 'Arpegio Synth' },
@@ -220,11 +203,9 @@
             seq.scrollTop = seq.scrollHeight;
         };
 
-        // Descarga MASIVA y REAL de todas las líneas desde Apimetro
         async function descargarRedCompleta() {
             try {
                 logConsole('Extrayendo cartografía de <span style="color:#00f0ff">apimetro.dev</span>...');
-                
                 const res = await fetch('https://apimetro.dev/movilidad/mapas/geojsonLinea?sistema=METRO,MB,CBB,TROLE');
                 const geojson = await res.json();
                 
@@ -310,13 +291,18 @@
             limiter.threshold.value = -10; limiter.ratio.value = 20;
 
             analyserFFT = audioCtx.createAnalyser(); analyserFFT.fftSize = 512;
-            analyserWave = audioCtx.createAnalyser(); analyserWave.fftSize = 2048;
+            
+            // FIX: Usamos Tone.Analyser directamente para el waveform, es más estable y fácil de dibujar.
+            analyserWave = new Tone.Analyser("waveform", 512);
 
             Tone.getDestination().disconnect(); Tone.getDestination().connect(preGainNode);
             preGainNode.connect(biquadFilter); biquadFilter.connect(distortionNode);
             distortionNode.connect(limiter);
-            limiter.connect(analyserFFT); limiter.connect(analyserWave);
+            limiter.connect(analyserFFT); 
             limiter.connect(audioCtx.destination);
+            
+            // Conectamos el osciloscopio al final de la cadena
+            Tone.getDestination().connect(analyserWave);
 
             const reverb = new Tone.Reverb(4).toDestination();
             const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
@@ -336,66 +322,71 @@
 
             iniciarVisualizador3D();
             
-            setInterval(actualizarPoblacion, 5000);
-            actualizarPoblacion();
+            setInterval(sincronizarRelojUrbano, 1000); // Reloj actualiza cada segundo visualmente
+            sincronizarRelojUrbano(); // Llamada inicial
             animarFisicas();
         }
 
-        // --- 3. GESTIÓN DE POBLACIÓN Y PARÁMETROS GLOBALES ---
-        let targetTotal = 400;
-        let poblacionManual = false;
-        
+        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX ---
+        let targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
         let globalSpeedMult = 1.0;
         let globalJamProb = 0.0005;
 
-        document.getElementById('ctrl-nodos').addEventListener('input', function() {
-            poblacionManual = true;
-            targetTotal = parseInt(this.value);
-            document.getElementById('val-nodos').innerText = targetTotal;
-            ajustarFlota();
-        });
-        document.getElementById('ctrl-vel').addEventListener('input', function() {
-            globalSpeedMult = parseFloat(this.value);
-            document.getElementById('val-vel').innerText = globalSpeedMult.toFixed(1);
-        });
-        document.getElementById('ctrl-atasco').addEventListener('input', function() {
-            globalJamProb = parseFloat(this.value) / 100;
-            document.getElementById('val-atasco').innerText = parseFloat(this.value).toFixed(2);
-        });
-
-        function actualizarPoblacion() {
-            if(poblacionManual) return; 
-
-            const hora = new Date().getHours();
-            let factorDemanda = 1.0;
-
-            if (hora >= 1 && hora <= 4) factorDemanda = 0.1; 
-            else if (hora >= 6 && hora <= 9) factorDemanda = 1.0; 
-            else if (hora >= 10 && hora <= 16) factorDemanda = 0.6; 
-            else if (hora >= 17 && hora <= 20) factorDemanda = 0.9; 
-            else factorDemanda = 0.3; 
-
-            factorDemanda += (Math.random() * 0.2 - 0.1);
-
-            let tMetro = Math.floor(256 * factorDemanda);
-            let tMB = Math.floor(800 * factorDemanda);
-            let tCBB = Math.floor(400 * factorDemanda);
-            let tTrole = Math.floor(200 * factorDemanda); 
-
-            targetTotal = Math.min(400, tMetro + tMB + tCBB + tTrole);
+        function sincronizarRelojUrbano() {
+            const ahora = new Date();
+            const hora = ahora.getHours();
+            const minutos = ahora.getMinutes().toString().padStart(2, '0');
             
-            document.getElementById('ctrl-nodos').value = targetTotal;
-            document.getElementById('val-nodos').innerText = targetTotal;
+            document.getElementById('clock-display').innerText = `${hora.toString().padStart(2, '0')}:${minutos}`;
 
+            let estadoTxt = "";
+
+            if (hora >= 0 && hora < 5) { // Madrugada
+                targets['METRO'] = 0; targets['CBB'] = 0; // Suspendidos
+                targets['MB'] = 15; targets['TROLE'] = 10; // Nochebús
+                globalSpeedMult = 2.5; globalJamProb = 0.0001;
+                estadoTxt = "MADRUGADA / GUARDIA NOCTURNA";
+            } else if (hora >= 5 && hora < 6) { // Despertar
+                targets['METRO'] = 40; targets['CBB'] = 20; targets['MB'] = 50; targets['TROLE'] = 20;
+                globalSpeedMult = 1.8; globalJamProb = 0.001;
+                estadoTxt = "AMANECER / INICIO DE OPERACIONES";
+            } else if (hora >= 6 && hora < 10) { // Pico Mañana
+                targets['METRO'] = 150; targets['CBB'] = 50; targets['MB'] = 180; targets['TROLE'] = 70;
+                globalSpeedMult = 0.6; globalJamProb = 0.02; 
+                estadoTxt = "HORA PICO (MAÑANA) / TRÁFICO DENSO";
+            } else if (hora >= 10 && hora < 17) { // Valle
+                targets['METRO'] = 80; targets['CBB'] = 30; targets['MB'] = 100; targets['TROLE'] = 40;
+                globalSpeedMult = 1.2; globalJamProb = 0.005;
+                estadoTxt = "HORA VALLE / FLUJO REGULAR";
+            } else if (hora >= 17 && hora < 21) { // Pico Tarde
+                targets['METRO'] = 160; targets['CBB'] = 50; targets['MB'] = 190; targets['TROLE'] = 80;
+                globalSpeedMult = 0.5; globalJamProb = 0.03;
+                estadoTxt = "HORA PICO (TARDE) / CAOS URBANO";
+            } else { // Noche (21 a 23)
+                targets['METRO'] = 60; targets['CBB'] = 20; targets['MB'] = 70; targets['TROLE'] = 30;
+                globalSpeedMult = 1.5; globalJamProb = 0.002;
+                estadoTxt = "NOCHE / FLUJO DESCENDENTE";
+            }
+
+            document.getElementById('status-display').innerText = estadoTxt;
             ajustarFlota();
         }
 
         function ajustarFlota() {
-            while(unidadesActivas.length < targetTotal) spawnUnidad();
-            while(unidadesActivas.length > targetTotal) {
-                const bus = unidadesActivas.pop();
-                map.removeLayer(bus.marker);
-            }
+            Object.keys(targets).forEach(sys => {
+                let actuales = unidadesActivas.filter(b => b.rutaObj.sys === sys);
+                let diff = targets[sys] - actuales.length;
+                
+                if (diff > 0) {
+                    for(let i=0; i<diff; i++) spawnUnidad(sys);
+                } else if (diff < 0) {
+                    let aRemover = actuales.slice(0, Math.abs(diff));
+                    aRemover.forEach(busToRemove => {
+                        map.removeLayer(busToRemove.marker);
+                        unidadesActivas = unidadesActivas.filter(b => b !== busToRemove);
+                    });
+                }
+            });
             recalcularContadoresUI();
         }
 
@@ -414,28 +405,10 @@
             document.getElementById('txt-total').innerText = unidadesActivas.length;
         }
 
-        function invertirDirecciones() {
-            unidadesActivas.forEach(bus => {
-                bus.dir *= -1; 
-                
-                let tempIdx = bus.currentIdx;
-                bus.currentIdx = bus.targetIdx;
-                bus.targetIdx = tempIdx;
-                
-                bus.startLat = bus.nodos[bus.currentIdx][0]; 
-                bus.startLng = bus.nodos[bus.currentIdx][1];
-                bus.targetLat = bus.nodos[bus.targetIdx][0]; 
-                bus.targetLng = bus.nodos[bus.targetIdx][1];
-                
-                bus.progress = 1 - bus.progress; 
-            });
-        }
-
         function crearAtascoEspacial(sys, lat, lng, color) {
-            // Icono personalizado con HTML y CSS incrustado para las onditas
             const rippleIcon = L.divIcon({
                 className: 'custom-ripple',
-                html: `<div style="color: ${color}; position: relative; width: 40px; height: 40px; margin-left: -20px; margin-top: -20px;">
+                html: `<div style="color: ${color}; position: relative; width: 30px; height: 30px; margin-left: -15px; margin-top: -15px;">
                           <div class="ripple-dot"></div>
                           <div class="ripple-center"></div>
                        </div>`,
@@ -443,27 +416,13 @@
             });
             
             const marker = L.marker([lat, lng], { icon: rippleIcon }).addTo(map);
-            
-            atascosActivos.push({
-                sys: sys, lat: lat, lng: lng, marker: marker,
-                timer: Math.random() * 8000 + 5000 // Dura entre 5 y 13 segundos
-            });
+            atascosActivos.push({ sys: sys, lat: lat, lng: lng, marker: marker, timer: Math.random() * 8000 + 5000 });
         }
 
-        function forzarPerturbacion() {
-            // Genera cuellos de botella instantáneos en la posición de varias unidades aleatorias
-            let numAtascos = Math.floor(Math.random() * 3) + 3;
-            for(let i=0; i<numAtascos; i++) {
-                if(unidadesActivas.length === 0) break;
-                let bus = unidadesActivas[Math.floor(Math.random() * unidadesActivas.length)];
-                crearAtascoEspacial(bus.rutaObj.sys, bus.curLat, bus.curLng, bus.rutaObj.color);
-            }
-            indiceArmonia = Math.floor(Math.random() * progresión.length);
-        }
-
-        function spawnUnidad() {
-            const rutaObj = rutasEstructurales[Math.floor(Math.random() * rutasEstructurales.length)];
-            if(!rutaObj) return;
+        function spawnUnidad(sysObj) {
+            const rutasPermitidas = rutasEstructurales.filter(r => r.sys === sysObj);
+            if(rutasPermitidas.length === 0) return;
+            const rutaObj = rutasPermitidas[Math.floor(Math.random() * rutasPermitidas.length)];
             
             const naceEnInicio = Math.random() > 0.5;
             const idx = naceEnInicio ? 0 : rutaObj.nodos.length - 1;
@@ -489,7 +448,7 @@
             });
         }
 
-        // --- 4. MOTOR FÍSICO BLINDADO (CAMPOS DE GRAVEDAD Y CHISPAS) ---
+        // --- 4. MOTOR FÍSICO (INTERSECCIONES Y CHISPAS CORREGIDAS) ---
         function calcDistancia(lat1, lon1, lat2, lon2) {
             const p = 0.017453292519943295; const c = Math.cos;
             const a = 0.5 - c((lat2 - lat1) * p)/2 + c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p))/2;
@@ -506,13 +465,11 @@
             lastTimeFisicas = currentTime;
             notasEsteFrame = 0;
 
-            // 1. Probabilidad global de generar un nuevo atasco orgánico
             if (Math.random() < globalJamProb * 0.05 && unidadesActivas.length > 0) {
                 let bus = unidadesActivas[Math.floor(Math.random() * unidadesActivas.length)];
                 crearAtascoEspacial(bus.rutaObj.sys, bus.curLat, bus.curLng, bus.rutaObj.color);
             }
 
-            // 2. Actualizar vida de los atascos activos
             for (let i = atascosActivos.length - 1; i >= 0; i--) {
                 atascosActivos[i].timer -= deltaTime;
                 if (atascosActivos[i].timer <= 0) {
@@ -521,7 +478,6 @@
                 }
             }
 
-            // 3. Procesar movimiento de los nodos interactuando con los campos gravitatorios
             unidadesActivas.forEach(bus => {
                 if (bus.estado === 'estacion') {
                     bus.timer -= deltaTime;
@@ -534,8 +490,8 @@
                     for (let atasco of atascosActivos) {
                         if (atasco.sys === bus.rutaObj.sys) {
                             let distKm = calcDistancia(bus.curLat, bus.curLng, atasco.lat, atasco.lng);
-                            if (distKm < 0.5) { 
-                                let localMult = Math.max(0.05, distKm / 0.5); 
+                            if (distKm < 0.3) { // Radio de atasco más local (300m)
+                                let localMult = Math.max(0.05, distKm / 0.3); 
                                 if (localMult < jamMultiplier) jamMultiplier = localMult;
                             }
                         }
@@ -560,17 +516,15 @@
 
                         if(audioActivo && notasEsteFrame < 3 && bus.rutaObj.sys !== 'METRO') {
                             notasEsteFrame++;
-                            // PROTECCIÓN CONTRA ERRORES DE TONE.JS
                             try {
                                 const escala = progresión[indiceArmonia].escala;
                                 const nota = escala[Math.floor(Math.random() * escala.length)];
-                                // Usamos "+0.05" para darle tiempo seguro de scheduling a la tarjeta de audio
                                 synths[bus.rutaObj.sys].triggerAttackRelease(nota, "8n", "+0.05", 0.3); 
                                 
                                 bus.marker.setStyle({ fillColor: '#ffffff', radius: 4 });
                                 setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, radius: 2 }); }, 200);
                             } catch (e) {
-                                console.warn("Tone.js saturado en estación, ignorando para proteger la animación.");
+                                console.warn("Audio ignorado en estación para proteger animación");
                             }
                         }
                     }
@@ -581,7 +535,7 @@
                 bus.marker.setLatLng([bus.curLat, bus.curLng]);
             });
 
-            // 4. LÓGICA DE INTERSECCIONES E INERCIA DE MASA (Chispas)
+            // LÓGICA DE INTERSECCIONES Y CHISPAS
             frameCounter++;
             if (frameCounter >= 5) {
                 frameCounter = 0;
@@ -591,16 +545,27 @@
                         const b1 = unidadesActivas[i]; const b2 = unidadesActivas[j];
                         const distKm = calcDistancia(b1.curLat, b1.curLng, b2.curLat, b2.curLng);
                         
-                        if (b1.rutaObj.sys !== b2.rutaObj.sys && distKm < 0.1 && !b1.chispaCoolDown && !b2.chispaCoolDown && audioActivo) {
+                        if (distKm < 0.05 && !b1.chispaCoolDown && !b2.chispaCoolDown && audioActivo) {
                             
-                            if (notasEsteFrame < 5) {
+                            let hacenChispa = false;
+                            
+                            // 1. Diferente dirección (se cruzan de frente en la misma o diferente ruta)
+                            if (b1.dir !== b2.dir) hacenChispa = true;
+                            // 2. Diferente sistema (se cruzan en una intersección)
+                            if (b1.rutaObj.sys !== b2.rutaObj.sys) hacenChispa = true;
+
+                            // Platooning: Mismo sistema, misma dirección -> solo frenan, no hacen chispa.
+                            if (b1.rutaObj.sys === b2.rutaObj.sys && b1.dir === b2.dir) {
+                                hacenChispa = false;
+                                if(b1.estado === 'estacion' || b1.velActual < b1.velBase) b2.velActual *= 0.5;
+                            }
+
+                            if (hacenChispa && notasEsteFrame < 5) {
                                 notasEsteFrame++;
-                                // PROTECCIÓN CONTRA ERRORES DE TONE.JS
                                 try {
                                     const escala = progresión[indiceArmonia].escala;
                                     const nota = escala[Math.floor(Math.random() * escala.length)];
                                     
-                                    // Usamos "+0.05" para evitar errores de tiempo superpuesto en el thread
                                     synths[b1.rutaObj.sys].triggerAttackRelease(nota, "16n", "+0.05", 0.8);
                                     if (b2.rutaObj.sys === 'MB' || b2.rutaObj.sys === 'TROLE') {
                                         synths['PERC'].triggerAttackRelease("16n", "+0.05", 0.5);
@@ -617,7 +582,7 @@
                                     b1.chispaCoolDown = true; b2.chispaCoolDown = true;
                                     setTimeout(() => { b1.chispaCoolDown = false; b2.chispaCoolDown = false; }, 2000);
                                 } catch(e) {
-                                     console.warn("Tone.js saturado en chispa, ignorando para proteger la animación.");
+                                    console.warn("Audio ignorado en chispa para proteger animación");
                                 }
                             }
                         }
@@ -675,7 +640,11 @@
             for(let i=0; i < organicGeo.attributes.position.count; i++) organicBaseVerts.push(new THREE.Vector3(organicGeo.attributes.position.getX(i), organicGeo.attributes.position.getY(i), organicGeo.attributes.position.getZ(i)));
             
             const organicMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x00f0ff, emissiveIntensity: 0.2, wireframe: true, roughness: 0.2 });
-            organicMesh3D = new THREE.Mesh(organicGeo, organicMat); scene3D.add(organicMesh3D);
+            organicMesh3D = new THREE.Mesh(organicGeo, organicMat); 
+            
+            // FIX: Subir el objeto en el eje Y para que quede centrado en la vista del panel
+            organicMesh3D.position.y = 0.8; 
+            scene3D.add(organicMesh3D);
 
             is3DReady = true;
             
@@ -692,8 +661,9 @@
 
             const dataArrayFft = new Uint8Array(analyserFFT.frequencyBinCount); analyserFFT.getByteFrequencyData(dataArrayFft);
             
+            // FIX: Obtener el array correcto desde Tone.Analyser
             let waveData = [];
-            try { waveData = analyserWave.getValue(); } catch(e){}
+            if(analyserWave) waveData = analyserWave.getValue();
             
             let sum = 0; for(let i=0; i<dataArrayFft.length; i++) sum += dataArrayFft[i];
             let avgNorm = (sum / dataArrayFft.length) / 255;
@@ -701,11 +671,13 @@
 
             if(document.getElementById('gadget-wave').classList.contains('active') && waveData.length > 0) {
                 wCtx.clearRect(0, 0, wCanvas.width, wCanvas.height);
-                wCtx.lineWidth = 1.5; wCtx.beginPath(); wCtx.strokeStyle = `var(--ui-accent)`;
+                wCtx.lineWidth = 2; wCtx.beginPath(); wCtx.strokeStyle = `var(--ui-accent)`;
                 let sliceWidth = wCanvas.width * 1.0 / waveData.length; let wx = 0;
+                
                 for(let i = 0; i < waveData.length; i++) {
-                    let valMapeado = (waveData[i] * 8 + 1) / 2;
-                    let y = valMapeado * wCanvas.height; 
+                    // waveData tiene valores de -1.0 a 1.0, lo mapeamos al alto del canvas
+                    let valMapeado = (waveData[i] + 1) / 2;
+                    let y = (1 - valMapeado) * wCanvas.height; 
                     if(i === 0) wCtx.moveTo(wx, y); else wCtx.lineTo(wx, y); wx += sliceWidth;
                 }
                 wCtx.stroke();
