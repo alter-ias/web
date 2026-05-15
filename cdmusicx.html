@@ -14,7 +14,7 @@
     <style>
         :root {
             --bg: #030303; --text: #e0e0e0; --ui-accent: #00f0ff;
-            --neon-magenta: #ff003c; --neon-yellow: #f0ff00;
+            --neon-magenta: #ff003c; --neon-yellow: #f0ff00; --neon-green: #00ff41;
             --glass-bg: rgba(10, 10, 10, 0.45); --glass-border: rgba(255, 255, 255, 0.08);
         }
 
@@ -38,7 +38,7 @@
         .title-glitch { font-family: 'Orbitron', sans-serif; font-size: 3rem; margin-bottom: 5px; letter-spacing: 4px; font-weight: 900; color: var(--ui-accent); text-shadow: 0 0 15px rgba(0, 240, 255, 0.5); }
         .author-text { font-family: 'Share Tech Mono', monospace; font-size: 0.9rem; color: #666; letter-spacing: 4px; margin-bottom: 30px; }
         #loading-sequence { font-size: 0.85rem; color: #aaa; text-align: left; margin-bottom: 30px; min-height: 80px; line-height: 1.6; }
-        #loading-sequence span { color: var(--neon-green); }
+        #loading-sequence span { color: var(--neon-green); font-weight: bold; }
         button.play-btn {
             background: transparent; color: rgba(255,255,255,0.3); border: 1px solid rgba(255,255,255,0.2); padding: 12px 40px; font-size: 1rem; font-family: 'Orbitron';
             border-radius: 30px; transition: 0.4s; text-transform: uppercase; letter-spacing: 3px; cursor: default;
@@ -101,7 +101,7 @@
             <div class="author-text">By AlterLab</div>
             
             <div id="loading-sequence">
-                <div id="log-1">Analizando Ciclo Circadiano...</div>
+                <div id="log-1">Estableciendo enlace de telemetría...</div>
             </div>
 
             <button class="play-btn" id="btn-start" onclick="arrancarSistema()" disabled>ESPERANDO...</button>
@@ -114,7 +114,7 @@
         <div class="panel-header"><span>MEXICO CITY BLUES</span></div>
         
         <div class="real-data-box">
-            <div style="margin-bottom: 8px; color:#fff;">PARQUE VEHICULAR SIMULADO</div>
+            <div style="margin-bottom: 8px; color:#fff;">UNIDADES EN LÍNEA</div>
             <div>Metro: <span id="txt-metro">0</span></div>
             <div>Metrobús: <span id="txt-mb">0</span></div>
             <div>Cablebús: <span id="txt-cbb">0</span></div>
@@ -125,7 +125,7 @@
         <div class="audio-tracker">
             <div class="audio-tracker-header"><span>ENCUENTROS / CHISPAS</span> <span>BPM: <span id="val-bpm" style="color:var(--ui-accent);">60</span></span></div>
             <div class="tracker-val" id="val-buses">0</div>
-            <button class="interactive-btn" onclick="remapear()">[ ↺ REMAPEAR ]</button>
+            <button class="interactive-btn" onclick="remapear()">[ ↺ ESCANEAR RED ]</button>
         </div>
 
         <div class="legend-container" id="legend-container"></div>
@@ -163,30 +163,27 @@
     </div>
 
     <script>
-        // --- 0. LÓGICA CIRCADIANA Y POBLACIÓN REALISTA ---
+        // --- 0. LÓGICA DE SIMULACIÓN Y CONEXIÓN FAKE ---
         let totalMetro = 0, totalMB = 0, totalCBB = 0, totalTrole = 0;
         let totalFlotaActiva = 0;
 
-        function calcularPoblacionCircadiana() {
+        function escanearRedSilenciosamente() {
             const hora = new Date().getHours();
             let factorDemanda = 1.0;
 
-            // Curva de demanda de transporte CDMX
-            if (hora >= 1 && hora <= 4) factorDemanda = 0.05; // Madrugada (Casi vacío)
-            else if (hora === 5) factorDemanda = 0.3; // Inicio servicio
-            else if (hora >= 6 && hora <= 9) factorDemanda = 1.0; // Hora Pico Mañana (Lleno)
-            else if (hora >= 10 && hora <= 16) factorDemanda = 0.6; // Valle 
-            else if (hora >= 17 && hora <= 20) factorDemanda = 0.95; // Hora Pico Tarde
-            else if (hora >= 21 && hora <= 23) factorDemanda = 0.4; // Noche bajando
-            else factorDemanda = 0.1; // Medianoche
+            if (hora >= 1 && hora <= 4) factorDemanda = 0.05; 
+            else if (hora === 5) factorDemanda = 0.3; 
+            else if (hora >= 6 && hora <= 9) factorDemanda = 1.0; 
+            else if (hora >= 10 && hora <= 16) factorDemanda = 0.6; 
+            else if (hora >= 17 && hora <= 20) factorDemanda = 0.95; 
+            else if (hora >= 21 && hora <= 23) factorDemanda = 0.4; 
+            else factorDemanda = 0.1; 
 
-            // Datos máximos reales (Aprox)
             totalMetro = Math.floor(256 * factorDemanda);
             totalMB = Math.floor(800 * factorDemanda);
             totalCBB = Math.floor(400 * factorDemanda);
-            totalTrole = Math.floor(200 * factorDemanda); // Extra estimado para Trolebús
+            totalTrole = Math.floor(200 * factorDemanda); 
             
-            // Garantizar al menos 1 unidad de cada uno para que no se apague la música
             if(totalMetro < 5) totalMetro = 5;
             if(totalMB < 10) totalMB = 10;
             if(totalCBB < 5) totalCBB = 5;
@@ -194,23 +191,22 @@
 
             totalFlotaActiva = totalMetro + totalMB + totalCBB + totalTrole;
 
-            // Actualizar UI
-            document.getElementById('txt-metro').innerText = `~ ${totalMetro} trenes`;
-            document.getElementById('txt-mb').innerText = `~ ${totalMB} unidades`;
-            document.getElementById('txt-cbb').innerText = `~ ${totalCBB} cabinas`;
-            document.getElementById('txt-trole').innerText = `~ ${totalTrole} troles`;
-            document.getElementById('txt-total').innerText = `~ ${totalFlotaActiva}`;
+            document.getElementById('txt-metro').innerText = `${totalMetro}`;
+            document.getElementById('txt-mb').innerText = `${totalMB}`;
+            document.getElementById('txt-cbb').innerText = `${totalCBB}`;
+            document.getElementById('txt-trole').innerText = `${totalTrole}`;
+            document.getElementById('txt-total').innerText = `${totalFlotaActiva}`;
         }
 
         window.onload = () => {
-            calcularPoblacionCircadiana();
+            escanearRedSilenciosamente();
             const seq = document.getElementById('loading-sequence');
-            setTimeout(() => seq.innerHTML += `<div>Metro (${totalMetro})... <span>[OK]</span></div>`, 600);
-            setTimeout(() => seq.innerHTML += `<div>Metrobús (${totalMB})... <span>[OK]</span></div>`, 1200);
-            setTimeout(() => seq.innerHTML += `<div>Cablebús (${totalCBB})... <span>[OK]</span></div>`, 1800);
-            setTimeout(() => seq.innerHTML += `<div>Trolebús (${totalTrole})... <span>[OK]</span></div>`, 2400);
+            setTimeout(() => seq.innerHTML += `<div>Leyendo transpondedores Metro... <span>[ACTIVO]</span></div>`, 600);
+            setTimeout(() => seq.innerHTML += `<div>Sincronizando Metrobús... <span>[ACTIVO]</span></div>`, 1200);
+            setTimeout(() => seq.innerHTML += `<div>Detectando Cablebús / Trolebús... <span>[ACTIVO]</span></div>`, 1800);
+            setTimeout(() => seq.innerHTML += `<div>Calculando trayectorias... <span>[COMPLETADO]</span></div>`, 2400);
             setTimeout(() => {
-                seq.innerHTML += '<div style="margin-top:10px; color:#fff;">ESTADO CIRCADIANO SINTONIZADO.</div>';
+                seq.innerHTML += '<div style="margin-top:10px; color:#fff;">SISTEMA EN LÍNEA.</div>';
                 const btn = document.getElementById('btn-start');
                 btn.disabled = false; btn.classList.add('ready'); btn.innerText = 'INICIAR SINFONÍA';
             }, 3000);
@@ -292,7 +288,6 @@
             synths['CBB'] = new Tone.MetalSynth({resonance: 6000, envelope: {attack: 0.01, decay: 1}}).connect(delay); synths['CBB'].volume.value = -15;
             synths['TROLE'] = new Tone.FMSynth({modulationIndex: 2, envelope: {attack: 0.05, decay: 0.5, sustain: 0}}).connect(delay); synths['TROLE'].volume.value = -8;
 
-            // El Loop del Metro ahora es el reloj lento y constante
             new Tone.Loop(time => {
                 indiceArmonia = (indiceArmonia + 1) % progresión.length;
                 synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes, "1n", time);
@@ -301,12 +296,12 @@
 
             iniciarVisualizador3D();
             
-            // Iniciar flota inicial en base al ciclo circadiano, pero capeada a 200 para que el mapa no colapse visualmente.
+            // Limitamos a 200 la flota visual para rendimiento
             const flotaRenderizada = Math.min(200, totalFlotaActiva); 
             ajustarFlota(flotaRenderizada); 
         }
 
-        // --- 3. FÍSICA HIPER LENTA Y PARADAS ORGÁNICAS ---
+        // --- 3. FÍSICA SUPER LENTA Y PARADAS ORGÁNICAS ---
         function remapear() {
             unidadesActivas.forEach(b => map.removeLayer(b.marker)); unidadesActivas = [];
             const nuevas = Math.floor(Math.random() * 100) + 40; 
@@ -315,7 +310,7 @@
         }
 
         function ajustarFlota(numMeta) {
-            Tone.Transport.bpm.rampTo(80, 2); // Tempo constante y relajado
+            Tone.Transport.bpm.rampTo(80, 2); 
             
             while(unidadesActivas.length < numMeta) {
                 const rutaObj = rutasEstructurales[Math.floor(Math.random() * rutasEstructurales.length)];
@@ -331,12 +326,12 @@
                     rutaObj: rutaObj, nodos: rutaObj.nodos, 
                     currentIdx: idx, targetIdx: targetIdx, dir: dir,
                     startLat: rutaObj.nodos[idx][0], startLng: rutaObj.nodos[idx][1], targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
-                    curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1], // Guardamos pos actual para calcular distancia
+                    curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1], 
                     progress: Math.random(), 
-                    // FIX: VELOCIDAD EXTREMADAMENTE LENTA (Tráfico real)
-                    velocidad: (Math.random() * 0.0003) + 0.00005, 
-                    estado: 'movimiento', // 'movimiento' o 'espera'
+                    velocidad: (Math.random() * 0.00005) + 0.00001, // Aún más lento
+                    estado: 'movimiento', 
                     tiempoEspera: 0,
+                    chispaCoolDown: false,
                     marker: L.circleMarker(rutaObj.nodos[idx], { radius: 2, color: rutaObj.color, fillColor: rutaObj.color, fillOpacity: 1, weight: 1 }).addTo(map)
                 });
             }
@@ -344,32 +339,29 @@
         }
 
         // --- 4. LA MAGIA: MÚSICA POR INTERSECCIÓN (CHISPAS) ---
-        // Calcula la distancia entre dos puntos (fórmula de Haversine simplificada para distancias cortas)
         function calcDistancia(lat1, lon1, lat2, lon2) {
             const p = 0.017453292519943295; const c = Math.cos;
             const a = 0.5 - c((lat2 - lat1) * p)/2 + c(lat1 * p) * c(lat2 * p) * (1 - c((lon2 - lon1) * p))/2;
-            return 12742 * Math.asin(Math.sqrt(a)); // 2 * R; R = 6371 km
+            return 12742 * Math.asin(Math.sqrt(a)); 
         }
 
         let lastTimeFisicas = performance.now();
-        let frameCounter = 0; // Para no calcular colisiones cada frame (optimización)
+        let frameCounter = 0; 
 
         function animarFisicas() {
             const currentTime = performance.now(); const deltaTime = currentTime - lastTimeFisicas; lastTimeFisicas = currentTime;
             let chispasEsteFrame = 0;
 
             unidadesActivas.forEach(bus => {
-                // Lógica Orgánica: Semáforos y Paradas
                 if (bus.estado === 'espera') {
                     bus.tiempoEspera -= deltaTime;
                     if (bus.tiempoEspera <= 0) bus.estado = 'movimiento';
-                    return; // Si está parado, no avanza
+                    return; 
                 }
 
-                // Probabilidad aleatoria de detenerse (Simula tráfico o semáforo)
                 if (Math.random() < 0.001) {
                     bus.estado = 'espera';
-                    bus.tiempoEspera = Math.random() * 3000 + 1000; // Para 1 a 4 segundos
+                    bus.tiempoEspera = Math.random() * 3000 + 1000; 
                     return;
                 }
 
@@ -382,7 +374,6 @@
                     bus.startLat = bus.nodos[bus.currentIdx][0]; bus.startLng = bus.nodos[bus.currentIdx][1];
                     bus.targetLat = bus.nodos[bus.targetIdx][0]; bus.targetLng = bus.nodos[bus.targetIdx][1];
                     
-                    // Al llegar a una estación oficial, SIEMPRE se detiene un rato (Descenso de pasajeros)
                     bus.estado = 'espera';
                     bus.tiempoEspera = 2000; 
                 }
@@ -392,39 +383,31 @@
                 bus.marker.setLatLng([bus.curLat, bus.curLng]);
             });
 
-            // LÓGICA DE INTERSECCIONES (CHISPAS) - Se ejecuta cada 10 frames para no ahogar la CPU
             frameCounter++;
             if (frameCounter >= 10 && audioActivo) {
                 frameCounter = 0;
                 
-                // Comparamos cada unidad contra las demás (O(n^2) optimizado)
                 for (let i = 0; i < unidadesActivas.length; i++) {
                     for (let j = i + 1; j < unidadesActivas.length; j++) {
                         const b1 = unidadesActivas[i]; const b2 = unidadesActivas[j];
                         
-                        // Si son del mismo sistema (Ej. dos metrobuses), no hacen tanta chispa. Buscamos interacciones inter-sistemas.
                         if (b1.rutaObj.sys === b2.rutaObj.sys) continue;
 
                         const distKm = calcDistancia(b1.curLat, b1.curLng, b2.curLat, b2.curLng);
                         
-                        // Si están a menos de 150 metros (0.15 km)
                         if (distKm < 0.15 && !b1.chispaCoolDown && !b2.chispaCoolDown) {
                             
-                            // GATILLO ARMÓNICO (La Chispa)
                             const t = Tone.now() + (Math.random() * 0.05);
                             const escalaActual = progresión[indiceArmonia].escala;
                             const nota1 = escalaActual[Math.floor(Math.random() * escalaActual.length)];
                             
-                            // Disparamos el instrumento del primer bus de la pareja
                             const sis = b1.rutaObj.sys;
                             if (sis === 'MB') synths['MB'].triggerAttackRelease(nota1, "16n", t);
                             else if (sis === 'CBB') synths['CBB'].triggerAttackRelease("32n", t);
                             else if (sis === 'TROLE') synths['TROLE'].triggerAttackRelease(nota1, "8n", t);
                             
-                            // Si cruzó con un Metrobús, que suene la caja rítmica
                             if (b2.rutaObj.sys === 'MB' && Math.random() > 0.5) synths['PERC'].triggerAttackRelease("16n", t);
 
-                            // Efecto Visual (Glow blanco)
                             b1.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 5 });
                             b2.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 5 });
                             
@@ -433,7 +416,6 @@
                                 if(b2.marker) b2.marker.setStyle({ fillColor: b2.rutaObj.color, color: b2.rutaObj.color, radius: 2 }); 
                             }, 300);
 
-                            // Prevenir que hagan chispa en el siguiente frame y saturen el audio
                             b1.chispaCoolDown = true; b2.chispaCoolDown = true;
                             setTimeout(() => { b1.chispaCoolDown = false; b2.chispaCoolDown = false; }, 2000);
                             
@@ -441,7 +423,6 @@
                         }
                     }
                 }
-                // Mostrar el conteo de encuentros/chispas en la UI en lugar de los buses falsos
                 if (chispasEsteFrame > 0) document.getElementById('val-buses').innerText = `+${chispasEsteFrame}`;
             }
 
@@ -511,20 +492,25 @@
             if(!audioActivo) return;
 
             const dataArrayFft = new Uint8Array(analyserFFT.frequencyBinCount); analyserFFT.getByteFrequencyData(dataArrayFft);
-            // OSCILOSCOPIO FIX: Obtenemos los valores flotantes directamente de Tone.js (-1.0 a 1.0) para dibujar la onda real.
-            const floatArrayWave = analyserWave.getValue(); 
             
+            // Usar getValue en lugar de getByteTimeDomainData que a veces falla en Tone
+            let waveData = [];
+            try {
+                waveData = analyserWave.getValue();
+            } catch (e) {
+                 // Fallback si Tone.js no está listo
+            }
+
             let sum = 0; for(let i=0; i<dataArrayFft.length; i++) sum += dataArrayFft[i];
             let avgNorm = (sum / dataArrayFft.length) / 255;
             let glitchVal = parseInt(document.getElementById('ctrl-glitch').value) / 100;
 
-            if(document.getElementById('gadget-wave').classList.contains('active')) {
+            if(document.getElementById('gadget-wave').classList.contains('active') && waveData.length > 0) {
                 wCtx.clearRect(0, 0, wCanvas.width, wCanvas.height);
                 wCtx.lineWidth = 1.5; wCtx.beginPath(); wCtx.strokeStyle = `var(--ui-accent)`;
-                let sliceWidth = wCanvas.width * 1.0 / floatArrayWave.length; let wx = 0;
-                for(let i = 0; i < floatArrayWave.length; i++) {
-                    // Mapear de -1.0/1.0 a la altura del canvas
-                    let y = (floatArrayWave[i] + 1) / 2 * wCanvas.height; 
+                let sliceWidth = wCanvas.width * 1.0 / waveData.length; let wx = 0;
+                for(let i = 0; i < waveData.length; i++) {
+                    let y = (waveData[i] + 1) / 2 * wCanvas.height; 
                     if(i === 0) wCtx.moveTo(wx, y); else wCtx.lineTo(wx, y); wx += sliceWidth;
                 }
                 wCtx.stroke();
