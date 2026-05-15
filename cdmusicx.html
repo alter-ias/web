@@ -68,12 +68,8 @@
         .line-text { font-size: 0.65rem; color: #888; }
         .line-text strong { color: #ccc; display: block; margin-bottom: 2px; }
 
-        .ripple-dot {
-            width: 100%; height: 100%; border-radius: 50%; position: absolute; top: 0; left: 0; border: 2px solid currentColor; animation: pulse-ring 2s infinite ease-out;
-        }
-        .ripple-center {
-            width: 8px; height: 8px; background: currentColor; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px currentColor;
-        }
+        .ripple-dot { width: 100%; height: 100%; border-radius: 50%; position: absolute; top: 0; left: 0; border: 2px solid currentColor; animation: pulse-ring 2s infinite ease-out; }
+        .ripple-center { width: 8px; height: 8px; background: currentColor; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px currentColor; }
         @keyframes pulse-ring { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(1.5); opacity: 0.3; } }
 
         /* DOCK Y GADGETS */
@@ -83,7 +79,6 @@
         .gadget { display: none; position: absolute; z-index: 1000; overflow: hidden; }
         .gadget.active { display: flex; }
         
-        /* FIX: Contenedores absolutos para mantener el canvas anclado al centro sin importar flexbox */
         .gadget-content { flex-grow: 1; position: relative; background: transparent; width: 100%; height: calc(100% - 35px); display: block; overflow: hidden; }
         .gadget canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
         
@@ -105,6 +100,16 @@
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+
+        /* RESPONSIVIDAD MÓVIL */
+        @media (min-width: 769px) {
+            .mobile-warning { display: none; }
+        }
+        @media (max-width: 768px) {
+            #main-ui, #gadget-dock, .gadget { display: none !important; }
+            .mobile-warning { display: block; margin-top: 25px; padding: 15px; border: 1px solid var(--neon-magenta); background: rgba(255,0,60,0.1); border-radius: 10px; font-size: 0.75rem; line-height: 1.5; color: var(--text); }
+            .mobile-warning strong { color: var(--neon-magenta); }
+        }
     </style>
 </head>
 <body>
@@ -119,6 +124,11 @@
             </div>
 
             <button class="play-btn" id="btn-start" onclick="arrancarSistema()" disabled>ESPERANDO RED...</button>
+
+            <div class="mobile-warning">
+                <strong>[ MODO MÓVIL ACTIVO ]</strong><br><br>
+                Estás a punto de experimentar el mapa y la sinfonía generativa. Para visualizar la <strong>interfaz completa de datos, telemetría y gadgets</strong>, abre esta aplicación en una PC o tablet.
+            </div>
         </div>
     </div>
 
@@ -338,7 +348,6 @@
             limiter.threshold.value = -10; limiter.ratio.value = 20;
 
             analyserFFT = audioCtx.createAnalyser(); analyserFFT.fftSize = 512;
-            // FIX: Búfer del osciloscopio más amplio para ondas más largas y suaves
             analyserWave = new Tone.Analyser("waveform", 1024);
 
             Tone.getDestination().disconnect(); Tone.getDestination().connect(preGainNode);
@@ -379,40 +388,69 @@
         function sincronizarRelojUrbano() {
             const ahora = new Date();
             const hora = ahora.getHours();
-            const minutos = ahora.getMinutes().toString().padStart(2, '0');
+            const minutos = ahora.getMinutes();
+            const minStr = minutos.toString().padStart(2, '0');
             
-            document.getElementById('clock-display').innerText = `${hora.toString().padStart(2, '0')}:${minutos}`;
+            document.getElementById('clock-display').innerText = `${hora.toString().padStart(2, '0')}:${minStr}`;
 
-            let estadoTxt = "";
+            let h = hora + minutos/60;
+            let factor = 0.65;
+            let estadoTxt = "FLUJO REGULAR";
 
-            if (hora >= 0 && hora < 5) { 
-                targets['METRO'] = 0; targets['CBB'] = 0; 
-                targets['MB'] = 15; targets['TROLE'] = 10; 
-                globalSpeedMult = 2.5; globalJamProb = 0.0001;
+            if (h >= 0 && h < 5) {
+                factor = 0.40;
                 estadoTxt = "MADRUGADA / GUARDIA NOCTURNA";
-            } else if (hora >= 5 && hora < 6) { 
-                targets['METRO'] = 40; targets['CBB'] = 20; targets['MB'] = 50; targets['TROLE'] = 20;
-                globalSpeedMult = 1.8; globalJamProb = 0.001;
+            } else if (h >= 5 && h < 7.5) {
+                factor = 0.60;
                 estadoTxt = "AMANECER / INICIO DE OPERACIONES";
-            } else if (hora >= 6 && hora < 10) { 
-                targets['METRO'] = 150; targets['CBB'] = 50; targets['MB'] = 180; targets['TROLE'] = 70;
-                globalSpeedMult = 0.6; globalJamProb = 0.02; 
-                estadoTxt = "HORA PICO (MAÑANA) / TRÁFICO DENSO";
-            } else if (hora >= 10 && hora < 17) { 
-                targets['METRO'] = 80; targets['CBB'] = 30; targets['MB'] = 100; targets['TROLE'] = 40;
-                globalSpeedMult = 1.2; globalJamProb = 0.005;
-                estadoTxt = "HORA VALLE / FLUJO REGULAR";
-            } else if (hora >= 17 && hora < 21) { 
-                targets['METRO'] = 160; targets['CBB'] = 50; targets['MB'] = 190; targets['TROLE'] = 80;
-                globalSpeedMult = 0.5; globalJamProb = 0.03;
-                estadoTxt = "HORA PICO (TARDE) / CAOS URBANO";
-            } else { 
-                targets['METRO'] = 60; targets['CBB'] = 20; targets['MB'] = 70; targets['TROLE'] = 30;
-                globalSpeedMult = 1.5; globalJamProb = 0.002;
+            } else if ((h >= 7.5 && h <= 9) || (h >= 13.75 && h <= 15.5) || (h >= 18.75 && h <= 20.75)) {
+                factor = 0.95;
+                if (h <= 9) estadoTxt = "HORA PICO (MAÑANA) / TRÁFICO DENSO";
+                else if (h <= 15.5) estadoTxt = "HORA PICO (TARDE) / TRÁFICO DENSO";
+                else estadoTxt = "HORA PICO (NOCHE) / CAOS URBANO";
+            } else if (h > 20.75 && h < 24) {
+                factor = 0.50;
                 estadoTxt = "NOCHE / FLUJO DESCENDENTE";
+            } else {
+                factor = 0.65;
+                estadoTxt = "HORA VALLE / FLUJO REGULAR";
+            }
+
+            // Fluctuación dinámica de nodos cada 3 minutos reales
+            let seed = Math.floor(minutos / 3);
+            let randomVar = (Math.sin(hora * 100 + seed * 10) * 0.05); 
+            let finalFactor = Math.min(1.0, Math.max(0.1, factor + randomVar));
+
+            // Capacidades máximas reales
+            let tMetro = Math.floor(273 * finalFactor);
+            let tMB = Math.floor(872 * finalFactor);
+            let tCBB = Math.floor(753 * finalFactor);
+            let tTrole = Math.floor(290 * finalFactor);
+
+            if (h >= 0 && h < 5) {
+                tMetro = 0;
+                tCBB = 0;
             }
 
             document.getElementById('status-display').innerText = estadoTxt;
+            
+            // Reflejar la estadística real en la interfaz de usuario
+            document.getElementById('txt-metro').innerText = tMetro;
+            document.getElementById('txt-mb').innerText = tMB;
+            document.getElementById('txt-cbb').innerText = tCBB;
+            document.getElementById('txt-trole').innerText = tTrole;
+            document.getElementById('txt-total').innerText = (tMetro + tMB + tCBB + tTrole);
+
+            // Ajustar visualización al límite del motor (proporcional, max 400 nodos)
+            let totalSimulado = tMetro + tMB + tCBB + tTrole;
+            if (totalSimulado > 0) {
+                targets['METRO'] = Math.floor((tMetro / totalSimulado) * Math.min(400, totalSimulado));
+                targets['MB'] = Math.floor((tMB / totalSimulado) * Math.min(400, totalSimulado));
+                targets['CBB'] = Math.floor((tCBB / totalSimulado) * Math.min(400, totalSimulado));
+                targets['TROLE'] = Math.floor((tTrole / totalSimulado) * Math.min(400, totalSimulado));
+            } else {
+                targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
+            }
             ajustarFlota();
         }
 
@@ -431,22 +469,6 @@
                     });
                 }
             });
-            recalcularContadoresUI();
-        }
-
-        function recalcularContadoresUI() {
-            let cM = 0, cMB = 0, cCBB = 0, cT = 0;
-            unidadesActivas.forEach(b => {
-                if(b.rutaObj.sys === 'METRO') cM++;
-                else if(b.rutaObj.sys === 'MB') cMB++;
-                else if(b.rutaObj.sys === 'CBB') cCBB++;
-                else if(b.rutaObj.sys === 'TROLE') cT++;
-            });
-            document.getElementById('txt-metro').innerText = cM;
-            document.getElementById('txt-mb').innerText = cMB;
-            document.getElementById('txt-cbb').innerText = cCBB;
-            document.getElementById('txt-trole').innerText = cT;
-            document.getElementById('txt-total').innerText = unidadesActivas.length;
         }
 
         function crearAtascoEspacial(sys, lat, lng, color) {
@@ -468,9 +490,8 @@
             if(rutasPermitidas.length === 0) return;
             const rutaObj = rutasPermitidas[Math.floor(Math.random() * rutasPermitidas.length)];
             
-            // FIX: DISTRIBUCIÓN ALEATORIA A LO LARGO DE TODA LA LÍNEA
             let idx = Math.floor(Math.random() * rutaObj.nodos.length);
-            if (idx === rutaObj.nodos.length - 1) idx--; // Prevenir desborde
+            if (idx === rutaObj.nodos.length - 1) idx--; 
             
             let dir = Math.random() > 0.5 ? 1 : -1;
             if (idx === 0) dir = 1;
@@ -484,8 +505,7 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                // FIX: VELOCIDAD ORGÁNICA MODERADA
-                velBase: (Math.random() * 0.0003) + 0.0002, 
+                velBase: (Math.random() * 0.00004) + 0.000015, 
                 velActual: 0,
                 estado: 'movimiento', 
                 timer: 0,
@@ -497,7 +517,7 @@
             });
         }
 
-        // --- 4. MOTOR FÍSICO (PLATOONING Y CHISPAS RESTRINGIDAS) ---
+        // --- 4. MOTOR FÍSICO CINÉTICO CONTINUO ---
         let lastTimeFisicas = performance.now();
         let frameCounter = 0; 
         let notasEsteFrame = 0; 
@@ -540,9 +560,7 @@
                         }
                     }
 
-                    // Aseguramos que retome su velocidad si no hay tráfico (Platooning lo modifica temporalmente)
                     bus.velActual = bus.velBase * globalSpeedMult * jamMultiplier;
-                    
                     let distanceToMove = bus.velActual;
                     
                     while (distanceToMove > 0 && bus.estado === 'movimiento') {
@@ -604,10 +622,8 @@
                         const b1 = unidadesActivas[i]; const b2 = unidadesActivas[j];
                         const distKm = calcDistancia(b1.curLat, b1.curLng, b2.curLat, b2.curLng);
                         
-                        // FIX: Sistema SUBWAY, si van en la misma ruta y dirección NO SE REBASAN.
                         if (b1.rutaObj === b2.rutaObj && b1.dir === b2.dir && distKm < 0.15) {
                             
-                            // Determinar quién va atrás evaluando el índice o progreso
                             let behind = b1; let ahead = b2;
                             if (b1.dir === 1) {
                                 if (b1.currentIdx > b2.currentIdx || (b1.currentIdx === b2.currentIdx && b1.progress > b2.progress)) { behind = b2; ahead = b1; }
@@ -615,23 +631,21 @@
                                 if (b1.currentIdx < b2.currentIdx || (b1.currentIdx === b2.currentIdx && b1.progress > b2.progress)) { behind = b2; ahead = b1; }
                             }
 
-                            // El que va atrás frena o se detiene. NUNCA hay música aquí.
-                            if (behind.velBase > ahead.velBase) behind.velBase = ahead.velBase; // Iguala velocidad máxima
+                            if (behind.velBase > ahead.velBase) behind.velBase = ahead.velBase; 
                             
                             if (ahead.estado === 'estacion' || ahead.estado === 'atasco') {
                                 behind.estado = 'atasco';
-                                behind.timer = ahead.timer + 200; // Se queda atascado un poco más que el de adelante
+                                behind.timer = ahead.timer + 200; 
                             }
                         }
                         
-                        // FIX: LÓGICA DE MÚSICA ESTRICTA (Dirección opuesta o Diferente sistema)
                         else if (distKm < 0.05 && !b1.chispaCoolDown && !b2.chispaCoolDown && audioActivo) {
                             let hacenChispa = false;
                             
                             if (b1.rutaObj.sys !== b2.rutaObj.sys) {
-                                hacenChispa = true; // Cruce de sistemas diferentes
+                                hacenChispa = true; 
                             } else if (b1.rutaObj === b2.rutaObj && b1.dir !== b2.dir) {
-                                hacenChispa = true; // Misma ruta, dirección opuesta
+                                hacenChispa = true; 
                             }
 
                             if (hacenChispa && notasEsteFrame < 5) {
@@ -720,7 +734,6 @@
             const organicMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x00f0ff, emissiveIntensity: 0.2, wireframe: true, roughness: 0.2 });
             organicMesh3D = new THREE.Mesh(organicGeo, organicMat); 
             
-            // FIX: El Y=0 asegura que esté en el centro perfecto de su contenedor absoluto.
             organicMesh3D.position.y = 0; 
             scene3D.add(organicMesh3D);
 
@@ -751,8 +764,7 @@
                 wCtx.lineWidth = 2; wCtx.beginPath(); 
                 wCtx.strokeStyle = '#00f0ff'; 
                 
-                // FIX: Dibujo de onda suave usando curvas cuadráticas en lugar de picos agudos
-                let sliceWidth = wCanvas.width * 1.0 / (waveData.length / 2); // Dibujamos solo la mitad del buffer para alargar la onda
+                let sliceWidth = wCanvas.width * 1.0 / (waveData.length / 2); 
                 let wx = 0;
                 
                 for(let i = 0; i < waveData.length / 2; i++) {
@@ -763,7 +775,6 @@
                     if(i === 0) {
                         wCtx.moveTo(wx, y);
                     } else {
-                        // Suavizado en la línea
                         let prevVal = waveData[i-1] * 3.0;
                         if (prevVal > 1.0) prevVal = 1.0; if (prevVal < -1.0) prevVal = -1.0;
                         let prevY = (1 - (prevVal + 1) / 2) * wCanvas.height; 
