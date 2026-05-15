@@ -322,7 +322,7 @@
         let audioActivo = false;
         const synths = {};
         let audioCtx, analyserFFT, analyserWave;
-        let preGainNode, biquadFilter, distortionNode, limiter;
+        let biquadFilter, distortionNode, limiter;
 
         function makeDistortionCurve(amount) {
             let k = typeof amount === 'number' ? amount : 50, n = 44100, curve = new Float32Array(n), deg = Math.PI / 180, i = 0, x;
@@ -340,32 +340,33 @@
             audioActivo = true;
 
             audioCtx = Tone.getContext().rawContext;
-            preGainNode = audioCtx.createGain(); preGainNode.gain.value = 0.8;
+            
+            // FIX: Limiter oficial de Tone.js para evitar que exploten las bocinas
+            limiter = new Tone.Limiter(-2).toDestination();
             biquadFilter = audioCtx.createBiquadFilter(); biquadFilter.type = "lowpass";
             distortionNode = audioCtx.createWaveShaper(); distortionNode.oversample = '4x';
-            
-            limiter = audioCtx.createDynamicsCompressor();
-            limiter.threshold.value = -10; limiter.ratio.value = 20;
 
             analyserFFT = audioCtx.createAnalyser(); analyserFFT.fftSize = 512;
             analyserWave = new Tone.Analyser("waveform", 1024);
 
-            Tone.getDestination().disconnect(); Tone.getDestination().connect(preGainNode);
-            preGainNode.connect(biquadFilter); biquadFilter.connect(distortionNode);
-            distortionNode.connect(limiter);
-            limiter.connect(analyserFFT); 
-            limiter.connect(audioCtx.destination);
-            Tone.getDestination().connect(analyserWave); 
+            Tone.getDestination().disconnect(); // Muteamos el ruteo crudo para controlarlo con el Limiter
+            
+            // Re-enrutamos los efectos
+            Tone.connect(biquadFilter, distortionNode);
+            Tone.connect(distortionNode, limiter);
+            Tone.connect(distortionNode, analyserFFT);
+            limiter.connect(analyserWave);
 
-            const reverb = new Tone.Reverb(4).toDestination();
+            const reverb = new Tone.Reverb(4); Tone.connect(reverb, biquadFilter);
             const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
 
             synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -14;
-            synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5}).toDestination(); synths['BASS'].volume.value = -6;
-            synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -10;
-            synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).toDestination(); synths['PERC'].volume.value = -18;
-            synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, {resonance: 6000, envelope: {attack: 0.01, decay: 0.5}}).connect(delay); synths['CBB'].volume.value = -15;
-            synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 2, envelope: {attack: 0.05, decay: 0.5}}).connect(delay); synths['TROLE'].volume.value = -10;
+            // FIX: Bajo dominado. Menos volumen y release corto.
+            synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5, envelope: {release: 0.5}}).connect(biquadFilter); synths['BASS'].volume.value = -16;
+            synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -12;
+            synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); synths['PERC'].volume.value = -20;
+            synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, {resonance: 6000, envelope: {attack: 0.01, decay: 0.5}}).connect(delay); synths['CBB'].volume.value = -16;
+            synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 2, envelope: {attack: 0.05, decay: 0.5}}).connect(delay); synths['TROLE'].volume.value = -12;
 
             new Tone.Loop(time => {
                 indiceArmonia = (indiceArmonia + 1) % progresión.length;
@@ -416,32 +417,25 @@
                 estadoTxt = "HORA VALLE / FLUJO REGULAR";
             }
 
-            // Fluctuación dinámica de nodos cada 3 minutos reales
             let seed = Math.floor(minutos / 3);
             let randomVar = (Math.sin(hora * 100 + seed * 10) * 0.05); 
             let finalFactor = Math.min(1.0, Math.max(0.1, factor + randomVar));
 
-            // Capacidades máximas reales
             let tMetro = Math.floor(273 * finalFactor);
             let tMB = Math.floor(872 * finalFactor);
             let tCBB = Math.floor(753 * finalFactor);
             let tTrole = Math.floor(290 * finalFactor);
 
-            if (h >= 0 && h < 5) {
-                tMetro = 0;
-                tCBB = 0;
-            }
+            if (h >= 0 && h < 5) { tMetro = 0; tCBB = 0; }
 
             document.getElementById('status-display').innerText = estadoTxt;
             
-            // Reflejar la estadística real en la interfaz de usuario
             document.getElementById('txt-metro').innerText = tMetro;
             document.getElementById('txt-mb').innerText = tMB;
             document.getElementById('txt-cbb').innerText = tCBB;
             document.getElementById('txt-trole').innerText = tTrole;
             document.getElementById('txt-total').innerText = (tMetro + tMB + tCBB + tTrole);
 
-            // Ajustar visualización al límite del motor (proporcional, max 400 nodos)
             let totalSimulado = tMetro + tMB + tCBB + tTrole;
             if (totalSimulado > 0) {
                 targets['METRO'] = Math.floor((tMetro / totalSimulado) * Math.min(400, totalSimulado));
@@ -505,7 +499,8 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                velBase: (Math.random() * 0.00004) + 0.000015, 
+                // FIX: Velocidad acelerada ligeramente respecto al caracol de la última versión
+                velBase: (Math.random() * 0.00015) + 0.00005, 
                 velActual: 0,
                 estado: 'movimiento', 
                 timer: 0,
@@ -517,7 +512,7 @@
             });
         }
 
-        // --- 4. MOTOR FÍSICO CINÉTICO CONTINUO ---
+        // --- 4. MOTOR FÍSICO (CARRIL DERECHO, PLATOONING Y CHISPAS RESTRINGIDAS) ---
         let lastTimeFisicas = performance.now();
         let frameCounter = 0; 
         let notasEsteFrame = 0; 
@@ -607,12 +602,31 @@
                     }
                 }
 
-                bus.curLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
-                bus.curLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
+                // Cálculo de base
+                let baseLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
+                let baseLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
+                
+                // FIX: OFFSET DE CARRIL DERECHO
+                let dx = bus.targetLng - bus.startLng;
+                let dy = bus.targetLat - bus.startLat;
+                let len = Math.sqrt(dx*dx + dy*dy);
+                
+                if (len > 0) {
+                    let offsetDist = 0.0001; // Desplazamiento aproximado de 10 metros en lat/lng
+                    // La normal a la derecha del vector de dirección es (dy, -dx)
+                    let nx = dy / len;
+                    let ny = -dx / len;
+                    bus.curLat = baseLat + ny * offsetDist;
+                    bus.curLng = baseLng + nx * offsetDist;
+                } else {
+                    bus.curLat = baseLat;
+                    bus.curLng = baseLng;
+                }
+
                 bus.marker.setLatLng([bus.curLat, bus.curLng]);
             });
 
-            // LÓGICA DE INTERSECCIONES Y PLATOONING "SUBWAY"
+            // LÓGICA DE INTERSECCIONES Y PLATOONING
             frameCounter++;
             if (frameCounter >= 5) {
                 frameCounter = 0;
