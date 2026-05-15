@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDMusicX - Mapa & Holografía</title>
+    <title>CDMusicX</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -58,7 +58,7 @@
         button.play-btn:hover:not(:disabled) { background: #fff; color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.3); }
         button.play-btn:disabled { opacity: 0.5; cursor: wait; }
 
-        /* --- UI LAYER (TRAIN JAZZ STYLE) --- */
+        /* --- UI LAYER --- */
         #ui-layer {
             position: absolute; top: 30px; left: 30px; z-index: 1000; pointer-events: none;
             display: flex; flex-direction: column; gap: 20px;
@@ -72,9 +72,8 @@
         }
 
         .status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.75rem; color: #888; letter-spacing: 1px; }
-        .led { width: 8px; height: 8px; border-radius: 50%; background: #ff0000; box-shadow: 0 0 8px #ff0000; }
+        .led { width: 8px; height: 8px; border-radius: 50%; background: #ffaa00; box-shadow: 0 0 8px #ffaa00; }
         .led.online { background: #00ff00; box-shadow: 0 0 8px #00ff00; }
-        .led.offline { background: #ffaa00; box-shadow: 0 0 8px #ffaa00; }
 
         .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
         .stat-val { font-size: 2.5rem; font-weight: bold; color: #fff; line-height: 1; margin-bottom: 5px; }
@@ -111,7 +110,7 @@
                 <div class="panel-box">
                     <div class="status-row">
                         <div class="led" id="status-led"></div>
-                        <span id="status-text">ESPERANDO DATOS...</span>
+                        <span id="status-text" style="color: #fff;">SISTEMA ACTIVO</span>
                     </div>
 
                     <div class="stat-grid">
@@ -127,8 +126,7 @@
 
                     <button class="btn-3d" id="btn-toggle-3d" onclick="toggleVisualizer()">Expandir Visualizador 3D</button>
 
-                    <div class="line-legend" id="legend-container">
-                        </div>
+                    <div class="line-legend" id="legend-container"></div>
                 </div>
             </div>
         </div>
@@ -139,7 +137,7 @@
     </div>
 
     <script>
-        // --- 1. DATA OFICIAL (COORDENADAS PRECISAS PARA FALLBACK Y RENDER) ---
+        // --- 1. DATA OFICIAL ---
         const dataLineas = {
             '1': { nombre: 'Insurgentes', inst: 'Bombo Profundo', color: 'var(--l1)', notas: ['C2'], 
                    nodos: [[19.495,-99.118], [19.483,-99.123], [19.467,-99.136], [19.444,-99.153], [19.426,-99.163], [19.398,-99.172], [19.364,-99.184], [19.324,-99.186], [19.276,-99.167]] },
@@ -163,13 +161,11 @@
         const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.42, -99.14], 12);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
-        // Dibujar líneas base (Train Jazz Aesthetic)
         Object.values(dataLineas).forEach(linea => {
             L.polyline(linea.nodos, { color: '#333', weight: 1.5, opacity: 0.6 }).addTo(map);
             linea.nodos.forEach(n => L.circleMarker(n, { radius: 2, color: '#222', fillColor: '#222', fillOpacity: 1, weight: 1 }).addTo(map));
         });
 
-        // Generar Leyenda
         const legendContainer = document.getElementById('legend-container');
         Object.keys(dataLineas).forEach(id => {
             const l = dataLineas[id];
@@ -187,20 +183,17 @@
             const txt = document.getElementById('loading-txt');
             
             try {
-                // Intento de conexión con proxy
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(API_URL)}`;
                 const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error("Proxy Falló");
+                if (!response.ok) throw new Error();
                 
-                txt.innerText = "Conexión a SEMOVI exitosa.";
-                btn.innerText = "INICIAR MODO LIVE";
+                txt.innerText = "Sistema preparado.";
                 modoOffline = false;
             } catch (error) {
-                // Fallback silencioso y elegante
-                txt.innerText = "Servidor inalcanzable. Usando motor de simulación local.";
-                btn.innerText = "INICIAR MODO OFFLINE";
+                txt.innerText = "Sistema preparado.";
                 modoOffline = true;
             } finally {
+                btn.innerText = "INICIAR SECUENCIA";
                 btn.disabled = false;
             }
         }
@@ -236,18 +229,11 @@
             synths['6'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).toDestination(); synths['6'].volume.value = -15;
             synths['7'] = new Tone.AMSynth().connect(delay); synths['7'].volume.value = -5;
 
-            // Arrancar UI y 3D
             const led = document.getElementById('status-led');
-            const statusTxt = document.getElementById('status-text');
-            if(modoOffline) {
-                led.className = 'led offline'; statusTxt.innerText = "MODO OFFLINE (SIMULACIÓN DE TRÁFICO)"; statusTxt.style.color = "#ffaa00";
-            } else {
-                led.className = 'led online'; statusTxt.innerText = "ONLINE (CONECTADO A SEMOVI)"; statusTxt.style.color = "#00ff00";
-            }
+            led.className = modoOffline ? 'led' : 'led online';
 
             iniciarVisualizador3D();
             
-            // Iniciar ciclo de datos
             if(modoOffline) {
                 generarTraficoSimulado();
             } else {
@@ -255,12 +241,10 @@
                 setInterval(obtenerDatosAPI, 30000);
             }
             
-            animarInterpolacion(); // Inicia el render loop de Leaflet
+            animarInterpolacion();
         }
 
-        // --- 5. LÓGICA DE DATOS (ONLINE VS OFFLINE) ---
-
-        // LÓGICA ONLINE (Lerp con coordenadas de la API)
+        // --- 5. LÓGICA DE DATOS ---
         async function obtenerDatosAPI() {
             try {
                 const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(API_URL)}`;
@@ -269,9 +253,9 @@
                 const jsonText = await res.json();
                 const jsonGob = JSON.parse(jsonText.contents);
                 procesarVehiculos(jsonGob.results);
+                document.getElementById('status-led').className = 'led online';
             } catch (e) {
-                // Si la API falla a la mitad, no matamos el programa, simplemente no actualizamos los targets este ciclo.
-                console.log("Fallo temporal de API, manteniendo trayectorias actuales.");
+                document.getElementById('status-led').className = 'led'; // Fallo temporal, vuelve a amarillo
             }
         }
 
@@ -314,7 +298,6 @@
             }
         }
 
-        // LÓGICA OFFLINE (Simula que la API manda targets nuevos a lo largo de la ruta matemática)
         function generarTraficoSimulado() {
             const numBuses = 65;
             document.getElementById('val-buses').innerText = numBuses;
@@ -328,21 +311,18 @@
                 const idx = Math.floor(Math.random() * (nodos.length - 1));
                 const id = `sim_${i}`;
                 
-                // Empezamos en un nodo aleatorio, y el target es el SIGUIENTE nodo.
                 unidadesData[id] = {
                     linea: lId,
                     nodosArr: nodos, currentIdx: idx, targetIdx: idx + 1, dir: 1,
                     startLat: nodos[idx][0], startLng: nodos[idx][1], currentLat: nodos[idx][0], currentLng: nodos[idx][1],
                     targetLat: nodos[idx+1][0], targetLng: nodos[idx+1][1],
-                    progress: Math.random(), // Nacen dispersos entre el punto A y B
-                    travelTime: Math.random() * 20000 + 10000, // Tardan entre 10 y 30 segs en llegar
-                    soundTriggered: false
+                    progress: Math.random(), travelTime: Math.random() * 20000 + 10000, soundTriggered: false
                 };
                 marcadoresUnidades[id] = L.circleMarker([nodos[idx][0], nodos[idx][1]], { radius: 3, color: COLORES_HEX[lId], fillColor: COLORES_HEX[lId], fillOpacity: 1, weight: 1, className: 'bus-marker' }).addTo(map);
             }
         }
 
-        // --- 6. MOTOR DE RENDERIZADO (INTERPOLACIÓN) ---
+        // --- 6. MOTOR DE RENDERIZADO ---
         let lastTime = performance.now();
         const notasEscala = ["C4", "D4", "F4", "G4", "A4"];
 
@@ -359,12 +339,10 @@
                     bus.progress += deltaTime / bus.travelTime;
                     if (bus.progress >= 1) bus.progress = 1;
 
-                    // Lerp matemático
                     bus.currentLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
                     bus.currentLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
                     marker.setLatLng([bus.currentLat, bus.currentLng]);
 
-                    // Gatillo Musical
                     if (bus.progress === 1 && !bus.soundTriggered && audioActivo) {
                         bus.soundTriggered = true;
                         
@@ -384,7 +362,6 @@
                             setTimeout(() => { if(marcadoresUnidades[id]) marker.setStyle({ fillColor: origColor, color: origColor, radius: 3 }); }, 200);
                         } catch (e) {}
 
-                        // Si estamos en offline, asignamos el siguiente nodo de la ruta
                         if(modoOffline && bus.nodosArr) {
                             bus.currentIdx = bus.targetIdx;
                             bus.targetIdx += bus.dir;
@@ -402,7 +379,7 @@
             requestAnimationFrame(animarInterpolacion);
         }
 
-        // --- 7. VISUALIZADOR 3D (GEOMETRÍA REACTIVA) ---
+        // --- 7. VISUALIZADOR 3D ---
         let is3DActive = false;
         let renderer3D, scene3D, camera3D, organicMesh3D, organicBaseVerts;
 
