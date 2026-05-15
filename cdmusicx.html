@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDMusicX</title>
+    <title>CDMusicX - Pieza Sonora</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -13,13 +13,10 @@
     <style>
         :root {
             --bg: #050505; --text: #e0e0e0; --ui-accent: #00f0ff;
-            --l1: #ff0000; --l2: #930093; --l3: #00a800; 
-            --l4: #ff8000; --l5: #0000ff; --l6: #ff00ff; --l7: #00ff00;
         }
 
         body, html { margin: 0; padding: 0; height: 100%; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
 
-        /* --- PANTALLA DIVIDIDA --- */
         #main-wrapper { display: flex; width: 100vw; height: 100vh; }
 
         #map-container {
@@ -41,7 +38,6 @@
         body.split-mode #map-container { width: 40vw; }
         body.split-mode #visualizer-container { opacity: 1; pointer-events: auto; }
 
-        /* --- PANTALLA DE INICIO --- */
         #start-screen {
             position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(5, 5, 5, 0.95); z-index: 9999;
@@ -55,10 +51,8 @@
             background: transparent; color: #fff; border: 1px solid #fff; padding: 15px 40px; font-size: 1rem; 
             border-radius: 30px; cursor: pointer; transition: 0.3s; text-transform: uppercase; letter-spacing: 2px;
         }
-        button.play-btn:hover:not(:disabled) { background: #fff; color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.3); }
-        button.play-btn:disabled { opacity: 0.5; cursor: wait; }
+        button.play-btn:hover { background: #fff; color: #000; box-shadow: 0 0 20px rgba(255,255,255,0.3); }
 
-        /* --- UI LAYER --- */
         #ui-layer {
             position: absolute; top: 30px; left: 30px; z-index: 1000; pointer-events: none;
             display: flex; flex-direction: column; gap: 20px;
@@ -71,9 +65,8 @@
             min-width: 280px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
         }
 
-        .status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.75rem; color: #888; letter-spacing: 1px; }
-        .led { width: 8px; height: 8px; border-radius: 50%; background: #ffaa00; box-shadow: 0 0 8px #ffaa00; }
-        .led.online { background: #00ff00; box-shadow: 0 0 8px #00ff00; }
+        .status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; font-size: 0.8rem; color: #fff; letter-spacing: 1px; font-weight: bold;}
+        .led { width: 10px; height: 10px; border-radius: 50%; background: #00ff00; box-shadow: 0 0 10px #00ff00; }
 
         .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
         .stat-val { font-size: 2.5rem; font-weight: bold; color: #fff; line-height: 1; margin-bottom: 5px; }
@@ -86,20 +79,23 @@
         }
         .btn-3d:hover { background: var(--ui-accent); color: #000; box-shadow: 0 0 10px var(--ui-accent); }
 
-        .line-legend { display: flex; flex-direction: column; gap: 12px; }
+        .line-legend { display: flex; flex-direction: column; gap: 12px; max-height: 40vh; overflow-y: auto;}
         .line-row { display: flex; align-items: center; gap: 12px; }
         .line-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 5px currentColor; }
         .line-text { font-size: 0.8rem; color: #aaa; }
         .line-text strong { color: #fff; display: block; font-size: 0.85rem; margin-bottom: 2px; }
-
+        
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; }
     </style>
 </head>
 <body>
 
     <div id="start-screen">
         <h1>CDMUSICX</h1>
-        <p id="loading-txt">Sincronizando sistemas...</p>
-        <button class="play-btn" id="init-btn" onclick="arrancarMotor()" disabled>Conectando...</button>
+        <p>Pieza Sonora sobre la red de movilidad</p>
+        <button class="play-btn" onclick="arrancarSistema()">INICIAR PIEZA</button>
     </div>
 
     <div id="main-wrapper">
@@ -109,8 +105,7 @@
             <div id="ui-layer" style="display: none;">
                 <div class="panel-box">
                     <div class="status-row">
-                        <div class="led" id="status-led"></div>
-                        <span id="status-text" style="color: #fff;">SISTEMA ACTIVO</span>
+                        <div class="led"></div> SISTEMA ACTIVO
                     </div>
 
                     <div class="stat-grid">
@@ -120,12 +115,11 @@
                         </div>
                         <div>
                             <div class="stat-val" id="val-bpm">0</div>
-                            <div class="stat-label">BPM Global</div>
+                            <div class="stat-label">BPM</div>
                         </div>
                     </div>
 
                     <button class="btn-3d" id="btn-toggle-3d" onclick="toggleVisualizer()">Expandir Visualizador 3D</button>
-
                     <div class="line-legend" id="legend-container"></div>
                 </div>
             </div>
@@ -137,80 +131,83 @@
     </div>
 
     <script>
-        // --- 1. DATA OFICIAL ---
-        const dataLineas = {
-            '1': { nombre: 'Insurgentes', inst: 'Bombo Profundo', color: 'var(--l1)', notas: ['C2'], 
-                   nodos: [[19.495,-99.118], [19.483,-99.123], [19.467,-99.136], [19.444,-99.153], [19.426,-99.163], [19.398,-99.172], [19.364,-99.184], [19.324,-99.186], [19.276,-99.167]] },
-            '2': { nombre: 'Eje 4 Sur', inst: 'Caja rítmica (Snare)', color: 'var(--l2)', notas: ['16n'], 
-                   nodos: [[19.393,-99.046], [19.395,-99.076], [19.398,-99.115], [19.401,-99.141], [19.405,-99.172], [19.401,-99.187]] },
-            '3': { nombre: 'Eje 1 Poniente', inst: 'Bajo Sintético', color: 'var(--l3)', notas: ['C3', 'D3', 'F3'], 
-                   nodos: [[19.533,-99.170], [19.490,-99.152], [19.450,-99.145], [19.420,-99.153], [19.395,-99.150], [19.380,-99.155]] },
-            '4': { nombre: 'Centro Histórico', inst: 'Acordes Poly', color: 'var(--l4)', notas: [['C4','E4','G4'], ['A3','C4','E4']], 
-                   nodos: [[19.445,-99.152], [19.435,-99.135], [19.430,-99.113], [19.435,-99.090]] },
-            '5': { nombre: 'Eduardo Molina', inst: 'Pluck Melódico', color: 'var(--l5)', notas: ['C4', 'E4', 'G4', 'A4', 'C5'], 
-                   nodos: [[19.492,-99.075], [19.470,-99.085], [19.448,-99.090], [19.430,-99.113], [19.405,-99.100], [19.355,-99.105], [19.300,-99.108]] },
-            '6': { nombre: 'Eje 5 Norte', inst: 'Hi-Hats', color: 'var(--l6)', notas: ['32n'], 
-                   nodos: [[19.504,-99.200], [19.495,-99.175], [19.485,-99.140], [19.475,-99.100], [19.460,-99.060]] },
-            '7': { nombre: 'Reforma', inst: 'Atmósfera AMSynth', color: 'var(--l7)', notas: ['C5', 'D5', 'E5'], 
-                   nodos: [[19.495,-99.118], [19.470,-99.125], [19.450,-99.135], [19.425,-99.175], [19.425,-99.195]] }
-        };
-
-        const COLORES_HEX = { '1': '#ff0000', '2': '#930093', '3': '#00a800', '4': '#ff8000', '5': '#0000ff', '6': '#ff00ff', '7': '#00ff00' };
-
-        // --- 2. INICIALIZACIÓN DEL MAPA ---
-        const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.42, -99.14], 12);
+        // --- 1. CONFIGURACIÓN DEL MAPA ---
+        const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.41, -99.14], 12);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
-        Object.values(dataLineas).forEach(linea => {
-            L.polyline(linea.nodos, { color: '#333', weight: 1.5, opacity: 0.6 }).addTo(map);
-            linea.nodos.forEach(n => L.circleMarker(n, { radius: 2, color: '#222', fillColor: '#222', fillOpacity: 1, weight: 1 }).addTo(map));
-        });
-
-        const legendContainer = document.getElementById('legend-container');
-        Object.keys(dataLineas).forEach(id => {
-            const l = dataLineas[id];
-            legendContainer.innerHTML += `<div class="line-row"><div class="line-dot" style="background: ${l.color}; color: ${l.color};"></div><div class="line-text"><strong>Línea ${id} - ${l.nombre}</strong>${l.inst}</div></div>`;
-        });
-
-        // --- 3. CONEXIÓN API Y LÓGICA DE RESPALDO ---
-        let modoOffline = false;
-        let unidadesData = {}; 
+        let rutasEstructurales = []; 
         let marcadoresUnidades = {};
-        const API_URL = 'https://datos.cdmx.gob.mx/api/explore/v2.1/catalog/datasets/prueba_fetchdata_metrobus/records?limit=100';
+        
+        // Colores y Asignación Musical
+        const configMusical = {
+            '1': { inst: 'Bombo Profundo', notas: ['C2'] },
+            '2': { inst: 'Caja (Snare)', notas: ['16n'] },
+            '3': { inst: 'Bajo Sintético', notas: ['C3', 'D3', 'F3'] },
+            '4': { inst: 'Acordes Poly', notas: [['C4','E4','G4'], ['A3','C4','E4']] },
+            '5': { inst: 'Pluck Melódico', notas: ['C4', 'E4', 'G4', 'A4', 'C5'] },
+            '6': { inst: 'Hi-Hats', notas: ['32n'] },
+            '7': { inst: 'Atmósfera', notas: ['C5', 'D5', 'E5'] }
+        };
 
-        async function precargarDatos() {
-            const btn = document.getElementById('init-btn');
-            const txt = document.getElementById('loading-txt');
-            
+        // --- 2. DESCARGA DESDE APIMETRO ---
+        async function descargarCartografiaApimetro() {
             try {
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(API_URL)}`;
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error();
+                // Descargamos TODAS las líneas de Metrobús desde Apimetro
+                const res = await fetch('https://apimetro.dev/movilidad/mapas/geojsonLinea?sistema=MB');
+                const geojson = await res.json();
                 
-                txt.innerText = "Sistema preparado.";
-                modoOffline = false;
-            } catch (error) {
-                txt.innerText = "Sistema preparado.";
-                modoOffline = true;
-            } finally {
-                btn.innerText = "INICIAR SECUENCIA";
-                btn.disabled = false;
+                const legend = document.getElementById('legend-container');
+                let lineasProcesadas = new Set();
+
+                // Pintamos la cartografía en el mapa y extraemos coordenadas
+                L.geoJSON(geojson, {
+                    style: function(f) {
+                        return { color: f.properties.color_hex, weight: 2, opacity: 0.4 };
+                    },
+                    onEachFeature: function(f, layer) {
+                        const lineaID = String(f.properties.num_comercial).replace(/\D/g, ''); // Extrae "1" de "MB-1"
+                        const color = f.properties.color_hex;
+                        const config = configMusical[lineaID] || configMusical['5']; // Fallback a pluck
+
+                        // Crear la leyenda si es una línea nueva
+                        if(!lineasProcesadas.has(lineaID) && lineaID >= 1 && lineaID <= 7) {
+                            lineasProcesadas.add(lineaID);
+                            legend.innerHTML += `<div class="line-row"><div class="line-dot" style="background: ${color}; color: ${color};"></div><div class="line-text"><strong>Línea ${lineaID} - ${f.properties.nombre}</strong>${config.inst}</div></div>`;
+                        }
+
+                        // Extraer geometrías para nuestro simulador
+                        if(f.geometry.type === 'MultiLineString') {
+                            f.geometry.coordinates.forEach(tramo => {
+                                rutasEstructurales.push({
+                                    idLinea: lineaID, color: color, config: config,
+                                    nodos: tramo.map(c => [c[1], c[0]]) // Leaflet usa [Lat, Lng]
+                                });
+                            });
+                        }
+                    }
+                }).addTo(map);
+
+                iniciarTraficoGenerativo();
+
+            } catch(e) {
+                console.error("Error al conectar con Apimetro:", e);
+                document.getElementById('legend-container').innerHTML = "<p style='color:red;'>Error al descargar cartografía de apimetro.dev</p>";
             }
         }
-        precargarDatos();
 
-        // --- 4. MOTOR DE AUDIO (TONE.JS) ---
+        // --- 3. AUDIO Y SECUENCIA PRINCIPAL ---
         let audioActivo = false;
         const synths = {};
         let analyserNode;
 
-        async function arrancarMotor() {
+        async function arrancarSistema() {
             document.getElementById('start-screen').style.opacity = '0';
             setTimeout(() => { 
                 document.getElementById('start-screen').style.display = 'none'; 
                 document.getElementById('ui-layer').style.display = 'flex'; 
             }, 500);
 
+            // AudioContext es liberado aquí
             await Tone.start();
             Tone.Transport.start();
             audioActivo = true;
@@ -221,6 +218,7 @@
             const reverb = new Tone.Reverb(2.5).toDestination();
             const delay = new Tone.FeedbackDelay("8n", 0.5).connect(reverb);
 
+            // Nodos musicales
             synths['1'] = new Tone.MembraneSynth().toDestination(); synths['1'].volume.value = 0;
             synths['2'] = new Tone.NoiseSynth({noise: {type: 'pink'}, envelope:{attack:0.01, decay:0.2}}).toDestination(); synths['2'].volume.value = -12;
             synths['3'] = new Tone.FMSynth({modulationIndex: 2}).connect(reverb); synths['3'].volume.value = -5;
@@ -229,157 +227,97 @@
             synths['6'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).toDestination(); synths['6'].volume.value = -15;
             synths['7'] = new Tone.AMSynth().connect(delay); synths['7'].volume.value = -5;
 
-            const led = document.getElementById('status-led');
-            led.className = modoOffline ? 'led' : 'led online';
-
             iniciarVisualizador3D();
-            
-            if(modoOffline) {
-                generarTraficoSimulado();
-            } else {
-                obtenerDatosAPI();
-                setInterval(obtenerDatosAPI, 30000);
-            }
-            
-            animarInterpolacion();
+            descargarCartografiaApimetro();
         }
 
-        // --- 5. LÓGICA DE DATOS ---
-        async function obtenerDatosAPI() {
-            try {
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(API_URL)}`;
-                const res = await fetch(proxyUrl);
-                if(!res.ok) throw new Error();
-                const jsonText = await res.json();
-                const jsonGob = JSON.parse(jsonText.contents);
-                procesarVehiculos(jsonGob.results);
-                document.getElementById('status-led').className = 'led online';
-            } catch (e) {
-                document.getElementById('status-led').className = 'led'; // Fallo temporal, vuelve a amarillo
-            }
-        }
+        // --- 4. MOTOR DE TRÁFICO (SOBRE APIMETRO) ---
+        let unidadesActivas = [];
 
-        function procesarVehiculos(vehiculos) {
-            if(!vehiculos) return;
-            const activas = new Set();
-            document.getElementById('val-buses').innerText = vehiculos.length;
-            Tone.Transport.bpm.rampTo(Math.min(140, Math.max(60, 60 + (vehiculos.length * 0.4))), 2);
-            document.getElementById('val-bpm').innerText = Math.floor(Tone.Transport.bpm.value);
-
-            vehiculos.forEach(v => {
-                const id = v.vehicle_id;
-                const lat = v.position_latitude || (v.point ? v.point.lat : null);
-                const lng = v.position_longitude || (v.point ? v.point.lon : null);
-                let lStr = v.route_id ? String(v.route_id).replace(/\D/g,'') : "1";
-                if(!COLORES_HEX[lStr]) lStr = "1";
-
-                if (lat && lng && id) {
-                    activas.add(id);
-                    if (unidadesData[id]) {
-                        const bus = unidadesData[id];
-                        if(bus.targetLat !== lat || bus.targetLng !== lng) {
-                            bus.startLat = bus.currentLat; bus.startLng = bus.currentLng;
-                            bus.targetLat = lat; bus.targetLng = lng;
-                            bus.progress = 0; bus.travelTime = 30000; bus.soundTriggered = false;
-                        }
-                    } else {
-                        unidadesData[id] = {
-                            linea: lStr,
-                            startLat: lat, startLng: lng, currentLat: lat, currentLng: lng, targetLat: lat, targetLng: lng,
-                            progress: 1, travelTime: 30000, soundTriggered: true
-                        };
-                        marcadoresUnidades[id] = L.circleMarker([lat, lng], { radius: 3, color: COLORES_HEX[lStr], fillColor: COLORES_HEX[lStr], fillOpacity: 1, weight: 1, className: 'bus-marker' }).addTo(map);
-                    }
-                }
-            });
-
-            for (let id in unidadesData) {
-                if (!activas.has(id)) { map.removeLayer(marcadoresUnidades[id]); delete marcadoresUnidades[id]; delete unidadesData[id]; }
-            }
-        }
-
-        function generarTraficoSimulado() {
-            const numBuses = 65;
+        function iniciarTraficoGenerativo() {
+            const numBuses = 50; 
             document.getElementById('val-buses').innerText = numBuses;
-            Tone.Transport.bpm.rampTo(Math.floor(60 + (numBuses * 0.4)), 1);
-            document.getElementById('val-bpm').innerText = Math.floor(Tone.Transport.bpm.value);
+            const bpm = Math.floor(60 + (numBuses * 0.4));
+            Tone.Transport.bpm.rampTo(bpm, 2); 
+            document.getElementById('val-bpm').innerText = bpm;
 
-            const keysLineas = Object.keys(dataLineas);
             for(let i=0; i<numBuses; i++) {
-                const lId = keysLineas[Math.floor(Math.random() * keysLineas.length)];
-                const nodos = dataLineas[lId].nodos;
-                const idx = Math.floor(Math.random() * (nodos.length - 1));
-                const id = `sim_${i}`;
+                // Elegir un tramo de línea aleatorio de los que descargó Apimetro
+                const rutaObj = rutasEstructurales[Math.floor(Math.random() * rutasEstructurales.length)];
+                if(!rutaObj || rutaObj.nodos.length < 2) continue;
+
+                const idx = Math.floor(Math.random() * (rutaObj.nodos.length - 1));
                 
-                unidadesData[id] = {
-                    linea: lId,
-                    nodosArr: nodos, currentIdx: idx, targetIdx: idx + 1, dir: 1,
-                    startLat: nodos[idx][0], startLng: nodos[idx][1], currentLat: nodos[idx][0], currentLng: nodos[idx][1],
-                    targetLat: nodos[idx+1][0], targetLng: nodos[idx+1][1],
-                    progress: Math.random(), travelTime: Math.random() * 20000 + 10000, soundTriggered: false
-                };
-                marcadoresUnidades[id] = L.circleMarker([nodos[idx][0], nodos[idx][1]], { radius: 3, color: COLORES_HEX[lId], fillColor: COLORES_HEX[lId], fillOpacity: 1, weight: 1, className: 'bus-marker' }).addTo(map);
+                unidadesActivas.push({
+                    rutaObj: rutaObj,
+                    nodos: rutaObj.nodos,
+                    currentIdx: idx, targetIdx: idx + 1, dir: 1,
+                    startLat: rutaObj.nodos[idx][0], startLng: rutaObj.nodos[idx][1],
+                    targetLat: rutaObj.nodos[idx+1][0], targetLng: rutaObj.nodos[idx+1][1],
+                    progress: Math.random(),
+                    velocidad: (Math.random() * 0.005) + 0.001, // Lento y ambiental
+                    marker: L.circleMarker(rutaObj.nodos[idx], { 
+                        radius: 3, color: rutaObj.color, fillColor: rutaObj.color, fillOpacity: 1, weight: 1 
+                    }).addTo(map)
+                });
             }
+            animarFisicas();
         }
 
-        // --- 6. MOTOR DE RENDERIZADO ---
         let lastTime = performance.now();
-        const notasEscala = ["C4", "D4", "F4", "G4", "A4"];
 
-        function animarInterpolacion() {
+        function animarFisicas() {
             const currentTime = performance.now();
             const deltaTime = currentTime - lastTime;
             lastTime = currentTime;
 
-            for (let id in unidadesData) {
-                const bus = unidadesData[id];
-                const marker = marcadoresUnidades[id];
+            unidadesActivas.forEach(bus => {
+                bus.progress += bus.velocidad;
 
-                if (bus.progress < 1) {
-                    bus.progress += deltaTime / bus.travelTime;
-                    if (bus.progress >= 1) bus.progress = 1;
-
-                    bus.currentLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
-                    bus.currentLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
-                    marker.setLatLng([bus.currentLat, bus.currentLng]);
-
-                    if (bus.progress === 1 && !bus.soundTriggered && audioActivo) {
-                        bus.soundTriggered = true;
-                        
+                if (bus.progress >= 1) {
+                    bus.progress = 1;
+                    
+                    // Disparo Musical
+                    if (audioActivo) {
                         try {
                             const t = Tone.now() + (Math.random() * 0.05);
-                            const l = bus.linea;
-                            if(l === '1') synths[l].triggerAttackRelease("C2", "8n", t);
-                            else if(l === '2') synths[l].triggerAttackRelease("16n", t);
-                            else if(l === '3') synths[l].triggerAttackRelease("C3", "8n", t);
-                            else if(l === '4') synths[l].triggerAttackRelease(["C4", "E4", "G4"], "4n", t);
-                            else if(l === '6') synths[l].triggerAttackRelease("32n", t);
-                            else if(l === '7') synths[l].triggerAttackRelease("C5", "2n", t);
-                            else synths['5'].triggerAttackRelease(notasEscala[Math.floor(Math.random()*notasEscala.length)], "8n", t);
+                            const synth = synths[bus.rutaObj.idLinea] || synths['5'];
+                            const notas = bus.rutaObj.config.notas;
+                            const nota = notas[Math.floor(Math.random() * notas.length)];
                             
-                            const origColor = COLORES_HEX[l];
-                            marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 6 });
-                            setTimeout(() => { if(marcadoresUnidades[id]) marker.setStyle({ fillColor: origColor, color: origColor, radius: 3 }); }, 200);
+                            synth.triggerAttackRelease(nota, "8n", t);
+                            
+                            // Destello visual
+                            bus.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 8 });
+                            setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, color: bus.rutaObj.color, radius: 3 }); }, 150);
                         } catch (e) {}
-
-                        if(modoOffline && bus.nodosArr) {
-                            bus.currentIdx = bus.targetIdx;
-                            bus.targetIdx += bus.dir;
-                            if(bus.targetIdx >= bus.nodosArr.length || bus.targetIdx < 0) {
-                                bus.dir *= -1;
-                                bus.targetIdx = bus.currentIdx + bus.dir;
-                            }
-                            bus.startLat = bus.currentLat; bus.startLng = bus.currentLng;
-                            bus.targetLat = bus.nodosArr[bus.targetIdx][0]; bus.targetLng = bus.nodosArr[bus.targetIdx][1];
-                            bus.progress = 0; bus.soundTriggered = false;
-                        }
                     }
+
+                    // Siguiente Nodo
+                    bus.currentIdx = bus.targetIdx;
+                    bus.targetIdx += bus.dir;
+                    
+                    // Si llegamos a una terminal, damos vuelta
+                    if(bus.targetIdx >= bus.nodos.length || bus.targetIdx < 0) {
+                        bus.dir *= -1;
+                        bus.targetIdx = bus.currentIdx + bus.dir;
+                    }
+                    
+                    bus.startLat = bus.nodos[bus.currentIdx][0]; bus.startLng = bus.nodos[bus.currentIdx][1];
+                    bus.targetLat = bus.nodos[bus.targetIdx][0]; bus.targetLng = bus.nodos[bus.targetIdx][1];
+                    bus.progress = 0;
                 }
-            }
-            requestAnimationFrame(animarInterpolacion);
+
+                // Interpolación
+                const curLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
+                const curLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
+                bus.marker.setLatLng([curLat, curLng]);
+            });
+
+            requestAnimationFrame(animarFisicas);
         }
 
-        // --- 7. VISUALIZADOR 3D ---
+        // --- 5. VISUALIZADOR 3D REACTIVO ---
         let is3DActive = false;
         let renderer3D, scene3D, camera3D, organicMesh3D, organicBaseVerts;
 
@@ -398,15 +336,16 @@
             setTimeout(() => {
                 map.invalidateSize();
                 if(renderer3D) {
-                    const canvas = document.getElementById('visualizer-canvas');
-                    renderer3D.setSize(canvas.parentElement.clientWidth, canvas.parentElement.clientHeight);
-                    camera3D.aspect = canvas.parentElement.clientWidth / canvas.parentElement.clientHeight;
+                    const container = document.getElementById('visualizer-container');
+                    renderer3D.setSize(container.clientWidth, container.clientHeight);
+                    camera3D.aspect = container.clientWidth / container.clientHeight;
                     camera3D.updateProjectionMatrix();
                 }
             }, 700);
         }
 
         function iniciarVisualizador3D() {
+            const container = document.getElementById('visualizer-container');
             const canvas = document.getElementById('visualizer-canvas');
             renderer3D = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
             
@@ -416,7 +355,7 @@
 
             scene3D = new THREE.Scene();
             camera3D = new THREE.PerspectiveCamera(60, w / h, 0.1, 1000);
-            camera3D.position.z = 10; 
+            camera3D.position.z = 15; // Cámara más lejana al iniciar
 
             scene3D.add(new THREE.AmbientLight(0x222222));
             const mainLight = new THREE.PointLight(0x00f0ff, 2, 50); mainLight.position.set(5, 5, 5); scene3D.add(mainLight);
@@ -429,6 +368,13 @@
             const organicMat = new THREE.MeshStandardMaterial({ color: 0x111111, emissive: 0x00f0ff, emissiveIntensity: 0.2, wireframe: true, roughness: 0.2 });
             organicMesh3D = new THREE.Mesh(organicGeo, organicMat);
             scene3D.add(organicMesh3D);
+
+            // Evento para Zoom (Acercar/Alejar con la rueda del ratón)
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                camera3D.position.z += e.deltaY * 0.01;
+                camera3D.position.z = Math.max(5, Math.min(30, camera3D.position.z)); // Límites del zoom
+            }, { passive: false });
 
             animar3D();
         }
