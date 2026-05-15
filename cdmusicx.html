@@ -31,7 +31,8 @@
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             backdrop-filter: blur(15px); transition: opacity 0.8s;
         }
-        .title-glitch { font-family: 'Orbitron', sans-serif; font-size: 4.5rem; margin-bottom: 10px; letter-spacing: 5px; font-weight: 900; color: var(--ui-accent); text-shadow: 0 0 20px var(--ui-accent); }
+        .title-glitch { font-family: 'Orbitron', sans-serif; font-size: 4.5rem; margin-bottom: 5px; letter-spacing: 5px; font-weight: 900; color: var(--ui-accent); text-shadow: 0 0 20px var(--ui-accent); }
+        .author-text { font-family: 'Share Tech Mono', monospace; font-size: 1.2rem; color: #888; letter-spacing: 4px; margin-bottom: 30px; }
         
         .manifesto { max-width: 600px; text-align: left; background: rgba(0,240,255,0.05); border-left: 3px solid var(--ui-accent); padding: 25px; margin-bottom: 40px; font-size: 0.9rem; line-height: 1.6; color: #ccc; }
         .manifesto h3 { color: #fff; margin-top: 0; font-family: 'Orbitron'; letter-spacing: 1px; }
@@ -95,13 +96,11 @@
         .close-btn { cursor: pointer; color: #fff; font-weight: bold; }
         .close-btn:hover { color: var(--neon-magenta); }
 
-        /* Posiciones iniciales de los gadgets */
         #gadget-3d { top: 20px; right: 20px; width: 320px; height: 320px; }
         #gadget-wave { bottom: 80px; left: 20px; width: 300px; height: 150px; }
         #gadget-fft { bottom: 80px; right: 20px; width: 300px; height: 150px; }
         #gadget-fx { top: 20px; right: 360px; width: 280px; height: auto; padding-bottom: 15px; }
 
-        /* Controles FX dentro de la pantallita */
         .fx-controls { padding: 15px; font-size: 0.75rem; overflow-y: auto; }
         .fx-controls label { display: flex; justify-content: space-between; margin-bottom: 5px; color: #ccc; }
         .fx-controls span { color: var(--neon-yellow); }
@@ -109,7 +108,6 @@
         input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 12px; width: 8px; background: var(--ui-accent); cursor: pointer; box-shadow: 0 0 8px var(--ui-accent); }
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 2px; background: rgba(255, 255, 255, 0.2); }
         
-        /* Ocultar barras de scroll */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.3); border-radius: 5px; }
@@ -119,10 +117,11 @@
 
     <div id="start-screen">
         <div class="title-glitch">MEXICO CITY BLUES</div>
+        <div class="author-text">By AlterLab</div>
         
         <div class="manifesto">
             <h3>¿Qué hace que esta sea una Sinfonía Urbana?</h3>
-            <p>Al iniciar, la aplicación dibuja la estructura cartográfica basándose en los datos de la red de movilidad. La música responde a un modelo generativo vivo:</p>
+            <p>Al iniciar, la aplicación dibuja la estructura cartográfica basándose en los datos de la red de movilidad de Apimetro. La música responde a un modelo generativo vivo:</p>
             <ul>
                 <li><strong>Red Múltiple:</strong> Integración completa de las redes del Metro, Metrobús y Cablebús.</li>
                 <li><strong>Progresión Armónica:</strong> Un Loop maestro cambia el acorde base cada 4 compases.</li>
@@ -138,15 +137,15 @@
     <div id="map"></div>
 
     <div id="main-ui" class="glass-panel" style="display: none;">
-        <div class="panel-header"><span>SYS.CORE</span><span>MCB</span></div>
+        <div class="panel-header"><span>MEXICO CITY BLUES</span><span>AlterLab</span></div>
         <div class="status-row"><div class="led"></div> SINFONÍA ACTIVA</div>
         
         <div class="dyn-data">
             <div><span>POBLACIÓN EN RED:</span> <span>+1,452,034</span></div>
             <div><span>BPM DEL NÚCLEO:</span> <span id="val-bpm" style="color: var(--neon-magenta);">110</span></div>
             <div style="align-items: center; margin-top: 15px;">
-                <span>UNIDADES EN SEGUIMIENTO:</span>
-                <button class="interactive-btn" onclick="cambiarUnidades()">[ <span id="val-buses">120</span> ] ↺ RND</button>
+                <span>SEGUIMIENTO / FLUJO:</span>
+                <button class="interactive-btn" onclick="cambiarUnidades()">[ <span id="val-buses">120</span> ] ↺ ALTERAR</button>
             </div>
         </div>
 
@@ -208,7 +207,6 @@
         let indiceArmonia = 0;
         let audioActivo = false;
         
-        // Nodos de Audio
         const synths = {};
         let audioCtx, analyserFFT, analyserWave;
         let preGainNode, biquadFilter, distortionNode;
@@ -231,16 +229,17 @@
             Tone.Transport.start();
             audioActivo = true;
 
-            // RECUPERAR EL GRAPH DE EFECTOS
             audioCtx = Tone.getContext().rawContext;
             preGainNode = audioCtx.createGain();
             biquadFilter = audioCtx.createBiquadFilter(); biquadFilter.type = "lowpass";
             distortionNode = audioCtx.createWaveShaper(); distortionNode.oversample = '4x';
             
             analyserFFT = audioCtx.createAnalyser(); analyserFFT.fftSize = 512;
+            
+            // FIX: El osciloscopio Waveform requiere un Analyser Node con getByteTimeDomainData funcional.
             analyserWave = audioCtx.createAnalyser(); analyserWave.fftSize = 2048;
 
-            // Cadena: Tone Master -> Filtro -> Distorsión -> Analizadores -> Salida
+            // Cadena de Efectos
             Tone.getDestination().disconnect();
             Tone.getDestination().connect(preGainNode);
             preGainNode.connect(biquadFilter);
@@ -249,18 +248,15 @@
             distortionNode.connect(analyserWave);
             distortionNode.connect(audioCtx.destination);
 
-            // Reverbs y Delays
             const reverb = new Tone.Reverb(3).toDestination();
             const delay = new Tone.FeedbackDelay("8n", 0.5).connect(reverb);
 
-            // Instrumentos por Sistema
             synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -8;
             synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5}).toDestination(); synths['BASS'].volume.value = -2;
             synths['MB'] = new Tone.Synth({oscillator: {type: 'sine'}}).connect(delay); synths['MB'].volume.value = -5;
             synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).toDestination(); synths['PERC'].volume.value = -18;
             synths['CBB'] = new Tone.MetalSynth({resonance: 8000, envelope: {attack: 0.01, decay: 1}}).connect(delay); synths['CBB'].volume.value = -12;
 
-            // LOOP MAESTRO
             new Tone.Loop(time => {
                 indiceArmonia = (indiceArmonia + 1) % progresión.length;
                 synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes, "1n", time);
@@ -272,7 +268,7 @@
             descargarCartografia('MB', 'Metrobús', 'Arpegios Melódicos');
             descargarCartografia('CBB', 'Cablebús', 'Atmósfera Aérea');
             
-            drawGadgets(); // Inicia los canvas
+            drawGadgets();
         }
 
         // --- 3. CARTOGRAFÍA APIMETRO ---
@@ -295,46 +291,74 @@
                     onEachFeature: f => {
                         if(f.geometry.type === 'MultiLineString') {
                             f.geometry.coordinates.forEach(tramo => {
-                                rutasEstructurales.push({ sistema: sistema, color: f.properties.color_hex || colorBase, nodos: tramo.map(c => [c[1], c[0]]) });
+                                // Aseguramos que el tramo tenga sentido (más de 1 punto)
+                                if(tramo.length > 1) {
+                                    rutasEstructurales.push({ 
+                                        sistema: sistema, 
+                                        color: f.properties.color_hex || colorBase, 
+                                        nodos: tramo.map(c => [c[1], c[0]]) 
+                                    });
+                                }
                             });
                         }
                     }
                 }).addTo(map);
 
-                // Si ya descargamos suficiente, arrancamos con 120 unidades
                 if(rutasEstructurales.length > 30 && unidadesActivas.length === 0) ajustarFlota(120);
 
             } catch(e) { console.log(`Fallo cartografía: ${sistema}`); }
         }
 
-        // --- 4. MOTOR DE TRÁFICO INTERACTIVO ---
+        // --- 4. MOTOR DE TRÁFICO INTERACTIVO (FÍSICA REALISTA) ---
         function cambiarUnidades() {
-            const nuevas = Math.floor(Math.random() * 160) + 40; // Rango 40 a 200
+            const nuevas = Math.floor(Math.random() * 160) + 40; 
             ajustarFlota(nuevas);
+
+            // Al alterar, también cambiamos aleatoriamente la dirección de los autobuses actuales
+            unidadesActivas.forEach(bus => {
+                bus.dir *= -1; // Invierte el flujo
+                // Intercambiamos origen y destino para suavizar la animación al voltear
+                const tempIdx = bus.currentIdx;
+                bus.currentIdx = bus.targetIdx;
+                bus.targetIdx = tempIdx;
+                bus.progress = 1 - bus.progress; // Si iba al 80%, ahora va al 20% en reversa
+                
+                // Actualizamos las latitudes/longitudes de referencia
+                bus.startLat = bus.nodos[bus.currentIdx][0]; bus.startLng = bus.nodos[bus.currentIdx][1];
+                bus.targetLat = bus.nodos[bus.targetIdx][0]; bus.targetLng = bus.nodos[bus.targetIdx][1];
+            });
+
+            // Y forzamos un cambio de armonía para reflejar la disrupción
+            indiceArmonia = Math.floor(Math.random() * progresión.length);
         }
 
         function ajustarFlota(numMeta) {
             document.getElementById('val-buses').innerText = numMeta;
-            // A más unidades, el tempo (BPM) acelera la ciudad
             const bpm = Math.floor(80 + (numMeta * 0.3));
             Tone.Transport.bpm.rampTo(bpm, 1);
             document.getElementById('val-bpm').innerText = bpm;
 
-            // Agregar unidades si faltan
             while(unidadesActivas.length < numMeta) {
                 const rutaObj = rutasEstructurales[Math.floor(Math.random() * rutasEstructurales.length)];
                 if(!rutaObj) break;
-                const idx = Math.floor(Math.random() * (rutaObj.nodos.length - 1));
+                
+                // Empezamos siempre desde una terminal (nodo 0 o el último) para que recorran toda la línea
+                const desdeInicio = Math.random() > 0.5;
+                const idx = desdeInicio ? 0 : rutaObj.nodos.length - 1;
+                const dir = desdeInicio ? 1 : -1;
+                const targetIdx = idx + dir;
                 
                 unidadesActivas.push({
-                    rutaObj: rutaObj, nodos: rutaObj.nodos, currentIdx: idx, targetIdx: idx + 1, dir: 1,
-                    startLat: rutaObj.nodos[idx][0], startLng: rutaObj.nodos[idx][1], targetLat: rutaObj.nodos[idx+1][0], targetLng: rutaObj.nodos[idx+1][1],
-                    progress: Math.random(), velocidad: (Math.random() * 0.006) + 0.002, 
+                    rutaObj: rutaObj, nodos: rutaObj.nodos, 
+                    currentIdx: idx, targetIdx: targetIdx, dir: dir,
+                    startLat: rutaObj.nodos[idx][0], startLng: rutaObj.nodos[idx][1], 
+                    targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
+                    progress: 0, // Inician en 0 para recorrer suavemente
+                    velocidad: (Math.random() * 0.008) + 0.002, 
                     marker: L.circleMarker(rutaObj.nodos[idx], { radius: 2, color: rutaObj.color, fillColor: rutaObj.color, fillOpacity: 1, weight: 1 }).addTo(map)
                 });
             }
 
-            // Quitar unidades si sobran
             while(unidadesActivas.length > numMeta) {
                 const bus = unidadesActivas.pop();
                 map.removeLayer(bus.marker);
@@ -354,7 +378,7 @@
                 if (bus.progress >= 1) {
                     bus.progress = 1;
                     
-                    // GATILLO ARMÓNICO
+                    // GATILLO ARMÓNICO EN ESTACIÓN
                     if (audioActivo) {
                         try {
                             const t = Tone.now() + (Math.random() * 0.05);
@@ -375,13 +399,23 @@
                         } catch (e) {}
                     }
 
-                    bus.currentIdx = bus.targetIdx; bus.targetIdx += bus.dir;
-                    if(bus.targetIdx >= bus.nodos.length || bus.targetIdx < 0) { bus.dir *= -1; bus.targetIdx = bus.currentIdx + bus.dir; }
+                    // FÍSICA: Avanzar al siguiente nodo de la línea (Recorrido completo)
+                    bus.currentIdx = bus.targetIdx; 
+                    bus.targetIdx += bus.dir;
+                    
+                    // Si llegamos a una terminal (punta de la línea), da la vuelta
+                    if(bus.targetIdx >= bus.nodos.length || bus.targetIdx < 0) { 
+                        bus.dir *= -1; 
+                        bus.targetIdx = bus.currentIdx + bus.dir; 
+                    }
+                    
+                    // Actualizar las latitudes de referencia para la interpolación del siguiente frame
                     bus.startLat = bus.nodos[bus.currentIdx][0]; bus.startLng = bus.nodos[bus.currentIdx][1];
                     bus.targetLat = bus.nodos[bus.targetIdx][0]; bus.targetLng = bus.nodos[bus.targetIdx][1];
                     bus.progress = 0;
                 }
 
+                // Matemáticas: Interpolación Lineal
                 const curLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
                 const curLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
                 bus.marker.setLatLng([curLat, curLng]);
@@ -396,7 +430,7 @@
                 el.classList.remove('active'); btn.classList.remove('active');
             } else {
                 el.classList.add('active'); btn.classList.add('active');
-                redimensionarCanvases(); // Ajustar resolución interna al abrir
+                redimensionarCanvases(); 
             }
         }
 
@@ -441,7 +475,6 @@
 
             is3DReady = true;
             
-            // Zoom Wheel en 3D
             document.getElementById('gadget-3d').addEventListener('wheel', (e) => {
                 e.preventDefault(); camera3D.position.z += e.deltaY * 0.01; camera3D.position.z = Math.max(4, Math.min(20, camera3D.position.z));
             }, { passive: false });
@@ -452,13 +485,15 @@
             if(!audioActivo) return;
 
             const dataArrayFft = new Uint8Array(analyserFFT.frequencyBinCount); analyserFFT.getByteFrequencyData(dataArrayFft);
+            
+            // FIX: Obtener datos de la forma de onda
             const dataArrayWave = new Uint8Array(analyserWave.fftSize); analyserWave.getByteTimeDomainData(dataArrayWave);
             
             let sum = 0; for(let i=0; i<dataArrayFft.length; i++) sum += dataArrayFft[i];
             let avgNorm = (sum / dataArrayFft.length) / 255;
             let glitchVal = parseInt(document.getElementById('ctrl-glitch').value) / 100;
 
-            // DRAW WAVEFORM
+            // DRAW WAVEFORM (Osciloscopio Reparado)
             if(document.getElementById('gadget-wave').classList.contains('active')) {
                 wCtx.fillStyle = '#020202'; wCtx.fillRect(0, 0, wCanvas.width, wCanvas.height);
                 wCtx.lineWidth = 2; wCtx.beginPath(); wCtx.strokeStyle = `var(--ui-accent)`;
