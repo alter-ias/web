@@ -102,9 +102,7 @@
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
 
         /* RESPONSIVIDAD MÓVIL */
-        @media (min-width: 769px) {
-            .mobile-warning { display: none; }
-        }
+        @media (min-width: 769px) { .mobile-warning { display: none; } }
         @media (max-width: 768px) {
             #main-ui, #gadget-dock, .gadget { display: none !important; }
             .mobile-warning { display: block; margin-top: 25px; padding: 15px; border: 1px solid var(--neon-magenta); background: rgba(255,0,60,0.1); border-radius: 10px; font-size: 0.75rem; line-height: 1.5; color: var(--text); }
@@ -193,6 +191,7 @@
         let rutasEstructurales = []; 
         let unidadesActivas = [];
         let atascosActivos = []; 
+        let estacionesReales = []; // Almacenará las coordenadas exactas de la API
         
         const sysConfig = {
             'METRO': { color: '#ff6600', grosor: 3, opacity: 0.3, inst: 'Sub-Bajo / Chords' },
@@ -215,11 +214,25 @@
 
         async function descargarRedCompleta() {
             try {
-                logConsole('Extrayendo cartografía de <span style="color:#00f0ff">apimetro.dev</span>...');
+                // 1. Descargar Estaciones Físicas Exactas
+                logConsole('Consultando puntos de abordaje reales en <span style="color:#00f0ff">apimetro.dev</span>...');
+                const resEst = await fetch('https://apimetro.dev/movilidad/mapas/estaciones?sistema=METRO,MB,CBB,TROLE');
+                const geojsonEst = await resEst.json();
+                
+                L.geoJSON(geojsonEst, {
+                    onEachFeature: f => {
+                        if(f.geometry.type === 'Point') {
+                            estacionesReales.push({ sys: f.properties.sistema, lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] });
+                        }
+                    }
+                });
+
+                // 2. Descargar y Tejer Líneas
+                logConsole('Extrayendo cartografía de vías...');
                 const res = await fetch('https://apimetro.dev/movilidad/mapas/geojsonLinea?sistema=METRO,MB,CBB,TROLE');
                 const geojson = await res.json();
                 
-                logConsole(`Geometrías descargadas. Tejiendo rutas completas...`);
+                logConsole(`Tejiendo rutas y anclando estaciones...`);
                 const legend = document.getElementById('legend-container');
                 let sistemasAgregados = new Set();
 
@@ -281,18 +294,17 @@
                                 }
                                 
                                 if(rutaUnica.length > 2) {
+                                    // FIX: ANCLAJE EXACTO A ESTACIONES DE LA API
                                     let esEstacion = new Array(rutaUnica.length).fill(false);
                                     esEstacion[0] = true; 
                                     esEstacion[rutaUnica.length - 1] = true; 
                                     
-                                    let distAcumulada = 0;
-                                    for(let i=0; i < rutaUnica.length - 1; i++) {
-                                        distAcumulada += calcDistancia(rutaUnica[i][0], rutaUnica[i][1], rutaUnica[i+1][0], rutaUnica[i+1][1]);
-                                        if(distAcumulada >= 0.8) { 
-                                            esEstacion[i+1] = true;
-                                            distAcumulada = 0;
-                                        }
+                                    // Compara cada nodo de la línea tejida con la base de estaciones reales
+                                    for(let i=1; i < rutaUnica.length - 1; i++) {
+                                        let cercana = estacionesReales.find(est => est.sys === sys && calcDistancia(rutaUnica[i][0], rutaUnica[i][1], est.lat, est.lng) < 0.05); // 50 metros de tolerancia
+                                        if(cercana) esEstacion[i] = true;
                                     }
+                                    
                                     rutasEstructurales.push({ sys: sys, color: colorReal, nodos: rutaUnica, esEstacion: esEstacion });
                                 }
                             }
@@ -321,8 +333,8 @@
         let indiceArmonia = 0;
         let audioActivo = false;
         const synths = {};
-        let audioCtx, analyserFFT, analyserWave;
-        let biquadFilter, distortionNode, limiter;
+        let analyserFFT, analyserWave;
+        let biquadFilter, distortionNode, masterLimiter;
 
         function makeDistortionCurve(amount) {
             let k = typeof amount === 'number' ? amount : 50, n = 44100, curve = new Float32Array(n), deg = Math.PI / 180, i = 0, x;
@@ -339,29 +351,25 @@
             Tone.Transport.bpm.value = 60; 
             audioActivo = true;
 
-            audioCtx = Tone.getContext().rawContext;
+            // FIX: RUTEO DE AUDIO ESTABLE Y BLINDADO
+            masterLimiter = new Tone.Limiter(-2).toDestination(); // Salida maestra protegida a -2dB
+            biquadFilter = new Tone.Filter(20000, "lowpass");
+            distortionNode = new Tone.Distortion(0);
             
-            // FIX: Limiter oficial de Tone.js para evitar que exploten las bocinas
-            limiter = new Tone.Limiter(-2).toDestination();
-            biquadFilter = audioCtx.createBiquadFilter(); biquadFilter.type = "lowpass";
-            distortionNode = audioCtx.createWaveShaper(); distortionNode.oversample = '4x';
-
-            analyserFFT = audioCtx.createAnalyser(); analyserFFT.fftSize = 512;
+            analyserFFT = new Tone.Analyser("fft", 512);
             analyserWave = new Tone.Analyser("waveform", 1024);
 
-            Tone.getDestination().disconnect(); // Muteamos el ruteo crudo para controlarlo con el Limiter
-            
-            // Re-enrutamos los efectos
-            Tone.connect(biquadFilter, distortionNode);
-            Tone.connect(distortionNode, limiter);
-            Tone.connect(distortionNode, analyserFFT);
-            limiter.connect(analyserWave);
+            // Cadena: Efectos -> Distorsión -> Analizadores -> Limitador -> Bocinas
+            biquadFilter.connect(distortionNode);
+            distortionNode.connect(analyserFFT);
+            distortionNode.connect(analyserWave);
+            distortionNode.connect(masterLimiter); 
 
-            const reverb = new Tone.Reverb(4); Tone.connect(reverb, biquadFilter);
+            const reverb = new Tone.Reverb(4).connect(biquadFilter);
             const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
 
             synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -14;
-            // FIX: Bajo dominado. Menos volumen y release corto.
+            // Bajo dominado para que no se sume infinitamente
             synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5, envelope: {release: 0.5}}).connect(biquadFilter); synths['BASS'].volume.value = -16;
             synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -12;
             synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); synths['PERC'].volume.value = -20;
@@ -499,7 +507,7 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                // FIX: Velocidad acelerada ligeramente respecto al caracol de la última versión
+                // Cero offset, anclado al centro geométrico. Velocidad balanceada.
                 velBase: (Math.random() * 0.00015) + 0.00005, 
                 velActual: 0,
                 estado: 'movimiento', 
@@ -512,7 +520,7 @@
             });
         }
 
-        // --- 4. MOTOR FÍSICO (CARRIL DERECHO, PLATOONING Y CHISPAS RESTRINGIDAS) ---
+        // --- 4. MOTOR FÍSICO CINÉTICO CONTINUO ---
         let lastTimeFisicas = performance.now();
         let frameCounter = 0; 
         let notasEsteFrame = 0; 
@@ -602,27 +610,8 @@
                     }
                 }
 
-                // Cálculo de base
-                let baseLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
-                let baseLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
-                
-                // FIX: OFFSET DE CARRIL DERECHO
-                let dx = bus.targetLng - bus.startLng;
-                let dy = bus.targetLat - bus.startLat;
-                let len = Math.sqrt(dx*dx + dy*dy);
-                
-                if (len > 0) {
-                    let offsetDist = 0.0001; // Desplazamiento aproximado de 10 metros en lat/lng
-                    // La normal a la derecha del vector de dirección es (dy, -dx)
-                    let nx = dy / len;
-                    let ny = -dx / len;
-                    bus.curLat = baseLat + ny * offsetDist;
-                    bus.curLng = baseLng + nx * offsetDist;
-                } else {
-                    bus.curLat = baseLat;
-                    bus.curLng = baseLng;
-                }
-
+                bus.curLat = bus.startLat + (bus.targetLat - bus.startLat) * bus.progress;
+                bus.curLng = bus.startLng + (bus.targetLng - bus.startLng) * bus.progress;
                 bus.marker.setLatLng([bus.curLat, bus.curLng]);
             });
 
