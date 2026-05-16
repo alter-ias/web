@@ -351,7 +351,8 @@
         let indiceArmonia = 0;
         let audioActivo = false;
         const synths = {};
-        let analyserFFT, analyserWave;
+        // FIX: Reincorporamos la variable audioCtx a nivel global
+        let audioCtx, analyserFFT, analyserWave;
         let biquadFilter, distortionNode, masterLimiter, mixNode;
 
         function makeDistortionCurve(amount) {
@@ -381,12 +382,16 @@
                 Tone.Transport.bpm.value = 60; 
                 audioActivo = true;
 
+                // FIX: Asignamos el contexto de audio
+                audioCtx = Tone.getContext().rawContext;
+                
                 masterLimiter = new Tone.Limiter(-2).toDestination(); 
                 mixNode = new Tone.Gain(1); 
                 biquadFilter = new Tone.Filter(20000, "lowpass");
                 distortionNode = new Tone.Distortion(0);
                 
-                analyserFFT = audioCtx ? audioCtx.createAnalyser() : Tone.getContext().rawContext.createAnalyser(); 
+                // Usamos audioCtx de manera segura
+                analyserFFT = audioCtx.createAnalyser(); 
                 analyserFFT.fftSize = 512;
                 analyserWave = new Tone.Analyser("waveform", 1024);
 
@@ -428,7 +433,7 @@
                 Tone.Transport.start(); 
 
             } catch (err) {
-                console.error("Audio desactivado para evitar congelamiento de interfaz.", err);
+                console.error("Error al arrancar el motor de audio:", err);
             }
         }
 
@@ -682,7 +687,6 @@
                             
                             if (bus.rutaObj.esEstacion[bus.currentIdx]) {
                                 bus.estado = 'estacion';
-                                // Si está en modo manual rápido, el tiempo de espera también se acelera
                                 bus.timer = 5000 / Math.max(0.1, globalSpeedMult); 
 
                                 if(audioActivo && notasEsteFrame < 3 && bus.rutaObj.sys !== 'METRO') {
@@ -853,7 +857,6 @@
             let waveData = [];
 
             try {
-                // Compatible tanto con audioCtx nativo como con Tone.Analyser wrapper
                 if (analyserFFT.getByteFrequencyData) {
                     analyserFFT.getByteFrequencyData(dataArrayFft);
                 } else if (analyserFFT.getValue) {
