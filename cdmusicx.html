@@ -125,6 +125,7 @@
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
 
         /* MAGIA RESPONSIVA MÓVIL */
+        @media (min-width: 769px) { .mobile-warning { display: none; } }
         @media (max-width: 768px) {
             .title-glitch { font-size: 2rem; }
             #gadget-dock {
@@ -150,6 +151,10 @@
             }
             #gadget-3d { height: 45vh !important; }
             #gadget-log, #gadget-wave, #gadget-fft, #gadget-fx { height: 35vh !important; }
+
+            /* Advertencia móvil visible */
+            .mobile-warning { display: block; margin-top: 20px; padding: 15px; border: 1px solid var(--ui-accent); background: rgba(0, 240, 255, 0.1); border-radius: 10px; font-size: 0.8rem; line-height: 1.5; color: #fff; text-align: center; }
+            .mobile-warning strong { color: var(--ui-accent); letter-spacing: 1px; font-family: 'Orbitron'; }
         }
     </style>
 </head>
@@ -162,6 +167,12 @@
             <div class="loading-console" id="loading-sequence">
                 <div>> Inicializando motor de telemetría urbana...</div>
             </div>
+            
+            <div class="mobile-warning">
+                <strong>[ VERSIÓN MÓVIL LIGERA ]</strong><br><br>
+                Para evitar la saturación de tu dispositivo, el motor de audio se ha limitado al poema y los acordes base. Para vivir la <strong>sinfonía generativa completa</strong> y los gadgets, entra desde una PC.
+            </div>
+
             <button class="play-btn" id="btn-start" onclick="arrancarSistema()" disabled>ESPERANDO RED...</button>
         </div>
     </div>
@@ -246,7 +257,6 @@
     </div>
 
     <script>
-        // --- TEXTO BRUTO INCRUSTADO ---
         const srtDataRaw = `1
 00:00:05,875 --> 00:00:10,333
 <b>El pianista solo aporreaba las teclas</b>
@@ -667,6 +677,8 @@
 00:03:27,750 --> 00:03:29,916
 <b>No más frases, solo gritos, gritos.</b>`;
 
+        // --- VARIABLES GLOBALES (Modificadas para móvil) ---
+        let isMobileDevice = window.innerWidth <= 768; // Detector de móvil global
         let isManualMode = false;
         
         const MAX_FLOTA = { 'METRO': 269, 'MB': 872, 'CBB': 753, 'TROLE': 425 };
@@ -917,7 +929,6 @@
                 
                 const poemReverb = new Tone.Freeverb({roomSize: 0.85, dampening: 2000}).connect(mixNode);
 
-                // --- NUEVO PARSER TIPO TANQUE ---
                 const lines = srtDataRaw.split('\n');
                 for (let i = 0; i < lines.length; i++) {
                     if (lines[i].includes('-->')) {
@@ -945,7 +956,6 @@
                         loop: true,
                         onload: () => { pDur = poemPlayer.buffer.duration; pStart = Tone.now(); poemPlayer.start(); }
                     }).connect(poemReverb);
-                    // POEMA MÁS FUERTE (-5dB) PARA QUE RESALTE
                     poemPlayer.volume.value = -5; 
                 } catch(e) {}
 
@@ -956,10 +966,8 @@
                 const reverb = new Tone.Freeverb({roomSize: 0.7, dampening: 3000}).connect(biquadFilter);
                 const delay = new Tone.FeedbackDelay("8n", 0.5).connect(reverb);
 
-                const isMobile = window.innerWidth <= 768;
-                const polyLimit = isMobile ? 4 : 12;
+                const polyLimit = isMobileDevice ? 4 : 12;
 
-                // SINTETIZADORES MÁS BAJOS PARA NO AHOGAR EL POEMA
                 synths['METRO'] = new Tone.PolySynth(Tone.Synth, { maxPolyphony: polyLimit, oscillator: { type: "sine" }, envelope: { attack: 0.1, release: 2 } }).connect(reverb); 
                 synths['METRO'].volume.value = -16;
                 
@@ -981,8 +989,11 @@
                 new Tone.Loop(time => {
                     indiceArmonia = (indiceArmonia + 1) % progresión.length;
                     synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes, "1n", time);
-                    synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "8n", time);
-                    synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "8n", time + Tone.Time("4n").toSeconds() + Tone.Time("8n").toSeconds());
+                    // EN MÓVIL, ELIMINAMOS EL BAJO PARA ALIGERAR AÚN MÁS EL CPU Y SOLO DEJAMOS EL ARMÓNICO
+                    if (!isMobileDevice) {
+                        synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "8n", time);
+                        synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "8n", time + Tone.Time("4n").toSeconds() + Tone.Time("8n").toSeconds());
+                    }
                 }, "2m").start(0);
 
                 Tone.Transport.start(); 
@@ -1150,8 +1161,11 @@
 
         function canPlayNote() {
             if(!audioActivo) return false;
+            // BLOQUEO ABSOLUTO EN MÓVIL: Apaga los sonidos de colisión generativos para salvar el CPU
+            if(isMobileDevice) return false; 
+            
             let now = Tone.now();
-            let limiteFuego = window.innerWidth <= 768 ? 0.3 : 0.15; 
+            let limiteFuego = 0.15; 
             if (now - lastNotePlayed > limiteFuego) { lastNotePlayed = now; return true; }
             return false;
         }
@@ -1237,7 +1251,7 @@
             });
 
             frameCounter++;
-            const freqCruce = window.innerWidth <= 768 ? 12 : 5;
+            const freqCruce = isMobileDevice ? 12 : 5;
             if (frameCounter >= freqCruce) {
                 frameCounter = 0;
                 for (let i = 0; i < unidadesActivas.length; i++) {
@@ -1283,12 +1297,11 @@
 
         function toggleGadget(id, btn) {
             const el = document.getElementById(id);
-            const isMobile = window.innerWidth <= 768;
 
             if(el.classList.contains('active')) {
                 el.classList.remove('active'); btn.classList.remove('active');
             } else {
-                if (isMobile && id !== 'gadget-subs') {
+                if (isMobileDevice && id !== 'gadget-subs') {
                     const allGadgets = ['gadget-main', 'gadget-3d', 'gadget-wave', 'gadget-fft', 'gadget-fx', 'gadget-log'];
                     allGadgets.forEach(gId => {
                         if(gId !== id) {
@@ -1322,7 +1335,10 @@
                 renderer3D.setSize(wrapper.clientWidth, wrapper.clientHeight); camera3D.aspect = wrapper.clientWidth / wrapper.clientHeight; camera3D.updateProjectionMatrix();
             }
         }
-        window.addEventListener('resize', redimensionarCanvases);
+        window.addEventListener('resize', () => {
+            isMobileDevice = window.innerWidth <= 768; // Actualiza el flag dinámicamente
+            redimensionarCanvases();
+        });
 
         function iniciarVisualizador3D() {
             const wrapper = document.getElementById('c3d-wrapper'); const canvas = document.getElementById('canvas-3d');
