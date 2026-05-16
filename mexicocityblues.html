@@ -52,7 +52,7 @@
         .glass-panel { background: var(--glass-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid var(--glass-border); border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); pointer-events: auto; position: absolute; display: flex; flex-direction: column; }
         .panel-header { padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.05); font-family: 'Orbitron', sans-serif; font-size: 0.65rem; letter-spacing: 2px; color: #888; text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
 
-        /* GADGET DATA CORE (Antes Panel Lateral) */
+        /* GADGET DATA CORE */
         .real-data-box { padding: 15px; font-size: 0.7rem; color: #aaa; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .real-data-box div { display: flex; justify-content: space-between; margin-bottom: 6px; }
         .real-data-box span { color: #fff; font-family: 'Orbitron'; font-weight: bold;}
@@ -96,9 +96,19 @@
         #gadget-wave { bottom: 80px; left: 20px; width: 260px; height: 130px; }
         #gadget-fft { bottom: 80px; right: 20px; width: 260px; height: 130px; }
         
-        /* GADGET SUBS */
-        #gadget-subs { bottom: 80px; left: 50%; transform: translateX(-50%); width: 600px; height: 100px; transition: opacity 0.3s; }
-        #subs-display { width: 100%; text-align: center; color: #fff; font-family: 'Share Tech Mono', monospace; font-size: 1.2rem; text-shadow: 0 0 8px var(--ui-accent); padding: 15px; box-sizing: border-box; }
+        /* GADGET SUBS REFINADO */
+        #gadget-subs { 
+            bottom: 80px; left: 50%; transform: translateX(-50%); 
+            width: fit-content; max-width: 800px; min-width: 300px;
+            padding: 15px 30px; border-radius: 20px; /* Estilo dock redondo */
+            transition: opacity 0.3s; opacity: 0; /* Oculto por defecto */
+            height: auto;
+        }
+        #subs-display { 
+            width: 100%; text-align: center; color: #fff; 
+            font-family: 'Share Tech Mono', monospace; font-size: 1.2rem; 
+            text-shadow: 0 0 8px var(--ui-accent); line-height: 1.4; 
+        }
 
         .log-entry { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .log-entry:last-child { border-bottom: none; }
@@ -152,8 +162,7 @@
         <button class="dock-btn" onclick="toggleGadget('gadget-fft', this)">[ FFT ]</button>
         <button class="dock-btn" onclick="toggleGadget('gadget-fx', this)">[ FX DSP ]</button>
         <button class="dock-btn" onclick="toggleGadget('gadget-log', this)">[ ACTIVITY LOG ]</button>
-        <button class="dock-btn active" onclick="toggleGadget('gadget-subs', this)">[ LYRICS ]</button>
-    </div>
+        <button class="dock-btn active" onclick="toggleGadget('gadget-subs', this)">[ SUBT ]</button> </div>
 
     <div id="gadget-main" class="gadget glass-panel active">
         <div class="panel-header"><span>ESTADO DEL SISTEMA</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(1)').click()">×</span></div>
@@ -187,10 +196,7 @@
     </div>
 
     <div id="gadget-subs" class="gadget glass-panel active">
-        <div class="panel-header"><span>TRANSMISIÓN</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(7)').click()">×</span></div>
-        <div class="gadget-content" style="display: flex; align-items: center; justify-content: center;">
-            <div id="subs-display"></div>
-        </div>
+        <div id="subs-display"></div>
     </div>
 
     <div id="gadget-3d" class="gadget glass-panel">
@@ -231,11 +237,11 @@
         
         // CAPACIDADES REALES CDMX
         const MAX_FLOTA = { 'METRO': 269, 'MB': 872, 'CBB': 753, 'TROLE': 425 };
-        const TOTAL_MAX = MAX_FLOTA.METRO + MAX_FLOTA.MB + MAX_FLOTA.CBB + MAX_FLOTA.TROLE; // 2319
+        const TOTAL_MAX = MAX_FLOTA.METRO + MAX_FLOTA.MB + MAX_FLOTA.CBB + MAX_FLOTA.TROLE;
 
         let manualNodes = TOTAL_MAX;
         let manualSpeedMult = 4.0;
-        let globalSpeedMult = 4.0; // Velocidad base auto = 4x
+        let globalSpeedMult = 4.0; 
         let globalJamProb = 0.0005;
         let targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
 
@@ -245,6 +251,7 @@
         
         // DICCIONARIO PARA LOG COHERENTE
         let estacionesPorSys = { 'METRO': [], 'MB': [], 'CBB': [], 'TROLE': [] }; 
+        let lastLoggedSys = ""; // Variable de equidad para el Log
 
         const progresión = [
             { acordes: ["C4", "Eb4", "G4", "Bb4"], escala: ["C4", "Eb4", "F4", "G4", "Bb4", "C5"], bajo: "C2" },
@@ -406,11 +413,15 @@
         window.onload = descargarRedCompleta;
 
         function logActividadUI(sys, evento) {
+            // ALGORITMO DE EQUIDAD: Evitar que MB inunde la pantalla bloqueando logs repetitivos
+            if (sys === lastLoggedSys && Math.random() > 0.15) return; 
+
             const container = document.getElementById('log-content');
             let listaNombres = estacionesPorSys[sys];
             if (!listaNombres || listaNombres.length === 0) return;
             
-            // AHORA EL NOMBRE ES COHERENTE CON EL SISTEMA
+            lastLoggedSys = sys; // Actualizamos el último sistema logueado
+            
             const estacion = listaNombres[Math.floor(Math.random() * listaNombres.length)];
             const color = sysConfig[sys] ? sysConfig[sys].color : "#fff";
             
@@ -463,20 +474,30 @@
                 
                 const poemReverb = new Tone.Freeverb({roomSize: 0.85, dampening: 2000}).connect(mixNode);
 
+                // --- NUEVO PARSER DE SRT ROBUSTO (Ignora problemas de saltos de línea) ---
                 fetch('assets/cdmx/mcb01.srt')
-                    .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+                    .then(r => r.text())
                     .then(t => {
-                        const rx = /(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+([\s\S]*?(?=(?:\s*\n\d+\s+\d{2}:\d{2}:\d{2},\d{3})|$(?![\s\S])))/g;
-                        let m;
-                        while ((m = rx.exec(t)) !== null) {
-                            let s = m[2].split(/[:,]/), e = m[3].split(/[:,]/);
-                            subs.push({
-                                s: (+s[0]) * 3600 + (+s[1]) * 60 + (+s[2]) + (+s[3]) / 1000,
-                                e: (+e[0]) * 3600 + (+e[1]) * 60 + (+e[2]) + (+e[3]) / 1000,
-                                txt: m[4].trim().replace(/\n/g, '<br>')
-                            });
-                        }
-                    }).catch(e => { logActividadUI('SYS', 'Error cargando SRT'); });
+                        t = t.replace(/\r\n/g, '\n'); // Normalizar retornos de carro
+                        const blocks = t.split(/\n\n+/);
+                        blocks.forEach(block => {
+                            const lines = block.split('\n');
+                            if (lines.length >= 3) {
+                                const times = lines[1].split(' --> ');
+                                if (times.length === 2) {
+                                    const parseTime = str => {
+                                        const p = str.replace(',', '.').split(':');
+                                        return (+p[0]) * 3600 + (+p[1]) * 60 + (+parseFloat(p[2]));
+                                    };
+                                    subs.push({
+                                        s: parseTime(times[0]),
+                                        e: parseTime(times[1]),
+                                        txt: lines.slice(2).join('<br>').trim()
+                                    });
+                                }
+                            }
+                        });
+                    }).catch(e => console.warn("Error cargando SRT", e));
 
                 try {
                     const poemPlayer = new Tone.Player({
@@ -577,7 +598,6 @@
                 document.getElementById('status-display').innerText = "MODO MANUAL / ALTERACIÓN ACTIVA";
                 globalSpeedMult = manualSpeedMult;
                 
-                // Reparto proporcional en modo manual
                 let ratio = manualNodes / TOTAL_MAX;
                 targets['METRO'] = Math.floor(MAX_FLOTA.METRO * ratio);
                 targets['MB'] = Math.floor(MAX_FLOTA.MB * ratio);
@@ -594,11 +614,10 @@
                 return;
             }
 
-            globalSpeedMult = 4.0; // Velocidad base del automático
+            globalSpeedMult = 4.0; 
             let h = hora + minutos/60;
             let factor = getCapacidadPorHora(h);
             
-            // Añadimos ruido orgánico
             let randomVar = (Math.sin(minutos * 0.5) * 0.04) + (Math.cos(hora * 10 + minutos * 0.2) * 0.02);
             factor = Math.min(1.0, Math.max(0.01, factor + randomVar));
 
@@ -606,10 +625,9 @@
             let estadoTxt = "";
 
             if (h >= 0 && h < 5) {
-                // NOCHEBÚS
                 estadoTxt = "MADRUGADA / GUARDIA NOCTURNA";
-                tMB = 12;    // Representando L1
-                tTrole = 8;  // Representando Eje Central
+                tMB = 12;    
+                tTrole = 8;  
             } else {
                 tMetro = Math.floor(MAX_FLOTA.METRO * factor);
                 tMB = Math.floor(MAX_FLOTA.MB * factor);
@@ -747,12 +765,18 @@
                             if (bus.rutaObj.esEstacion[bus.currentIdx]) {
                                 bus.estado = 'estacion';
                                 bus.timer = 5000 / Math.max(0.1, globalSpeedMult); 
+                                
+                                // EL LOG AHORA SE REGISTRA PARA TODOS LOS SISTEMAS INDEPENDIENTEMENTE DEL SONIDO
+                                if (Math.random() < 0.4) { // Límite local para no saturar
+                                    logActividadUI(bus.rutaObj.sys, "PARADA");
+                                }
+
                                 if(bus.rutaObj.sys !== 'METRO' && canPlayNote()) {
                                     try {
                                         const escala = progresión[indiceArmonia].escala;
                                         const nota = escala[Math.floor(Math.random() * escala.length)];
                                         synths[bus.rutaObj.sys].triggerAttackRelease(nota, "8n", "+0.05", 0.3); 
-                                        logActividadUI(bus.rutaObj.sys, "PARADA");
+                                        
                                         bus.marker.setStyle({ fillColor: '#ffffff', radius: 4 });
                                         setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, radius: 2 }); }, 200);
                                     } catch (e) { }
@@ -786,22 +810,27 @@
                             if (ahead.estado === 'estacion' || ahead.estado === 'atasco') { behind.estado = 'atasco'; behind.timer = ahead.timer + 200; }
                         } else if (distKm < 0.05 && !b1.chispaCoolDown && !b2.chispaCoolDown) {
                             let hacenChispa = (b1.rutaObj.sys !== b2.rutaObj.sys) || (b1.rutaObj === b2.rutaObj && b1.dir !== b2.dir);
-                            if (hacenChispa && canPlayNote()) {
-                                try {
-                                    const nota = progresión[indiceArmonia].escala[Math.floor(Math.random() * progresión[indiceArmonia].escala.length)];
-                                    synths[b1.rutaObj.sys].triggerAttackRelease(nota, "16n", "+0.05", 0.6);
-                                    if (b2.rutaObj.sys === 'MB' || b2.rutaObj.sys === 'TROLE') synths['PERC'].triggerAttackRelease("16n", "+0.05", 0.3);
-                                    
-                                    logActividadUI(b1.rutaObj.sys, "CRUCE");
-                                    b1.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 5 });
-                                    b2.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 5 });
-                                    setTimeout(() => { 
-                                        if(b1.marker) b1.marker.setStyle({ fillColor: b1.rutaObj.color, color: b1.rutaObj.color, radius: 2 }); 
-                                        if(b2.marker) b2.marker.setStyle({ fillColor: b2.rutaObj.color, color: b2.rutaObj.color, radius: 2 }); 
-                                    }, 300);
-                                    b1.chispaCoolDown = true; b2.chispaCoolDown = true;
-                                    setTimeout(() => { b1.chispaCoolDown = false; b2.chispaCoolDown = false; }, 2000);
-                                } catch(e) {}
+                            
+                            // EL LOG DE CRUCE TAMBIÉN APLICA A TODOS
+                            if (hacenChispa) {
+                                if (Math.random() < 0.3) logActividadUI(b1.rutaObj.sys, "CRUCE");
+                                
+                                if (canPlayNote()) {
+                                    try {
+                                        const nota = progresión[indiceArmonia].escala[Math.floor(Math.random() * progresión[indiceArmonia].escala.length)];
+                                        synths[b1.rutaObj.sys].triggerAttackRelease(nota, "16n", "+0.05", 0.6);
+                                        if (b2.rutaObj.sys === 'MB' || b2.rutaObj.sys === 'TROLE') synths['PERC'].triggerAttackRelease("16n", "+0.05", 0.3);
+                                        
+                                        b1.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 5 });
+                                        b2.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 5 });
+                                        setTimeout(() => { 
+                                            if(b1.marker) b1.marker.setStyle({ fillColor: b1.rutaObj.color, color: b1.rutaObj.color, radius: 2 }); 
+                                            if(b2.marker) b2.marker.setStyle({ fillColor: b2.rutaObj.color, color: b2.rutaObj.color, radius: 2 }); 
+                                        }, 300);
+                                        b1.chispaCoolDown = true; b2.chispaCoolDown = true;
+                                        setTimeout(() => { b1.chispaCoolDown = false; b2.chispaCoolDown = false; }, 2000);
+                                    } catch(e) {}
+                                }
                             }
                         }
                     }
@@ -860,14 +889,23 @@
         function drawGadgets() {
             requestAnimationFrame(drawGadgets);
             
+            // --- CONTROL VISUAL DE SUBTÍTULOS ---
             let subEl = document.getElementById('subs-display');
             let subContainer = document.getElementById('gadget-subs');
             
             if (pDur > 0 && subs.length > 0 && subContainer.classList.contains('active')) {
                 let currT = (Tone.now() - pStart) % pDur; 
                 let act = subs.find(s => currT >= s.s && currT <= s.e);
-                if (act) { subEl.innerHTML = act.txt; subEl.style.opacity = '1'; } 
-                else { subEl.innerHTML = ''; subEl.style.opacity = '0'; }
+                
+                if (act) { 
+                    subEl.innerHTML = act.txt; 
+                    subContainer.style.opacity = '1'; 
+                } else { 
+                    subEl.innerHTML = ''; 
+                    subContainer.style.opacity = '0'; 
+                }
+            } else {
+                subContainer.style.opacity = '0';
             }
 
             if(!audioActivo || !analyserFFT) return;
