@@ -96,18 +96,19 @@
         #gadget-wave { bottom: 80px; left: 20px; width: 260px; height: 130px; }
         #gadget-fft { bottom: 80px; right: 20px; width: 260px; height: 130px; }
         
-        /* GADGET SUBS REFINADO */
+        /* GADGET SUBS REFINADO Y VISIBLE */
         #gadget-subs { 
             bottom: 80px; left: 50%; transform: translateX(-50%); 
             width: fit-content; max-width: 800px; min-width: 300px;
-            padding: 15px 30px; border-radius: 20px; /* Estilo dock redondo */
-            transition: opacity 0.3s; opacity: 0; /* Oculto por defecto */
+            padding: 15px 30px; border-radius: 20px; 
             height: auto;
+            justify-content: center; align-items: center;
         }
         #subs-display { 
             width: 100%; text-align: center; color: #fff; 
             font-family: 'Share Tech Mono', monospace; font-size: 1.2rem; 
             text-shadow: 0 0 8px var(--ui-accent); line-height: 1.4; 
+            min-height: 1.6rem; /* Para que la caja no colapse si no hay texto */
         }
 
         .log-entry { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
@@ -162,7 +163,8 @@
         <button class="dock-btn" onclick="toggleGadget('gadget-fft', this)">[ FFT ]</button>
         <button class="dock-btn" onclick="toggleGadget('gadget-fx', this)">[ FX DSP ]</button>
         <button class="dock-btn" onclick="toggleGadget('gadget-log', this)">[ ACTIVITY LOG ]</button>
-        <button class="dock-btn active" onclick="toggleGadget('gadget-subs', this)">[ SUBT ]</button> </div>
+        <button class="dock-btn active" onclick="toggleGadget('gadget-subs', this)">[ SUBT ]</button>
+    </div>
 
     <div id="gadget-main" class="gadget glass-panel active">
         <div class="panel-header"><span>ESTADO DEL SISTEMA</span><span class="close-btn" onclick="document.querySelector('#gadget-dock button:nth-child(1)').click()">×</span></div>
@@ -249,9 +251,11 @@
         let unidadesActivas = [];
         let atascosActivos = []; 
         
-        // DICCIONARIO PARA LOG COHERENTE
         let estacionesPorSys = { 'METRO': [], 'MB': [], 'CBB': [], 'TROLE': [] }; 
-        let lastLoggedSys = ""; // Variable de equidad para el Log
+        
+        // --- CONTROL DE COOLDOWN DEL LOG PARA EVITAR CAOS ---
+        let logCooldowns = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
+        const SYS_COOLDOWN = 1500; // Mínimo 1.5 segundos entre mensajes del MISMO sistema
 
         const progresión = [
             { acordes: ["C4", "Eb4", "G4", "Bb4"], escala: ["C4", "Eb4", "F4", "G4", "Bb4", "C5"], bajo: "C2" },
@@ -413,14 +417,15 @@
         window.onload = descargarRedCompleta;
 
         function logActividadUI(sys, evento) {
-            // ALGORITMO DE EQUIDAD: Evitar que MB inunde la pantalla bloqueando logs repetitivos
-            if (sys === lastLoggedSys && Math.random() > 0.15) return; 
+            let now = performance.now();
+            
+            // FILTRO ESTRICTO DE VELOCIDAD POR SISTEMA
+            if (now - logCooldowns[sys] < SYS_COOLDOWN) return; 
+            logCooldowns[sys] = now; 
 
             const container = document.getElementById('log-content');
             let listaNombres = estacionesPorSys[sys];
             if (!listaNombres || listaNombres.length === 0) return;
-            
-            lastLoggedSys = sys; // Actualizamos el último sistema logueado
             
             const estacion = listaNombres[Math.floor(Math.random() * listaNombres.length)];
             const color = sysConfig[sys] ? sysConfig[sys].color : "#fff";
@@ -437,6 +442,13 @@
             if (container.children.length > 6) {
                 container.removeChild(container.lastChild);
             }
+        }
+
+        // Parseador de tiempo manual para evitar bugs del objeto Date
+        function parseTimeStr(str) {
+            let p = str.trim().replace(',', '.').split(':');
+            if (p.length < 3) return 0;
+            return (+p[0]) * 3600 + (+p[1]) * 60 + (+parseFloat(p[2]));
         }
 
         // --- AUDIO GRAPH Y SISTEMA ---
@@ -474,30 +486,38 @@
                 
                 const poemReverb = new Tone.Freeverb({roomSize: 0.85, dampening: 2000}).connect(mixNode);
 
-                // --- NUEVO PARSER DE SRT ROBUSTO (Ignora problemas de saltos de línea) ---
+                // --- NUEVO PARSER SRT (Basado en bloques, ignora formatos de salto de línea) ---
                 fetch('assets/cdmx/mcb01.srt')
                     .then(r => r.text())
                     .then(t => {
-                        t = t.replace(/\r\n/g, '\n'); // Normalizar retornos de carro
-                        const blocks = t.split(/\n\n+/);
-                        blocks.forEach(block => {
-                            const lines = block.split('\n');
-                            if (lines.length >= 3) {
-                                const times = lines[1].split(' --> ');
-                                if (times.length === 2) {
-                                    const parseTime = str => {
-                                        const p = str.replace(',', '.').split(':');
-                                        return (+p[0]) * 3600 + (+p[1]) * 60 + (+parseFloat(p[2]));
-                                    };
-                                    subs.push({
-                                        s: parseTime(times[0]),
-                                        e: parseTime(times[1]),
-                                        txt: lines.slice(2).join('<br>').trim()
-                                    });
+                        const lines = t.replace(/\r/g, '').split('\n');
+                        let i = 0;
+                        while(i < lines.length) {
+                            if (lines[i].trim() === '') { i++; continue; }
+                            
+                            // Si es un número (índice del SRT)
+                            if (!isNaN(lines[i].trim())) { 
+                                let timeLine = lines[i+1];
+                                if (timeLine && timeLine.includes('-->')) {
+                                    let times = timeLine.split('-->');
+                                    let s = parseTimeStr(times[0]);
+                                    let e = parseTimeStr(times[1]);
+                                    let txt = [];
+                                    i += 2;
+                                    
+                                    while(i < lines.length && lines[i].trim() !== '') {
+                                        txt.push(lines[i]);
+                                        i++;
+                                    }
+                                    subs.push({s: s, e: e, txt: txt.join('<br>')});
+                                    continue;
                                 }
                             }
-                        });
-                    }).catch(e => console.warn("Error cargando SRT", e));
+                            i++;
+                        }
+                    }).catch(e => {
+                        console.warn("SRT Error", e);
+                    });
 
                 try {
                     const poemPlayer = new Tone.Player({
@@ -766,10 +786,7 @@
                                 bus.estado = 'estacion';
                                 bus.timer = 5000 / Math.max(0.1, globalSpeedMult); 
                                 
-                                // EL LOG AHORA SE REGISTRA PARA TODOS LOS SISTEMAS INDEPENDIENTEMENTE DEL SONIDO
-                                if (Math.random() < 0.4) { // Límite local para no saturar
-                                    logActividadUI(bus.rutaObj.sys, "PARADA");
-                                }
+                                logActividadUI(bus.rutaObj.sys, "PARADA");
 
                                 if(bus.rutaObj.sys !== 'METRO' && canPlayNote()) {
                                     try {
@@ -811,9 +828,8 @@
                         } else if (distKm < 0.05 && !b1.chispaCoolDown && !b2.chispaCoolDown) {
                             let hacenChispa = (b1.rutaObj.sys !== b2.rutaObj.sys) || (b1.rutaObj === b2.rutaObj && b1.dir !== b2.dir);
                             
-                            // EL LOG DE CRUCE TAMBIÉN APLICA A TODOS
                             if (hacenChispa) {
-                                if (Math.random() < 0.3) logActividadUI(b1.rutaObj.sys, "CRUCE");
+                                logActividadUI(b1.rutaObj.sys, "CRUCE");
                                 
                                 if (canPlayNote()) {
                                     try {
@@ -889,23 +905,23 @@
         function drawGadgets() {
             requestAnimationFrame(drawGadgets);
             
-            // --- CONTROL VISUAL DE SUBTÍTULOS ---
+            // --- CONTROL VISUAL DE SUBTÍTULOS QUE SIEMPRE MUESTRA LA CAJA ---
             let subEl = document.getElementById('subs-display');
             let subContainer = document.getElementById('gadget-subs');
             
-            if (pDur > 0 && subs.length > 0 && subContainer.classList.contains('active')) {
-                let currT = (Tone.now() - pStart) % pDur; 
-                let act = subs.find(s => currT >= s.s && currT <= s.e);
-                
-                if (act) { 
-                    subEl.innerHTML = act.txt; 
-                    subContainer.style.opacity = '1'; 
-                } else { 
-                    subEl.innerHTML = ''; 
-                    subContainer.style.opacity = '0'; 
+            if (subContainer.classList.contains('active')) {
+                if (pDur > 0 && subs.length > 0) {
+                    let currT = (Tone.now() - pStart) % pDur; 
+                    let act = subs.find(s => currT >= s.s && currT <= s.e);
+                    
+                    if (act) { 
+                        subEl.innerHTML = act.txt; 
+                    } else { 
+                        subEl.innerHTML = '<span style="color: #666; font-size: 0.8rem;">[ ... ]</span>'; 
+                    }
+                } else {
+                    subEl.innerHTML = '<span style="color: #666; font-size: 0.8rem;">[ SINCRONIZANDO TRANSMISIÓN... ]</span>';
                 }
-            } else {
-                subContainer.style.opacity = '0';
             }
 
             if(!audioActivo || !analyserFFT) return;
