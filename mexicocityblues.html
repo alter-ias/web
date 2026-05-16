@@ -191,7 +191,7 @@
         let rutasEstructurales = []; 
         let unidadesActivas = [];
         let atascosActivos = []; 
-        let estacionesReales = [];
+        let estacionesReales = []; 
         
         const sysConfig = {
             'METRO': { color: '#ff6600', grosor: 3, opacity: 0.3, inst: 'Sub-Bajo / Chords' },
@@ -314,7 +314,6 @@
 
             } catch (e) {
                 logConsole('<span style="color:red">[ERROR CRÍTICO] API Inalcanzable. Revise conexión.</span>');
-                console.error(e);
             }
         }
         
@@ -340,18 +339,28 @@
         }
 
         async function arrancarSistema() {
+            // 1. INICIAR LÓGICA Y VISUALIZADOR PRIMERO (Para evitar congelamientos de UI)
             document.getElementById('start-screen').style.opacity = '0';
-            setTimeout(() => { document.getElementById('start-screen').style.display = 'none'; document.getElementById('main-ui').style.display = 'flex'; document.getElementById('gadget-dock').style.display = 'flex'; }, 1000);
+            setTimeout(() => { 
+                document.getElementById('start-screen').style.display = 'none'; 
+                document.getElementById('main-ui').style.display = 'flex'; 
+                document.getElementById('gadget-dock').style.display = 'flex'; 
+                redimensionarCanvases();
+            }, 1000);
 
+            iniciarVisualizador3D();
+            setInterval(sincronizarRelojUrbano, 1000);
+            sincronizarRelojUrbano();
+            animarFisicas();
+
+            // 2. INICIAR AUDIO DE FORMA SEGURA (Si falla, el mapa seguirá funcionando)
             try {
                 await Tone.start(); 
-                if (Tone.context.state !== 'running') {
-                    Tone.context.resume();
-                }
-
+                if (Tone.context.state !== 'running') await Tone.context.resume();
+                
                 Tone.Transport.bpm.value = 60; 
                 audioActivo = true;
-                
+
                 masterLimiter = new Tone.Limiter(-2).toDestination(); 
                 mixNode = new Tone.Gain(1); 
                 biquadFilter = new Tone.Filter(20000, "lowpass");
@@ -359,20 +368,25 @@
                 
                 analyserFFT = new Tone.Analyser("fft", 512);
                 analyserWave = new Tone.Analyser("waveform", 1024);
-                
-                biquadFilter.connect(distortionNode);
-                distortionNode.connect(mixNode);
-                
-                const poemPlayer = new Tone.Player({
-                    url: "assets/cdmxblues/mcb01.mp3",
-                    loop: true,
-                    autostart: true
-                }).connect(mixNode);
-                poemPlayer.volume.value = -8; 
 
-                mixNode.connect(analyserFFT);
-                mixNode.connect(analyserWave);
-                mixNode.connect(masterLimiter);
+                Tone.connect(biquadFilter, distortionNode);
+                Tone.connect(distortionNode, mixNode);
+                
+                // Carga segura del poema. Si falla el archivo, lo ignora silenciosamente.
+                try {
+                    const poemPlayer = new Tone.Player({
+                        url: "assets/cdmxblues/mcb01.mp3",
+                        loop: true,
+                        autostart: true
+                    }).connect(mixNode);
+                    poemPlayer.volume.value = -8; 
+                } catch(e) {
+                    console.warn("Poema no encontrado, continuando sin voz.");
+                }
+
+                Tone.connect(mixNode, analyserFFT);
+                Tone.connect(mixNode, analyserWave);
+                Tone.connect(mixNode, masterLimiter);
 
                 const reverb = new Tone.Reverb(4).connect(biquadFilter);
                 const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
@@ -390,20 +404,14 @@
                     synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "2n", time);
                 }, "4m").start(0);
 
-                Tone.Transport.start();
+                Tone.Transport.start(); 
 
             } catch (err) {
-                console.error("Error al iniciar audio:", err);
+                console.error("Audio desactivado para evitar congelamiento de interfaz.", err);
             }
-
-            iniciarVisualizador3D();
-            
-            setInterval(sincronizarRelojUrbano, 1000);
-            sincronizarRelojUrbano();
-            animarFisicas();
         }
 
-        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX ---
+        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX EXACTA ---
         let targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
         let globalSpeedMult = 1.0;
         let globalJamProb = 0.0005;
