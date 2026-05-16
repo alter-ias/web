@@ -87,7 +87,7 @@
         .close-btn { cursor: pointer; color: #666; font-weight: bold; transition: 0.2s; padding: 0 5px;}
         .close-btn:hover { color: var(--neon-magenta); }
 
-        /* POSICIONES GADGETS (Mapeo Desktop) */
+        /* POSICIONES GADGETS */
         #gadget-main { top: 20px; left: 20px; width: 280px; max-height: calc(100vh - 120px); overflow-y: auto; }
         #gadget-3d { top: 20px; right: 20px; width: 280px; height: 280px; }
         #gadget-fx { top: 320px; right: 20px; width: 280px; height: auto; }
@@ -124,38 +124,30 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
 
-        /* ========================================================= */
-        /* ============ MAGIA RESPONSIVA (MODO MÓVIL) ============== */
-        /* ========================================================= */
+        /* MAGIA RESPONSIVA MÓVIL */
         @media (max-width: 768px) {
             .title-glitch { font-size: 2rem; }
-            
-            /* Dock estilo menú inferior scrolleable */
             #gadget-dock {
                 width: 95%; bottom: 10px; padding: 10px;
                 justify-content: flex-start; overflow-x: auto;
                 -webkit-overflow-scrolling: touch; border-radius: 15px;
                 flex-wrap: nowrap;
             }
-            #gadget-dock::-webkit-scrollbar { display: none; } /* Limpieza visual en iOS/Android */
+            #gadget-dock::-webkit-scrollbar { display: none; }
             .dock-btn { flex-shrink: 0; padding: 10px 14px; font-size: 0.75rem; margin-right: 5px; }
 
-            /* Subtítulos al tope de la pantalla en móvil para no tapar el mapa central */
             #gadget-subs { 
                 top: 15px !important; bottom: auto !important; 
                 width: 90% !important; min-width: unset; padding: 10px 15px !important;
             }
             #subs-display { font-size: 0.95rem !important; }
 
-            /* El resto de gadgets se comportan como Modal Flotante Central */
             .gadget:not(#gadget-subs) {
                 top: 50% !important; bottom: auto !important; left: 50% !important; right: auto !important;
                 transform: translate(-50%, -50%) !important;
                 width: 90% !important; max-height: 70vh !important;
                 z-index: 1005 !important;
             }
-            
-            /* Alturas adaptativas para que los canvas no se aplasten */
             #gadget-3d { height: 45vh !important; }
             #gadget-log, #gadget-wave, #gadget-fft, #gadget-fx { height: 35vh !important; }
         }
@@ -254,7 +246,6 @@
     </div>
 
     <script>
-        // --- DATOS DE SUBTITULOS INCRUSTADOS Y TRADUCIDOS ---
         const srtDataRaw = `1
 00:00:05,875 --> 00:00:10,333
 <b>El pianista solo aporreaba las teclas</b>
@@ -675,10 +666,8 @@
 00:03:27,750 --> 00:03:29,916
 <b>No más frases, solo gritos, gritos.</b>`;
 
-        // --- VARIABLES GLOBALES ---
         let isManualMode = false;
         
-        // CAPACIDADES REALES CDMX
         const MAX_FLOTA = { 'METRO': 269, 'MB': 872, 'CBB': 753, 'TROLE': 425 };
         const TOTAL_MAX = MAX_FLOTA.METRO + MAX_FLOTA.MB + MAX_FLOTA.CBB + MAX_FLOTA.TROLE;
 
@@ -883,21 +872,17 @@
             }
         }
 
-        function parseTimeStr(str) {
-            let p = str.trim().replace(',', '.').split(':');
-            if (p.length < 3) return 0;
-            return (+p[0]) * 3600 + (+p[1]) * 60 + (+parseFloat(p[2]));
-        }
-
-        // --- AUDIO GRAPH Y SISTEMA ---
-        async function arrancarSistema() {
+        function arrancarSistema() {
             document.getElementById('start-screen').style.opacity = '0';
             setTimeout(() => { 
                 document.getElementById('start-screen').style.display = 'none'; 
                 document.getElementById('gadget-dock').style.display = 'flex'; 
                 redimensionarCanvases();
+                iniciarAudioYFisicas();
             }, 1000);
+        }
 
+        async function iniciarAudioYFisicas() {
             iniciarVisualizador3D();
             setInterval(sincronizarRelojUrbano, 1000);
             sincronizarRelojUrbano();
@@ -907,6 +892,8 @@
                 await Tone.start(); 
                 if (Tone.context.state !== 'running') await Tone.context.resume();
                 
+                // MÁGIA DE OPTIMIZACIÓN DE AUDIO PARA MÓVIL
+                Tone.context.lookAhead = 0.1; // Margen de procesamiento seguro para evitar el clipping
                 Tone.Transport.bpm.value = 65; 
                 audioActivo = true;
 
@@ -922,32 +909,19 @@
 
                 Tone.connect(biquadFilter, mixNode);
                 
+                // Freeverb es algorítmico y mucho más ligero en CPU que Tone.Reverb (Convolución)
                 const poemReverb = new Tone.Freeverb({roomSize: 0.85, dampening: 2000}).connect(mixNode);
 
-                // --- PROCESAMIENTO DIRECTO DE SUBTITULOS INCRUSTADOS ---
-                const lines = srtDataRaw.replace(/\r/g, '').split('\n');
-                let i = 0;
-                while(i < lines.length) {
-                    if (lines[i].trim() === '') { i++; continue; }
-                    
-                    if (!isNaN(lines[i].trim())) { 
-                        let timeLine = lines[i+1];
-                        if (timeLine && timeLine.includes('-->')) {
-                            let times = timeLine.split('-->');
-                            let s = parseTimeStr(times[0]);
-                            let e = parseTimeStr(times[1]);
-                            let txt = [];
-                            i += 2;
-                            
-                            while(i < lines.length && lines[i].trim() !== '') {
-                                txt.push(lines[i]);
-                                i++;
-                            }
-                            subs.push({s: s, e: e, txt: txt.join('<br>')});
-                            continue;
-                        }
-                    }
-                    i++;
+                // --- PARSER DE SUBTITULOS EXACTO (EL QUE YA FUNCIONABA) ---
+                const rx = /(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+([\s\S]*?(?=(?:\s*\n\d+\s+\d{2}:\d{2}:\d{2},\d{3})|$(?![\s\S])))/g;
+                let m;
+                while ((m = rx.exec(srtDataRaw)) !== null) {
+                    let s = m[2].split(/[:,]/), e = m[3].split(/[:,]/);
+                    subs.push({
+                        s: (+s[0]) * 3600 + (+s[1]) * 60 + (+s[2]) + (+s[3]) / 1000,
+                        e: (+e[0]) * 3600 + (+e[1]) * 60 + (+e[2]) + (+e[3]) / 1000,
+                        txt: m[4].trim().replace(/\n/g, '<br>')
+                    });
                 }
 
                 try {
@@ -963,25 +937,29 @@
                 mixNode.connect(analyserWave);
                 mixNode.connect(masterLimiter);
 
-                const reverb = new Tone.Reverb(4).connect(biquadFilter);
+                const reverb = new Tone.Freeverb({roomSize: 0.7, dampening: 3000}).connect(biquadFilter);
                 const delay = new Tone.FeedbackDelay("8n", 0.5).connect(reverb);
 
-                synths['METRO'] = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.1, release: 2 } }).connect(reverb); 
+                // LIMITAR POLIFONIA EN MOVIL EVITA QUE EL CPU SE QUEME
+                const isMobile = window.innerWidth <= 768;
+                const polyLimit = isMobile ? 4 : 12;
+
+                synths['METRO'] = new Tone.PolySynth(Tone.Synth, { maxPolyphony: polyLimit, oscillator: { type: "sine" }, envelope: { attack: 0.1, release: 2 } }).connect(reverb); 
                 synths['METRO'].volume.value = -8;
                 
                 synths['BASS'] = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 1 } }).connect(biquadFilter); 
                 synths['BASS'].volume.value = -6;
                 
-                synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); 
+                synths['MB'] = new Tone.PolySynth(Tone.Synth, { maxPolyphony: polyLimit, oscillator: {type: 'triangle'}}).connect(delay); 
                 synths['MB'].volume.value = -12;
                 
                 synths['PERC'] = new Tone.NoiseSynth({noise:{type:'pink'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); 
                 synths['PERC'].volume.value = -18;
                 
-                synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, {resonance: 4000, envelope: {attack: 0.01, decay: 0.8}}).connect(delay); 
+                synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, { maxPolyphony: polyLimit, resonance: 4000, envelope: {attack: 0.01, decay: 0.8}}).connect(delay); 
                 synths['CBB'].volume.value = -16;
                 
-                synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 1.5, envelope: {attack: 0.05, decay: 0.3}}).connect(delay); 
+                synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, { maxPolyphony: polyLimit, modulationIndex: 1.5, envelope: {attack: 0.05, decay: 0.3}}).connect(delay); 
                 synths['TROLE'].volume.value = -14;
 
                 new Tone.Loop(time => {
@@ -1027,7 +1005,6 @@
             if(isManualMode) sincronizarRelojUrbano();
         }
 
-        // --- MATEMATICA DE FLUJO ---
         function getCapacidadPorHora(h) {
             if ((h >= 7.5 && h <= 9) || (h >= 14 && h <= 16) || (h >= 18 && h <= 21)) return 1.0;
             if (h >= 5 && h < 7.5) return (h - 5) / 2.5; 
@@ -1158,7 +1135,8 @@
         function canPlayNote() {
             if(!audioActivo) return false;
             let now = Tone.now();
-            if (now - lastNotePlayed > 0.15) { lastNotePlayed = now; return true; }
+            let limiteFuego = window.innerWidth <= 768 ? 0.3 : 0.15; // En móvil se dispara la mitad de notas
+            if (now - lastNotePlayed > limiteFuego) { lastNotePlayed = now; return true; }
             return false;
         }
 
@@ -1242,8 +1220,10 @@
                 bus.marker.setLatLng([bus.curLat, bus.curLng]);
             });
 
+            // FILTRO DE RENDIMIENTO MOVIL (Cruces más espaciados)
             frameCounter++;
-            if (frameCounter >= 5) {
+            const freqCruce = window.innerWidth <= 768 ? 12 : 5;
+            if (frameCounter >= freqCruce) {
                 frameCounter = 0;
                 for (let i = 0; i < unidadesActivas.length; i++) {
                     for (let j = i + 1; j < unidadesActivas.length; j++) {
@@ -1286,7 +1266,6 @@
             requestAnimationFrame(animarFisicas);
         }
 
-        // --- SISTEMA ACORDEÓN MÓVIL ---
         function toggleGadget(id, btn) {
             const el = document.getElementById(id);
             const isMobile = window.innerWidth <= 768;
@@ -1294,7 +1273,6 @@
             if(el.classList.contains('active')) {
                 el.classList.remove('active'); btn.classList.remove('active');
             } else {
-                // Comportamiento "Acordeón" para móviles: Cierra otras ventanas (excepto subtítulos)
                 if (isMobile && id !== 'gadget-subs') {
                     const allGadgets = ['gadget-main', 'gadget-3d', 'gadget-wave', 'gadget-fft', 'gadget-fx', 'gadget-log'];
                     allGadgets.forEach(gId => {
@@ -1306,7 +1284,6 @@
                         }
                     });
                 }
-                
                 el.classList.add('active'); btn.classList.add('active');
                 setTimeout(redimensionarCanvases, 50); 
             }
