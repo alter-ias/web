@@ -59,6 +59,10 @@
         .real-data-box span { color: #fff; font-family: 'Orbitron'; font-weight: bold;}
         .real-data-box .highlight { color: var(--ui-accent); }
         
+        /* CONTROLES MANUALES */
+        .interactive-btn { background: rgba(0, 240, 255, 0.05); border: 1px solid rgba(0, 240, 255, 0.2); color: var(--ui-accent); padding: 8px; cursor: pointer; border-radius: 6px; font-family: 'Share Tech Mono'; transition: 0.2s; font-size: 0.7rem; width: 100%; margin-top: 10px; text-transform: uppercase;}
+        .interactive-btn:hover { background: var(--ui-accent); color: #000; box-shadow: 0 0 15px rgba(0, 240, 255, 0.3); }
+        
         .time-display { font-size: 1.2rem; color: var(--ui-accent); text-align: center; font-family: 'Orbitron'; letter-spacing: 2px; margin-bottom: 10px; text-shadow: 0 0 10px rgba(0, 240, 255, 0.5); }
         .status-text { text-align: center; font-size: 0.6rem; color: #888; margin-bottom: 10px; text-transform: uppercase;}
 
@@ -147,6 +151,19 @@
             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #333; font-size:0.75rem;">
                 UNIDADES ACTIVAS <span class="highlight" id="txt-total">0</span>
             </div>
+            
+            <button id="btn-modo" class="interactive-btn" onclick="toggleModo()">[ MODO: AUTOMÁTICO ]</button>
+            <div id="manual-controls" style="display: none; margin-top: 15px;">
+                <label style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.65rem; color: #888;">
+                    CANTIDAD NODOS <span style="color: var(--ui-accent);"><span id="val-nodos">400</span></span>
+                </label>
+                <input type="range" id="ctrl-nodos" min="10" max="1000" value="400" oninput="updateManualParams()">
+                
+                <label style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.65rem; color: #888;">
+                    VELOCIDAD SIMULACIÓN <span style="color: var(--ui-accent);"><span id="val-vel">1.0</span>x</span>
+                </label>
+                <input type="range" id="ctrl-vel" min="0.1" max="5.0" step="0.1" value="1.0" oninput="updateManualParams()">
+            </div>
         </div>
 
         <div class="legend-container" id="legend-container"></div>
@@ -192,6 +209,11 @@
         let unidadesActivas = [];
         let atascosActivos = []; 
         let estacionesReales = []; 
+        
+        // Variables para los nuevos controles
+        let isManualMode = false;
+        let manualNodes = 400;
+        let manualSpeedMult = 1.0;
         
         const sysConfig = {
             'METRO': { color: '#ff6600', grosor: 3, opacity: 0.3, inst: 'Sub-Bajo / Chords' },
@@ -329,7 +351,7 @@
         let indiceArmonia = 0;
         let audioActivo = false;
         const synths = {};
-        let audioCtx, analyserFFT, analyserWave;
+        let analyserFFT, analyserWave;
         let biquadFilter, distortionNode, masterLimiter, mixNode;
 
         function makeDistortionCurve(amount) {
@@ -347,6 +369,11 @@
                 redimensionarCanvases();
             }, 1000);
 
+            iniciarVisualizador3D();
+            setInterval(sincronizarRelojUrbano, 1000);
+            sincronizarRelojUrbano();
+            animarFisicas();
+
             try {
                 await Tone.start(); 
                 if (Tone.context.state !== 'running') await Tone.context.resume();
@@ -354,27 +381,18 @@
                 Tone.Transport.bpm.value = 60; 
                 audioActivo = true;
 
-                audioCtx = Tone.getContext().rawContext;
-                
-                // Nodos Base
                 masterLimiter = new Tone.Limiter(-2).toDestination(); 
                 mixNode = new Tone.Gain(1); 
                 biquadFilter = new Tone.Filter(20000, "lowpass");
                 distortionNode = new Tone.Distortion(0);
                 
-                // FIX: SOLUCIÓN HÍBRIDA DE ANALIZADORES
-                // FFT Nativo para las barras y el modelo 3D (para compatibilidad con getByteFrequencyData)
-                analyserFFT = audioCtx.createAnalyser(); 
+                analyserFFT = audioCtx ? audioCtx.createAnalyser() : Tone.getContext().rawContext.createAnalyser(); 
                 analyserFFT.fftSize = 512;
-                
-                // Waveform moderno de Tone.js para la línea suave
                 analyserWave = new Tone.Analyser("waveform", 1024);
 
-                // Cadena de Sintetizadores
-                biquadFilter.connect(distortionNode);
-                distortionNode.connect(mixNode);
+                Tone.connect(biquadFilter, distortionNode);
+                Tone.connect(distortionNode, mixNode);
                 
-                // FIX: CARGA DEL POEMA CON REVERB (Sincrónico y oscuro)
                 const poemReverb = new Tone.Freeverb({roomSize: 0.85, dampening: 2000}).connect(mixNode);
                 try {
                     const poemPlayer = new Tone.Player({
@@ -382,12 +400,11 @@
                         loop: true,
                         autostart: true
                     }).connect(poemReverb);
-                    poemPlayer.volume.value = -12; // Muy sutil en el fondo
+                    poemPlayer.volume.value = -12; 
                 } catch(e) {
                     console.warn("Poema ignorado, continuando sistema.");
                 }
 
-                // Conectar mezcla a los analizadores
                 Tone.connect(mixNode, analyserFFT);
                 mixNode.connect(analyserWave);
                 mixNode.connect(masterLimiter);
@@ -395,12 +412,12 @@
                 const reverb = new Tone.Reverb(4).connect(biquadFilter);
                 const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
 
-                synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -12;
+                synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -14;
                 synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5, envelope: {release: 0.5}}).connect(biquadFilter); synths['BASS'].volume.value = -16;
-                synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -10;
-                synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); synths['PERC'].volume.value = -18;
-                synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, {resonance: 6000, envelope: {attack: 0.01, decay: 0.5}}).connect(delay); synths['CBB'].volume.value = -14;
-                synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 2, envelope: {attack: 0.05, decay: 0.5}}).connect(delay); synths['TROLE'].volume.value = -10;
+                synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -12;
+                synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); synths['PERC'].volume.value = -20;
+                synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, {resonance: 6000, envelope: {attack: 0.01, decay: 0.5}}).connect(delay); synths['CBB'].volume.value = -16;
+                synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 2, envelope: {attack: 0.05, decay: 0.5}}).connect(delay); synths['TROLE'].volume.value = -12;
 
                 new Tone.Loop(time => {
                     indiceArmonia = (indiceArmonia + 1) % progresión.length;
@@ -411,13 +428,40 @@
                 Tone.Transport.start(); 
 
             } catch (err) {
-                console.error("Error al iniciar audio:", err);
+                console.error("Audio desactivado para evitar congelamiento de interfaz.", err);
             }
+        }
 
-            iniciarVisualizador3D();
-            setInterval(sincronizarRelojUrbano, 1000);
-            sincronizarRelojUrbano();
-            animarFisicas();
+        // --- CONTROLES MANUALES ---
+        function toggleModo() {
+            isManualMode = !isManualMode;
+            const btn = document.getElementById('btn-modo');
+            const controls = document.getElementById('manual-controls');
+            
+            if(isManualMode) {
+                btn.innerText = "[ MODO: MANUAL ]";
+                btn.style.background = "rgba(255, 0, 60, 0.2)";
+                btn.style.borderColor = "var(--neon-magenta)";
+                btn.style.color = "var(--neon-magenta)";
+                controls.style.display = "block";
+            } else {
+                btn.innerText = "[ MODO: AUTOMÁTICO ]";
+                btn.style.background = "rgba(0, 240, 255, 0.05)";
+                btn.style.borderColor = "rgba(0, 240, 255, 0.2)";
+                btn.style.color = "var(--ui-accent)";
+                controls.style.display = "none";
+            }
+            sincronizarRelojUrbano(); 
+        }
+
+        function updateManualParams() {
+            manualNodes = parseInt(document.getElementById('ctrl-nodos').value);
+            manualSpeedMult = parseFloat(document.getElementById('ctrl-vel').value);
+            
+            document.getElementById('val-nodos').innerText = manualNodes;
+            document.getElementById('val-vel').innerText = manualSpeedMult.toFixed(1);
+            
+            if(isManualMode) sincronizarRelojUrbano();
         }
 
         // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX ---
@@ -433,13 +477,32 @@
             
             document.getElementById('clock-display').innerText = `${hora.toString().padStart(2, '0')}:${minStr}`;
 
+            if (isManualMode) {
+                document.getElementById('status-display').innerText = "MODO MANUAL / ALTERACIÓN ACTIVA";
+                globalSpeedMult = manualSpeedMult;
+                
+                targets['METRO'] = Math.floor(manualNodes * 0.15);
+                targets['MB'] = Math.floor(manualNodes * 0.45);
+                targets['CBB'] = Math.floor(manualNodes * 0.25);
+                targets['TROLE'] = Math.floor(manualNodes * 0.15);
+                
+                document.getElementById('txt-metro').innerText = targets['METRO'] + " (vis)";
+                document.getElementById('txt-mb').innerText = targets['MB'] + " (vis)";
+                document.getElementById('txt-cbb').innerText = targets['CBB'] + " (vis)";
+                document.getElementById('txt-trole').innerText = targets['TROLE'] + " (vis)";
+                document.getElementById('txt-total').innerText = manualNodes + " (MANUAL)";
+                
+                ajustarFlota();
+                return;
+            }
+
+            globalSpeedMult = 1.0; 
             let h = hora + minutos/60;
             let factor = 0.65;
             let estadoTxt = "FLUJO REGULAR";
 
-            // FIX: REDUCCIÓN MASIVA EN LA MADRUGADA
             if (h >= 0 && h < 5) {
-                factor = 0.035; // Aproximadamente 3.5% de la flota total para Nochebus
+                factor = 0.035; 
                 estadoTxt = "MADRUGADA / GUARDIA NOCTURNA";
             } else if (h >= 5 && h < 7.5) {
                 factor = 0.60;
@@ -619,7 +682,8 @@
                             
                             if (bus.rutaObj.esEstacion[bus.currentIdx]) {
                                 bus.estado = 'estacion';
-                                bus.timer = 5000; 
+                                // Si está en modo manual rápido, el tiempo de espera también se acelera
+                                bus.timer = 5000 / Math.max(0.1, globalSpeedMult); 
 
                                 if(audioActivo && notasEsteFrame < 3 && bus.rutaObj.sys !== 'METRO') {
                                     notasEsteFrame++;
@@ -789,10 +853,19 @@
             let waveData = [];
 
             try {
-                analyserFFT.getByteFrequencyData(dataArrayFft); 
+                // Compatible tanto con audioCtx nativo como con Tone.Analyser wrapper
+                if (analyserFFT.getByteFrequencyData) {
+                    analyserFFT.getByteFrequencyData(dataArrayFft);
+                } else if (analyserFFT.getValue) {
+                    const floatFft = analyserFFT.getValue();
+                    for(let i=0; i<dataArrayFft.length; i++) {
+                        let val = (floatFft[i] + 100) * 2.55; 
+                        dataArrayFft[i] = Math.max(0, Math.min(255, val));
+                    }
+                }
+                
                 if(analyserWave) waveData = analyserWave.getValue();
             } catch(e) {
-                // Silencioso en caso de bloqueo del navegador
                 return;
             }
             
