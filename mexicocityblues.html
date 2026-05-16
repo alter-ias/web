@@ -68,8 +68,12 @@
         .line-text { font-size: 0.65rem; color: #888; }
         .line-text strong { color: #ccc; display: block; margin-bottom: 2px; }
 
-        .ripple-dot { width: 100%; height: 100%; border-radius: 50%; position: absolute; top: 0; left: 0; border: 2px solid currentColor; animation: pulse-ring 2s infinite ease-out; }
-        .ripple-center { width: 8px; height: 8px; background: currentColor; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px currentColor; }
+        .ripple-dot {
+            width: 100%; height: 100%; border-radius: 50%; position: absolute; top: 0; left: 0; border: 2px solid currentColor; animation: pulse-ring 2s infinite ease-out;
+        }
+        .ripple-center {
+            width: 8px; height: 8px; background: currentColor; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 10px currentColor;
+        }
         @keyframes pulse-ring { 0% { transform: scale(0.5); opacity: 1; } 100% { transform: scale(1.5); opacity: 0.3; } }
 
         /* DOCK Y GADGETS */
@@ -79,6 +83,7 @@
         .gadget { display: none; position: absolute; z-index: 1000; overflow: hidden; }
         .gadget.active { display: flex; }
         
+        /* FIX: Contenedores absolutos para mantener el canvas anclado al centro sin importar flexbox */
         .gadget-content { flex-grow: 1; position: relative; background: transparent; width: 100%; height: calc(100% - 35px); display: block; overflow: hidden; }
         .gadget canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; }
         
@@ -191,7 +196,7 @@
         let rutasEstructurales = []; 
         let unidadesActivas = [];
         let atascosActivos = []; 
-        let estacionesReales = [];
+        let estacionesReales = []; // Almacenará las coordenadas exactas de la API
         
         const sysConfig = {
             'METRO': { color: '#ff6600', grosor: 3, opacity: 0.3, inst: 'Sub-Bajo / Chords' },
@@ -330,7 +335,7 @@
         let audioActivo = false;
         const synths = {};
         let analyserFFT, analyserWave;
-        let biquadFilter, distortionNode, masterLimiter, mixNode;
+        let biquadFilter, distortionNode, masterLimiter;
 
         function makeDistortionCurve(amount) {
             let k = typeof amount === 'number' ? amount : 50, n = 44100, curve = new Float32Array(n), deg = Math.PI / 180, i = 0, x;
@@ -349,35 +354,29 @@
 
             const audioCtx = Tone.getContext().rawContext;
             
-            // RUTEO DE AUDIO CON MEZCLADOR CENTRAL PARA INCLUIR EL POEMA EN LOS GADGETS
             masterLimiter = new Tone.Limiter(-2).toDestination(); 
-            mixNode = new Tone.Gain(1); // Nodo donde colisiona el sintetizador y el poema
             biquadFilter = new Tone.Filter(20000, "lowpass");
             distortionNode = new Tone.Distortion(0);
             
-            analyserFFT = new Tone.Analyser("fft", 512);
+            analyserFFT = audioCtx.createAnalyser(); analyserFFT.fftSize = 512;
             analyserWave = new Tone.Analyser("waveform", 1024);
 
             Tone.getDestination().disconnect(); 
             
-            // Cadena de sintes
             Tone.connect(biquadFilter, distortionNode);
-            Tone.connect(distortionNode, mixNode);
-            
-            // FIX: CARGA DEL POEMA DE KEROUAC EN LOOP
+            Tone.connect(distortionNode, masterLimiter);
+            Tone.connect(distortionNode, analyserFFT);
+            Tone.connect(masterLimiter, analyserWave);
+
+            // FIX: Reproductor de Poema conectado a la matriz de efectos
             const poemPlayer = new Tone.Player({
                 url: "assets/cdmxblues/mcb01.mp3",
                 loop: true,
                 onload: () => {
                     poemPlayer.start();
                 }
-            }).connect(mixNode);
-            poemPlayer.volume.value = -6; // Sutil en el fondo
-
-            // Salida de la mezcla hacia los visualizadores y luego a las bocinas
-            Tone.connect(mixNode, analyserFFT);
-            Tone.connect(mixNode, analyserWave);
-            Tone.connect(mixNode, masterLimiter);
+            }).connect(biquadFilter);
+            poemPlayer.volume.value = -8;
 
             const reverb = new Tone.Reverb(4).connect(biquadFilter);
             const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
@@ -402,7 +401,7 @@
             animarFisicas();
         }
 
-        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX CON FLUCTUACIÓN POR MINUTO ---
+        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX EXACTA ---
         let targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
         let globalSpeedMult = 1.0;
         let globalJamProb = 0.0005;
@@ -438,8 +437,8 @@
                 estadoTxt = "HORA VALLE / FLUJO REGULAR";
             }
 
-            // FIX: Fluctuación viva minuto a minuto usando una onda senoidal
-            let randomVar = (Math.sin(minutos * 0.3) * 0.03) + (Math.cos(minutos * 0.7) * 0.02);
+            // FIX: Fluctuación matemática viva que varía cada minuto
+            let randomVar = (Math.sin(minutos * 0.5) * 0.04) + (Math.cos(hora * 10 + minutos * 0.2) * 0.02);
             let finalFactor = Math.min(1.0, Math.max(0.1, factor + randomVar));
 
             let tMetro = Math.floor(275 * finalFactor); 
@@ -521,8 +520,8 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                // FIX: Velocidad reducida para regresar al estilo contemplativo
-                velBase: (Math.random() * 0.00010) + 0.00003, 
+                // FIX: Velocidad reducida ligeramente para el ritmo contemplativo
+                velBase: (Math.random() * 0.00010) + 0.00004, 
                 velActual: 0,
                 estado: 'movimiento', 
                 timer: 0,
