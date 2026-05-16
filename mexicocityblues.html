@@ -90,10 +90,10 @@
         .close-btn:hover { color: var(--neon-magenta); }
 
         #gadget-3d { top: 20px; right: 20px; width: 280px; height: 280px; }
-        #gadget-fx { top: 320px; right: 20px; width: 280px; height: auto; }
+        #gadget-fx { top: 320px; right: 20px; width: 260px; height: auto; }
         
-        /* FIX: NUEVO GADGET DE LOG DE ESTACIONES */
-        #gadget-log { top: 460px; right: 20px; width: 280px; height: 160px; }
+        /* FIX CSS: Separación correcta para el Log */
+        #gadget-log { top: 520px; right: 20px; width: 260px; height: 160px; }
         .log-entry { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .log-entry:last-child { border-bottom: none; }
         .log-sys { font-weight: bold; margin-right: 5px; }
@@ -112,6 +112,7 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
 
+        /* RESPONSIVIDAD MÓVIL Y BANNER */
         @media (min-width: 769px) { .mobile-warning { display: none; } }
         @media (max-width: 768px) {
             #main-ui, #gadget-dock, .gadget { display: none !important; }
@@ -217,6 +218,13 @@
     </div>
 
     <script>
+        // FIX: VARIABLES GLOBALES RESTAURADAS
+        let isManualMode = false;
+        let manualNodes = 400;
+        let manualSpeedMult = 1.0;
+        let globalSpeedMult = 1.0;
+        let globalJamProb = 0.0005;
+
         // --- 1. CORE MAPA E INFRAESTRUCTURA ---
         const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.41, -99.14], 12);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
@@ -225,11 +233,7 @@
         let unidadesActivas = [];
         let atascosActivos = []; 
         let estacionesReales = []; 
-        let nombresEstaciones = []; // Almacenará los nombres reales para el LOG
-        
-        let isManualMode = false;
-        let manualNodes = 400;
-        let manualSpeedMult = 1.0;
+        let nombresEstaciones = []; 
         
         const sysConfig = {
             'METRO': { color: '#ff6600', grosor: 3, opacity: 0.3, inst: 'Sub-Bajo / Chords' },
@@ -353,7 +357,6 @@
 
             } catch (e) {
                 logConsole('<span style="color:red">[ERROR CRÍTICO] API Inalcanzable. Revise conexión.</span>');
-                console.error(e);
             }
         }
         
@@ -366,7 +369,6 @@
             const nombre = nombresEstaciones[Math.floor(Math.random() * nombresEstaciones.length)];
             const color = sysConfig[sys] ? sysConfig[sys].color : "#fff";
             
-            // Si es el primer evento, borra el mensaje de "Esperando..."
             if (container.children.length === 1 && container.children[0].innerText.includes("Esperando")) {
                 container.innerHTML = '';
             }
@@ -374,16 +376,14 @@
             const div = document.createElement('div');
             div.className = "log-entry";
             div.innerHTML = `<span class="log-sys" style="color:${color}">[${sys}]</span> ${evento} - ${nombre}`;
-            container.prepend(div); // Inserta arriba
+            container.prepend(div); 
 
-            // Mantener solo los últimos 6 eventos para no saturar DOM
             if (container.children.length > 6) {
                 container.removeChild(container.lastChild);
             }
         }
 
-        // --- 2. AUDIO GRAPH Y ARMONÍA (LO-FI JAZZ AESTHETIC) ---
-        // Acordes de Jazz Lo-Fi (7mas y 9nas) y escalas pentatónicas menores para improvisación
+        // --- 2. AUDIO GRAPH Y ARMONÍA ---
         const progresión = [
             { acordes: ["C4", "Eb4", "G4", "Bb4"], escala: ["C4", "Eb4", "F4", "G4", "Bb4", "C5"], bajo: "C2" }, // Cm7
             { acordes: ["F3", "Ab3", "C4", "Eb4"], escala: ["F4", "Ab4", "Bb4", "C5", "Eb5", "F5"], bajo: "F1" }, // Fm7
@@ -395,6 +395,12 @@
         const synths = {};
         let audioCtx, analyserFFT, analyserWave;
         let biquadFilter, distortionNode, masterLimiter, mixNode;
+
+        function makeDistortionCurve(amount) {
+            let k = typeof amount === 'number' ? amount : 50, n = 44100, curve = new Float32Array(n), deg = Math.PI / 180, i = 0, x;
+            for ( ; i < n; ++i ) { x = i * 2 / n - 1; curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) ); }
+            return curve;
+        }
 
         async function arrancarSistema() {
             document.getElementById('start-screen').style.opacity = '0';
@@ -414,7 +420,7 @@
                 await Tone.start(); 
                 if (Tone.context.state !== 'running') await Tone.context.resume();
                 
-                Tone.Transport.bpm.value = 65; // Tempo de caminata lofi
+                Tone.Transport.bpm.value = 65; 
                 audioActivo = true;
 
                 audioCtx = Tone.getContext().rawContext;
@@ -431,7 +437,6 @@
                 Tone.connect(biquadFilter, distortionNode);
                 Tone.connect(distortionNode, mixNode);
                 
-                // POEMA CON REVERB OSCURO Y VOLUMEN HUNDIDO (-30dB)
                 const poemReverb = new Tone.Freeverb({roomSize: 0.85, dampening: 2000}).connect(mixNode);
                 try {
                     const poemPlayer = new Tone.Player({
@@ -451,11 +456,9 @@
                 const reverb = new Tone.Reverb(4).connect(biquadFilter);
                 const delay = new Tone.FeedbackDelay("8n", 0.5).connect(reverb);
 
-                // FIX VOLÚMENES: Sintetizadores con más cuerpo y presencia
                 synths['METRO'] = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.1, release: 2 } }).connect(reverb); 
                 synths['METRO'].volume.value = -8;
                 
-                // Bajo cálido y gordo
                 synths['BASS'] = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 1 } }).connect(biquadFilter); 
                 synths['BASS'].volume.value = -6;
                 
@@ -471,17 +474,11 @@
                 synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 1.5, envelope: {attack: 0.05, decay: 0.3}}).connect(delay); 
                 synths['TROLE'].volume.value = -14;
 
-                // Loop Maestro: Arreglo de bajo sincopado
                 new Tone.Loop(time => {
                     indiceArmonia = (indiceArmonia + 1) % progresión.length;
-                    
-                    // Acorde del Metro
                     synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes, "1n", time);
-                    
-                    // Síncopa del bajo (Lo-fi Groove)
                     synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "8n", time);
                     synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "8n", time + Tone.Time("4n").toSeconds() + Tone.Time("8n").toSeconds());
-
                 }, "2m").start(0);
 
                 Tone.Transport.start(); 
@@ -524,8 +521,6 @@
         }
 
         // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX ---
-        let targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
-
         function sincronizarRelojUrbano() {
             const ahora = new Date();
             const hora = ahora.getHours();
@@ -536,6 +531,7 @@
 
             if (isManualMode) {
                 document.getElementById('status-display').innerText = "MODO MANUAL / ALTERACIÓN ACTIVA";
+                globalSpeedMult = manualSpeedMult;
                 
                 targets['METRO'] = Math.floor(manualNodes * 0.15);
                 targets['MB'] = Math.floor(manualNodes * 0.45);
@@ -552,6 +548,7 @@
                 return;
             }
 
+            globalSpeedMult = 1.0; 
             let h = hora + minutos/60;
             let factor = 0.65;
             let estadoTxt = "FLUJO REGULAR";
@@ -657,7 +654,7 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                velBase: (Math.random() * 0.00010) + 0.00004, 
+                velBase: (Math.random() * 0.00010) + 0.00003, 
                 velActual: 0,
                 estado: 'movimiento', 
                 timer: 0,
@@ -673,12 +670,11 @@
         let lastTimeFisicas = performance.now();
         let frameCounter = 0; 
         
-        // FIX: LIMITADOR GLOBAL DE POLIFONÍA POR SEGUNDO
         let lastNotePlayed = 0;
         function canPlayNote() {
             if(!audioActivo) return false;
             let now = Tone.now();
-            if (now - lastNotePlayed > 0.15) { // Máximo ~6 notas por segundo a nivel de toda la app
+            if (now - lastNotePlayed > 0.15) { 
                 lastNotePlayed = now;
                 return true;
             }
@@ -925,6 +921,7 @@
                         dataArrayFft[i] = Math.max(0, Math.min(255, val));
                     }
                 }
+                
                 if(analyserWave) waveData = analyserWave.getValue();
             } catch(e) {
                 return;
