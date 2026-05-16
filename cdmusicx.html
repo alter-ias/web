@@ -87,7 +87,7 @@
         .close-btn { cursor: pointer; color: #666; font-weight: bold; transition: 0.2s; padding: 0 5px;}
         .close-btn:hover { color: var(--neon-magenta); }
 
-        /* POSICIONES GADGETS */
+        /* POSICIONES GADGETS (Mapeo Desktop) */
         #gadget-main { top: 20px; left: 20px; width: 280px; max-height: calc(100vh - 120px); overflow-y: auto; }
         #gadget-3d { top: 20px; right: 20px; width: 280px; height: 280px; }
         #gadget-fx { top: 320px; right: 20px; width: 280px; height: auto; }
@@ -246,6 +246,7 @@
     </div>
 
     <script>
+        // --- TEXTO BRUTO INCRUSTADO ---
         const srtDataRaw = `1
 00:00:05,875 --> 00:00:10,333
 <b>El pianista solo aporreaba las teclas</b>
@@ -872,6 +873,12 @@
             }
         }
 
+        function parseTimeStr(str) {
+            let p = str.trim().replace(',', '.').split(':');
+            if (p.length < 3) return 0;
+            return (+p[0]) * 3600 + (+p[1]) * 60 + (+parseFloat(p[2]));
+        }
+
         function arrancarSistema() {
             document.getElementById('start-screen').style.opacity = '0';
             setTimeout(() => { 
@@ -892,8 +899,7 @@
                 await Tone.start(); 
                 if (Tone.context.state !== 'running') await Tone.context.resume();
                 
-                // MÁGIA DE OPTIMIZACIÓN DE AUDIO PARA MÓVIL
-                Tone.context.lookAhead = 0.1; // Margen de procesamiento seguro para evitar el clipping
+                Tone.context.lookAhead = 0.1; 
                 Tone.Transport.bpm.value = 65; 
                 audioActivo = true;
 
@@ -909,19 +915,28 @@
 
                 Tone.connect(biquadFilter, mixNode);
                 
-                // Freeverb es algorítmico y mucho más ligero en CPU que Tone.Reverb (Convolución)
                 const poemReverb = new Tone.Freeverb({roomSize: 0.85, dampening: 2000}).connect(mixNode);
 
-                // --- PARSER DE SUBTITULOS EXACTO (EL QUE YA FUNCIONABA) ---
-                const rx = /(\d+)\s+(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\s+([\s\S]*?(?=(?:\s*\n\d+\s+\d{2}:\d{2}:\d{2},\d{3})|$(?![\s\S])))/g;
-                let m;
-                while ((m = rx.exec(srtDataRaw)) !== null) {
-                    let s = m[2].split(/[:,]/), e = m[3].split(/[:,]/);
-                    subs.push({
-                        s: (+s[0]) * 3600 + (+s[1]) * 60 + (+s[2]) + (+s[3]) / 1000,
-                        e: (+e[0]) * 3600 + (+e[1]) * 60 + (+e[2]) + (+e[3]) / 1000,
-                        txt: m[4].trim().replace(/\n/g, '<br>')
-                    });
+                // --- NUEVO PARSER TIPO TANQUE ---
+                const lines = srtDataRaw.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].includes('-->')) {
+                        let pts = lines[i].split('-->');
+                        let s = parseTimeStr(pts[0]);
+                        let e = parseTimeStr(pts[1]);
+                        let txt = [];
+                        let j = i + 1;
+                        
+                        while (j < lines.length && !lines[j].includes('-->')) {
+                            let l = lines[j].trim();
+                            if (l !== '' && isNaN(l)) {
+                                txt.push(l);
+                            }
+                            j++;
+                        }
+                        subs.push({ s, e, txt: txt.join('<br>') });
+                        i = j - 1; 
+                    }
                 }
 
                 try {
@@ -930,7 +945,8 @@
                         loop: true,
                         onload: () => { pDur = poemPlayer.buffer.duration; pStart = Tone.now(); poemPlayer.start(); }
                     }).connect(poemReverb);
-                    poemPlayer.volume.value = -30; 
+                    // POEMA MÁS FUERTE (-5dB) PARA QUE RESALTE
+                    poemPlayer.volume.value = -5; 
                 } catch(e) {}
 
                 Tone.connect(mixNode, analyserFFT);
@@ -940,27 +956,27 @@
                 const reverb = new Tone.Freeverb({roomSize: 0.7, dampening: 3000}).connect(biquadFilter);
                 const delay = new Tone.FeedbackDelay("8n", 0.5).connect(reverb);
 
-                // LIMITAR POLIFONIA EN MOVIL EVITA QUE EL CPU SE QUEME
                 const isMobile = window.innerWidth <= 768;
                 const polyLimit = isMobile ? 4 : 12;
 
+                // SINTETIZADORES MÁS BAJOS PARA NO AHOGAR EL POEMA
                 synths['METRO'] = new Tone.PolySynth(Tone.Synth, { maxPolyphony: polyLimit, oscillator: { type: "sine" }, envelope: { attack: 0.1, release: 2 } }).connect(reverb); 
-                synths['METRO'].volume.value = -8;
+                synths['METRO'].volume.value = -16;
                 
                 synths['BASS'] = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 1 } }).connect(biquadFilter); 
-                synths['BASS'].volume.value = -6;
+                synths['BASS'].volume.value = -14;
                 
                 synths['MB'] = new Tone.PolySynth(Tone.Synth, { maxPolyphony: polyLimit, oscillator: {type: 'triangle'}}).connect(delay); 
-                synths['MB'].volume.value = -12;
+                synths['MB'].volume.value = -20;
                 
                 synths['PERC'] = new Tone.NoiseSynth({noise:{type:'pink'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); 
-                synths['PERC'].volume.value = -18;
+                synths['PERC'].volume.value = -24;
                 
                 synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, { maxPolyphony: polyLimit, resonance: 4000, envelope: {attack: 0.01, decay: 0.8}}).connect(delay); 
-                synths['CBB'].volume.value = -16;
+                synths['CBB'].volume.value = -22;
                 
                 synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, { maxPolyphony: polyLimit, modulationIndex: 1.5, envelope: {attack: 0.05, decay: 0.3}}).connect(delay); 
-                synths['TROLE'].volume.value = -14;
+                synths['TROLE'].volume.value = -20;
 
                 new Tone.Loop(time => {
                     indiceArmonia = (indiceArmonia + 1) % progresión.length;
@@ -1135,7 +1151,7 @@
         function canPlayNote() {
             if(!audioActivo) return false;
             let now = Tone.now();
-            let limiteFuego = window.innerWidth <= 768 ? 0.3 : 0.15; // En móvil se dispara la mitad de notas
+            let limiteFuego = window.innerWidth <= 768 ? 0.3 : 0.15; 
             if (now - lastNotePlayed > limiteFuego) { lastNotePlayed = now; return true; }
             return false;
         }
@@ -1220,7 +1236,6 @@
                 bus.marker.setLatLng([bus.curLat, bus.curLng]);
             });
 
-            // FILTRO DE RENDIMIENTO MOVIL (Cruces más espaciados)
             frameCounter++;
             const freqCruce = window.innerWidth <= 768 ? 12 : 5;
             if (frameCounter >= freqCruce) {
