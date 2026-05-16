@@ -314,6 +314,7 @@
 
             } catch (e) {
                 logConsole('<span style="color:red">[ERROR CRÍTICO] API Inalcanzable. Revise conexión.</span>');
+                console.error(e);
             }
         }
         
@@ -342,55 +343,58 @@
             document.getElementById('start-screen').style.opacity = '0';
             setTimeout(() => { document.getElementById('start-screen').style.display = 'none'; document.getElementById('main-ui').style.display = 'flex'; document.getElementById('gadget-dock').style.display = 'flex'; }, 1000);
 
-            await Tone.start(); 
-            Tone.Transport.start(); 
-            Tone.Transport.bpm.value = 60; 
-            audioActivo = true;
-
-            const audioCtx = Tone.getContext().rawContext;
-            
-            masterLimiter = new Tone.Limiter(-2).toDestination(); 
-            mixNode = new Tone.Gain(1); 
-            biquadFilter = new Tone.Filter(20000, "lowpass");
-            distortionNode = new Tone.Distortion(0);
-            
-            analyserFFT = new Tone.Analyser("fft", 512);
-            analyserWave = new Tone.Analyser("waveform", 1024);
-
-            // FIX: Ya no se desconecta el destino. 
-            // Tone.getDestination().disconnect(); <- ELIMINADO PARA QUE SUENE.
-            
-            Tone.connect(biquadFilter, distortionNode);
-            Tone.connect(distortionNode, mixNode);
-            
-            const poemPlayer = new Tone.Player({
-                url: "assets/cdmxblues/mcb01.mp3",
-                loop: true,
-                onload: () => {
-                    poemPlayer.start();
+            try {
+                await Tone.start(); 
+                if (Tone.context.state !== 'running') {
+                    Tone.context.resume();
                 }
-            }).connect(mixNode);
-            poemPlayer.volume.value = -8; 
 
-            Tone.connect(mixNode, analyserFFT);
-            Tone.connect(mixNode, analyserWave);
-            Tone.connect(mixNode, masterLimiter);
+                Tone.Transport.bpm.value = 60; 
+                audioActivo = true;
+                
+                masterLimiter = new Tone.Limiter(-2).toDestination(); 
+                mixNode = new Tone.Gain(1); 
+                biquadFilter = new Tone.Filter(20000, "lowpass");
+                distortionNode = new Tone.Distortion(0);
+                
+                analyserFFT = new Tone.Analyser("fft", 512);
+                analyserWave = new Tone.Analyser("waveform", 1024);
+                
+                biquadFilter.connect(distortionNode);
+                distortionNode.connect(mixNode);
+                
+                const poemPlayer = new Tone.Player({
+                    url: "assets/cdmxblues/mcb01.mp3",
+                    loop: true,
+                    autostart: true
+                }).connect(mixNode);
+                poemPlayer.volume.value = -8; 
 
-            const reverb = new Tone.Reverb(4).connect(biquadFilter);
-            const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
+                mixNode.connect(analyserFFT);
+                mixNode.connect(analyserWave);
+                mixNode.connect(masterLimiter);
 
-            synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -14;
-            synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5, envelope: {release: 0.5}}).connect(biquadFilter); synths['BASS'].volume.value = -16;
-            synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -12;
-            synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); synths['PERC'].volume.value = -20;
-            synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, {resonance: 6000, envelope: {attack: 0.01, decay: 0.5}}).connect(delay); synths['CBB'].volume.value = -16;
-            synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 2, envelope: {attack: 0.05, decay: 0.5}}).connect(delay); synths['TROLE'].volume.value = -12;
+                const reverb = new Tone.Reverb(4).connect(biquadFilter);
+                const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
 
-            new Tone.Loop(time => {
-                indiceArmonia = (indiceArmonia + 1) % progresión.length;
-                synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes, "1n", time);
-                synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "2n", time);
-            }, "4m").start(0);
+                synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -14;
+                synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5, envelope: {release: 0.5}}).connect(biquadFilter); synths['BASS'].volume.value = -16;
+                synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -12;
+                synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); synths['PERC'].volume.value = -20;
+                synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, {resonance: 6000, envelope: {attack: 0.01, decay: 0.5}}).connect(delay); synths['CBB'].volume.value = -16;
+                synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 2, envelope: {attack: 0.05, decay: 0.5}}).connect(delay); synths['TROLE'].volume.value = -12;
+
+                new Tone.Loop(time => {
+                    indiceArmonia = (indiceArmonia + 1) % progresión.length;
+                    synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes, "1n", time);
+                    synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "2n", time);
+                }, "4m").start(0);
+
+                Tone.Transport.start();
+
+            } catch (err) {
+                console.error("Error al iniciar audio:", err);
+            }
 
             iniciarVisualizador3D();
             
@@ -399,7 +403,7 @@
             animarFisicas();
         }
 
-        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX CON FLUCTUACIÓN POR MINUTO ---
+        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX ---
         let targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
         let globalSpeedMult = 1.0;
         let globalJamProb = 0.0005;
@@ -517,7 +521,7 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                velBase: (Math.random() * 0.00010) + 0.00003, 
+                velBase: (Math.random() * 0.00010) + 0.00004, 
                 velActual: 0,
                 estado: 'movimiento', 
                 timer: 0,
@@ -760,9 +764,10 @@
 
         function drawGadgets() {
             requestAnimationFrame(drawGadgets);
-            if(!audioActivo) return;
+            if(!audioActivo || !analyserFFT) return;
 
-            const dataArrayFft = new Uint8Array(analyserFFT.frequencyBinCount); analyserFFT.getByteFrequencyData(dataArrayFft);
+            const dataArrayFft = new Uint8Array(analyserFFT.frequencyBinCount); 
+            analyserFFT.getByteFrequencyData(dataArrayFft);
             
             let waveData = [];
             if(analyserWave) waveData = analyserWave.getValue();
