@@ -330,7 +330,7 @@
         let audioActivo = false;
         const synths = {};
         let analyserFFT, analyserWave;
-        let biquadFilter, distortionNode, masterLimiter, mixNode;
+        let biquadFilter, distortionNode, masterLimiter;
 
         function makeDistortionCurve(amount) {
             let k = typeof amount === 'number' ? amount : 50, n = 44100, curve = new Float32Array(n), deg = Math.PI / 180, i = 0, x;
@@ -339,7 +339,7 @@
         }
 
         async function arrancarSistema() {
-            // 1. INICIAR LÓGICA Y VISUALIZADOR PRIMERO (Para evitar congelamientos de UI)
+            // FIX: ARRANCAMOS LÓGICA Y VISUALIZADOR INMEDIATAMENTE
             document.getElementById('start-screen').style.opacity = '0';
             setTimeout(() => { 
                 document.getElementById('start-screen').style.display = 'none'; 
@@ -353,50 +353,62 @@
             sincronizarRelojUrbano();
             animarFisicas();
 
-            // 2. INICIAR AUDIO DE FORMA SEGURA (Si falla, el mapa seguirá funcionando)
+            // FIX: INICIAMOS AUDIO EN SEGUNDO PLANO
             try {
                 await Tone.start(); 
-                if (Tone.context.state !== 'running') await Tone.context.resume();
-                
+                if (Tone.context.state !== 'running') {
+                    await Tone.context.resume();
+                }
+
                 Tone.Transport.bpm.value = 60; 
                 audioActivo = true;
 
+                // El nodo Master seguro
                 masterLimiter = new Tone.Limiter(-2).toDestination(); 
-                mixNode = new Tone.Gain(1); 
+                
+                // Efectos y analizadores
                 biquadFilter = new Tone.Filter(20000, "lowpass");
                 distortionNode = new Tone.Distortion(0);
                 
                 analyserFFT = new Tone.Analyser("fft", 512);
                 analyserWave = new Tone.Analyser("waveform", 1024);
 
+                // Conexiones de la cadena base
                 Tone.connect(biquadFilter, distortionNode);
-                Tone.connect(distortionNode, mixNode);
                 
-                // Carga segura del poema. Si falla el archivo, lo ignora silenciosamente.
+                // Conectamos la distorsion a los analizadores
+                Tone.connect(distortionNode, analyserFFT);
+                Tone.connect(distortionNode, analyserWave);
+                
+                // Y finalmente todo al master limiter para proteger bocinas
+                Tone.connect(distortionNode, masterLimiter);
+
+                // FIX: MEZCLA DEL POEMA (Más bajo, -14dB)
                 try {
                     const poemPlayer = new Tone.Player({
                         url: "assets/cdmxblues/mcb01.mp3",
                         loop: true,
                         autostart: true
-                    }).connect(mixNode);
-                    poemPlayer.volume.value = -8; 
+                    });
+                    poemPlayer.volume.value = -14; 
+                    // El poema también pasa por los analizadores y el limitador maestro
+                    Tone.connect(poemPlayer, analyserFFT);
+                    Tone.connect(poemPlayer, analyserWave);
+                    Tone.connect(poemPlayer, masterLimiter);
                 } catch(e) {
-                    console.warn("Poema no encontrado, continuando sin voz.");
+                    console.warn("Poema ignorado, continuando sistema.");
                 }
-
-                Tone.connect(mixNode, analyserFFT);
-                Tone.connect(mixNode, analyserWave);
-                Tone.connect(mixNode, masterLimiter);
 
                 const reverb = new Tone.Reverb(4).connect(biquadFilter);
                 const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
 
-                synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -14;
-                synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5, envelope: {release: 0.5}}).connect(biquadFilter); synths['BASS'].volume.value = -16;
-                synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -12;
-                synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); synths['PERC'].volume.value = -20;
-                synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, {resonance: 6000, envelope: {attack: 0.01, decay: 0.5}}).connect(delay); synths['CBB'].volume.value = -16;
-                synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 2, envelope: {attack: 0.05, decay: 0.5}}).connect(delay); synths['TROLE'].volume.value = -12;
+                // FIX: SINTETIZADORES MÁS PRESENTES EN LA MEZCLA
+                synths['METRO'] = new Tone.PolySynth(Tone.Synth).connect(reverb); synths['METRO'].volume.value = -8;
+                synths['BASS'] = new Tone.FMSynth({modulationIndex: 1.5, envelope: {release: 0.5}}).connect(biquadFilter); synths['BASS'].volume.value = -10;
+                synths['MB'] = new Tone.PolySynth(Tone.Synth, {oscillator: {type: 'triangle'}}).connect(delay); synths['MB'].volume.value = -8;
+                synths['PERC'] = new Tone.NoiseSynth({noise:{type:'white'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); synths['PERC'].volume.value = -15;
+                synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, {resonance: 6000, envelope: {attack: 0.01, decay: 0.5}}).connect(delay); synths['CBB'].volume.value = -12;
+                synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, {modulationIndex: 2, envelope: {attack: 0.05, decay: 0.5}}).connect(delay); synths['TROLE'].volume.value = -8;
 
                 new Tone.Loop(time => {
                     indiceArmonia = (indiceArmonia + 1) % progresión.length;
@@ -407,11 +419,11 @@
                 Tone.Transport.start(); 
 
             } catch (err) {
-                console.error("Audio desactivado para evitar congelamiento de interfaz.", err);
+                console.error("Error al arrancar el motor de audio:", err);
             }
         }
 
-        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX EXACTA ---
+        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX ESTRICTA ---
         let targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
         let globalSpeedMult = 1.0;
         let globalJamProb = 0.0005;
@@ -428,8 +440,9 @@
             let factor = 0.65;
             let estadoTxt = "FLUJO REGULAR";
 
+            // FIX: REGLA DE MEDIANOCHE ESTRICTA (00:00 a 05:00)
             if (h >= 0 && h < 5) {
-                factor = 0.40;
+                factor = 0.15; // Solo el 15% del parque de autobuses queda activo
                 estadoTxt = "MADRUGADA / GUARDIA NOCTURNA";
             } else if (h >= 5 && h < 7.5) {
                 factor = 0.60;
@@ -447,15 +460,20 @@
                 estadoTxt = "HORA VALLE / FLUJO REGULAR";
             }
 
+            // Fluctuación por minuto
             let randomVar = (Math.sin(minutos * 0.5) * 0.04) + (Math.cos(hora * 10 + minutos * 0.2) * 0.02);
-            let finalFactor = Math.min(1.0, Math.max(0.1, factor + randomVar));
+            let finalFactor = Math.min(1.0, Math.max(0.05, factor + randomVar));
 
             let tMetro = Math.floor(275 * finalFactor); 
             let tMB = Math.floor(872 * finalFactor);
             let tCBB = Math.floor(753 * finalFactor);
             let tTrole = Math.floor(290 * finalFactor);
 
-            if (h >= 0 && h < 5) { tMetro = 0; tCBB = 0; }
+            // FIX: APAGADO TOTAL DE METRO Y CABLEBUS EN LA MADRUGADA
+            if (h >= 0 && h < 5) { 
+                tMetro = 0; 
+                tCBB = 0; 
+            }
 
             document.getElementById('status-display').innerText = estadoTxt;
             
@@ -529,7 +547,8 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                velBase: (Math.random() * 0.00010) + 0.00004, 
+                // FIX: VELOCIDAD MODERADA (NI CARACOL, NI TREN BALA)
+                velBase: (Math.random() * 0.00018) + 0.00008, 
                 velActual: 0,
                 estado: 'movimiento', 
                 timer: 0,
@@ -772,13 +791,30 @@
 
         function drawGadgets() {
             requestAnimationFrame(drawGadgets);
-            if(!audioActivo || !analyserFFT) return;
-
-            const dataArrayFft = new Uint8Array(analyserFFT.frequencyBinCount); 
-            analyserFFT.getByteFrequencyData(dataArrayFft);
             
+            // FIX: Prevenir que la animación se congele si Tone.js no está listo
+            if(!audioActivo || !analyserFFT) return;
+            
+            let dataArrayFft = new Uint8Array(analyserFFT.frequencyBinCount); 
             let waveData = [];
-            if(analyserWave) waveData = analyserWave.getValue();
+
+            try {
+                // FIX: El Analyser nativo devuelve Float32Array
+                analyserFFT.getValue(); 
+                // Convertimos el array flotante nativo de Tone.js a Uint8 para el FFT
+                const floatFft = analyserFFT.getValue();
+                for(let i=0; i<dataArrayFft.length; i++) {
+                    // Mapeo seguro de dB a 0-255
+                    let val = (floatFft[i] + 100) * 2.55; 
+                    dataArrayFft[i] = Math.max(0, Math.min(255, val));
+                }
+                
+                if(analyserWave) waveData = analyserWave.getValue();
+            } catch(e) {
+                // Si el audio está apagado o silenciado, la animación continúa en cero
+                dataArrayFft = new Uint8Array(512).fill(0);
+                waveData = new Float32Array(1024).fill(0);
+            }
             
             let sum = 0; for(let i=0; i<dataArrayFft.length; i++) sum += dataArrayFft[i];
             let avgNorm = (sum / dataArrayFft.length) / 255;
