@@ -90,10 +90,8 @@
         .close-btn:hover { color: var(--neon-magenta); }
 
         #gadget-3d { top: 20px; right: 20px; width: 280px; height: 280px; }
-        #gadget-fx { top: 320px; right: 20px; width: 260px; height: auto; }
-        
-        /* FIX CSS: Separación correcta para el Log */
-        #gadget-log { top: 520px; right: 20px; width: 260px; height: 160px; }
+        #gadget-fx { top: 320px; right: 20px; width: 280px; height: auto; }
+        #gadget-log { top: 520px; right: 20px; width: 280px; height: 160px; }
         .log-entry { margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .log-entry:last-child { border-bottom: none; }
         .log-sys { font-weight: bold; margin-right: 5px; }
@@ -112,7 +110,6 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
 
-        /* RESPONSIVIDAD MÓVIL Y BANNER */
         @media (min-width: 769px) { .mobile-warning { display: none; } }
         @media (max-width: 768px) {
             #main-ui, #gadget-dock, .gadget { display: none !important; }
@@ -218,29 +215,52 @@
     </div>
 
     <script>
-        // FIX: VARIABLES GLOBALES RESTAURADAS
+        // --- 0. VARIABLES GLOBALES (BLINDAJE ABSOLUTO) ---
+        // Al declararlas aquí arriba, garantizamos que el motor las lea sin importar el orden de ejecución.
         let isManualMode = false;
         let manualNodes = 400;
         let manualSpeedMult = 1.0;
         let globalSpeedMult = 1.0;
         let globalJamProb = 0.0005;
-
-        // --- 1. CORE MAPA E INFRAESTRUCTURA ---
-        const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.41, -99.14], 12);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
+        let targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
 
         let rutasEstructurales = []; 
         let unidadesActivas = [];
         let atascosActivos = []; 
         let estacionesReales = []; 
         let nombresEstaciones = []; 
+
+        const progresión = [
+            { acordes: ["C4", "Eb4", "G4", "Bb4"], escala: ["C4", "Eb4", "F4", "G4", "Bb4", "C5"], bajo: "C2" }, // Cm7
+            { acordes: ["F3", "Ab3", "C4", "Eb4"], escala: ["F4", "Ab4", "Bb4", "C5", "Eb5", "F5"], bajo: "F1" }, // Fm7
+            { acordes: ["D4", "F4", "A4", "C5"],   escala: ["D4", "F4", "G4", "A4", "C5", "D5"],   bajo: "D2" }, // Dm7
+            { acordes: ["G3", "B3", "D4", "F4"],   escala: ["G4", "Bb4", "C5", "D5", "F5", "G5"],  bajo: "G1" }  // G7
+        ];
         
+        let indiceArmonia = 0;
+        let audioActivo = false;
+        const synths = {};
+        let audioCtx, analyserFFT, analyserWave;
+        let biquadFilter, distortionNode, masterLimiter, mixNode;
+
+        let lastTimeFisicas = performance.now();
+        let frameCounter = 0; 
+        let notasEsteFrame = 0; 
+        let lastNotePlayed = 0;
+
+        let is3DReady = false;
+        let renderer3D, scene3D, camera3D, organicMesh3D, organicBaseVerts;
+
         const sysConfig = {
             'METRO': { color: '#ff6600', grosor: 3, opacity: 0.3, inst: 'Sub-Bajo / Chords' },
             'MB':    { color: '#ff003c', grosor: 1.5, opacity: 0.5, inst: 'Arpegio Synth' },
             'CBB':   { color: '#00f0ff', grosor: 1.5, opacity: 0.6, inst: 'MetalSynth' },
             'TROLE': { color: '#0044ff', grosor: 1.5, opacity: 0.5, inst: 'Pluck Retro' }
         };
+
+        // --- 1. MAPA E INFRAESTRUCTURA ---
+        const map = L.map('map', { attributionControl: false, zoomControl: false }).setView([19.41, -99.14], 12);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png').addTo(map);
 
         const logConsole = (msg) => {
             const seq = document.getElementById('loading-sequence');
@@ -362,7 +382,6 @@
         
         window.onload = descargarRedCompleta;
 
-        // --- SISTEMA DE LOGS UI ---
         function logActividadUI(sys, evento) {
             const container = document.getElementById('log-content');
             if (nombresEstaciones.length === 0) return;
@@ -383,19 +402,7 @@
             }
         }
 
-        // --- 2. AUDIO GRAPH Y ARMONÍA ---
-        const progresión = [
-            { acordes: ["C4", "Eb4", "G4", "Bb4"], escala: ["C4", "Eb4", "F4", "G4", "Bb4", "C5"], bajo: "C2" }, // Cm7
-            { acordes: ["F3", "Ab3", "C4", "Eb4"], escala: ["F4", "Ab4", "Bb4", "C5", "Eb5", "F5"], bajo: "F1" }, // Fm7
-            { acordes: ["D4", "F4", "A4", "C5"],   escala: ["D4", "F4", "G4", "A4", "C5", "D5"],   bajo: "D2" }, // Dm7
-            { acordes: ["G3", "B3", "D4", "F4"],   escala: ["G4", "Bb4", "C5", "D5", "F5", "G5"],  bajo: "G1" }  // G7
-        ];
-        let indiceArmonia = 0;
-        let audioActivo = false;
-        const synths = {};
-        let audioCtx, analyserFFT, analyserWave;
-        let biquadFilter, distortionNode, masterLimiter, mixNode;
-
+        // --- 2. AUDIO GRAPH Y SISTEMA ---
         function makeDistortionCurve(amount) {
             let k = typeof amount === 'number' ? amount : 50, n = 44100, curve = new Float32Array(n), deg = Math.PI / 180, i = 0, x;
             for ( ; i < n; ++i ) { x = i * 2 / n - 1; curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) ); }
@@ -666,11 +673,6 @@
             });
         }
 
-        // --- 4. MOTOR FÍSICO Y BLINDAJE AUDIO ---
-        let lastTimeFisicas = performance.now();
-        let frameCounter = 0; 
-        
-        let lastNotePlayed = 0;
         function canPlayNote() {
             if(!audioActivo) return false;
             let now = Tone.now();
@@ -685,8 +687,7 @@
             const currentTime = performance.now(); 
             const deltaTime = currentTime - lastTimeFisicas; 
             lastTimeFisicas = currentTime;
-
-            let actualSpeedMult = isManualMode ? manualSpeedMult : 1.0;
+            notasEsteFrame = 0;
 
             if (Math.random() < globalJamProb * 0.05 && unidadesActivas.length > 0) {
                 let bus = unidadesActivas[Math.floor(Math.random() * unidadesActivas.length)];
@@ -720,7 +721,7 @@
                         }
                     }
 
-                    bus.velActual = bus.velBase * actualSpeedMult * jamMultiplier;
+                    bus.velActual = bus.velBase * globalSpeedMult * jamMultiplier;
                     let distanceToMove = bus.velActual;
                     
                     while (distanceToMove > 0 && bus.estado === 'movimiento') {
@@ -745,7 +746,7 @@
                             
                             if (bus.rutaObj.esEstacion[bus.currentIdx]) {
                                 bus.estado = 'estacion';
-                                bus.timer = 5000 / Math.max(0.1, actualSpeedMult); 
+                                bus.timer = 5000 / Math.max(0.1, globalSpeedMult); 
 
                                 if(bus.rutaObj.sys !== 'METRO' && canPlayNote()) {
                                     try {
@@ -872,9 +873,6 @@
         window.addEventListener('resize', redimensionarCanvases);
 
         // --- 6. 3D Y DIBUJO ---
-        let is3DReady = false;
-        let renderer3D, scene3D, camera3D, organicMesh3D, organicBaseVerts;
-
         function iniciarVisualizador3D() {
             const wrapper = document.getElementById('c3d-wrapper');
             const canvas = document.getElementById('canvas-3d');
