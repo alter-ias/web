@@ -124,8 +124,8 @@
             <button class="play-btn" id="btn-start" onclick="arrancarSistema()" disabled>ESPERANDO RED...</button>
 
             <div class="mobile-warning">
-                <strong>[ AVISO DE SISTEMA ]</strong><br><br>
-                El mapa base y el paisaje sonoro operan de manera óptima.<br>Para habilitar los módulos visuales de espectro, onda y geometría 3D, accede a esta URL desde un dispositivo de escritorio o tablet.
+                <strong>[ MODO MÓVIL ACTIVO ]</strong><br><br>
+                Estás a punto de experimentar el mapa y la sinfonía generativa. Para visualizar la <strong>interfaz completa de datos, telemetría y gadgets</strong>, accede a esta URL desde un dispositivo de escritorio o tablet.
             </div>
         </div>
     </div>
@@ -191,7 +191,7 @@
         let rutasEstructurales = []; 
         let unidadesActivas = [];
         let atascosActivos = []; 
-        let estacionesReales = []; // Almacenará las coordenadas exactas de la API
+        let estacionesReales = [];
         
         const sysConfig = {
             'METRO': { color: '#ff6600', grosor: 3, opacity: 0.3, inst: 'Sub-Bajo / Chords' },
@@ -214,7 +214,6 @@
 
         async function descargarRedCompleta() {
             try {
-                // FIX: EL ENDPOINT REAL, COMPROBADO Y OFICIAL PARA GEOJSON DE ESTACIONES
                 logConsole('Consultando puntos de abordaje reales en <span style="color:#00f0ff">apimetro.dev</span>...');
                 const resEst = await fetch('https://apimetro.dev/movilidad/mapas/geojsonEstacion?sistema=METRO,MB,CBB,TROLE');
                 const geojsonEst = await resEst.json();
@@ -315,7 +314,6 @@
 
             } catch (e) {
                 logConsole('<span style="color:red">[ERROR CRÍTICO] API Inalcanzable. Revise conexión.</span>');
-                console.error(e);
             }
         }
         
@@ -332,7 +330,7 @@
         let audioActivo = false;
         const synths = {};
         let analyserFFT, analyserWave;
-        let biquadFilter, distortionNode, masterLimiter;
+        let biquadFilter, distortionNode, masterLimiter, mixNode;
 
         function makeDistortionCurve(amount) {
             let k = typeof amount === 'number' ? amount : 50, n = 44100, curve = new Float32Array(n), deg = Math.PI / 180, i = 0, x;
@@ -351,7 +349,9 @@
 
             const audioCtx = Tone.getContext().rawContext;
             
+            // RUTEO DE AUDIO CON MEZCLADOR CENTRAL PARA INCLUIR EL POEMA EN LOS GADGETS
             masterLimiter = new Tone.Limiter(-2).toDestination(); 
+            mixNode = new Tone.Gain(1); // Nodo donde colisiona el sintetizador y el poema
             biquadFilter = new Tone.Filter(20000, "lowpass");
             distortionNode = new Tone.Distortion(0);
             
@@ -360,10 +360,24 @@
 
             Tone.getDestination().disconnect(); 
             
+            // Cadena de sintes
             Tone.connect(biquadFilter, distortionNode);
-            Tone.connect(distortionNode, masterLimiter);
-            Tone.connect(distortionNode, analyserFFT);
-            Tone.connect(masterLimiter, analyserWave);
+            Tone.connect(distortionNode, mixNode);
+            
+            // FIX: CARGA DEL POEMA DE KEROUAC EN LOOP
+            const poemPlayer = new Tone.Player({
+                url: "assets/cdmxblues/mcb01.mp3",
+                loop: true,
+                onload: () => {
+                    poemPlayer.start();
+                }
+            }).connect(mixNode);
+            poemPlayer.volume.value = -6; // Sutil en el fondo
+
+            // Salida de la mezcla hacia los visualizadores y luego a las bocinas
+            Tone.connect(mixNode, analyserFFT);
+            Tone.connect(mixNode, analyserWave);
+            Tone.connect(mixNode, masterLimiter);
 
             const reverb = new Tone.Reverb(4).connect(biquadFilter);
             const delay = new Tone.FeedbackDelay("8n", 0.6).connect(reverb);
@@ -388,7 +402,7 @@
             animarFisicas();
         }
 
-        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX EXACTA ---
+        // --- 3. LÓGICA HORARIA Y POBLACIÓN CDMX CON FLUCTUACIÓN POR MINUTO ---
         let targets = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
         let globalSpeedMult = 1.0;
         let globalJamProb = 0.0005;
@@ -412,7 +426,7 @@
                 factor = 0.60;
                 estadoTxt = "AMANECER / INICIO DE OPERACIONES";
             } else if ((h >= 7.5 && h <= 9) || (h >= 13.75 && h <= 15.5) || (h >= 18.75 && h <= 20.75)) {
-                factor = 1.0; // 100% operativo de la flota disponible para servicio
+                factor = 1.0; 
                 if (h <= 9) estadoTxt = "HORA PICO (MAÑANA) / TRÁFICO DENSO";
                 else if (h <= 15.5) estadoTxt = "HORA PICO (TARDE) / TRÁFICO DENSO";
                 else estadoTxt = "HORA PICO (NOCHE) / CAOS URBANO";
@@ -424,12 +438,11 @@
                 estadoTxt = "HORA VALLE / FLUJO REGULAR";
             }
 
-            let seed = Math.floor(minutos / 3);
-            let randomVar = (Math.sin(hora * 100 + seed * 10) * 0.05); 
+            // FIX: Fluctuación viva minuto a minuto usando una onda senoidal
+            let randomVar = (Math.sin(minutos * 0.3) * 0.03) + (Math.cos(minutos * 0.7) * 0.02);
             let finalFactor = Math.min(1.0, Math.max(0.1, factor + randomVar));
 
-            // Aplicando las estadísticas geográficas que investigaste
-            let tMetro = Math.floor(275 * finalFactor); // ~70% del parque de 394
+            let tMetro = Math.floor(275 * finalFactor); 
             let tMB = Math.floor(872 * finalFactor);
             let tCBB = Math.floor(753 * finalFactor);
             let tTrole = Math.floor(290 * finalFactor);
@@ -446,7 +459,6 @@
             document.getElementById('txt-total').innerText = totalSimulado;
 
             if (totalSimulado > 0) {
-                // Mantenemos una proporción matemática (400 nodos visuales para 2190 físicos reales)
                 let ratio = 400 / 2190;
                 targets['METRO'] = Math.floor(tMetro * ratio);
                 targets['MB'] = Math.floor(tMB * ratio);
@@ -509,7 +521,8 @@
                 targetLat: rutaObj.nodos[targetIdx][0], targetLng: rutaObj.nodos[targetIdx][1],
                 curLat: rutaObj.nodos[idx][0], curLng: rutaObj.nodos[idx][1],
                 progress: 0, 
-                velBase: (Math.random() * 0.00015) + 0.00005, 
+                // FIX: Velocidad reducida para regresar al estilo contemplativo
+                velBase: (Math.random() * 0.00010) + 0.00003, 
                 velActual: 0,
                 estado: 'movimiento', 
                 timer: 0,
