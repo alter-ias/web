@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlterLab | Sistemas Audiovisuales y Arte Generativo</title>
+    <style>
+        :root {
+            --bg-color: #060606;
+            --text-main: #f0f0f0;
+            --text-muted: #7a7a7a;
+            --accent: #ffffff;
+            --border: rgba(255, 255, 255, 0.15);
+        }
+        
+        body, html {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Helvetica Neue', Arial, sans-serif; /* Ideal: tipografía sans-serif geométrica */
+            overflow-x: hidden;
+        }
+
+        /* Shader de fondo para emular textura */
+        #glcanvas {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -1; pointer-events: none;
+            opacity: 0.3;
+        }
+
+        /* Navegación - Modo Diferencia para alto contraste */
+        nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 2rem 4rem; border-bottom: 1px solid var(--border);
+        }
+        
+        .logo { 
+            font-size: 1.2rem; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; 
+        }
+        
+        .links a {
+            color: var(--text-muted); text-decoration: none; margin-left: 2.5rem;
+            font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;
+            transition: color 0.3s ease;
+        }
+        
+        .links a:hover { color: var(--accent); }
+        
+        /* Hero Section estilo Uisato */
+        .hero {
+            min-height: 75vh; display: flex; flex-direction: column;
+            justify-content: center; padding: 0 4rem;
+        }
+        
+        .hero h1 {
+            font-size: clamp(3rem, 5vw, 6rem); line-height: 1.05; margin: 0 0 1.5rem 0;
+            max-width: 900px; font-weight: 500;
+        }
+        
+        .hero p {
+            color: var(--text-muted); font-size: 1.2rem; max-width: 550px;
+            margin-bottom: 3.5rem; line-height: 1.5;
+        }
+        
+        .cta-button {
+            display: inline-block; border: 1px solid var(--accent); color: var(--accent);
+            padding: 1rem 2.5rem; text-decoration: none; text-transform: uppercase;
+            font-size: 0.8rem; letter-spacing: 1px; transition: all 0.3s ease;
+            width: fit-content;
+        }
+        
+        .cta-button:hover { background: var(--accent); color: var(--bg-color); }
+
+        /* Diagrama de Orquestación */
+        .orchestration {
+            padding: 6rem 4rem; border-top: 1px solid var(--border);
+        }
+        
+        .section-label { 
+            font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; 
+            margin-bottom: 3rem; display: block; letter-spacing: 1px;
+        }
+        
+        .grid-3 {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem;
+        }
+        
+        .node { border: 1px solid var(--border); padding: 2.5rem; }
+        .node h3 { margin-top: 0; font-size: 1.2rem; margin-bottom: 1rem; }
+        .node p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; }
+
+        @media (max-width: 900px) {
+            nav { flex-direction: column; gap: 1.5rem; padding: 2rem; }
+            .links a { margin: 0 1rem; }
+            .hero, .orchestration { padding: 4rem 2rem; }
+            .grid-3 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glcanvas"></canvas>
+
+    <nav>
+        <div class="logo">AlterLab</div>
+        <div class="links">
+            <a href="/portafolio.html">Portafolio</a>
+            <a href="/cursos.html">Cursos</a>
+            <a href="/colmena.html">Colmena</a>
+            <a href="/blog.html">Blog</a>
+            <a href="/co-laboratorio.html">Co-Laboratorio</a>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <h1>Sistemas audiovisuales e intensidad actoral.</h1>
+        <p>Años de investigación audiovisual y código generativo transformados en herramientas estructuradas para creadores.</p>
+        <a href="/portafolio.html" class="cta-button">Explorar Proyectos</a>
+    </section>
+
+    <section class="orchestration">
+        <span class="section-label">Core / ¿Qué es AlterLab?</span>
+        <div class="grid-3">
+            <div class="node">
+                <h3>01. Inputs</h3>
+                <p>Dirección de gestos, parámetros de audio y marcos lógicos de neuro-computación para guiar el sistema.</p>
+            </div>
+            <div class="node">
+                <h3>02. Orquestación</h3>
+                <p>Iteración estructurada. Una capa técnica entre los modelos generativos crudos y el resultado esperado.</p>
+            </div>
+            <div class="node">
+                <h3>03. Outputs</h3>
+                <p>Tomas hiperrealistas, código interactivo, sistemas reactivos al sonido y espacios de experimentación.</p>
+            </div>
+        </div>
+    </section>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const canvas = document.getElementById('glcanvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: {
+                time: { value: 0.0 },
+                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+            },
+            vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                uniform float time;
+                varying vec2 vUv;
+                
+                // Función rápida de ruido 
+                float random(vec2 st) {
+                    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+                }
+
+                void main() {
+                    vec2 uv = vUv;
+                    float noise = random(uv * (time + 1.0));
+                    gl_FragColor = vec4(vec3(noise), 0.12); 
+                }
+            `
+        });
+
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+        scene.add(plane);
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            material.uniforms.time.value = time * 0.001;
+            renderer.render(scene, camera);
+        }
+        animate(1);
+
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            material.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
