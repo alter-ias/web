@@ -3,190 +3,279 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AlterLab | Sistemas Audiovisuales y Arte Generativo</title>
+    <title>ALTER.LAB | Laboratorio de Arte Generativo</title>
     <style>
+        /* Variables de entorno visual - Minimalismo Técnico */
         :root {
-            --bg-color: #060606;
-            --text-main: #f0f0f0;
-            --text-muted: #7a7a7a;
-            --accent: #ffffff;
-            --border: rgba(255, 255, 255, 0.15);
+            --bg-color: #050505;
+            --overlay-color: rgba(5, 5, 5, 0.85); /* Permite ver tu video de fondo */
+            --text-main: #ffffff;
+            --text-muted: #888888;
+            --border-color: rgba(255, 255, 255, 0.12);
+            --font-display: 'Helvetica Neue', Arial, sans-serif; /* Títulos masivos */
+            --font-mono: 'Courier New', Courier, monospace; /* Textos técnicos */
         }
-        
+
         body, html {
             margin: 0; padding: 0;
             background-color: var(--bg-color);
             color: var(--text-main);
-            font-family: 'Helvetica Neue', Arial, sans-serif; /* Ideal: tipografía sans-serif geométrica */
+            font-family: var(--font-display);
+            scroll-behavior: smooth;
             overflow-x: hidden;
         }
 
-        /* Shader de fondo para emular textura */
-        #glcanvas {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            z-index: -1; pointer-events: none;
-            opacity: 0.3;
+        /* CAPA 1: Tu video de fondo original intacto */
+        .video-background {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -2;
+            object-fit: cover;
+        }
+        
+        /* Overlay para asegurar que el texto sea siempre legible */
+        .video-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: var(--overlay-color);
+            z-index: -1;
         }
 
-        /* Navegación - Modo Diferencia para alto contraste */
+        /* NAVEGACIÓN SUPERIOR */
         nav {
+            position: fixed; top: 0; width: 100%;
             display: flex; justify-content: space-between; align-items: center;
-            padding: 2rem 4rem; border-bottom: 1px solid var(--border);
+            padding: 1.5rem 3rem; box-sizing: border-box;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(5, 5, 5, 0.95);
+            z-index: 100;
         }
-        
-        .logo { 
-            font-size: 1.2rem; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; 
-        }
-        
-        .links a {
-            color: var(--text-muted); text-decoration: none; margin-left: 2.5rem;
-            font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px;
-            transition: color 0.3s ease;
-        }
-        
-        .links a:hover { color: var(--accent); }
-        
-        /* Hero Section estilo Uisato */
-        .hero {
-            min-height: 75vh; display: flex; flex-direction: column;
-            justify-content: center; padding: 0 4rem;
-        }
-        
-        .hero h1 {
-            font-size: clamp(3rem, 5vw, 6rem); line-height: 1.05; margin: 0 0 1.5rem 0;
-            max-width: 900px; font-weight: 500;
-        }
-        
-        .hero p {
-            color: var(--text-muted); font-size: 1.2rem; max-width: 550px;
-            margin-bottom: 3.5rem; line-height: 1.5;
-        }
-        
-        .cta-button {
-            display: inline-block; border: 1px solid var(--accent); color: var(--accent);
-            padding: 1rem 2.5rem; text-decoration: none; text-transform: uppercase;
-            font-size: 0.8rem; letter-spacing: 1px; transition: all 0.3s ease;
-            width: fit-content;
-        }
-        
-        .cta-button:hover { background: var(--accent); color: var(--bg-color); }
 
-        /* Diagrama de Orquestación */
-        .orchestration {
-            padding: 6rem 4rem; border-top: 1px solid var(--border);
+        .nav-logo { font-size: 1.5rem; font-weight: 800; letter-spacing: -1px; }
+        
+        .nav-links { display: flex; gap: 2rem; }
+        .nav-links a {
+            color: var(--text-main); text-decoration: none; font-size: 0.85rem;
+            text-transform: uppercase; font-weight: 500; letter-spacing: 1px;
         }
         
-        .section-label { 
-            font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; 
-            margin-bottom: 3rem; display: block; letter-spacing: 1px;
+        .nav-lang {
+            font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);
         }
-        
-        .grid-3 {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem;
-        }
-        
-        .node { border: 1px solid var(--border); padding: 2.5rem; }
-        .node h3 { margin-top: 0; font-size: 1.2rem; margin-bottom: 1rem; }
-        .node p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; }
+        .nav-lang span { cursor: pointer; transition: color 0.3s; }
+        .nav-lang span:hover { color: var(--text-main); }
 
+        /* ESTRUCTURA BRUTALISTA DE SECCIONES (Estilo Uisato) */
+        .section-container {
+            display: flex; min-height: 100vh;
+            border-bottom: 1px solid var(--border-color);
+            padding-top: 80px; /* Compensa el nav fijo */
+            box-sizing: border-box;
+        }
+
+        /* TEXTO LATERAL GIGANTE ROTADO */
+        .side-label {
+            width: 120px;
+            border-right: 1px solid var(--border-color);
+            display: flex; justify-content: center; align-items: center;
+            flex-shrink: 0;
+        }
+
+        .side-label h2 {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            font-size: clamp(3rem, 6vw, 8rem); /* Texto colosal */
+            font-weight: 900;
+            line-height: 0.8;
+            margin: 0;
+            color: var(--text-main);
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+        }
+
+        .content-area {
+            flex-grow: 1; padding: 4rem; display: flex;
+            flex-direction: column; justify-content: center;
+        }
+
+        /* SECCIÓN 1: INICIO */
+        .hero-title {
+            font-size: clamp(2.5rem, 5vw, 5rem);
+            font-weight: 800; line-height: 1.1; margin: 0 0 1.5rem 0;
+            text-transform: uppercase; letter-spacing: -1px;
+        }
+
+        .hero-subtitle {
+            font-family: var(--font-mono); font-size: 1.1rem;
+            color: var(--text-muted); max-width: 600px; line-height: 1.6;
+        }
+
+        /* SECCIÓN 2: PORTAFOLIO */
+        .portfolio-desc {
+            font-family: var(--font-mono); color: var(--text-muted);
+            margin-bottom: 3rem; max-width: 700px;
+        }
+
+        .portfolio-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2px; /* Las líneas divisorias las da el gap y el fondo */
+            background: var(--border-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .portfolio-item {
+            background: var(--bg-color);
+            aspect-ratio: 16/9;
+            position: relative; cursor: pointer; overflow: hidden;
+            display: flex; align-items: flex-end; padding: 1.5rem;
+        }
+
+        /* Aquí irían los assets dinámicos/imágenes de tus proyectos */
+        .portfolio-item::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #111; /* Reemplazar con background-image de tus assets */
+            opacity: 0.5; transition: opacity 0.4s ease, transform 0.6s ease;
+            z-index: 0;
+        }
+
+        .portfolio-item:hover::before { opacity: 0.8; transform: scale(1.05); }
+
+        .portfolio-item h3 {
+            position: relative; z-index: 1; margin: 0; font-size: 1.2rem;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+
+        .btn-cotizar {
+            display: inline-block; margin-top: 3rem; padding: 1rem 2rem;
+            border: 1px solid var(--text-main); color: var(--text-main);
+            text-decoration: none; text-transform: uppercase; font-family: var(--font-mono);
+            font-size: 0.9rem; align-self: flex-start; transition: all 0.3s;
+        }
+        .btn-cotizar:hover { background: var(--text-main); color: var(--bg-color); }
+
+        /* SECCIÓN 3: CONTACTO */
+        .contact-form {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;
+            max-width: 800px; width: 100%;
+        }
+
+        .form-group { display: flex; flex-direction: column; }
+        .form-group.full { grid-column: 1 / -1; }
+
+        label {
+            font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-muted);
+            margin-bottom: 0.5rem; text-transform: uppercase;
+        }
+
+        input, textarea {
+            background: transparent; border: 1px solid var(--border-color);
+            color: var(--text-main); padding: 1rem; font-family: var(--font-display);
+            font-size: 1rem;
+        }
+        input:focus, textarea:focus { outline: none; border-color: var(--text-main); }
+        textarea { resize: vertical; min-height: 120px; }
+
+        button {
+            background: var(--text-main); color: var(--bg-color); border: none;
+            padding: 1.2rem; font-family: var(--font-mono); text-transform: uppercase;
+            font-weight: bold; cursor: pointer; grid-column: 1 / -1; margin-top: 1rem;
+        }
+        button:hover { opacity: 0.9; }
+
+        /* Responsive */
         @media (max-width: 900px) {
-            nav { flex-direction: column; gap: 1.5rem; padding: 2rem; }
-            .links a { margin: 0 1rem; }
-            .hero, .orchestration { padding: 4rem 2rem; }
-            .grid-3 { grid-template-columns: 1fr; }
+            .section-container { flex-direction: column; }
+            .side-label { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border-color); padding: 2rem 0; }
+            .side-label h2 { writing-mode: horizontal-tb; transform: none; font-size: 3rem; }
+            .content-area { padding: 2rem; }
+            .contact-form { grid-template-columns: 1fr; }
+            .nav-links { display: none; /* Idealmente aquí iría un menú hamburguesa */ }
         }
     </style>
 </head>
 <body>
-    <canvas id="glcanvas"></canvas>
+
+    <video class="video-background" autoplay loop muted playsinline>
+        <source src="tu-video-generativo-actual.mp4" type="video/mp4">
+    </video>
+    <div class="video-overlay"></div>
 
     <nav>
-        <div class="logo">AlterLab</div>
-        <div class="links">
-            <a href="/portafolio.html">Portafolio</a>
-            <a href="/cursos.html">Cursos</a>
-            <a href="/colmena.html">Colmena</a>
-            <a href="/blog.html">Blog</a>
-            <a href="/co-laboratorio.html">Co-Laboratorio</a>
+        <div class="nav-logo">ALTER.LAB</div>
+        <div class="nav-links">
+            <a href="#inicio">Laboratorio</a>
+            <a href="#portafolio">Portafolio</a>
+            <a href="#cursos">Cursos</a>
+            <a href="#contacto">Contacto</a>
+        </div>
+        <div class="nav-lang">
+            <span>EN</span> / <span style="color:#fff">ES</span> / <span>FR</span>
         </div>
     </nav>
 
-    <section class="hero">
-        <h1>Sistemas audiovisuales e intensidad actoral.</h1>
-        <p>Años de investigación audiovisual y código generativo transformados en herramientas estructuradas para creadores.</p>
-        <a href="/portafolio.html" class="cta-button">Explorar Proyectos</a>
-    </section>
-
-    <section class="orchestration">
-        <span class="section-label">Core / ¿Qué es AlterLab?</span>
-        <div class="grid-3">
-            <div class="node">
-                <h3>01. Inputs</h3>
-                <p>Dirección de gestos, parámetros de audio y marcos lógicos de neuro-computación para guiar el sistema.</p>
-            </div>
-            <div class="node">
-                <h3>02. Orquestación</h3>
-                <p>Iteración estructurada. Una capa técnica entre los modelos generativos crudos y el resultado esperado.</p>
-            </div>
-            <div class="node">
-                <h3>03. Outputs</h3>
-                <p>Tomas hiperrealistas, código interactivo, sistemas reactivos al sonido y espacios de experimentación.</p>
-            </div>
+    <section id="inicio" class="section-container">
+        <div class="side-label">
+            <h2>ALTERLAB</h2>
+        </div>
+        <div class="content-area">
+            <h1 class="hero-title">Laboratorio<br>de Arte<br>Generativo</h1>
+            <p class="hero-subtitle">Explorando la intersección entre creatividad y tecnología.</p>
         </div>
     </section>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-        const canvas = document.getElementById('glcanvas');
-        const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
+    <section id="portafolio" class="section-container">
+        <div class="side-label">
+            <h2>PORTAFOLIO</h2>
+        </div>
+        <div class="content-area">
+            <p class="portfolio-desc">Estos son algunos de los últimos proyectos del Laboratorio de Arte Generativo. Haz clic en cualquiera de ellos para verlos en acción.</p>
+            
+            <div class="portfolio-grid">
+                <div class="portfolio-item">
+                    <h3>Videos Musicales</h3>
+                </div>
+                <div class="portfolio-item">
+                    <h3>Cortos Animados</h3>
+                </div>
+                <div class="portfolio-item">
+                    <h3>Páginas Web</h3>
+                </div>
+                <div class="portfolio-item">
+                    <h3>Co-Laboratorio</h3>
+                </div>
+            </div>
+            
+            <a href="#contacto" class="btn-cotizar">Cotiza tu Proyecto</a>
+        </div>
+    </section>
 
-        const scene = new THREE.Scene();
-        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    <section id="contacto" class="section-container">
+        <div class="side-label">
+            <h2>CONTACTO</h2>
+        </div>
+        <div class="content-area">
+            <form class="contact-form">
+                <div class="form-group">
+                    <label>Nombre</label>
+                    <input type="text" required>
+                </div>
+                <div class="form-group">
+                    <label>Correo Electrónico</label>
+                    <input type="email" required>
+                </div>
+                <div class="form-group full">
+                    <label>Asunto</label>
+                    <input type="text" required>
+                </div>
+                <div class="form-group full">
+                    <label>Mensaje</label>
+                    <textarea required></textarea>
+                </div>
+                <button type="submit">Enviar Mensaje</button>
+            </form>
+        </div>
+    </section>
 
-        const material = new THREE.ShaderMaterial({
-            uniforms: {
-                time: { value: 0.0 },
-                resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
-            },
-            vertexShader: `
-                varying vec2 vUv;
-                void main() {
-                    vUv = uv;
-                    gl_Position = vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-                uniform float time;
-                varying vec2 vUv;
-                
-                // Función rápida de ruido 
-                float random(vec2 st) {
-                    return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-                }
-
-                void main() {
-                    vec2 uv = vUv;
-                    float noise = random(uv * (time + 1.0));
-                    gl_FragColor = vec4(vec3(noise), 0.12); 
-                }
-            `
-        });
-
-        const plane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
-        scene.add(plane);
-
-        function animate(time) {
-            requestAnimationFrame(animate);
-            material.uniforms.time.value = time * 0.001;
-            renderer.render(scene, camera);
-        }
-        animate(1);
-
-        window.addEventListener('resize', () => {
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            material.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
-        });
-    </script>
 </body>
 </html>
