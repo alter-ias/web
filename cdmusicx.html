@@ -152,7 +152,6 @@
             #gadget-3d { height: 45vh !important; }
             #gadget-log, #gadget-wave, #gadget-fft, #gadget-fx { height: 35vh !important; }
 
-            /* Advertencia móvil visible */
             .mobile-warning { display: block; margin-top: 20px; padding: 15px; border: 1px solid var(--ui-accent); background: rgba(0, 240, 255, 0.1); border-radius: 10px; font-size: 0.8rem; line-height: 1.5; color: #fff; text-align: center; }
             .mobile-warning strong { color: var(--ui-accent); letter-spacing: 1px; font-family: 'Orbitron'; }
         }
@@ -677,8 +676,8 @@
 00:03:27,750 --> 00:03:29,916
 <b>No más frases, solo gritos, gritos.</b>`;
 
-        // --- VARIABLES GLOBALES (Modificadas para móvil) ---
-        let isMobileDevice = window.innerWidth <= 768; // Detector de móvil global
+        // --- VARIABLES GLOBALES ---
+        let isMobileDevice = window.innerWidth <= 768; 
         let isManualMode = false;
         
         const MAX_FLOTA = { 'METRO': 269, 'MB': 872, 'CBB': 753, 'TROLE': 425 };
@@ -695,7 +694,6 @@
         let atascosActivos = []; 
         
         let estacionesPorSys = { 'METRO': [], 'MB': [], 'CBB': [], 'TROLE': [] }; 
-        
         let logCooldowns = { 'METRO': 0, 'MB': 0, 'CBB': 0, 'TROLE': 0 };
         const SYS_COOLDOWN = 1500; 
 
@@ -860,7 +858,6 @@
 
         function logActividadUI(sys, evento) {
             let now = performance.now();
-            
             if (now - logCooldowns[sys] < SYS_COOLDOWN) return; 
             logCooldowns[sys] = now; 
 
@@ -911,6 +908,8 @@
                 await Tone.start(); 
                 if (Tone.context.state !== 'running') await Tone.context.resume();
                 
+                let isMobileInit = window.innerWidth <= 768; // Chequeo en inicialización
+
                 Tone.context.lookAhead = 0.1; 
                 Tone.Transport.bpm.value = 65; 
                 audioActivo = true;
@@ -927,7 +926,11 @@
 
                 Tone.connect(biquadFilter, mixNode);
                 
-                const poemReverb = new Tone.Freeverb({roomSize: 0.85, dampening: 2000}).connect(mixNode);
+                const poemReverb = new Tone.Freeverb({
+                    roomSize: isMobileInit ? 0.3 : 0.85, 
+                    dampening: isMobileInit ? 4000 : 2000
+                }).connect(mixNode);
+                if(isMobileInit) poemReverb.wet.value = 0.15; // Reverb ligero en celular
 
                 const lines = srtDataRaw.split('\n');
                 for (let i = 0; i < lines.length; i++) {
@@ -963,34 +966,43 @@
                 mixNode.connect(analyserWave);
                 mixNode.connect(masterLimiter);
 
-                const reverb = new Tone.Freeverb({roomSize: 0.7, dampening: 3000}).connect(biquadFilter);
-                const delay = new Tone.FeedbackDelay("8n", 0.5).connect(reverb);
+                if (!isMobileInit) {
+                    // CONFIGURACIÓN DE AUDIO COMPLETA PARA ESCRITORIO
+                    const reverb = new Tone.Freeverb({roomSize: 0.7, dampening: 3000}).connect(biquadFilter);
+                    const delay = new Tone.FeedbackDelay("8n", 0.5).connect(reverb);
 
-                const polyLimit = isMobileDevice ? 4 : 12;
-
-                synths['METRO'] = new Tone.PolySynth(Tone.Synth, { maxPolyphony: polyLimit, oscillator: { type: "sine" }, envelope: { attack: 0.1, release: 2 } }).connect(reverb); 
-                synths['METRO'].volume.value = -16;
-                
-                synths['BASS'] = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 1 } }).connect(biquadFilter); 
-                synths['BASS'].volume.value = -14;
-                
-                synths['MB'] = new Tone.PolySynth(Tone.Synth, { maxPolyphony: polyLimit, oscillator: {type: 'triangle'}}).connect(delay); 
-                synths['MB'].volume.value = -20;
-                
-                synths['PERC'] = new Tone.NoiseSynth({noise:{type:'pink'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); 
-                synths['PERC'].volume.value = -24;
-                
-                synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, { maxPolyphony: polyLimit, resonance: 4000, envelope: {attack: 0.01, decay: 0.8}}).connect(delay); 
-                synths['CBB'].volume.value = -22;
-                
-                synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, { maxPolyphony: polyLimit, modulationIndex: 1.5, envelope: {attack: 0.05, decay: 0.3}}).connect(delay); 
-                synths['TROLE'].volume.value = -20;
+                    synths['METRO'] = new Tone.PolySynth(Tone.Synth, { maxPolyphony: 12, oscillator: { type: "sine" }, envelope: { attack: 0.1, release: 2 } }).connect(reverb); 
+                    synths['METRO'].volume.value = -16;
+                    
+                    synths['BASS'] = new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 1 } }).connect(biquadFilter); 
+                    synths['BASS'].volume.value = -14;
+                    
+                    synths['MB'] = new Tone.PolySynth(Tone.Synth, { maxPolyphony: 12, oscillator: {type: 'triangle'}}).connect(delay); 
+                    synths['MB'].volume.value = -20;
+                    
+                    synths['PERC'] = new Tone.NoiseSynth({noise:{type:'pink'}, envelope:{attack:0.005, decay:0.1}}).connect(biquadFilter); 
+                    synths['PERC'].volume.value = -24;
+                    
+                    synths['CBB'] = new Tone.PolySynth(Tone.MetalSynth, { maxPolyphony: 12, resonance: 4000, envelope: {attack: 0.01, decay: 0.8}}).connect(delay); 
+                    synths['CBB'].volume.value = -22;
+                    
+                    synths['TROLE'] = new Tone.PolySynth(Tone.FMSynth, { maxPolyphony: 12, modulationIndex: 1.5, envelope: {attack: 0.05, decay: 0.3}}).connect(delay); 
+                    synths['TROLE'].volume.value = -20;
+                } else {
+                    // MODO MÓVIL LIGERO: Sólo se inicializa el acorde armónico conectado directo al mixNode
+                    synths['METRO'] = new Tone.PolySynth(Tone.Synth, { maxPolyphony: 3, oscillator: { type: "sine" }, envelope: { attack: 0.2, release: 3 } }).connect(mixNode); 
+                    synths['METRO'].volume.value = -20; 
+                }
 
                 new Tone.Loop(time => {
                     indiceArmonia = (indiceArmonia + 1) % progresión.length;
-                    synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes, "1n", time);
-                    // EN MÓVIL, ELIMINAMOS EL BAJO PARA ALIGERAR AÚN MÁS EL CPU Y SOLO DEJAMOS EL ARMÓNICO
-                    if (!isMobileDevice) {
+                    
+                    if (isMobileInit) {
+                        // Celular: Acorde de 3 notas con velocity suave (0.5)
+                        synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes.slice(0, 3), "1n", time, 0.5);
+                    } else {
+                        // Desktop: Sintetizadores a toda marcha
+                        synths['METRO'].triggerAttackRelease(progresión[indiceArmonia].acordes, "1n", time);
                         synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "8n", time);
                         synths['BASS'].triggerAttackRelease(progresión[indiceArmonia].bajo, "8n", time + Tone.Time("4n").toSeconds() + Tone.Time("8n").toSeconds());
                     }
@@ -1160,13 +1172,10 @@
         }
 
         function canPlayNote() {
-            if(!audioActivo) return false;
-            // BLOQUEO ABSOLUTO EN MÓVIL: Apaga los sonidos de colisión generativos para salvar el CPU
-            if(isMobileDevice) return false; 
+            if(!audioActivo || isMobileDevice) return false; 
             
             let now = Tone.now();
-            let limiteFuego = 0.15; 
-            if (now - lastNotePlayed > limiteFuego) { lastNotePlayed = now; return true; }
+            if (now - lastNotePlayed > 0.15) { lastNotePlayed = now; return true; }
             return false;
         }
 
@@ -1232,11 +1241,12 @@
                                         const escala = progresión[indiceArmonia].escala;
                                         const nota = escala[Math.floor(Math.random() * escala.length)];
                                         synths[bus.rutaObj.sys].triggerAttackRelease(nota, "8n", "+0.05", 0.3); 
-                                        
-                                        bus.marker.setStyle({ fillColor: '#ffffff', radius: 4 });
-                                        setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, radius: 2 }); }, 200);
                                     } catch (e) { }
                                 }
+                                
+                                bus.marker.setStyle({ fillColor: '#ffffff', radius: 4 });
+                                setTimeout(() => { if(bus.marker) bus.marker.setStyle({ fillColor: bus.rutaObj.color, radius: 2 }); }, 200);
+
                                 break;
                             }
                         } else {
@@ -1276,17 +1286,17 @@
                                         const nota = progresión[indiceArmonia].escala[Math.floor(Math.random() * progresión[indiceArmonia].escala.length)];
                                         synths[b1.rutaObj.sys].triggerAttackRelease(nota, "16n", "+0.05", 0.6);
                                         if (b2.rutaObj.sys === 'MB' || b2.rutaObj.sys === 'TROLE') synths['PERC'].triggerAttackRelease("16n", "+0.05", 0.3);
-                                        
-                                        b1.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 5 });
-                                        b2.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 5 });
-                                        setTimeout(() => { 
-                                            if(b1.marker) b1.marker.setStyle({ fillColor: b1.rutaObj.color, color: b1.rutaObj.color, radius: 2 }); 
-                                            if(b2.marker) b2.marker.setStyle({ fillColor: b2.rutaObj.color, color: b2.rutaObj.color, radius: 2 }); 
-                                        }, 300);
-                                        b1.chispaCoolDown = true; b2.chispaCoolDown = true;
-                                        setTimeout(() => { b1.chispaCoolDown = false; b2.chispaCoolDown = false; }, 2000);
                                     } catch(e) {}
                                 }
+                                
+                                b1.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 5 });
+                                b2.marker.setStyle({ fillColor: '#ffffff', color: '#ffffff', radius: 5 });
+                                setTimeout(() => { 
+                                    if(b1.marker) b1.marker.setStyle({ fillColor: b1.rutaObj.color, color: b1.rutaObj.color, radius: 2 }); 
+                                    if(b2.marker) b2.marker.setStyle({ fillColor: b2.rutaObj.color, color: b2.rutaObj.color, radius: 2 }); 
+                                }, 300);
+                                b1.chispaCoolDown = true; b2.chispaCoolDown = true;
+                                setTimeout(() => { b1.chispaCoolDown = false; b2.chispaCoolDown = false; }, 2000);
                             }
                         }
                     }
@@ -1336,7 +1346,7 @@
             }
         }
         window.addEventListener('resize', () => {
-            isMobileDevice = window.innerWidth <= 768; // Actualiza el flag dinámicamente
+            isMobileDevice = window.innerWidth <= 768; 
             redimensionarCanvases();
         });
 
