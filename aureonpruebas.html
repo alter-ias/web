@@ -1,12 +1,3 @@
-**No necesitas hacer absolutamente nada más.** El código que te entrego a continuación es **100% funcional** por sí mismo (Plug & Play). Solo tienes que copiarlo completo, pegarlo en tu archivo `.html`, guardar y recargar tu navegador.
-
-Lo único que debes tener en cuenta, como en cualquier proyecto web, es que las imágenes y videos que ya tenías en tu código original (por ejemplo, `assets/videos/loto.mp4` o `assets/img/zhen.png`) deben seguir existiendo en esas carpetas de tu computadora para que se muestren correctamente en la página final.
-
-Aquí tienes el archivo maestro con todas las piezas unidas: la estructura original, los estilos integrados, tu logo SVG y el nuevo motor de animación.
-
-### Tu código completo actualizado
-
-```html
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -20,7 +11,7 @@ Aquí tienes el archivo maestro con todas las piezas unidas: la estructura origi
     <style>
         /* ================= VARIABLES Y TEMAS ================= */
         :root {
-            var(--primary): #3c4a5c; 
+            --primary: #3c4a5c; 
             --secondary: #708ca6; 
             --white: #ffffff;
             --glass-bg: rgba(255, 255, 255, 0.75);
@@ -85,6 +76,8 @@ Aquí tienes el archivo maestro con todas las piezas unidas: la estructura origi
             height: 350px;
             z-index: 10001; 
             pointer-events: none; 
+            /* EFECTO DE CONTRASTE AUTOMÁTICO */
+            mix-blend-mode: difference;
         }
 
         #intro-logo {
@@ -93,9 +86,9 @@ Aquí tienes el archivo maestro con todas las piezas unidas: la estructura origi
             overflow: visible;
         }
 
+        /* Forzamos el blanco puro para que 'difference' invierta perfectamente */
         #intro-logo path {
             fill: #ffffff !important;
-            filter: drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.5));
         }
 
         .split-content {
@@ -415,7 +408,7 @@ Aquí tienes el archivo maestro con todas las piezas unidas: la estructura origi
                     </div>
                     <div>
                         <p>Bajo la guía del Maestro Zhen Qingchuan, formado en el Centro Huaxia, el ZhiNeng QiGong da un paso más allá del movimiento hacia la percepción directa del Campo.</p>
-                        <p>Creador de Percepciones Interiores (PIP), su enfoque revela algo esencial: no se trata de hacer más, sino de dejar de interferir para que el Qi original reorganice naturalmente el cuerpo, la mente y la conciencia.</p>
+                        <p>Creador de Percepciones Interiores (PIP), su enfoque revela algo esencial: no se trata de hacer más, sino de dejar de interferir para que el Qi original reorganice naturally el cuerpo, la mente y la conciencia.</p>
                         <p style="margin-bottom: 0;">Su enseñanza integra el Cultivo del Corazón como eje central y abre una vía clara hacia estados como YiYuanTi, donde la transformación no se fuerza… sucede.</p>
                     </div>
                 </div>
@@ -763,11 +756,12 @@ Aquí tienes el archivo maestro con todas las piezas unidas: la estructura origi
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     
     <script>
-        // ================= LÓGICA DEL INTRO Y TEMAS =================
+        // ================= LÓGICA DEL INTRO Y REDIRECCIÓN =================
         const logoPieces = document.querySelectorAll("#intro-logo path");
 
         const tl = gsap.timeline({ delay: 0.2 });
 
+        // Animación de ensamblaje (sin giro infinito)
         tl.from(logoPieces, {
             scale: 0,
             opacity: 0,
@@ -777,19 +771,14 @@ Aquí tienes el archivo maestro con todas las piezas unidas: la estructura origi
             ease: "back.out(1.2)",
             stagger: 0.08 
         })
-        .to("#custom-logo-container", {
-            rotation: 360,
-            duration: 60,
-            repeat: -1,
-            ease: "linear"
-        }, "-=1.0")
-        .to(".split-content", { opacity: 1, y: 0, duration: 0.8, stagger: 0.2, ease: "power2.out" }, "-=1.5");
+        .to(".split-content", { opacity: 1, y: 0, duration: 0.8, stagger: 0.2, ease: "power2.out" }, "-=0.5");
 
         const leftSide = document.getElementById('btn-aureon');
         const rightSide = document.getElementById('btn-indira');
 
         tl.eventCallback("onComplete", () => {
             
+            // Hover
             leftSide.addEventListener('mouseenter', () => {
                 gsap.to(leftSide, { width: '60%', duration: 0.5, ease: 'power2.out' });
                 gsap.to(rightSide, { width: '40%', duration: 0.5, ease: 'power2.out' });
@@ -804,18 +793,12 @@ Aquí tienes el archivo maestro con todas las piezas unidas: la estructura origi
                 gsap.to([leftSide, rightSide], { width: '50%', duration: 0.5, ease: 'power2.out' });
             });
 
-            function enterWebsite(themeSelected, clickedSide, otherSide) {
-                if (themeSelected === 'dark') {
-                    document.body.classList.add('dark-theme');
-                } else {
-                    document.body.classList.remove('dark-theme');
-                }
-
+            // Función de redirección final
+            function enterWebsite(clickedSide, otherSide, urlDestino) {
                 const exitTl = gsap.timeline({
                     onComplete: () => {
-                        document.getElementById('intro-wrapper').style.display = 'none';
-                        document.body.style.overflowY = 'auto';
-                        AOS.init({ duration: 800, once: true, offset: 50 });
+                        // AQUÍ OCURRE EL SALTO A LA OTRA PÁGINA
+                        window.location.href = urlDestino;
                     }
                 });
 
@@ -823,16 +806,22 @@ Aquí tienes el archivo maestro con todas las piezas unidas: la estructura origi
                     .to('#custom-logo-container', { scale: 3, opacity: 0, duration: 0.7, ease: "power2.in" }, 0)
                     .to('.split-content', { opacity: 0, y: -20, duration: 0.3 }, 0)
                     .to(clickedSide, { width: '100vw', duration: 0.8, ease: 'expo.inOut' }, 0.2)
-                    .to(otherSide, { width: '0%', duration: 0.8, ease: 'expo.inOut' }, 0.2)
-                    .to(clickedSide, { backgroundColor: themeSelected === 'dark' ? '#0f1318' : '#fdfbf7', duration: 0.5 }, 0.5)
-                    .to('#intro-wrapper', { opacity: 0, duration: 0.5 }, 0.8);
+                    .to(otherSide, { width: '0%', duration: 0.8, ease: 'expo.inOut' }, 0.2);
             }
 
-            leftSide.addEventListener('click', () => { enterWebsite('light', leftSide, rightSide); });
-            rightSide.addEventListener('click', () => { enterWebsite('dark', rightSide, leftSide); });
+            // ====================================================================
+            // AQUÍ PONES TUS ENLACES REALES (ej: 'https://aureon.com')
+            // ====================================================================
+            leftSide.addEventListener('click', () => { 
+                enterWebsite(leftSide, rightSide, 'tu-enlace-aureon.html'); 
+            });
+            
+            rightSide.addEventListener('click', () => { 
+                enterWebsite(rightSide, leftSide, 'tu-enlace-indira.html'); 
+            });
         });
 
-        // ================= TU CÓDIGO JS ORIGINAL INTACTO =================
+        // ================= CÓDIGO JS DE LOS BLOBS (Líquidos de fondo) =================
         const grid = document.getElementById('flow-grid');
         const cells = [];
         const totalCells = 20 * 20;
@@ -888,8 +877,9 @@ Aquí tienes el archivo maestro con todas las piezas unidas: la estructura origi
             });
             flowActive = false; 
         });
+        
+        // Inicializar AOS para la página subyacente (en caso de no redirigir)
+        AOS.init({ duration: 800, once: true, offset: 50 });
     </script>
 </body>
 </html>
-
-```
