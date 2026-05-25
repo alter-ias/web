@@ -59,6 +59,8 @@
             height: 100%; width: 50%;
             position: relative; cursor: pointer;
             transition: width 0.5s ease;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
         }
 
         .left-bg { 
@@ -69,6 +71,39 @@
         .right-bg { 
             background: #0f1318; 
         }
+
+        /* Textos que aparecen en cada mitad tras la animación del logo */
+        .split-content {
+            text-align: center;
+            opacity: 0;
+            transform: translateY(30px);
+            pointer-events: none;
+            width: 100%;
+            padding: 0 30px;
+        }
+
+        .split-title {
+            font-size: clamp(2rem, 4vw, 3.5rem);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            font-weight: 800;
+            font-family: 'Montserrat', sans-serif;
+        }
+        .title-aureon { color: #4a1c5e; }
+        .title-indira { color: #a8b9ce; }
+
+        .split-subtitle {
+            font-size: clamp(0.8rem, 1.2vw, 1rem);
+            font-weight: 400;
+            letter-spacing: 5px;
+            opacity: 0.7;
+            text-transform: uppercase;
+            font-family: 'Montserrat', sans-serif;
+            margin: 0;
+        }
+        .sub-aureon { color: #4a1c5e; }
+        .sub-indira { color: #a8b9ce; }
 
         #custom-logo-container {
             position: absolute; 
@@ -292,8 +327,18 @@
 <body>
 
     <div id="intro-wrapper">
-        <div class="split-bg left-bg" id="btn-aureon"></div>
-        <div class="split-bg right-bg" id="btn-indira"></div>
+        <div class="split-bg left-bg" id="btn-aureon">
+            <div class="split-content">
+                <h2 class="split-title title-aureon">Aureon</h2>
+                <p class="split-subtitle sub-aureon">El Campo Interior</p>
+            </div>
+        </div>
+        <div class="split-bg right-bg" id="btn-indira">
+            <div class="split-content">
+                <h2 class="split-title title-indira">Indira &amp; Hui</h2>
+                <p class="split-subtitle sub-indira">Profundidad y Quietud</p>
+            </div>
+        </div>
         
         <div id="custom-logo-container">
             <svg id="intro-logo" data-name="Capa 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 566.93 566.93">
@@ -754,60 +799,78 @@
             ease: "power4.out",
             transformOrigin: "50% 50%" 
         })
-        // 2. El ojo y las tipografías entran subiendo desde abajo (simétricamente)
+        // 2. El ojo y las tipografías entran subiendo desde abajo
         .from(["#ojo", "#tipografias"], { 
             y: 60, 
             opacity: 0, 
             duration: 1.2, 
             stagger: 0.2,
             ease: "power3.out" 
-        }, "-=0.8");
+        }, "-=0.8")
+        // 3. Pausa breve → logo desaparece antes de dar paso a los perfiles
+        .to("#custom-logo-container", {
+            scale: 1.15,
+            opacity: 0,
+            duration: 0.7,
+            ease: "power2.inOut"
+        }, "+=0.5");
 
         const leftSide = document.getElementById('btn-aureon');
         const rightSide = document.getElementById('btn-indira');
 
         tl.eventCallback("onComplete", () => {
-            
-            // Hover (60/40)
-            leftSide.addEventListener('mouseenter', () => {
-                gsap.to(leftSide, { width: '60%', duration: 0.5, ease: 'power2.out' });
-                gsap.to(rightSide, { width: '40%', duration: 0.5, ease: 'power2.out' });
+
+            // Textos aparecen en cada mitad tras el logo
+            gsap.to(".split-content", {
+                opacity: 1, y: 0, duration: 0.8, stagger: 0.15, ease: "power2.out"
             });
 
-            rightSide.addEventListener('mouseenter', () => {
-                gsap.to(rightSide, { width: '60%', duration: 0.5, ease: 'power2.out' });
-                gsap.to(leftSide, { width: '40%', duration: 0.5, ease: 'power2.out' });
-            });
+            // Pequeño delay antes de activar interactividad
+            setTimeout(() => {
 
-            document.getElementById('intro-wrapper').addEventListener('mouseleave', () => {
-                gsap.to([leftSide, rightSide], { width: '50%', duration: 0.5, ease: 'power2.out' });
-            });
-
-            function enterWebsite(themeSelected, clickedSide, otherSide) {
-                if (themeSelected === 'dark') {
-                    document.body.classList.add('dark-theme');
-                } else {
-                    document.body.classList.remove('dark-theme');
-                }
-
-                const exitTl = gsap.timeline({
-                    onComplete: () => {
-                        document.getElementById('intro-wrapper').style.display = 'none';
-                        document.body.style.overflowY = 'auto';
-                        AOS.init({ duration: 800, once: true, offset: 50 });
-                    }
+                // Hover (60/40)
+                leftSide.addEventListener('mouseenter', () => {
+                    gsap.to(leftSide,  { width: '60%', duration: 0.5, ease: 'power2.out' });
+                    gsap.to(rightSide, { width: '40%', duration: 0.5, ease: 'power2.out' });
                 });
 
-                exitTl
-                    .to('#custom-logo-container', { scale: 1.5, opacity: 0, duration: 0.6, ease: "power2.in" }, 0)
-                    .to(clickedSide, { width: '100vw', duration: 0.8, ease: 'expo.inOut' }, 0)
-                    .to(otherSide, { width: '0%', duration: 0.8, ease: 'expo.inOut' }, 0)
-                    .to(clickedSide, { backgroundColor: themeSelected === 'dark' ? '#0f1318' : '#fdfbf7', duration: 0.5 }, 0.3)
-                    .to('#intro-wrapper', { opacity: 0, duration: 0.5 }, 0.8);
-            }
+                rightSide.addEventListener('mouseenter', () => {
+                    gsap.to(rightSide, { width: '60%', duration: 0.5, ease: 'power2.out' });
+                    gsap.to(leftSide,  { width: '40%', duration: 0.5, ease: 'power2.out' });
+                });
 
-            leftSide.addEventListener('click', () => { enterWebsite('light', leftSide, rightSide); });
-            rightSide.addEventListener('click', () => { enterWebsite('dark', rightSide, leftSide); });
+                document.getElementById('intro-wrapper').addEventListener('mouseleave', () => {
+                    gsap.to([leftSide, rightSide], { width: '50%', duration: 0.5, ease: 'power2.out' });
+                });
+
+                function enterWebsite(themeSelected, clickedSide, otherSide) {
+                    if (themeSelected === 'dark') {
+                        document.body.classList.add('dark-theme');
+                    } else {
+                        document.body.classList.remove('dark-theme');
+                    }
+
+                    const exitTl = gsap.timeline({
+                        onComplete: () => {
+                            document.getElementById('intro-wrapper').style.display = 'none';
+                            document.body.style.overflowY = 'auto';
+                            AOS.init({ duration: 800, once: true, offset: 50 });
+                        }
+                    });
+
+                    exitTl
+                        .to('#custom-logo-container', { scale: 1.5, opacity: 0, duration: 0.6, ease: "power2.in" }, 0)
+                        .to('.split-content', { opacity: 0, y: -20, duration: 0.3 }, 0)
+                        .to(clickedSide, { width: '100vw', duration: 0.8, ease: 'expo.inOut' }, 0)
+                        .to(otherSide,   { width: '0%',   duration: 0.8, ease: 'expo.inOut' }, 0)
+                        .to(clickedSide, { backgroundColor: themeSelected === 'dark' ? '#0f1318' : '#fdfbf7', duration: 0.5 }, 0.3)
+                        .to('#intro-wrapper', { opacity: 0, duration: 0.5 }, 0.8);
+                }
+
+                leftSide.addEventListener('click',  () => { enterWebsite('light', leftSide, rightSide); });
+                rightSide.addEventListener('click', () => { enterWebsite('dark', rightSide, leftSide); });
+
+            }, 600); // espera a que los textos terminen de aparecer
         });
 
         // ================= TU CÓDIGO JS ORIGINAL INTACTO =================
