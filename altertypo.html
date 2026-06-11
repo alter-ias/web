@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AlterLab | Explorador de Tipografías Dinámicas</title>
+    
+    <style>
+        /* Solo cargamos la fuente base de la UI, el resto se inyecta por JS */
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@800&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050505; /* Fondo neutral oscuro */
+            font-family: 'Space Mono', monospace;
+            overflow-x: hidden;
+        }
+
+        header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 15px 30px;
+            background: transparent;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            box-sizing: border-box;
+            mix-blend-mode: difference;
+            pointer-events: none;
+        }
+
+        header div { pointer-events: auto; }
+        
+        .controls {
+            display: flex;
+            align-items: center;
+        }
+
+        .controls button {
+            background: transparent;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 8px 16px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-left: 10px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
+
+        .controls button:hover {
+            background: #fff;
+            color: #000;
+        }
+
+        .api-status {
+            font-size: 0.7rem;
+            color: #ff3366;
+            text-transform: uppercase;
+        }
+
+        /* GRID TIPO NEWSPAPER / COLLAGE */
+        .collage-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            grid-auto-rows: 180px; 
+            grid-auto-flow: dense;
+            gap: 0; 
+            width: 100vw;
+            min-height: 100vh;
+            padding: 80px 20px 20px 20px;
+            box-sizing: border-box;
+        }
+
+        .typo-block {
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: pointer;
+            opacity: 0; /* Para la animación GSAP */
+            transition: transform 0.2s;
+        }
+
+        .typo-block:hover {
+            transform: scale(0.98);
+            z-index: 10;
+        }
+
+        /* Contenedor del texto real */
+        .content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.1;
+            word-wrap: break-word;
+            font-size: 150px; 
+        }
+
+        .vertical-text .content {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+        }
+
+        /* Overlay de información que aparece al hacer click */
+        .info-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(8px);
+        }
+
+        .typo-block.show-info .info-overlay {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .info-detail {
+            font-size: 0.8rem;
+            margin: 5px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .info-value {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: 1.2rem;
+            color: #ff3366;
+            text-transform: none;
+        }
+
+        .span-col-1 { grid-column: span 1; }
+        .span-col-2 { grid-column: span 2; }
+        .span-col-3 { grid-column: span 3; }
+        .span-row-1 { grid-row: span 1; }
+        .span-row-2 { grid-row: span 2; }
+        .span-row-3 { grid-row: span 3; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+</head>
+<body>
+
+    <header>
+        <div style="font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: -1px;">ALTER_LAB : TYPO</div>
+        <div class="controls">
+            <span id="api-status" class="api-status">Cargando catálogo...</span>
+            <button onclick="shuffleAndAnimate()">Explorar Nuevas</button>
+        </div>
+    </header>
+
+    <div class="collage-container" id="canvas"></div>
+
+    <script>
+        // ==========================================
+        // 1. INSERTA TU API KEY AQUÍ PARA VER LAS 1500+ FUENTES
+        // ==========================================
+        const GOOGLE_FONTS_API_KEY = 'AIzaSyCkyQg1NrksDeP1-gLSd8XA-lZi19g73HA'; 
+        
+        let globalFonts = []; // Aquí vivirá todo el catálogo
+        
+        const fallbackFonts = [
+            "Anton", "Bebas Neue", "Cinzel", "DM Sans", "Lora", "Montserrat", "Oswald", "Pacifico", "Playfair Display", "Space Mono", "Syne", "Abril Fatface", "Archivo Black", "Bungee", "Cabin", "Cormorant Garamond", "Crimson Text", "Dancing Script", "Exo 2", "Fira Sans", "Josefin Sans", "Karla", "Lato", "Lobster", "Merriweather", "Nunito", "Outfit", "Permanent Marker", "Quicksand", "Righteous", "Rubik", "Teko", "Ubuntu", "Varela Round", "Work Sans", "Zilla Slab"
+        ].map(name => ({ family: name, category: 'sans-serif' }));
+
+        const colorPairs = [
+            { bg: '#0d0d0d', text: '#f5f5f5' }, { bg: '#f5f5f5', text: '#0d0d0d' },
+            { bg: '#ff3366', text: '#ffffff' }, { bg: '#111111', text: '#ff3366' },
+            { bg: '#4a00e0', text: '#ffffff' }, { bg: '#ccff00', text: '#000000' },
+            { bg: '#222222', text: '#ccff00' }, { bg: '#ffaa00', text: '#111111' }
+        ];
+
+        const phrases = [
+            "La estética del código", "Intervención Bioneural", 
+            "Psicofarmacología Sintética", "El diseño es invisible", 
+            "Neurocomputación Visual", "Espacio Latente", 
+            "Caos Ordenado", "Prototipado", "Vibecoding",
+            "Retículas", "Arquitectura", "Remix"
+        ];
+
+        function injectFontStyles(fontFamily) {
+            const fontID = 'font-' + fontFamily.replace(/\s+/g, '-').toLowerCase();
+            if (!document.getElementById(fontID)) {
+                const link = document.createElement('link');
+                link.id = fontID;
+                link.rel = 'stylesheet';
+                link.href = `https://fonts.googleapis.com/css2?family=${fontFamily.replace(/\s+/g, '+')}:wght@400;700&display=swap`;
+                document.head.appendChild(link);
+            }
+        }
+
+        async function fetchGoogleFonts() {
+            const statusEl = document.getElementById('api-status');
+            if (GOOGLE_FONTS_API_KEY === 'TU_API_KEY_AQUI') {
+                globalFonts = fallbackFonts;
+                statusEl.innerText = "Modo Offline: " + globalFonts.length + " fuentes";
+                statusEl.style.color = "#ffaa00";
+                return;
+            }
+
+            try {
+                const res = await fetch(`https://www.googleapis.com/webfonts/v1/webfonts?key=${GOOGLE_FONTS_API_KEY}&sort=popularity`);
+                if (!res.ok) throw new Error("API Key inválida o límite excedido");
+                const data = await res.json();
+                globalFonts = data.items;
+                statusEl.innerText = "Catálogo Vivo: " + globalFonts.length + " fuentes";
+                statusEl.style.color = "#ccff00";
+            } catch (error) {
+                console.error("Error al obtener fuentes:", error);
+                globalFonts = fallbackFonts;
+                statusEl.innerText = "Error API - Modo Offline";
+            }
+        }
+
+        function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+        function applyTextCase(text, casingType) {
+            if (casingType === 0) return text.toUpperCase();
+            if (casingType === 1) return text.toLowerCase();
+            if (casingType === 2) return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+            return text;
+        }
+
+        function createBlock() {
+            const fontObj = globalFonts[getRandomInt(0, globalFonts.length - 1)];
+            const fontFamily = fontObj.family;
+            
+            injectFontStyles(fontFamily);
+
+            const colorPair = colorPairs[getRandomInt(0, colorPairs.length - 1)];
+            const rawText = phrases[getRandomInt(0, phrases.length - 1)];
+            const text = applyTextCase(rawText, getRandomInt(0, 2));
+            const isVertical = Math.random() > 0.85; 
+            
+            let colSpan = getRandomInt(1, 3);
+            let rowSpan = getRandomInt(1, 3);
+            if (isVertical) { colSpan = getRandomInt(1, 2); rowSpan = getRandomInt(2, 4); }
+
+            const block = document.createElement('div');
+            block.className = `typo-block span-col-${colSpan} span-row-${rowSpan} ${isVertical ? 'vertical-text' : ''}`;
+            block.style.backgroundColor = colorPair.bg;
+            block.style.color = colorPair.text;
+            
+            const fontWeight = Math.random() > 0.5 ? 700 : 400;
+
+            block.innerHTML = `
+                <div class="content" style="font-family: '${fontFamily}', sans-serif; font-weight: ${fontWeight};">
+                    ${text}
+                </div>
+                <div class="info-overlay">
+                    <div class="info-detail">Fuente: <br><span class="info-value">${fontFamily}</span></div>
+                    <div class="info-detail">Peso: <br><span class="info-value">${fontWeight}</span></div>
+                    <div class="info-detail">Color: <br><span class="info-value">${colorPair.text}</span></div>
+                    <div class="info-detail">Fondo: <br><span class="info-value">${colorPair.bg}</span></div>
+                </div>
+            `;
+
+            block.addEventListener('click', function() {
+                document.querySelectorAll('.typo-block').forEach(b => { if(b !== this) b.classList.remove('show-info'); });
+                this.classList.toggle('show-info');
+            });
+            
+            return block;
+        }
+
+        function fitText(block) {
+            const content = block.querySelector('.content');
+            let fontSize = 150;
+            content.style.fontSize = fontSize + 'px';
+            const maxWidth = block.clientWidth - 40; 
+            const maxHeight = block.clientHeight - 40;
+
+            while ((content.scrollWidth > maxWidth || content.scrollHeight > maxHeight) && fontSize > 10) {
+                fontSize -= 2;
+                content.style.fontSize = fontSize + 'px';
+            }
+        }
+
+        function generateCollage() {
+            const canvas = document.getElementById('canvas');
+            canvas.innerHTML = '';
+            const numBlocks = getRandomInt(15, 25);
+            for (let i = 0; i < numBlocks; i++) {
+                const block = createBlock();
+                canvas.appendChild(block);
+                // Damos tiempo a que el CSS de la fuente nueva se descargue antes de ajustar el tamaño
+                setTimeout(() => fitText(block), 150);
+            }
+        }
+
+        function animateIn() {
+            const blocks = document.querySelectorAll('.typo-block');
+            gsap.fromTo(blocks, 
+                { opacity: 0, scale: 0.8 }, 
+                { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.7)", stagger: { amount: 1, from: "random" } }
+            );
+        }
+
+        function animateOut(callback) {
+            const blocks = document.querySelectorAll('.typo-block');
+            gsap.to(blocks, {
+                opacity: 0, scale: 0.8, duration: 0.3, ease: "power2.in", stagger: { amount: 0.2, from: "random" },
+                onComplete: callback
+            });
+        }
+
+        function shuffleAndAnimate() {
+            animateOut(() => {
+                generateCollage();
+                setTimeout(animateIn, 200); 
+            });
+        }
+
+        window.onload = async () => {
+            await fetchGoogleFonts();
+            generateCollage();
+            setTimeout(animateIn, 200);
+        };
+
+        window.addEventListener('resize', () => {
+            document.querySelectorAll('.typo-block').forEach(fitText);
+        });
+    </script>
+</body>
+</html>
