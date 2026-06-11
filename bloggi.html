@@ -3,18 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALTER_LAB : TYPO COLLAGE RADICAL</title>
+    <title>AlterLab | Typo Collage Interactivo</title>
     
     <style>
         /* Solo cargamos la fuente base de la UI, el resto se inyecta por JS */
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@700&family=Syne:wght@800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@800&display=swap');
+
+        :root {
+            --bg-color: #0d0d0d;
+            --text-color: #f5f5f5;
+            --accent: #ff3366;
+            --ui-font: 'Space Mono', monospace;
+        }
 
         body {
             margin: 0;
             padding: 0;
-            background-color: #050505; /* Fondo neutral oscuro */
-            font-family: 'Space Mono', monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Syne', sans-serif;
             overflow-x: hidden;
+            transition: background 0.4s ease;
         }
 
         header {
@@ -45,7 +54,7 @@
             color: #fff;
             border: 1px solid #fff;
             padding: 8px 16px;
-            font-family: 'Space Mono', monospace;
+            font-family: var(--ui-font);
             font-size: 0.8rem;
             cursor: pointer;
             border-radius: 4px;
@@ -62,31 +71,28 @@
         .api-status {
             font-size: 0.7rem;
             color: #ff3366;
+            margin-right: 15px;
             text-transform: uppercase;
         }
 
-        /* GRID TIPO NEWSPAPER / COLLAGE BENTO BOX RADICAL */
+        /* COLLAGE ASIMÉTRICO (SIN REJILLA RÍGIDA) */
         .collage-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-            grid-auto-rows: 180px; 
-            grid-auto-flow: dense;
-            gap: 0; 
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 100px 40px 40px 40px;
             width: 100vw;
             min-height: 100vh;
-            padding: 80px 20px 20px 20px;
+            justify-content: flex-start;
+            align-items: flex-start;
             box-sizing: border-box;
         }
 
         .typo-block {
-            padding: 20px;
             box-sizing: border-box;
             position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
             cursor: pointer;
+            overflow: hidden;
             opacity: 0; /* Para la animación GSAP */
             transition: transform 0.2s;
         }
@@ -96,17 +102,20 @@
             z-index: 10;
         }
 
-        /* Contenedor del texto real */
+        /* specimens de texto */
         .content {
-            width: 100%;
-            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
-            text-align: center;
-            line-height: 1.1;
+            text-align: left;
             word-wrap: break-word;
-            font-size: 150px; 
+            font-size: 150px; /* Tamaño base enorme para el fitText */
+            line-height: 1.1;
+        }
+
+        .content.clean- specimen {
+            display: inline-block;
+            white-space: nowrap;
         }
 
         .vertical-text .content {
@@ -115,7 +124,7 @@
             transform: rotate(180deg);
         }
 
-        /* Overlay de información que aparece al hacer click */
+        /* PANEL DE INSPECCIÓN (Modal/Popup) */
         .info-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -123,7 +132,7 @@
             color: #fff;
             display: flex;
             flex-direction: column;
-            justify(content: center;
+            justify-content: center;
             align-items: center;
             opacity: 0;
             pointer-events: none;
@@ -139,6 +148,7 @@
         }
 
         .info-detail {
+            font-family: var(--ui-font);
             font-size: 0.8rem;
             margin: 5px 0;
             text-transform: uppercase;
@@ -153,12 +163,6 @@
             text-transform: none;
         }
 
-        .span-col-1 { grid-column: span 1; }
-        .span-col-2 { grid-column: span 2; }
-        .span-col-3 { grid-column: span 3; }
-        .span-row-1 { grid-row: span 1; }
-        .span-row-2 { grid-row: span 2; }
-        .span-row-3 { grid-row: span 3; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
@@ -180,12 +184,12 @@
         // ==========================================
         const GOOGLE_FONTS_API_KEY = 'AIzaSyCkyQg1NrksDeP1-gLSd8XA-lZi19g73HA'; 
         
-        let globalFonts = []; // Aquí vivirá todo el catálogo
+        let globalFonts = []; // Catálogo completo vivo
         
-        // Plan B: Un arreglo inicial variado por si no hay API Key configurada
+        // Plan B: Fallback variado
         const fallbackFonts = [
             "Anton", "Bebas Neue", "Cinzel", "DM Sans", "Lora", "Montserrat", "Oswald", "Pacifico", "Playfair Display", "Space Mono", "Syne", "Abril Fatface", "Archivo Black", "Bungee", "Cabin", "Cormorant Garamond", "Crimson Text", "Dancing Script", "Exo 2", "Fira Sans", "Josefin Sans", "Karla", "Lato", "Lobster", "Merriweather", "Nunito", "Outfit", "Permanent Marker", "Quicksand", "Righteous", "Rubik", "Teko", "Ubuntu", "Varela Round", "Work Sans", "Zilla Slab"
-        ].map(name => ({ family: name, category: 'sans-serif' }));
+        ].map(name => ({ family: name }));
 
         const colorPairs = [
             { bg: '#0d0d0d', text: '#f5f5f5' }, { bg: '#f5f5f5', text: '#0d0d0d' },
@@ -202,7 +206,7 @@
             "Retículas", "Arquitectura", "Remix"
         ];
 
-        // INYECCIÓN DINÁMICA DE FUENTES (Evita colapsar el navegador)
+        // INYECCIÓN DINÁMICA DE FUENTES
         function injectFontStyles(fontFamily) {
             const fontID = 'font-' + fontFamily.replace(/\s+/g, '-').toLowerCase();
             if (!document.getElementById(fontID)) {
@@ -251,7 +255,6 @@
             const fontObj = globalFonts[getRandomInt(0, globalFonts.length - 1)];
             const fontFamily = fontObj.family;
             
-            // Inyectamos el CSS de esta fuente específica
             injectFontStyles(fontFamily);
 
             const colorPair = colorPairs[getRandomInt(0, colorPairs.length - 1)];
@@ -259,22 +262,31 @@
             const text = applyTextCase(rawText, getRandomInt(0, 2));
             const isVertical = Math.random() > 0.85; 
             
-            let colSpan = getRandomInt(1, 3);
-            let rowSpan = getRandomInt(1, 3);
-            if (isVertical) { colSpan = getRandomInt(1, 2); rowSpan = getRandomInt(2, 4); }
+            // Variar el tamaño asimétricamente para el collage
+            let width = getRandomInt(150, 400);
+            let height = getRandomInt(150, 400);
+            
+            if (isVertical) {
+                width = getRandomInt(150, 250);
+                height = getRandomInt(300, 500);
+            }
 
             const block = document.createElement('div');
-            block.className = `typo-block span-col-${colSpan} span-row-${rowSpan} ${isVertical ? 'vertical-text' : ''}`;
+            block.className = `typo-block ${isVertical ? 'vertical-text' : ''}`;
             block.style.backgroundColor = colorPair.bg;
             block.style.color = colorPair.text;
+            block.style.width = `${width}px`;
+            block.style.height = `${height}px`;
+            block.style.flexBasis = `${width}px`;
             
             const fontWeight = Math.random() > 0.5 ? 700 : 400;
 
             block.innerHTML = `
-                <div class="content" style="font-family: '${fontFamily}', sans-serif; font-weight: ${fontWeight};">
+                <div class="content clean- specimen" style="font-family: '${fontFamily}', sans-serif; font-weight: ${fontWeight};">
                     ${text}
                 </div>
                 <div class="info-overlay">
+                    <div class="info-detail">ESPECIFICACIONES DE FUENTE</div>
                     <div class="info-detail">Fuente: <br><span class="info-value">${fontFamily}</span></div>
                     <div class="info-detail">Peso: <br><span class="info-value">${fontWeight}</span></div>
                     <div class="info-detail">Color: <br><span class="info-value">${colorPair.text}</span></div>
@@ -283,6 +295,7 @@
             `;
 
             block.addEventListener('click', function() {
+                // Cerramos overlays tipográficos anteriores
                 document.querySelectorAll('.typo-block').forEach(b => { if(b !== this) b.classList.remove('show-info'); });
                 this.classList.toggle('show-info');
             });
@@ -290,13 +303,15 @@
             return block;
         }
 
+        // Algoritmo fitText para que el texto asimétrico quepa en su caja
         function fitText(block) {
             const content = block.querySelector('.content');
-            let fontSize = 150;
+            let fontSize = 150; // Empezamos gigante
             content.style.fontSize = fontSize + 'px';
-            const maxWidth = block.clientWidth - 40; 
+            const maxWidth = block.clientWidth - 40; // Margen de seguridad (padding)
             const maxHeight = block.clientHeight - 40;
 
+            // Reducimos hasta que quepa
             while ((content.scrollWidth > maxWidth || content.scrollHeight > maxHeight) && fontSize > 10) {
                 fontSize -= 2;
                 content.style.fontSize = fontSize + 'px';
@@ -310,7 +325,7 @@
             for (let i = 0; i < numBlocks; i++) {
                 const block = createBlock();
                 canvas.appendChild(block);
-                // Damos tiempo a que el CSS de la fuente nueva se descargue antes de ajustar el tamaño
+                // Damos tiempo a que se descargue el CSS antes de ajustar
                 setTimeout(() => fitText(block), 150);
             }
         }
@@ -334,7 +349,7 @@
         function shuffleAndAnimate() {
             animateOut(() => {
                 generateCollage();
-                setTimeout(animateIn, 200); 
+                setTimeout(animateIn, 200); // Damos tiempo para fitText
             });
         }
 
@@ -344,6 +359,7 @@
             setTimeout(animateIn, 200);
         };
 
+        // Si redimensionan, recalculamos los fitText
         window.addEventListener('resize', () => {
             document.querySelectorAll('.typo-block').forEach(fitText);
         });
