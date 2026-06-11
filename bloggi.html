@@ -3,463 +3,350 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLOG | Alter.Lab - Typography Infinite Explorer</title>
-    
-    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
-    
-    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
-    <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+    <title>ALTER_LAB : TYPO COLLAGE RADICAL</title>
     
     <style>
-    :root {
-        --background-color: #0F121B;
-        --text-color: #FFFFFF;
-        --secondary-text-color: #d1d1d1;
-        --accent-color: #ccff00; /* Un verde neón sutil */
-        --ui-font: 'Space Mono', monospace;
-    }
-    
-    /* FIX PARA LENIS SMOOTH SCROLL */
-    html.lenis, html.lenis body { height: auto; }
-    .lenis.lenis-smooth { scroll-behavior: auto !important; }
-    .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
-    .lenis.lenis-stopped { overflow: hidden; }
-    .lenis.lenis-scrolling iframe { pointer-events: none; }
+        /* Solo cargamos la fuente base de la UI, el resto se inyecta por JS */
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@700&family=Syne:wght@800&display=swap');
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { color: var(--text-color); overflow-x: hidden; background-color: var(--background-color); }
-    
-    /* VIDEO DE FONDO */
-    #background-video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2; object-fit: cover; filter: brightness(0.4); }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050505; /* Fondo neutral oscuro */
+            font-family: 'Space Mono', monospace;
+            overflow-x: hidden;
+        }
 
-    /* CANVAS 3D */
-    #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+        header {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 15px 30px;
+            background: transparent;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+            box-sizing: border-box;
+            mix-blend-mode: difference;
+            pointer-events: none;
+        }
 
-    .container { width: 90%; max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; }
-    
-    .main-header { display: flex; justify-content: center; align-items: center; padding: 30px 0; text-align: center; }
-    .header-content { display: flex; flex-direction: column; align-items: center; gap: 15px; }
-    .logo a { display: flex; align-items: center; gap: 10px; text-decoration: none; flex-direction: column; }
-    .logo img { height: 40px; width: auto; }
-    .logo .logo-text { font-size: 1.5rem; font-weight: 700; letter-spacing: 2px; color: var(--text-color); }
-    
-    /* PANEL DE CONTROL TYPO */
-    .typo-controls {
-        position: fixed; top: 15px; left: 15px;
-        display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
-        z-index: 1001; mix-blend-mode: difference; color: var(--background-color); font-family: var(--ui-font); font-size: 0.7rem; pointer-events: none;
-    }
-    .typo-controls div { pointer-events: auto; }
-    .typo-button { background: transparent; border: 1px solid var(--background-color); color: var(--background-color); padding: 5px 10px; cursor: pointer; text-transform: uppercase; border-radius: 4px; transition: all 0.2s; font-family: var(--ui-font); }
-    .typo-button:hover { background-color: var(--background-color); color: var(--text-color); }
-    .api-status { text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: #ff3366; transition: background 0.3s; }
-    .status-dot.online { background-color: var(--accent-color); }
+        header div { pointer-events: auto; }
+        
+        .controls {
+            display: flex;
+            align-items: center;
+        }
 
-    .lang-switcher button { font-family: var(--ui-font); font-weight: 700; background: none; border: 1px solid var(--secondary-text-color); color: var(--secondary-text-color); padding: 5px 10px; margin: 0 5px; cursor: pointer; border-radius: 4px; transition: all 0.3s ease; }
-    .lang-switcher button:hover { background-color: var(--accent-color); color: var(--background-color); border-color: var(--accent-color); }
-    .lang-switcher button.active { background-color: var(--text-color); color: var(--background-color); border-color: var(--text-color); }
-    
-    .main-nav { margin-top: 15px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px 15px; font-family: var(--ui-font); }
-    .nav-button { background: transparent; border: none; color: var(--secondary-text-color); cursor: pointer; text-decoration: none; padding: 5px 10px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; transition: color 0.3s ease, text-shadow 0.3s ease; }
-    .nav-button:hover { color: var(--text-color); text-shadow: 0 0 8px rgba(255, 255, 255, 0.6); }
-    .nav-button.active { color: var(--text-color); cursor: default; }
-    
-    .page-content-wrapper { padding: 40px 0; }
-    .video-container { max-width: 800px; width: 100%; margin: 0 auto 40px auto; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1); aspect-ratio: 16 / 9; box-shadow: 0 15px 35px rgba(0,0,0,0.5); }
-    .video-container iframe { width: 100%; height: 100%; border: 0; }
-    
-    .blog-content { max-width: 800px; margin: 0 auto; background-color: rgba(15, 18, 27, 0.05); backdrop-filter: blur(10px); padding: 40px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1); }
-    .blog-content h1 { font-size: 2.5rem; margin-bottom: 25px; text-align: center; font-weight: 700; line-height: 1.1; }
-    .blog-content h2 { font-size: 2rem; margin-top: 50px; margin-bottom: 25px; text-align: center; border-top: 1px solid rgba(255, 255, 255, 0.2); padding-top: 40px; font-weight: 700; line-height: 1.2; }
-    .blog-content h3 { font-size: 1.5rem; margin-top: 30px; margin-bottom: 20px; text-align: center; color: var(--accent-color); font-weight: 700; line-height: 1.3; }
-    .blog-content p { font-size: 1.1rem; line-height: 1.7; color: var(--secondary-text-color); margin-bottom: 20px; text-align: center; }
-    .blog-content a { color: var(--text-color); font-weight: 500; text-decoration: none; border-bottom: 1px solid var(--secondary-text-color); transition: color 0.3s, border-color 0.3s; }
-    .blog-content a:hover { color: var(--accent-color); border-color: var(--accent-color); }
-    
-    .image-mosaic { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 30px 0; }
-    .mosaic-item { overflow: hidden; border-radius: 8px; position: relative; }
-    .mosaic-item img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 8px; transition: transform 0.3s ease, filter 0.3s ease; cursor: pointer; }
-    .mosaic-item:hover img { transform: scale(1.05); filter: brightness(1.1); }
+        .controls button {
+            background: transparent;
+            color: #fff;
+            border: 1px solid #fff;
+            padding: 8px 16px;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-left: 10px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+        }
 
-    /* Lightbox */
-    .lightbox { position: fixed; z-index: 2000; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); display: none; justify-content: center; align-items: center; animation: fadeIn 0.3s ease; }
-    .lightbox.visible { display: flex; }
-    .lightbox-content { max-width: 85vw; max-height: 85vh; transition: opacity 0.2s ease-in-out; }
-    .lightbox-close { position: absolute; top: 15px; right: 35px; color: #fff; font-size: 40px; font-weight: bold; cursor: pointer; z-index: 2002; }
-    .lightbox-arrow { position: absolute; top: 50%; transform: translateY(-50%); color: white; font-size: 2rem; cursor: pointer; padding: 16px; user-select: none; transition: all 0.2s ease; z-index: 2001; border-radius: 8px; }
-    .lightbox-arrow:hover { background-color: rgba(255, 255, 255, 0.1); }
-    #lightbox-prev { left: 15px; }
-    #lightbox-next { right: 15px; }
-    
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    
-    .contact-link-section { padding: 40px 0; text-align: center; }
-    .cta-button { font-family: var(--ui-font); display: inline-block; border: 1px solid var(--accent-color); padding: 15px 35px; color: var(--text-color); text-decoration: none; font-weight: 500; letter-spacing: 1px; transition: all 0.3s ease; border-radius: 25px; }
-    .cta-button:hover { background-color: var(--accent-color); color: var(--background-color); }
-    
-    @media (max-width: 768px) {
-        .blog-content { padding: 30px 20px; }
-        .blog-content h1 { font-size: 2rem; }
-        .blog-content h2 { font-size: 1.7rem; }
-        .blog-content p { font-size: 1rem; }
-        .image-mosaic { grid-template-columns: repeat(3, 1fr); }
-    }
-    @media (max-width: 480px) {
-        .image-mosaic { grid-template-columns: repeat(2, 1fr); }
-        .blog-content h3 { font-size: 1.2rem; }
-    }
+        .controls button:hover {
+            background: #fff;
+            color: #000;
+        }
+
+        .api-status {
+            font-size: 0.7rem;
+            color: #ff3366;
+            text-transform: uppercase;
+        }
+
+        /* GRID TIPO NEWSPAPER / COLLAGE BENTO BOX RADICAL */
+        .collage-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            grid-auto-rows: 180px; 
+            grid-auto-flow: dense;
+            gap: 0; 
+            width: 100vw;
+            min-height: 100vh;
+            padding: 80px 20px 20px 20px;
+            box-sizing: border-box;
+        }
+
+        .typo-block {
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: pointer;
+            opacity: 0; /* Para la animación GSAP */
+            transition: transform 0.2s;
+        }
+
+        .typo-block:hover {
+            transform: scale(0.98);
+            z-index: 10;
+        }
+
+        /* Contenedor del texto real */
+        .content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.1;
+            word-wrap: break-word;
+            font-size: 150px; 
+        }
+
+        .vertical-text .content {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+        }
+
+        /* Overlay de información que aparece al hacer click */
+        .info-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify(content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(8px);
+        }
+
+        .typo-block.show-info .info-overlay {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .info-detail {
+            font-size: 0.8rem;
+            margin: 5px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .info-value {
+            font-family: 'Syne', sans-serif;
+            font-weight: 800;
+            font-size: 1.2rem;
+            color: #ff3366;
+            text-transform: none;
+        }
+
+        .span-col-1 { grid-column: span 1; }
+        .span-col-2 { grid-column: span 2; }
+        .span-col-3 { grid-column: span 3; }
+        .span-row-1 { grid-row: span 1; }
+        .span-row-2 { grid-row: span 2; }
+        .span-row-3 { grid-row: span 3; }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
-    <video autoplay muted loop playsinline id="background-video">
-        <source src="assets/videos/web05.webm" type="video/webm">
-        <source src="assets/videos/web05.mp4" type="video/mp4">
-    </video>
 
-    <div id="canvas-container"></div>
-
-    <div class="typo-controls">
-        <div class="api-status"><span id="status-dot" class="status-dot"></span><span id="status-text">Catálogo</span></div>
-        <button class="typo-button" onclick="exploreAndAnimate()">Explorar Tipos</button>
-    </div>
-
-    <header class="main-header container" data-aos="fade-down" data-aos-duration="1000">
-        <div class="header-content">
-            <div class="logo"><a href="index.html"><img src="assets/img/logo03.png" alt="Alter.Lab Logo"><span class="logo-text">ALTER.LAB</span></a></div>
-            <div class="lang-switcher"><button id="lang-en">EN</button><button id="lang-es" class="active">ES</button><button id="lang-fr">FR</button></div>
-            <nav class="main-nav"><a href="blog.html" class="nav-button active" id="nav-blog">Blog</a><a href="portafolio.html" class="nav-button" id="nav-portfolio">Portafolio</a><a href="cursos.html" class="nav-button" id="nav-courses">Cursos</a></nav>
+    <header>
+        <div style="font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.5rem; letter-spacing: -1px;">ALTER_LAB : TYPO</div>
+        <div class="controls">
+            <span id="api-status" class="api-status">Cargando catálogo...</span>
+            <button onclick="shuffleAndAnimate()">Explorar Nuevas</button>
         </div>
     </header>
 
-    <main>
-        <section class="page-content-wrapper container">
-            <div class="blog-content" id="blog-content-body">
-                <h1 id="blog-title" class="gsap-title"></h1>
-                <div class="video-container gsap-media">
-                    <iframe src="https://www.youtube.com/embed/hSBg_XL0cfE" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-                </div>
-                
-                <p id="p1" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="p2" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="p3" data-aos="fade-up" data-aos-duration="800"></p>
+    <div class="collage-container" id="canvas"></div>
 
-                <h2 id="section-title-process" class="gsap-title"></h2>
-                <p id="p4" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="p5" data-aos="fade-up" data-aos-duration="800"></p>
-                
-                <div class="image-mosaic gsap-media" id="mosaic-bocetos"></div>
-
-                <p id="p6" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="p7" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="p8" data-aos="fade-up" data-aos-duration="800"></p>
-
-                <div class="image-mosaic gsap-media" id="mosaic-finales"></div>
-
-                <p id="p9" data-aos="fade-up" data-aos-duration="800"></p>
-
-                <h2 id="solsbury-title" class="gsap-title"></h2>
-                <div class="video-container gsap-media">
-                    <iframe src="https://www.youtube.com/embed/04aNrT413g0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-                </div>
-                <p id="solsbury-p1" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="solsbury-p2" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="solsbury-p3" data-aos="fade-up" data-aos-duration="800"></p>
-
-                <h2 id="pg-5050-title" class="gsap-title"></h2>
-                <p id="pg-5050-desc1" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="pg-5050-desc2" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="pg-5050-desc3" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="pg-5050-desc4" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="pg-5050-desc5" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="pg-5050-desc6" data-aos="fade-up" data-aos-duration="800"></p>
-                <p data-aos="fade-up" data-aos-duration="800"><a href="https://www.5050.dev/creators/alter-lab" target="_blank">https://www.5050.dev/creators/alter-lab</a></p>
-
-                <h2 id="ecos-title" class="gsap-title"></h2>
-                <div class="video-container gsap-media">
-                    <iframe src="https://www.youtube.com/embed/k31ZD9MPZo8?si=YLS5GUV2Gz2KaMkF" title="Ecos de Fuego" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-                </div>
-                <p id="ecos-p1" data-aos="fade-up" data-aos-duration="800"></p>
-                <p id="ecos-tech" data-aos="fade-up" data-aos-duration="800"></p>
-
-                <h3 id="announcements-title" class="gsap-title"></h3>
-                <p data-aos="fade-up" data-aos-duration="800"><strong>03 / Abril / 2025</strong></p>
-                <p id="fest-italy-desc" data-aos="fade-up" data-aos-duration="800"></p>
-                <p data-aos="fade-up" data-aos-duration="800"><strong>12 / Mayo / 2025</strong></p>
-                <p id="fest-russia-desc" data-aos="fade-up" data-aos-duration="800"></p>
-            </div>
-        </section>
-        <section class="contact-link-section container" data-aos="zoom-in" data-aos-duration="1000">
-            <a href="index.html#contact-section" class="cta-button" id="contact-button"></a>
-        </section>
-    </main>
-
-    <div class="lightbox" id="lightbox">
-        <span class="lightbox-close" id="lightbox-close">&times;</span>
-        <span class="lightbox-arrow" id="lightbox-prev">&#10094;</span>
-        <img class="lightbox-content" id="lightbox-img">
-        <span class="lightbox-arrow" id="lightbox-next">&#10095;</span>
-    </div>
-
-    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
-    
     <script>
-        // --- 1. CONFIGURACIÓN API GOOGLE FONTS ---
-        // INSERTA TU API KEY AQUÍ PARA VER LAS 1500+ FUENTES
-        const GOOGLE_FONTS_API_KEY = 'TU_API_KEY_AQUI'; 
+        // ==========================================
+        // 1. INSERTA TU API KEY AQUÍ PARA VER LAS 1500+ FUENTES
+        // ==========================================
+        const GOOGLE_FONTS_API_KEY = 'AIzaSyCkyQg1NrksDeP1-gLSd8XA-lZi19g73HA'; 
         
-        let globalFonts = []; // Catálogo completo vivo
+        let globalFonts = []; // Aquí vivirá todo el catálogo
         
-        // Catálogo Fallback variado por si no hay API Key o error
+        // Plan B: Un arreglo inicial variado por si no hay API Key configurada
         const fallbackFonts = [
-            "Anton", "Bebas Neue", "Cinzel", "DM Sans", "Lora", "Montserrat", "Oswald", "Pacifico", "Playfair Display", "Space Mono", "Syne", "Abril Fatface", "Archivo Black", "Bungee", "Cabin", "Cormorant Garamond", "Crimson Text", "Dancing Script", "Exo 2", "Fira Sans", "Josefin Sans", "Karla", "Lato", "Lobster", "Merriweather", "Nunito", "Outfit", "Permanent Marker", "Quicksand", "Righteous", "Rubik", "Teko", "Ubuntu", "Varela Round", "Work Sans", "Zilla Slab", "League Gothic", "Arvo", "Cardo", "Chivo", "Concert One", "Domine", "Inter"
-        ].map(name => ({ family: name }));
+            "Anton", "Bebas Neue", "Cinzel", "DM Sans", "Lora", "Montserrat", "Oswald", "Pacifico", "Playfair Display", "Space Mono", "Syne", "Abril Fatface", "Archivo Black", "Bungee", "Cabin", "Cormorant Garamond", "Crimson Text", "Dancing Script", "Exo 2", "Fira Sans", "Josefin Sans", "Karla", "Lato", "Lobster", "Merriweather", "Nunito", "Outfit", "Permanent Marker", "Quicksand", "Righteous", "Rubik", "Teko", "Ubuntu", "Varela Round", "Work Sans", "Zilla Slab"
+        ].map(name => ({ family: name, category: 'sans-serif' }));
 
-        // --- 2. FUNCIONES DE CARGA Y SELECCIÓN (Lazy Loading) ---
+        const colorPairs = [
+            { bg: '#0d0d0d', text: '#f5f5f5' }, { bg: '#f5f5f5', text: '#0d0d0d' },
+            { bg: '#ff3366', text: '#ffffff' }, { bg: '#111111', text: '#ff3366' },
+            { bg: '#4a00e0', text: '#ffffff' }, { bg: '#ccff00', text: '#000000' },
+            { bg: '#222222', text: '#ccff00' }, { bg: '#ffaa00', text: '#111111' }
+        ];
+
+        const phrases = [
+            "La estética del código", "Intervención Bioneural", 
+            "Psicofarmacología Sintética", "El diseño es invisible", 
+            "Neurocomputación Visual", "Espacio Latente", 
+            "Caos Ordenado", "Prototipado", "Vibecoding",
+            "Retículas", "Arquitectura", "Remix"
+        ];
+
+        // INYECCIÓN DINÁMICA DE FUENTES (Evita colapsar el navegador)
         function injectFontStyles(fontFamily) {
             const fontID = 'font-' + fontFamily.replace(/\s+/g, '-').toLowerCase();
             if (!document.getElementById(fontID)) {
                 const link = document.createElement('link');
                 link.id = fontID;
                 link.rel = 'stylesheet';
-                // Pedimos 400 (regular) y 700 (bold) para garantizar pesos en títulos
                 link.href = `https://fonts.googleapis.com/css2?family=${fontFamily.replace(/\s+/g, '+')}:wght@400;700&display=swap`;
                 document.head.appendChild(link);
             }
         }
 
+        // FETCH DE LA API DE GOOGLE
         async function fetchGoogleFonts() {
-            const statusText = document.getElementById('status-text');
-            const statusDot = document.getElementById('status-dot');
-            if (GOOGLE_FONTS_API_KEY === 'AIzaSyCkyQg1NrksDeP1-gLSd8XA-lZi19g73HA') {
+            const statusEl = document.getElementById('api-status');
+            if (GOOGLE_FONTS_API_KEY === 'TU_API_KEY_AQUI') {
                 globalFonts = fallbackFonts;
-                statusText.innerText = `MODO OFFLINE: ${globalFonts.length}`;
-                statusDot.style.background = '#ffaa00';
+                statusEl.innerText = "Modo Offline: " + globalFonts.length + " fuentes";
+                statusEl.style.color = "#ffaa00";
                 return;
             }
 
             try {
-                // Ordenamos por popularidad para asegurar fuentes de buena calidad
                 const res = await fetch(`https://www.googleapis.com/webfonts/v1/webfonts?key=${GOOGLE_FONTS_API_KEY}&sort=popularity`);
                 if (!res.ok) throw new Error("API Key inválida o límite excedido");
                 const data = await res.json();
                 globalFonts = data.items;
-                statusText.innerText = `CATÁLOGO VIVO: ${globalFonts.length}`;
-                statusDot.classList.add('online');
+                statusEl.innerText = "Catálogo Vivo: " + globalFonts.length + " fuentes";
+                statusEl.style.color = "#ccff00";
             } catch (error) {
-                console.error("Error API Google Fonts:", error);
+                console.error("Error al obtener fuentes:", error);
                 globalFonts = fallbackFonts;
-                statusText.innerText = "ERROR API";
+                statusEl.innerText = "Error API - Modo Offline";
             }
         }
 
-        function getRandomFont() { return globalFonts[Math.floor(Math.random() * globalFonts.length)].family; }
+        function getRandomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-        // --- 3. APLICACIÓN ALEATORIA A LA PÁGINA REAL ---
-        function applyRandomTypography() {
-            if (globalFonts.length === 0) return;
+        function applyTextCase(text, casingType) {
+            if (casingType === 0) return text.toUpperCase();
+            if (casingType === 1) return text.toLowerCase();
+            if (casingType === 2) return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+            return text;
+        }
 
-            // Elegimos un trío distinto: Uno para logo, uno para títulos, uno para cuerpo
-            const logoFont = getRandomFont();
-            const headingFont = getRandomFont();
-            const bodyFont = getRandomFont();
-
-            // Lazy load de las tres familias
-            injectFontStyles(logoFont);
-            injectFontStyles(headingFont);
-            injectFontStyles(bodyFont);
-
-            // Aplicamos estilos a los selectores específicos de la página real
+        function createBlock() {
+            const fontObj = globalFonts[getRandomInt(0, globalFonts.length - 1)];
+            const fontFamily = fontObj.family;
             
-            // 1. Logo
-            document.querySelector('.logo-text').style.fontFamily = `'${logoFont}', sans-serif`;
+            // Inyectamos el CSS de esta fuente específica
+            injectFontStyles(fontFamily);
+
+            const colorPair = colorPairs[getRandomInt(0, colorPairs.length - 1)];
+            const rawText = phrases[getRandomInt(0, phrases.length - 1)];
+            const text = applyTextCase(rawText, getRandomInt(0, 2));
+            const isVertical = Math.random() > 0.85; 
             
-            // 2. Todos los Títulos (H1, H2, H3)
-            document.querySelectorAll('h1, h2, h3').forEach(el => {
-                el.style.fontFamily = `'${headingFont}', sans-serif`;
+            let colSpan = getRandomInt(1, 3);
+            let rowSpan = getRandomInt(1, 3);
+            if (isVertical) { colSpan = getRandomInt(1, 2); rowSpan = getRandomInt(2, 4); }
+
+            const block = document.createElement('div');
+            block.className = `typo-block span-col-${colSpan} span-row-${rowSpan} ${isVertical ? 'vertical-text' : ''}`;
+            block.style.backgroundColor = colorPair.bg;
+            block.style.color = colorPair.text;
+            
+            const fontWeight = Math.random() > 0.5 ? 700 : 400;
+
+            block.innerHTML = `
+                <div class="content" style="font-family: '${fontFamily}', sans-serif; font-weight: ${fontWeight};">
+                    ${text}
+                </div>
+                <div class="info-overlay">
+                    <div class="info-detail">Fuente: <br><span class="info-value">${fontFamily}</span></div>
+                    <div class="info-detail">Peso: <br><span class="info-value">${fontWeight}</span></div>
+                    <div class="info-detail">Color: <br><span class="info-value">${colorPair.text}</span></div>
+                    <div class="info-detail">Fondo: <br><span class="info-value">${colorPair.bg}</span></div>
+                </div>
+            `;
+
+            block.addEventListener('click', function() {
+                document.querySelectorAll('.typo-block').forEach(b => { if(b !== this) b.classList.remove('show-info'); });
+                this.classList.toggle('show-info');
             });
+            
+            return block;
+        }
 
-            // 3. Todo el cuerpo del blog y botones
-            document.querySelectorAll('.blog-content p, .blog-content blockquote, .blog-content li, .main-nav .nav-button, .lang-switcher button, .contact-link-section .cta-button').forEach(el => {
-                el.style.fontFamily = `'${bodyFont}', sans-serif`;
+        function fitText(block) {
+            const content = block.querySelector('.content');
+            let fontSize = 150;
+            content.style.fontSize = fontSize + 'px';
+            const maxWidth = block.clientWidth - 40; 
+            const maxHeight = block.clientHeight - 40;
+
+            while ((content.scrollWidth > maxWidth || content.scrollHeight > maxHeight) && fontSize > 10) {
+                fontSize -= 2;
+                content.style.fontSize = fontSize + 'px';
+            }
+        }
+
+        function generateCollage() {
+            const canvas = document.getElementById('canvas');
+            canvas.innerHTML = '';
+            const numBlocks = getRandomInt(15, 25);
+            for (let i = 0; i < numBlocks; i++) {
+                const block = createBlock();
+                canvas.appendChild(block);
+                // Damos tiempo a que el CSS de la fuente nueva se descargue antes de ajustar el tamaño
+                setTimeout(() => fitText(block), 150);
+            }
+        }
+
+        function animateIn() {
+            const blocks = document.querySelectorAll('.typo-block');
+            gsap.fromTo(blocks, 
+                { opacity: 0, scale: 0.8 }, 
+                { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.7)", stagger: { amount: 1, from: "random" } }
+            );
+        }
+
+        function animateOut(callback) {
+            const blocks = document.querySelectorAll('.typo-block');
+            gsap.to(blocks, {
+                opacity: 0, scale: 0.8, duration: 0.3, ease: "power2.in", stagger: { amount: 0.2, from: "random" },
+                onComplete: callback
             });
         }
-    </script>
 
-    <script>
-        // --- INICIALIZACIÓN EXISTENTE (Mantenida intacta) ---
-        const lenis = new Lenis({ duration: 1.2, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smooth: true });
-        lenis.on('scroll', ScrollTrigger.update);
-        gsap.ticker.add((time)=>{ lenis.raf(time * 1000); });
-        gsap.ticker.lagSmoothing(0);
+        function shuffleAndAnimate() {
+            animateOut(() => {
+                generateCollage();
+                setTimeout(animateIn, 200); 
+            });
+        }
 
-        AOS.init({ once: false, mirror: true, offset: 50, });
-        gsap.registerPlugin(ScrollTrigger);
-
-        gsap.utils.toArray('.gsap-title').forEach(title => {
-            gsap.fromTo(title, { y: 30, opacity: 0.5 }, { y: 0, opacity: 1, ease: "none", scrollTrigger: { trigger: title, start: "top 95%", end: "top 75%", scrub: 1 } });
-        });
-
-        gsap.utils.toArray('.gsap-media').forEach(media => {
-            gsap.fromTo(media, { y: 50, scale: 0.98 }, { y: -20, scale: 1, ease: "none", scrollTrigger: { trigger: media, start: "top 95%", end: "bottom 15%", scrub: 1 } });
-        });
-
-        // --- FLUJO DE INICIO INTEGRADO ---
-        document.addEventListener('DOMContentLoaded', async function() {
-            // 1. Primero obtenemos el catálogo de fuentes (Espera a la API)
+        window.onload = async () => {
             await fetchGoogleFonts();
+            generateCollage();
+            setTimeout(animateIn, 200);
+        };
 
-            // 2. Aplicamos la tipografía aleatoria por primera vez
-            applyRandomTypography();
-            
-            // --- CONTINUACIÓN DE LA LÓGICA EXISTENTE ---
-            const mosaicBocetos = document.getElementById('mosaic-bocetos');
-            const mosaicFinales = document.getElementById('mosaic-finales');
-            const lightbox = document.getElementById('lightbox');
-            const lightboxImg = document.getElementById('lightbox-img');
-            const lightboxClose = document.getElementById('lightbox-close');
-            const lightboxPrev = document.getElementById('lightbox-prev');
-            const lightboxNext = document.getElementById('lightbox-next');
-
-            let galleryImages = [];
-            let currentImageIndex = 0;
-
-            const createMosaicItem = (src, alt, index) => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'mosaic-item';
-                const img = document.createElement('img');
-                img.src = src; img.alt = alt;
-                img.addEventListener('click', () => { currentImageIndex = index; openLightbox(); });
-                itemDiv.appendChild(img);
-                return itemDiv;
-            };
-
-            const populateGalleries = () => {
-                let imageIndexCounter = 0; galleryImages = []; mosaicBocetos.innerHTML = ''; mosaicFinales.innerHTML = '';
-                for (let i = 1; i <= 12; i++) {
-                    const src = `assets/img/sanjacinto/boceto${String(i).padStart(2, '0')}.png`;
-                    galleryImages.push(src); const item = createMosaicItem(src, `Boceto ${i}`, imageIndexCounter); mosaicBocetos.appendChild(item); imageIndexCounter++;
-                }
-                for (let i = 1; i <= 12; i++) {
-                    const src = `assets/img/sanjacinto/final${String(i).padStart(2, '0')}.png`;
-                    galleryImages.push(src); const item = createMosaicItem(src, `Imagen Final ${i}`, imageIndexCounter); mosaicFinales.appendChild(item); imageIndexCounter++;
-                }
-            };
-            
-            const updateLightboxImage = () => {
-                if (galleryImages.length > 0) { lightboxImg.style.opacity = 0; setTimeout(() => { lightboxImg.src = galleryImages[currentImageIndex]; lightboxImg.style.opacity = 1; }, 100); }
-            };
-            
-            const showNextImage = () => { currentImageIndex = (currentImageIndex + 1) % galleryImages.length; updateLightboxImage(); };
-            const showPrevImage = () => { currentImageIndex = (currentImageIndex - 1 + galleryImages.length) % galleryImages.length; updateLightboxImage(); };
-            const handleKeydown = (e) => { if (e.key === 'ArrowRight') showNextImage(); if (e.key === 'ArrowLeft') showPrevImage(); if (e.key === 'Escape') closeLightbox(); };
-            const openLightbox = () => { updateLightboxImage(); lightbox.classList.add('visible'); document.addEventListener('keydown', handleKeydown); };
-            const closeLightbox = () => { lightbox.classList.remove('visible'); document.removeEventListener('keydown', handleKeydown); };
-
-            lightboxClose.addEventListener('click', closeLightbox);
-            lightbox.addEventListener('click', (e) => { if (e.target === lightbox) closeLightbox(); });
-            lightboxPrev.addEventListener('click', showPrevImage);
-            lightboxNext.addEventListener('click', showNextImage);
-
-            let touchStartX = 0; let touchEndX = 0;
-            lightbox.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
-            lightbox.addEventListener('touchend', (e) => { touchEndX = e.changedTouches[0].screenX; handleSwipe(); }, { passive: true });
-            const handleSwipe = () => { if (touchEndX < touchStartX - 50) showNextImage(); if (touchEndX > touchStartX + 50) showPrevImage(); };
-            
-            populateGalleries();
-
-            // --- LÓGICA DE TRADUCCIÓN EXISTENTE ---
-            const translations = {
-                es: { 'nav-blog': 'Blog', 'nav-portfolio': 'Portafolio', 'nav-courses': 'Cursos', 'contact-button': 'CONTACTO', 'blog-title': 'PETER GABRIEL - SAN JACINTO', 'p1': 'La idea central del video es el poder de la comunidad. Buscamos representar la experiencia espiritual de San Jacinto —el crecimiento interior de un joven que presencia la desaparición de su comunidad y territorio— y, al mismo tiempo, el otro gran mensaje de la canción: la importancia de mantenerse firme ante las adversidades de la sociedad moderna.', 'p2': 'Esperamos que el video no solo capture este mensaje, sino que también refleje que su creación es el resultado de un proceso comunitario. Compartimos ideas, herramientas y flujos de trabajo para crear y ensamblar cada elemento. Para lograrlo, el uso de herramientas generativas se complementó con técnicas tradicionales de animación y edición.', 'p3': 'Nos honra formar parte de la iniciativa 5050, continuar con el importante legado de Peter Gabriel y unirnos a esta comunidad de increíbles artistas visuales.', 'solsbury-title': 'PETER GABRIEL - SOLSBURY HILL', 'solsbury-p1': 'Crear una animación para una canción tan legendaria como "Solsbury Hill" ha sido un profundo honor para nuestro equipo. Como piedra angular del legado de Peter Gabriel, es una pista que ha conmovido a generaciones desde 1977 y que ocupa un lugar especial en nuestras propias historias.', 'solsbury-p2': 'Nuestra animación busca capturar el poderoso mensaje central de la canción: el coraje de soltar y abrazar un nuevo comienzo, incluso frente a un futuro desconocido. Nos inspiramos en la rica historia visual de la canción, que entrelaza trabajos de directores como Graham Dean y Peter Campus, y presenta notablemente extractos de la película \'Cabbages\' de David Stewart y Wesley West. Buscamos reinterpretar estos elementos colectivos para expresar el momento crucial de transformación cuando Peter se embarcó en su viaje en solitario después de Genesis.', 'solsbury-p3': 'Este tema también es profundamente personal para nosotros. En muchos sentidos, la animación es una alegoría de nuestros propios viajes. Cada miembro de nuestro equipo ha dado un salto de fe similar, dejando atrás la certeza para seguir una vida en el arte, un camino lleno de desafíos, pero también de una increíble satisfacción.', 'section-title-process': 'NUESTRO PROCESO CREATIVO: DEL TRAZO A MANO A LA ANIMACIÓN FINAL', 'p4': 'En Alter.Lab trabajamos en constante diálogo con las técnicas clásicas del arte visual y las nuevas herramientas generativas, que permiten flujos mucho más eficientes en el proceso creativo.', 'p5': 'Desde el dibujo convencional para crear bocetos y storyboards, hasta el video final, nuestras manos siguen siendo parte fundamental en el proceso de animación.', 'p6': 'Esta combinación de técnicas y oficios, nos permite no sólo crear obras de mayor profundidad, sino controlar mucho mejor el resultado final de una animación, lo que significa mayor eficiencia y por lo tanto menor cantidad de recursos energéticos y menores costos monetarios.', 'p7': 'Una vez creado el storyboard, que además se trata de un proceso colectivo en el que los integrantes del colectivo dialogamos sobre las mejores formas de abordar la historia, lo siguiente es definir el estilo visual y crear las imágenes que servirán de puntos de arranque en la animación. Esto se hace en entornos locales con herramientas como los modelos disponibles en Forge UI y/o ComfyUI, y herramientas en línea como Flux y Midjourney.', 'p8': 'De la misma forma, la generación de videos se realiza de manera local en modelos de código abierto como Deforum, Wan y CogVideo. Para animaciones más finas usamos los modelos convencionales como Vidu, Kling y Veo. Por último el proceso de edición se realiza en Davinci Resolve Studio 19.', 'p9': 'Durante el proceso, para consistencia y control de personajes y escenarios, utilizamos modelado en 3D y programas como Blender, para encontrar frames precisos que nos permiten resolver ideas concretas que de otra forma la arbitrariedad de los modelos generativos no pueden manejar.', 'pg-5050-title': 'SÍGUENOS EN EL PROYECTO 50:50 DE PETER GABRIEL', 'pg-5050-desc1': 'Hay momentos que definen el viaje de un colectivo. Para nosotros en ALTER.LAB, este es uno de ellos.', 'pg-5050-desc2': 'Desde que iniciamos nuestro laboratorio de arte generativo, hemos sostenido una creencia fundamental: que la tecnología no es un fin, sino un puente. Un lenguaje para tejer nuevas formas de belleza y, sobre todo, para construir comunidad. Soñábamos con encontrar ecos de esta vision en el mundo.', 'pg-5050-desc3': 'Today, con una emoción que apenas cabe en palabras, anunciamos que hemos encontrado ese eco en un lugar que antes solo podíamos admirar desde la distancia: el universo del legendario Peter Gabriel.', 'pg-5050-desc4': 'Nos sentimos profundamente honrados de anunciar nuestra participación en 5050.dev, su revolucionaria iniciativa de colaboración global para que diversos artistas visuales animen su importante legado sonoro.', 'pg-5050-desc5': 'Que una leyenda de su talla no solo abrace las nuevas herramientas creativas, sino que las utilice para fomentar un ecosistema más justo y colaborativo, es una inspiración inmensa. Es la confirmación que el futuro del arte también se escribe en plural.', 'pg-5050-desc6': 'Hemos volcado nuestro corazón y nuestro trabajo en dar vida visual a algunas de sus piezas musicales más hermosas. Pronto estrenaremos otro hermoso video para una de las canciones más icónicas de Peter Gabriel así que no te pierdas los detalles en nuestro perfil en la página oficial del proyecto 5050.dev:', 'ecos-title': 'ECOS DE FUEGO EN EL DESIERTO - CORTO ANIMADO', 'ecos-p1': 'Un joven recuerda a su madre, desaparecida forzadamente en México. Desde el desierto, su voz regresa para consolarlo y darle esperanza. A través de su presencia espectral, ella no solo reconforta a su hijo, sino que también se convierte en un símbolo de resistencia para otras personas que sufren la misma tragedia. Este corto animado explora el amor, el duelo y la lucha por la justicia en un contexto de desapariciones forzadas.', 'ecos-tech': 'Esta #animación fue creada mayoritariamente con herramientas de Código Abierto. Basada en el cuento "Morenito" de Omar Durán Guerra.', 'announcements-title': 'ANUNCIOS', 'fest-italy-desc': 'Estamos profundamente honrados de anunciar que nuestro cortometraje ha sido seleccionado oficialmente para el <a href="https://www.futurefilmfestival.it/it/" target="_blank">24FRAME Future Film Fest 2025</a> en Módena, Italia. Este reconocimiento nos llena de alegría y refuerza nuestro compromiso con el cine como herramienta de transformación social. Agradecemos al equipo del festival por valorar nuestro trabajo y darnos la oportunidad de compartirlo en este prestigioso espacio. En los próximos días compartiremos más detalles sobre fechas y horarios de exhibición. Invitamos a todos a seguir de cerca la programación de este importante festival que celebra las nuevas voces del cine.', 'fest-russia-desc': 'Estamos profundamente honrados de anunciar que nuestro cortometraje ha sido seleccionado oficialmente para el <a href="https://neuro-masters.com/" target="_blank">Neuro Masters AI Film Festival 2025</a>, que se llevará a cabo el 6 de junio en Moscú, Rusia. Este reconocimiento nos llena de entusiasmo y refuerza nuestra convicción de que el cine, apoyado por la inteligencia artificial, puede abrir nuevas rutas para la reflexión crítica y la transformación social. Agradecemos al equipo del festival por valorar nuestro trabajo y brindarnos la oportunidad de compartirlo en este espacio tan innovador. En los próximos días compartiremos más información sobre la programación y los horarios de exhibición. Invitamos a todas y todos a seguir de cerca las actividades de este festival que celebra las posibilidades creativas entre el arte y la tecnología.' },
-                en: { 'nav-blog': 'Blog', 'nav-portfolio': 'Portfolio', 'nav-courses': 'Courses', 'contact-button': 'CONTACT', 'blog-title': 'PETER GABRIEL - SAN JACINTO', 'p1': 'The central idea of the video is the power of community. We seek to represent the spiritual experience of San Jacinto—the inner growth of a young man witnessing the disappearance of his community and territory—and, at the same time, the other great message of the song: the importance of standing firm against the adversities of modern society.', 'p2': 'We hope the video not only captures this message but also reflects that its creation is the result of a community process. We shared ideas, tools, and workflows to create and assemble each element. To achieve this, the use of generative tools was complemented by traditional animation and editing techniques.', 'p3': 'We are honored to be part of the 5050 initiative, to continue the important legacy of Peter Gabriel, and to join this community of incredible visual artists.', 'solsbury-title': 'PETER GABRIEL - SOLSBURY HILL', 'solsbury-p1': 'Creating an animation for a song as legendary as "Solsbury Hill" has been a profound honor for our team. As a cornerstone of Peter Gabriel\'s legacy, it\'s a track that has moved generations since 1977, and one that holds a special place in our own stories.', 'solsbury-p2': 'Our animation aims to capture the song\'s powerful core message: the courage to let go and embrace a new beginning, even in the face of an unknown future. We drew inspiration from the rich visual history of the song, which weaves together work from directors like Graham Dean and Peter Campus, and notably features excerpts from the film \'Cabbages\' by David Stewart and Wesley West. We sought to reinterpret these collective elements to express the pivotal moment of transformation as Peter embarked on his solo journey after Genesis.', 'solsbury-p3': 'This theme is also deeply personal to us. In many ways, the animation is an allegory for our own journeys. Every member of our team has taken a similar leap of faith, leaving certainty behind to pursue a life in art—a path filled with challenges, but also with incredible satisfaction.', 'section-title-process': 'OUR CREATIVE PROCESS: FROM HAND SKETCH TO FINAL ANIMATION', 'p4': 'At Alter.Lab, we work in constant dialogue with classic visual art techniques and new generative tools, which enable much more efficient workflows in the creative process.', 'p5': 'From conventional drawing to create sketches and storyboards, to the final video, our hands remain a fundamental part of the animation process.', 'p6': 'This combination of techniques and crafts allows us not only to create works of greater depth but also to better control the final result of an animation, which means greater efficiency and therefore fewer energy resources and lower monetary costs.', 'p7': 'Once the storyboard is created—a collective process where our members discuss the best ways to approach the story—the next step is to define the visual style and create the keyframes for the animation. This is done in local environments with tools like models available in Forge UI and/or ComfyUI, and online tools such as Flux and Midjourney.', 'p8': 'Similarly, video generation is performed locally on open-source models like Deforum, Wan, and CogVideo. For finer animations, we use conventional models like Vidu, Kling, and Veo. Finally, the editing process is carried out in DaVinci Resolve Studio 19.', 'p9': 'During the process, for consistency and control of characters and scenery, we use 3D modeling and programs like Blender to find precise frames that allow us to resolve specific ideas that the randomness of generative models cannot otherwise handle.', 'pg-5050-title': 'FOLLOW US ON PETER GABRIEL\'S 50:50 PROJECT', 'pg-5050-desc1': 'There are moments that define the journey of a collective. For us at ALTER.LAB, this is one of them.', 'pg-5050-desc2': 'Since we started our generative art laboratory, we have held a fundamental belief: that technology is not an end, but a bridge. A language to weave new forms of beauty and, above all, to build community. We dreamed of finding echoes of this vision in the world.', 'pg-5050-desc3': 'Today, with an emotion that can barely be contained, we announce that we have found that echo in a place we could previously only admire from a distance: the universe of the legendary Peter Gabriel.', 'pg-5050-desc4': 'We are deeply honored to announce our participation in 5050.dev, his revolutionary global collaboration initiative for diverse visual artists to animate his important sonic legacy.', 'pg-5050-desc5': 'That a legend of his stature not only embraces new creative tools but also uses them to foster a fairer and more collaborative ecosystem is an immense inspiration. It is confirmation that the future of art is also written in the plural.', 'pg-5050-desc6': 'We have poured our heart and work into visually bringing to life some of his most beautiful musical pieces. We will soon premiere another beautiful video for one of Peter Gabriel\'s most iconic songs, so don\'t miss the details on our profile on the official 5050.dev project page:', 'ecos-title': 'FIRE ECHOES IN THE DESERT - ANIMATED SHORT', 'ecos-p1': 'A young man remembers his mother, who was forcibly disappeared in Mexico. From the desert, her voice returns to comfort him and offer hope. Through her spectral presence, she not only consoles her son but also becomes a symbol of resistance for other persons enduring the same tragedy. This animated short explores love, grief, and the fight for justice in the context of forced disappearances.', 'ecos-tech': 'This #animation was primarily created using open-source tools. Based on the short story "Morenito" by Omar Durán Guerra.', 'announcements-title': 'ANNOUNCEMENTS', 'fest-italy-desc': 'We are deeply honored to announce that our short film has been officially selected for the <a href="https://www.futurefilmfestival.it/it/" target="_blank">24FRAME Future Film Fest 2025</a> in Modena, Italy. This recognition fills us with joy and reinforces our commitment to cinema as a tool for social transformation. We thank the festival team for valuing our work and giving us the opportunity to share it in this prestigious space. In the coming days, we will share more details about screening dates and times. We invite everyone to closely follow the schedule of this important festival celebrating new voices in cinema.', 'fest-russia-desc': 'We are deeply honored to announce that our short film has been officially selected for the <a href="https://neuro-masters.com/" target="_blank">Neuro Masters AI Film Festival 2025</a>, taking place on June 6th in Moscow, Russia. This recognition fills us with enthusiasm and reinforces our conviction that cinema, supported by artificial intelligence, can open new paths for critical reflection and social transformation. We thank the festival team for valuing our work and providing us the opportunity to share it in such an innovative space. In the coming days, we will share more information about the schedule and exhibition times. We invite everyone to closely follow the activities of this festival celebrating the creative possibilities between art and technology.' },
-                fr: { 'nav-blog': 'Blog', 'nav-portfolio': 'Portfolio', 'nav-courses': 'Cours', 'contact-button': 'CONTACT', 'blog-title': 'PETER GABRIEL - SAN JACINTO', 'p1': "L'idée centrale de la vidéo est le pouvoir de la communauté. Nous cherchons à représenter l'expérience spirituelle de San Jacinto —la croissance intérieure d'un jeune homme témoin de la disparition de sa communauté et de son territoire— et, en même temps, l'autre grand message de la chanson : l'importance de rester ferme face aux adversités de la société moderne.", 'p2': "Nous espérons que la vidéo non seulement capture ce message, mais reflète également que sa création es le résultat d'un processus communautaire. Nous avons partagé des idées, des outils et des flux de travail pour créer et assembler chaque élément. Pour y parvenir, l'utilisation d'outils génératifs a été complétée par des techniques traditionnelles d'animation et de montage.", 'p3': "Nous sommes honorés de faire partie de l'initiative 5050, de poursuivre l'important héritage de Peter Gabriel et de rejoindre cette communauté d'incroyables artistes visuels.", 'solsbury-title': 'PETER GABRIEL - SOLSBURY HILL', 'solsbury-p1': 'Créer une animation pour una chanson aussi légendaire que "Solsbury Hill" a été un profond honneur pour notre équipe. En tant que pierre angulaire de l\'héritage de Peter Gabriel, c\'est un morceau qui a ému des générations depuis 1977 et qui occupe une place spéciale dans nos propres histoires.', 'solsbury-p2': 'Notre animation vise à capturer le message central puissant de la chanson : le courage de lâcher prise et d\'embrasser un nouveau départ, même face à un avenir inconnu. Nous nous sommes inspirés de la riche histoire visuelle de la chanson, qui entremêle les œuvres de réalisateurs comme Graham Dean et Peter Campus, y presenta notablemente extractos de la película \'Cabbages\' de David Stewart y Wesley West. Buscamos reinterpretar estos elementos colectivos para expresar el momento crucial de transformación cuando Peter se embarcó en su viaje en solitario después de Genesis.', 'solsbury-p3': 'Ce thème est également profundamente personal pour nous. En many ways, la animación es una alegoría de nuestros propios viajes. Chaque membre de notre équipe a hecho un salto de fe similar, laissant atrás la certeza para seguir una vida en el arte, un camino lleno de desafíos, pero también de una increíble satisfacción.', 'section-title-process': "NOTRE PROCESSUS CRÉATIF : DU CROQUIS À LA MAIN À L'ANIMATION FINALE", 'p4': "Chez Alter.Lab, nous travaillons en diálogo constante avec les techniques classiques de l'art visuel et les nouveaux outils génératifs, qui permettent des flux de trabajo mucho más eficientes en el proceso creativo.", 'p5': "Du dibujo convencional para crear croquis y storyboards a la vidéo finale, nos mains restent un elemento fundamental en el proceso de animación.", 'p6': "Esta combinación de técnicas y de oficios nos permite no sólo crear obras de mayor profundidad, sino controlar mucho mejor el resultado final de una animación, lo que significa mayor eficiencia y por lo tanto menor cantidad de recursos energéticos y menores costos monetarios.", 'p7': "Une fois le storyboard creado —un processus colectivo donde nos miembros discuten las mejores formas de abordar la historia—, l'étape suivante consiste à definir el estilo visual y a crear las imágenes clave para la animación. Ceci es realizado en entornos locales con herramientas como los modelos disponibles en Forge UI y/o ComfyUI, y herramientas en línea como Flux y Midjourney.", 'p8': "De même, la generación de videos es realizada localmente sobre modelos open source como Deforum, Wan y CogVideo. Pour des animaciones más finas usamos los modelos convencionales como Vidu, Kling y Veo. Por último el proceso de edición es realizado en Davinci Resolve Studio 19.", 'p9': "Durante el proceso, para la consistencia y el control de personajes y de escenarios, usamos la modelización 3D y programas como Blender para encontrar imágenes precisas que nos permiten resolver ideas específicas que l'arbitrariedad de los modelos generativos no puede manejar.", 'pg-5050-title': 'SUIVEZ-NOUS SUR LE PROJET 50:50 DE PETER GABRIEL', 'pg-5050-desc1': "Il y a des moments qui definissent le recorrido d'un colectivo. Pour nous, chez ALTER.LAB, c'en es un.", 'pg-5050-desc2': "Depuis que nous avons lanzado nuestro laboratorio de arte generativo, hemos sostenido una creencia fundamental : la tecnología no es un fin, sino un puente. Un lenguaje para tejer nuevas formas de belleza y, sobre todo, para construir una comunidad. Nos soñábamos con encontrar ecos de esta visión en el mundo.", 'pg-5050-desc3': "Aujourd'hui, avec una emoción a pena contenida, anunciamos que hemos encontrado ese eco en un lugar que antes solo podíamos admirar de lejos : l'universo del legendario Peter Gabriel.", 'pg-5050-desc4': "Nos sentimos profundamente honrados d'anunciar nuestra participación a 5050.dev, su revolucionaria iniciativa de colaboración mundial para que diversos artistas visuales animen su importante legado sonoro.", 'pg-5050-desc5': "Qu'une leyenda de su estatura no solo abrace las nuevas herramientas creativas, sino que las utilice para fomentar un ecosistema más justo y colaborativo, es una inspiración inmensa. Es la confirmación que el futuro del arte también se escribe en plural.", 'pg-5050-desc6': "Nous hemos volcado nuestro corazón y nuestro trabajo a dar vida visual a algunas de sus piezas musicales más hermosas. Pronto estrenaremos otro hermoso video para una de las canciones más icónicas de Peter Gabriel así que no te pierdas los detalles en nuestro perfil en la página oficial del proyecto 5050.dev :", 'ecos-title': 'ÉCHOS DE FEU DANS LE DÉSERT - COURT MÉTRAGE D\'ANIMATION', 'ecos-p1': "Un joven se acuerda de su madre, disappearue de fuerza en México. Desde el desierto, su voz regresa para consolarlo y darle esperanza. A través de su presencia espectral, ella no solo reconforta a su hijo, sino que también se convierte en un símbolo de resistencia para otras personas que sufren la misma tragedia. Ce court métrage d'animación explora l'amor, el duelo y la lucha por la justicia en un contexto de desapariciones forzadas.", 'ecos-tech': 'Esta #animación fue creada mayoritariamente con herramientas de Código Abierto. Basada en el cuento "Morenito" de Omar Durán Guerra.', 'announcements-title': 'ANNONCES', 'fest-italy-desc': 'Estamos profundamente honrados d\'anunciar que nuestro cortometraje ha sido oficialmente seleccionado para el <a href="https://www.futurefilmfestival.it/it/" target="_blank">24FRAME Future Film Fest 2025</a> a Módena, en Italia. Ce reconocimiento nos llena de alegría y refuerza nuestro compromiso con el cine como herramienta de transformación social. Agradecemos al equipo del festival de valorizar nuestro trabajo y darnos la oportunidad de compartirlo en este prestigioso espacio. En los próximos días compartiremos más detalles sobre fechas y horarios de exhibición. Invitamos a todos a seguir de cerca la programación de este importante festival que celebra las nuevas voces del cine.', 'fest-russia-desc': 'Estamos profundamente honrados d\'anunciar que nuestro cortometraje ha sido oficialmente seleccionado para el <a href="https://neuro-masters.com/" target="_blank">Neuro Masters AI Film Festival 2025</a>, que se llevará a cabo el 6 de junio a Moscú, en Rusia. Ce reconocimiento nos llena de entusiasmo y refuerza nuestra convicción de que el cine, apoyado por la inteligencia artificial, puede abrir nuevas rutas para la reflexión crítica y la transformación social. Agradecemos al equipo del festival de valorizar nuestro trabajo y brindarnos la oportunidad de compartirlo en este espacio tan innovador. En los próximos días compartiremos más información sobre la programación y los horarios de exhibición. Invitamos a todas y todos a seguir de cerca las actividades de este festival que celebra las posibilidades creativas entre el arte y la tecnología.' }
-            };
-            const langEnButton = document.getElementById('lang-en');
-            const langEsButton = document.getElementById('lang-es');
-            const langFrButton = document.getElementById('lang-fr');
-            
-            function setLanguage(lang) {
-                const langData = translations[lang];
-                Object.keys(langData).forEach(key => { const element = document.getElementById(key); if (element) { element.innerHTML = langData[key]; } });
-                langEnButton.classList.toggle('active', lang === 'en');
-                langEsButton.classList.toggle('active', lang === 'es');
-                langFrButton.classList.toggle('active', lang === 'fr');
-                document.documentElement.lang = lang;
-                // Pequeño parche: GSAP ScrollTrigger a veces necesita refrescarse si el texto cambia mucho de tamaño
-                ScrollTrigger.refresh(); 
-            }
-            langEnButton.addEventListener('click', () => setLanguage('en'));
-            langEsButton.addEventListener('click', () => setLanguage('es'));
-            langFrButton.addEventListener('click', () => setLanguage('fr'));
-            setLanguage('es');
+        window.addEventListener('resize', () => {
+            document.querySelectorAll('.typo-block').forEach(fitText);
         });
-
-        // --- 4. FUNCIÓN INTERACTIVA DE EXPLORACIÓN + ANIMACIÓN ---
-        function exploreAndAnimate() {
-            // Cerramos overlays tipográficos anteriores si existen
-            document.querySelectorAll('.info-overlay-permanent').forEach(el => el.remove());
-
-            // Primero animamos la salida (Gsap desvanece el contenido)
-            gsap.to('#blog-content-body', {
-                opacity: 0,
-                y: 20,
-                duration: 0.3,
-                ease: "power2.in",
-                onComplete: () => {
-                    // Recalculamos y aplicamos la nueva tipografía
-                    applyRandomTypography();
-                    // Refrescamos GSAP para que recalcule las posiciones de los títulos con la nueva fuente
-                    ScrollTrigger.refresh();
-                    
-                    // Volvemos a mostrar el contenido animado
-                    gsap.to('#blog-content-body', {
-                        opacity: 1,
-                        y: 0,
-                        duration: 0.5,
-                        ease: "power3.out",
-                        delay: 0.1 // Pequeño lag para dar tiempo a la inyección
-                    });
-                }
-            });
-        }
-    </script>
-
-    <script>
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
-        const particlesGeometry = new THREE.BufferGeometry(); const particlesCount = 700; const posArray = new Float32Array(particlesCount * 3);
-        for(let i = 0; i < particlesCount * 3; i++) { posArray[i] = (Math.random() - 0.5) * 15; }
-        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-        const material = new THREE.PointsMaterial({ size: 0.02, color: 0xccff00, transparent: true, opacity: 0.8 }); // Usamos el acento neón
-        const particlesMesh = new THREE.Points(particlesGeometry, material); scene.add(particlesMesh);
-        const geometryWire = new THREE.IcosahedronGeometry(4, 1); const materialWire = new THREE.MeshBasicMaterial({ color: 0xccff00, wireframe: true, transparent: true, opacity: 0.1 }); // Usamos el acento neón
-        const sphere = new THREE.Mesh(geometryWire, materialWire); scene.add(sphere);
-        camera.position.z = 5;
-        let mouseX = 0; let mouseY = 0; let targetX = 0; let targetY = 0;
-        const windowHalfX = window.innerWidth / 2; const windowHalfY = window.innerHeight / 2;
-        document.addEventListener('mousemove', (event) => { mouseX = (event.clientX - windowHalfX); mouseY = (event.clientY - windowHalfY); });
-        let scrollY = 0; window.addEventListener('scroll', () => { scrollY = window.scrollY; });
-        const clock = new THREE.Clock();
-        function animate() {
-            requestAnimationFrame(animate);
-            const elapsedTime = clock.getElapsedTime();
-            targetX = mouseX * 0.001; targetY = mouseY * 0.001;
-            sphere.rotation.y += 0.002 + (scrollY * 0.000005);
-            sphere.rotation.x += 0.001;
-            particlesMesh.rotation.y += 0.05 * (targetX - particlesMesh.rotation.y);
-            particlesMesh.rotation.x += 0.05 * (targetY - particlesMesh.rotation.x);
-            particlesMesh.rotation.z = elapsedTime * 0.05;
-            camera.position.y = -(scrollY * 0.001);
-            renderer.render(scene, camera);
-        }
-        animate();
-        window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
     </script>
 </body>
 </html>
