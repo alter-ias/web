@@ -254,6 +254,27 @@
 
     <div class="toolkit-sidebar">
         <div class="panel-header" style="color:var(--accent-ai);">🤖 Co-Director IA</div>
+
+        <!-- Selector de motor de IA: API libre Pollinations o modelo local Ollama -->
+        <div class="ai-panel" style="border-bottom:1px solid var(--border);">
+            <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px; text-transform:uppercase;">⚙️ Motor de IA:</div>
+            <select id="ai-provider" class="no-focus-modal" onchange="onProviderChange()">
+                <option value="pollinations">☁️ Pollinations (API Libre)</option>
+                <option value="local">💻 Modelo Local (Ollama)</option>
+            </select>
+
+            <div id="config-pollinations">
+                <input type="text" id="poll-model" class="no-focus-modal" value="openai" placeholder="Modelo (openai)" title="Modelos libres: openai, mistral, gpt-5-nano..." oninput="saveAIConfig()">
+                <input type="text" id="poll-token" class="no-focus-modal" value="" placeholder="Token opcional (auth.pollinations.ai)" title="Solo si te registraste, para límites más altos" oninput="saveAIConfig()">
+                <div style="font-size:0.55rem; color:#666; line-height:1.3;">API libre: ~1 petición cada 15s. Si falla, espera y reintenta o usa un token.</div>
+            </div>
+
+            <div id="config-local" style="display:none;">
+                <input type="text" id="local-api-url" class="no-focus-modal" value="http://localhost:11434/api/chat" placeholder="URL API local" title="Endpoint nativo de Ollama" oninput="saveAIConfig()">
+                <input type="text" id="local-model-name" class="no-focus-modal" value="gemma4:e2b" placeholder="Modelo local" title="Nombre exacto del modelo cargado en Ollama" oninput="saveAIConfig()">
+                <div style="font-size:0.55rem; color:#666; line-height:1.3;">Requiere Ollama corriendo localmente con el modelo descargado.</div>
+            </div>
+        </div>
         
         <div class="ai-panel">
             <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px; text-transform:uppercase;">Asistente Contextual:</div>
@@ -640,41 +661,138 @@
             return text;
         }
 
-        async function callPollinationsBase(userPrompt, systemPrompt, options = {}) {
-            const { 
-                model = 'openai', 
+        // ==========================================
+        // ⚙️ CONFIGURACIÓN MULTI-PROVEEDOR (Pollinations libre / Modelo local Ollama)
+        // ==========================================
+        const AI_CONFIG_KEY = 'pharmacon_ai_config';
+
+        function getAIConfig() {
+            const v = (id, fallback) => { const e = document.getElementById(id); return e && e.value.trim() ? e.value.trim() : fallback; };
+            const providerEl = document.getElementById('ai-provider');
+            return {
+                provider: providerEl ? providerEl.value : 'pollinations',
+                pollModel: v('poll-model', 'openai'),
+                pollToken: v('poll-token', ''),
+                localUrl: v('local-api-url', 'http://localhost:11434/api/chat'),
+                localModel: v('local-model-name', 'gemma4:e2b')
+            };
+        }
+
+        function saveAIConfig() {
+            try { localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(getAIConfig())); } catch (e) {}
+        }
+
+        function onProviderChange() {
+            const provider = document.getElementById('ai-provider').value;
+            document.getElementById('config-pollinations').style.display = provider === 'pollinations' ? 'block' : 'none';
+            document.getElementById('config-local').style.display = provider === 'local' ? 'block' : 'none';
+            saveAIConfig();
+        }
+
+        function initAIConfig() {
+            let saved = null;
+            try { saved = JSON.parse(localStorage.getItem(AI_CONFIG_KEY)); } catch (e) {}
+            if (saved) {
+                const set = (id, val) => { const e = document.getElementById(id); if (e && val != null) e.value = val; };
+                set('ai-provider', saved.provider);
+                set('poll-model', saved.pollModel);
+                set('poll-token', saved.pollToken);
+                set('local-api-url', saved.localUrl);
+                set('local-model-name', saved.localModel);
+            }
+            onProviderChange();
+        }
+
+        // Dispatcher unificado: TODAS las llamadas de IA pasan por aquí y se enrutan según el proveedor elegido.
+        async function callAI(userPrompt, systemPrompt, options = {}) {
+            const cfg = getAIConfig();
+            if (cfg.provider === 'local') return await callLocalModel(userPrompt, systemPrompt, cfg, options);
+            return await callPollinations(userPrompt, systemPrompt, cfg, options);
+        }
+
+        // --- PROVEEDOR 1: Pollinations (API libre, compatible OpenAI) ---
+        async function callPollinations(userPrompt, systemPrompt, cfg, options = {}) {
+            const {
                 seed = Math.floor(Math.random() * 99999),
-                privateMode = true,
                 maxRetries = 3,
-                retryDelay = 1500
+                retryDelay = 2000
             } = options;
-            
-            for(let attempt = 0; attempt < maxRetries; attempt++) {
+
+            const headers = { 'Content-Type': 'application/json' };
+            if (cfg.pollToken) headers['Authorization'] = `Bearer ${cfg.pollToken}`;
+
+            let lastErr = 'desconocido';
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
                 try {
                     const response = await fetch('https://text.pollinations.ai/openai', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers,
                         body: JSON.stringify({
+                            model: cfg.pollModel || 'openai',
                             messages: [
                                 { role: 'system', content: systemPrompt },
                                 { role: 'user', content: userPrompt }
                             ],
-                            model: model,
                             seed: seed,
-                            jsonMode: false
+                            referrer: 'pharmacon-scriptflow',
+                            private: true
                         })
                     });
-                    
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                    // Tier anónimo: ~1 petición cada 15s. Si nos limita (429), esperamos y reintentamos.
+                    if (response.status === 429) {
+                        lastErr = 'límite de velocidad (429)';
+                        await new Promise(r => setTimeout(r, 16000));
+                        continue;
+                    }
+                    if (!response.ok) { lastErr = `HTTP ${response.status}`; throw new Error(lastErr); }
+
                     const raw = await response.text();
-                    return extractPollinationsContent(raw);
-                    
-                } catch(e) {
-                    console.warn(`Intento ${attempt + 1} fallido:`, e.message);
+                    const content = extractPollinationsContent(raw);
+                    if (!content || !content.trim()) { lastErr = 'respuesta vacía'; throw new Error(lastErr); }
+                    return content;
+
+                } catch (e) {
+                    lastErr = e.message;
+                    console.warn(`Pollinations intento ${attempt + 1} falló:`, e.message);
                     if (attempt < maxRetries - 1) await new Promise(r => setTimeout(r, retryDelay * (attempt + 1)));
                 }
             }
-            throw new Error("No se pudo obtener respuesta tras múltiples intentos (Error 502/Timeout). Servidor congestionado.");
+            throw new Error(`Pollinations no respondió (${lastErr}). La API libre limita a ~1 petición cada 15s: espera unos segundos y reintenta, usa un token de auth.pollinations.ai, o cambia a "Modelo Local".`);
+        }
+
+        // --- PROVEEDOR 2: Modelo local (Ollama nativo / endpoint compatible) ---
+        async function callLocalModel(userPrompt, systemPrompt, cfg, options = {}) {
+            const url = cfg.localUrl || 'http://localhost:11434/api/chat';
+            let response;
+            try {
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: cfg.localModel || 'gemma4:e2b',
+                        stream: false,
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: userPrompt }
+                        ],
+                        options: { temperature: options.temperature != null ? options.temperature : 0.7 }
+                    })
+                });
+            } catch (e) {
+                throw new Error(`No se pudo conectar al modelo local (${url}). ¿Está Ollama corriendo y el modelo descargado? Detalle: ${e.message}`);
+            }
+
+            if (!response.ok) {
+                const errText = await response.text().catch(() => '');
+                throw new Error(`Modelo local HTTP ${response.status}. ${errText}`);
+            }
+
+            const data = await response.json();
+            if (data.message && typeof data.message.content === 'string') return data.message.content.trim();                 // Ollama /api/chat
+            if (data.choices && data.choices[0] && data.choices[0].message) return (data.choices[0].message.content || '').trim(); // Compatible OpenAI (/v1/chat/completions)
+            if (typeof data.response === 'string') return data.response.trim();                                                 // Ollama /api/generate
+            throw new Error('El modelo local devolvió una respuesta vacía o con formato desconocido.');
         }
 
         function getProjectContext(maxLength = 800) {
@@ -705,7 +823,7 @@
             const userPrompt = `${context}\n\n${entityRules[catName] || 'Sugiere 1 elemento nuevo físico y real.'}`;
 
             try {
-                let text = await callPollinationsBase(userPrompt, sysPrompt);
+                let text = await callAI(userPrompt, sysPrompt);
                 if (text) {
                     text = text.replace(/^-\s*/, '').replace(/[\n\r]/g, ' ').trim();
                     appState.entities[catName].push({ id: `ent_${Date.now()}`, name: text, image: null }); 
@@ -740,7 +858,7 @@
                     const sys = "Eres supervisor de guion. Deduce o mejora el encabezado de escena (Scene Heading) basado en la acción física adjunta. Devuelve SOLO EL TÍTULO en formato estándar (INT/EXT. LUGAR - DIA/NOCHE). SIN COMILLAS.";
                     const user = `Acción contenida:\n${shotsText || 'Aún no hay acción'}\n\nTítulo parcial actual: ${node.data.heading}\n\nMejora el título actual o propón uno realista y seco. NADA POÉTICO.`;
                     
-                    let newTitle = await callPollinationsBase(user, sys);
+                    let newTitle = await callAI(user, sys);
                     newTitle = newTitle.replace(/["\\]/g, '').trim().toUpperCase();
                     updateNodeData(node.id, 'heading', newTitle);
                     
@@ -793,7 +911,7 @@
                     const otherTags = node.data.tags.filter(t => t.cat !== 'Fármaco');
                     const user = `Contexto Base:\nLugar: ${locs}\nSujetos: ${chars}\nObjetos: ${props}\nModificadores de Cámara/Estilo: ${otherTags.length ? otherTags.map(t=>t.val).join(', ') : 'Ninguno'}\n\nAcción o idea inicial proporcionada por usuario: ${node.data.action || 'Vacía'}\n\nGenera el PROMPT DE IMAGEN DEFINITIVO amalgamando estos elementos (max 4-5 líneas). Omitir comillas o introducciones.`;
                     
-                    let newDesc = await callPollinationsBase(user, sys);
+                    let newDesc = await callAI(user, sys);
                     newDesc = newDesc.replace(/["\\]/g, '').trim();
                     updateNodeData(node.id, 'action', newDesc);
                     
@@ -829,7 +947,7 @@
 
                     const user = `Encuadre visual estático base:\n${visualContext}\n\nDesarrollo parcial o guía de movimiento actual proveida: ${node.data.text || 'N/A'}${dialogRule}\n\nEscribe el PROMPT DE VIDEO FINAL.`;
                     
-                    let newMotion = await callPollinationsBase(user, sys);
+                    let newMotion = await callAI(user, sys);
                     newMotion = newMotion.replace(/["\\]/g, '').trim();
                     updateNodeData(node.id, 'text', newMotion);
 
@@ -837,7 +955,7 @@
                     const sys = "Eres un analista forense. Expande la descripción físca del elemento dado. Solo detalles fisiológicos, de vestimenta o materiales y desgaste. CERO POESÍA. NADA METAFÓRICO. Un solo párrafo directo.";
                     const user = `Contexto del Proyecto:\n${context}\n\nMejora el texto de esta entidad:\n${node.data.name}\n\nDevuelve solo la descripción final.`;
                     
-                    let expandedEnt = await callPollinationsBase(user, sys);
+                    let expandedEnt = await callAI(user, sys);
                     expandedEnt = expandedEnt.replace(/["\\]/g, '').trim();
                     updateNodeData(node.id, 'name', expandedEnt);
                 }
@@ -871,7 +989,7 @@
             
             try {
                 const sys = "Eres traductor nativo. Traduce el siguiente Prompt textualmente al Inglés para que modelos de IA como Midjourney y Sora lo entiendan mejor. NADA MÁS QUE LA TRADUCCIÓN.";
-                const enText = await callPollinationsBase(`Traduce esto al inglés puro:\n\n${text}`, sys);
+                const enText = await callAI(`Traduce esto al inglés puro:\n\n${text}`, sys);
                 const cleanResult = enText.replace(/["\\]/g, '').trim();
                 
                 if (node.type === 'shot') updateNodeData(id, 'action', cleanResult);
@@ -1217,7 +1335,7 @@ Format:
                 let translated = null;
                 for (let attempt = 0; attempt < 3; attempt++) {
                     try {
-                        const rawText = await callPollinationsBase(userPrompt, sys);
+                        const rawText = await callAI(userPrompt, sys);
                         if (rawText && rawText.length > 5) { translated = rawText; break; }
                     } catch(e) {
                         if (attempt < 2) await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
@@ -1474,7 +1592,8 @@ Format:
             initProjects();
             document.getElementById('canvas').innerHTML = '<svg class="connections" id="svg-layer"></svg>';
             initToolkitUI();
-            
+            initAIConfig();
+
             const saved = localStorage.getItem(getStorageKey());
             if (saved) {
                 appState = JSON.parse(saved); renderEntities(); appState.nodes.forEach(n => renderNode(n)); drawSplines(); updateCanvasTransform();
