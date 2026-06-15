@@ -260,6 +260,7 @@
             <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px; text-transform:uppercase;">⚙️ Motor de IA:</div>
             <select id="ai-provider" class="no-focus-modal" onchange="onProviderChange()">
                 <option value="pollinations">☁️ Pollinations (API Libre)</option>
+                <option value="gemini">✨ Google Gemini (API key gratis)</option>
                 <option value="local">💻 Modelo Local (Ollama)</option>
             </select>
 
@@ -274,12 +275,22 @@
                 <input type="text" id="local-model-name" class="no-focus-modal" value="gemma4:e2b" placeholder="Modelo local" title="Nombre exacto del modelo cargado en Ollama" oninput="saveAIConfig()">
                 <div style="font-size:0.55rem; color:#666; line-height:1.3;">Requiere Ollama corriendo localmente con el modelo descargado.</div>
             </div>
+
+            <div id="config-gemini" style="display:none;">
+                <input type="password" id="gemini-key" class="no-focus-modal" value="" placeholder="API key de Google AI Studio" title="Gratis en aistudio.google.com/apikey. Restríngela a tu dominio." oninput="saveAIConfig()">
+                <input type="text" id="gemini-model" class="no-focus-modal" value="gemini-2.5-flash" placeholder="Modelo (gemini-2.5-flash)" title="gemini-2.5-flash, gemini-2.0-flash..." oninput="saveAIConfig()">
+                <div style="font-size:0.55rem; color:#666; line-height:1.3;">Gratis ~250 req/día y analiza imágenes. La key queda en el código del sitio: restríngela a tu dominio en Google Cloud.</div>
+            </div>
         </div>
         
         <div class="ai-panel">
             <div style="font-size:0.65rem; color:#aaa; margin-bottom:3px; text-transform:uppercase;">Asistente Contextual:</div>
             <button class="ui-btn ai-btn" id="btn-generar" onclick="generateSelectedNode()" style="width: 100%; padding: 8px;">✨ GENERAR IA</button>
-            <div style="font-size:0.60rem; color:#666; margin-top:5px; text-align:center;">Genera entidades en blanco o auto-completa el nodo seleccionado interactuando con su entorno.</div>
+            <label class="ui-btn ai-btn" id="btn-vision" style="width:100%; padding:8px; margin-top:6px; border-color: rgba(181,98,232,0.4); color: var(--accent-char); cursor:pointer;">
+                <span id="vision-label">🖼️ IMAGEN → PROMPT</span>
+                <input type="file" id="vision-file" accept="image/*" style="display:none;" onchange="analyzeImageToPrompt(this)">
+            </label>
+            <div style="font-size:0.60rem; color:#666; margin-top:5px; text-align:center;">Genera/auto-completa el nodo seleccionado. "Imagen → Prompt" crea un SHOT describiendo una foto.</div>
         </div>
 
         <div class="panel-header drug-header">💊 BOTIQUÍN FARMACOLÓGICO</div>
@@ -674,7 +685,9 @@
                 pollModel: v('poll-model', 'openai'),
                 pollToken: v('poll-token', ''),
                 localUrl: v('local-api-url', 'http://localhost:11434/api/chat'),
-                localModel: v('local-model-name', 'gemma4:e2b')
+                localModel: v('local-model-name', 'gemma4:e2b'),
+                geminiKey: v('gemini-key', ''),
+                geminiModel: v('gemini-model', 'gemini-2.5-flash')
             };
         }
 
@@ -684,9 +697,18 @@
 
         function onProviderChange() {
             const provider = document.getElementById('ai-provider').value;
-            document.getElementById('config-pollinations').style.display = provider === 'pollinations' ? 'block' : 'none';
-            document.getElementById('config-local').style.display = provider === 'local' ? 'block' : 'none';
+            ['pollinations', 'gemini', 'local'].forEach(p => {
+                const el = document.getElementById('config-' + p);
+                if (el) el.style.display = (p === provider) ? 'block' : 'none';
+            });
             saveAIConfig();
+        }
+
+        // Separa un data URI "data:image/jpeg;base64,XXXX" en { mime, base64 }.
+        function parseDataUri(uri) {
+            const m = /^data:([^;,]+)(?:;base64)?,(.*)$/i.exec(uri || '');
+            if (m) return { mime: m[1] || 'image/jpeg', base64: m[2] || '' };
+            return { mime: 'image/jpeg', base64: (uri || '').replace(/^data:[^,]*,/, '') };
         }
 
         function initAIConfig() {
@@ -699,6 +721,8 @@
                 set('poll-token', saved.pollToken);
                 set('local-api-url', saved.localUrl);
                 set('local-model-name', saved.localModel);
+                set('gemini-key', saved.geminiKey);
+                set('gemini-model', saved.geminiModel);
             }
             onProviderChange();
         }
@@ -707,6 +731,7 @@
         async function callAI(userPrompt, systemPrompt, options = {}) {
             const cfg = getAIConfig();
             if (cfg.provider === 'local') return await callLocalModel(userPrompt, systemPrompt, cfg, options);
+            if (cfg.provider === 'gemini') return await callGemini(userPrompt, systemPrompt, cfg, options);
             return await callPollinations(userPrompt, systemPrompt, cfg, options);
         }
 
@@ -731,7 +756,9 @@
                             model: cfg.pollModel || 'openai',
                             messages: [
                                 { role: 'system', content: systemPrompt },
-                                { role: 'user', content: userPrompt }
+                                { role: 'user', content: (options.images && options.images.length)
+                                    ? [{ type: 'text', text: userPrompt }, ...options.images.map(u => ({ type: 'image_url', image_url: { url: u } }))]
+                                    : userPrompt }
                             ],
                             seed: seed,
                             referrer: 'pharmacon-scriptflow',
@@ -774,7 +801,9 @@
                         stream: false,
                         messages: [
                             { role: 'system', content: systemPrompt },
-                            { role: 'user', content: userPrompt }
+                            (options.images && options.images.length)
+                                ? { role: 'user', content: userPrompt, images: options.images.map(u => parseDataUri(u).base64).filter(Boolean) }
+                                : { role: 'user', content: userPrompt }
                         ],
                         options: { temperature: options.temperature != null ? options.temperature : 0.7 }
                     })
@@ -793,6 +822,51 @@
             if (data.choices && data.choices[0] && data.choices[0].message) return (data.choices[0].message.content || '').trim(); // Compatible OpenAI (/v1/chat/completions)
             if (typeof data.response === 'string') return data.response.trim();                                                 // Ollama /api/generate
             throw new Error('El modelo local devolvió una respuesta vacía o con formato desconocido.');
+        }
+
+        // --- PROVEEDOR 3: Google Gemini (API key gratis, multimodal/visión) ---
+        async function callGemini(userPrompt, systemPrompt, cfg, options = {}) {
+            if (!cfg.geminiKey) throw new Error('Falta la API key de Gemini. Pégala en el panel "Motor de IA" (gratis en aistudio.google.com/apikey).');
+            const model = cfg.geminiModel || 'gemini-2.5-flash';
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+
+            const parts = [{ text: userPrompt }];
+            (options.images || []).forEach(uri => {
+                const { mime, base64 } = parseDataUri(uri);
+                if (base64) parts.push({ inline_data: { mime_type: mime, data: base64 } });
+            });
+
+            let response;
+            try {
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.geminiKey },
+                    body: JSON.stringify({
+                        system_instruction: { parts: [{ text: systemPrompt }] },
+                        contents: [{ role: 'user', parts }],
+                        generationConfig: { temperature: options.temperature != null ? options.temperature : 0.7 }
+                    })
+                });
+            } catch (e) {
+                throw new Error(`No se pudo conectar a Gemini. Detalle: ${e.message}`);
+            }
+
+            if (!response.ok) {
+                let detail = '';
+                try { const j = await response.json(); detail = (j.error && j.error.message) || ''; } catch (e) {}
+                if (response.status === 429) detail = 'límite gratuito alcanzado (espera o sube de plan). ' + detail;
+                if (response.status === 400 && /API key/i.test(detail)) detail = 'API key inválida. ' + detail;
+                throw new Error(`Gemini HTTP ${response.status}. ${detail}`);
+            }
+
+            const data = await response.json();
+            const cand = data.candidates && data.candidates[0];
+            if (cand && cand.content && Array.isArray(cand.content.parts)) {
+                const text = cand.content.parts.map(p => p.text || '').join('').trim();
+                if (text) return text;
+            }
+            const block = (data.promptFeedback && data.promptFeedback.blockReason) || (cand && cand.finishReason) || 'sin contenido';
+            throw new Error(`Gemini no devolvió texto (motivo: ${block}).`);
         }
 
         function getProjectContext(maxLength = 800) {
@@ -909,9 +983,11 @@
                     }
                     
                     const otherTags = node.data.tags.filter(t => t.cat !== 'Fármaco');
-                    const user = `Contexto Base:\nLugar: ${locs}\nSujetos: ${chars}\nObjetos: ${props}\nModificadores de Cámara/Estilo: ${otherTags.length ? otherTags.map(t=>t.val).join(', ') : 'Ninguno'}\n\nAcción o idea inicial proporcionada por usuario: ${node.data.action || 'Vacía'}\n\nGenera el PROMPT DE IMAGEN DEFINITIVO amalgamando estos elementos (max 4-5 líneas). Omitir comillas o introducciones.`;
+                    const refImages = connectedEntities.map(e => e.data.image).filter(Boolean);
+                    const imgNote = refImages.length ? `\n\n[Hay ${refImages.length} imagen(es) de referencia adjuntas de las entidades conectadas: respeta su apariencia visual real.]` : '';
+                    const user = `Contexto Base:\nLugar: ${locs}\nSujetos: ${chars}\nObjetos: ${props}\nModificadores de Cámara/Estilo: ${otherTags.length ? otherTags.map(t=>t.val).join(', ') : 'Ninguno'}\n\nAcción o idea inicial proporcionada por usuario: ${node.data.action || 'Vacía'}${imgNote}\n\nGenera el PROMPT DE IMAGEN DEFINITIVO amalgamando estos elementos (max 4-5 líneas). Omitir comillas o introducciones.`;
                     
-                    let newDesc = await callAI(user, sys);
+                    let newDesc = await callAI(user, sys, refImages.length ? { images: refImages } : {});
                     newDesc = newDesc.replace(/["\\]/g, '').trim();
                     updateNodeData(node.id, 'action', newDesc);
                     
@@ -952,12 +1028,20 @@
                     updateNodeData(node.id, 'text', newMotion);
 
                 } else if (node.type === 'entity_link') {
+                    if (node.data.image) {
+                        const labelMap = { char: 'personaje', loc: 'escenario/lugar', prop: 'objeto/prop' };
+                        const vsys = "Eres un analista visual de producción. Observa la imagen y describe SOLO lo que ves del elemento: rasgos físicos, vestimenta, materiales, colores, texturas, desgaste e iluminación. CERO POESÍA, nada metafórico. Un solo párrafo directo, aprovechable como referencia de prompt visual.";
+                        const vuser = `Contexto del Proyecto:\n${context}\n\nEsto es un ${labelMap[node.data.type] || 'elemento'}. Nota previa del usuario: ${node.data.name || '(ninguna)'}\n\nDescribe el elemento basándote en la imagen adjunta. Devuelve solo la descripción final.`;
+                        let vEnt = (await callAI(vuser, vsys, { images: [node.data.image] })).replace(/["\\]/g, '').trim();
+                        updateNodeData(node.id, 'name', vEnt);
+                    } else {
                     const sys = "Eres un analista forense. Expande la descripción físca del elemento dado. Solo detalles fisiológicos, de vestimenta o materiales y desgaste. CERO POESÍA. NADA METAFÓRICO. Un solo párrafo directo.";
                     const user = `Contexto del Proyecto:\n${context}\n\nMejora el texto de esta entidad:\n${node.data.name}\n\nDevuelve solo la descripción final.`;
                     
                     let expandedEnt = await callAI(user, sys);
                     expandedEnt = expandedEnt.replace(/["\\]/g, '').trim();
                     updateNodeData(node.id, 'name', expandedEnt);
+                    }
                 }
                 
                 document.querySelectorAll('.node').forEach(n => n.remove());
@@ -1445,8 +1529,8 @@ Format:
         function renderEntities() {
             ['loc', 'char', 'prop'].forEach(type => {
                 document.getElementById(`list-${type}`).innerHTML = appState.entities[type].map(ent => `
-                    <div class="entity-pill ${type}" onclick="attachEntityToShot('${type}', '${ent.name}')">
-                        ${ent.image ? `<img src="${ent.image}" onclick="openLightbox(event, '${ent.image}')">` : '<div style="width:19px;height:19px;background:#000;border-radius:2px;"></div>'}
+                    <div class="entity-pill ${type}" onclick="attachEntityToShot('${type}', '${ent.id}')">
+                        ${ent.image ? `<img src="${ent.image}" onclick="openLightbox(event, this.src)">` : '<div style="width:19px;height:19px;background:#000;border-radius:2px;"></div>'}
                         <span>${ent.name}</span> <b style="opacity:0.5;">+</b>
                     </div>`).join('');
             });
@@ -1494,7 +1578,8 @@ Format:
             } 
             else if (node.type === 'entity_link') {
                 const labels = { char: '👤 PERSONAJE', loc: '🌍 ESCENARIO', prop: '🔪 OBJETO' }; const colors = { char: 'var(--accent-char)', loc: 'var(--accent-loc)', prop: 'var(--accent-prop)' };
-                html = `<div class="port in" style="left: auto; right: -4px; top: calc(50% - 4px);"></div><div class="node-header" style="background:${colors[node.data.type]}; color:white;" onmousedown="startNodeDrag('${node.id}', event)">${labels[node.data.type]} <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body"><textarea placeholder="Descripción de entidad..." oninput="updateNodeData('${node.id}', 'name', this.value)" onmousedown="event.stopPropagation()">${node.data.name}</textarea></div>`;
+                const imgTag = node.data.image ? `<img src="${node.data.image}" onclick="openLightbox(event, this.src)" onmousedown="event.stopPropagation()" style="width:100%; max-height:90px; object-fit:cover; border-radius:6px; margin-bottom:6px; cursor:zoom-in; display:block;">` : '';
+                html = `<div class="port in" style="left: auto; right: -4px; top: calc(50% - 4px);"></div><div class="node-header" style="background:${colors[node.data.type]}; color:white;" onmousedown="startNodeDrag('${node.id}', event)">${labels[node.data.type]}${node.data.image ? ' 🖼️' : ''} <span onclick="deleteNode('${node.id}')">✕</span></div><div class="node-body">${imgTag}<textarea placeholder="Descripción de entidad..." oninput="updateNodeData('${node.id}', 'name', this.value)" onmousedown="event.stopPropagation()">${node.data.name}</textarea></div>`;
             }
             el.innerHTML = html;
             el.onmousedown = (e) => { e.stopPropagation(); if(e.ctrlKey || e.metaKey) toggleNodeSelection(node.id); else if (!appState.selectedNodeIds.includes(node.id)) selectSingleNode(node.id); };
@@ -1513,12 +1598,63 @@ Format:
         function deleteNode(id) { appState.nodes = appState.nodes.filter(n => n.id !== id && n.parentId !== id); document.getElementById(id).remove(); document.querySelectorAll('.node').forEach(el => { if(!appState.nodes.find(n => n.id === el.id)) el.remove(); }); drawSplines(); saveState(); }
         function updateNodeData(id, key, val) { appState.nodes.find(n => n.id === id).data[key] = val; saveState(); }
 
-        function attachEntityToShot(type, name) {
+        function attachEntityToShot(type, entId) {
             if (appState.selectedNodeIds.length !== 1) return alert("Selecciona UN solo nodo SHOT u otro compatible.");
+            const ent = appState.entities[type].find(e => e.id === entId) || { name: '', image: null };
+            const name = ent.name; const image = ent.image || null;
             const activeNode = appState.nodes.find(n => n.id === appState.selectedNodeIds[0]);
             if (activeNode.type === 'motion' && type === 'char' && activeNode.data.hasDialog) { activeNode.data.char = name; const charInput = document.querySelector(`#${activeNode.id} .char-input`); if(charInput) charInput.value = name; saveState(); return; }
             if (activeNode.type !== 'shot') return alert("Las presencias visuales se vinculan a un SHOT Visual.");
-            createNode('entity_link', { type, name }, activeNode.id);
+            createNode('entity_link', { type, name, image }, activeNode.id);
+        }
+
+        // Analiza una imagen suelta (sin entidad) y crea un nodo SHOT con el prompt generado.
+        async function analyzeImageToPrompt(fileInput) {
+            if (!fileInput.files || !fileInput.files[0]) return;
+            const file = fileInput.files[0];
+            const label = document.getElementById('vision-label');
+            const original = label ? label.textContent : '';
+
+            // Leer y reescalar la imagen a un tamaño razonable para visión.
+            let dataUri;
+            try {
+                dataUri = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const c = document.createElement('canvas');
+                            const scale = Math.min(768 / img.width, 768 / img.height, 1);
+                            c.width = img.width * scale; c.height = img.height * scale;
+                            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                            resolve(c.toDataURL('image/jpeg', 0.85));
+                        };
+                        img.onerror = reject; img.src = e.target.result;
+                    };
+                    reader.onerror = reject; reader.readAsDataURL(file);
+                });
+            } catch (err) { fileInput.value = ''; return alert("No se pudo leer la imagen."); }
+            fileInput.value = '';
+
+            if (label) label.textContent = '⏳ Analizando...';
+            try {
+                const sys = "Eres un Especialista en Prompts de Imagen (estilo Midjourney/Sora). Observa la imagen y conviértela en un prompt visual hiper-descriptivo y directo en español: sujeto, composición, acción, entorno, iluminación, óptica y estética. Sin introducciones, sin comillas, sin emojis.";
+                const user = "Analiza la imagen adjunta y genera el prompt de imagen definitivo que la reproduzca o se inspire en ella. Solo el prompt.";
+                const prompt = (await callAI(user, sys, { images: [dataUri] })).replace(/["\\]/g, '').trim();
+
+                createNode('shot');
+                const newId = appState.selectedNodeIds[0];
+                if (newId) {
+                    updateNodeData(newId, 'action', prompt);
+                    const old = document.getElementById(newId); if (old) old.remove();
+                    const n = appState.nodes.find(x => x.id === newId); if (n) renderNode(n);
+                    drawSplines();
+                }
+            } catch (e) {
+                alert("Error analizando la imagen: " + e.message);
+            } finally {
+                if (label) label.textContent = original || '🖼️ IMAGEN → PROMPT';
+            }
         }
 
         function injectToolkitTag(cat, val) {
